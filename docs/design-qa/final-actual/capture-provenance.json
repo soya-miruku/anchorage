@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-03T20:56:52.966Z",
+  "capturedAt": "2026-08-03T22:38:09.046Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "b35f7845e1e0a010506462eacb5264c11de2fc2b8508231202ce4ea764981fd6",
+    "sha256": "4f094d0980d18699aef42b603b96ff5adaffec456c4d13f7e0221f24c868c746",
     "files": 19,
-    "bytes": 1242596
+    "bytes": 1243207
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",
@@ -99,8 +99,8 @@
     {
       "state": "container-detail-inspect",
       "path": "final-actual/container-detail-inspect.png",
-      "sha256": "761bab11bab5b8759e29a48ed69ae27548756c4a689b4709e1b62d9668b8edce",
-      "bytes": 181524,
+      "sha256": "b8109f2952a5907a8a8dbd5a3c64c58f5b7265b962d9760df67facf7ea558dd7",
+      "bytes": 181587,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -129,8 +129,8 @@
     {
       "state": "container-detail-files",
       "path": "final-actual/container-detail-files.png",
-      "sha256": "f99b1cc98bed6699e2f9bdedef04c0acb349f6ad0d30ceaa4e96c77d3bfe0c2a",
-      "bytes": 167136,
+      "sha256": "0db3b0ec25897cc7e683ef438d6bf9e19673db28f3115c25b083767e5dfd6b7d",
+      "bytes": 167142,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -149,8 +149,8 @@
     {
       "state": "dashboard",
       "path": "final-actual/dashboard.png",
-      "sha256": "3556746fc931ddaf588b434c62d77730d1216e9e58cd15641f89d3093c1a7155",
-      "bytes": 210096,
+      "sha256": "c6b977c5ca7cb885d641a430d018601d68292360154123ce2c3dc2c3c764a064",
+      "bytes": 210146,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -159,8 +159,8 @@
     {
       "state": "images-local",
       "path": "final-actual/images-local.png",
-      "sha256": "d181e10f278bdcb7059c774e85e2c1ba3334021639cb8b45fcb1a092f22b17fb",
-      "bytes": 174556,
+      "sha256": "2483bf42e0209097aba870d73c996d8f5c8bf26049e4005955d9441888cb8f28",
+      "bytes": 174265,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -169,8 +169,8 @@
     {
       "state": "images-registry",
       "path": "final-actual/images-registry.png",
-      "sha256": "183958fe33a50947e16ec76ef88a2fef045d9e75b02ca449add043f69f7e3f5b",
-      "bytes": 183386,
+      "sha256": "d1faa2fc0fd53d330742971820aaab7b5d2d055c0667d74bd90626b01f6f3945",
+      "bytes": 183425,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -179,8 +179,8 @@
     {
       "state": "volumes",
       "path": "final-actual/volumes.png",
-      "sha256": "013eecea7a009e00438fcbf8d18e0cb458f298e56a68ddbcf8add029841bf530",
-      "bytes": 149579,
+      "sha256": "b9578451185e4f011f25cab215883185c106d42d306f2567bc1a375697600910",
+      "bytes": 149261,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -189,8 +189,8 @@
     {
       "state": "builds",
       "path": "final-actual/builds.png",
-      "sha256": "8cc98f98e42cf2fa71df98c4041e8d4254dfdc23cba2c51f1de65145dbe8a983",
-      "bytes": 195319,
+      "sha256": "1c85e0f02f7fceca7c3f8f2753b71956082f1c0b14dd827d30bd3b6c8e3c15ed",
+      "bytes": 195020,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -199,8 +199,8 @@
     {
       "state": "dev-environments",
       "path": "final-actual/dev-environments.png",
-      "sha256": "a51d288a65e9d06509a9ed6c79527d1603c1faa78c56e7c4e35049f96e26d6ad",
-      "bytes": 142020,
+      "sha256": "09a7b5b8e4f87c4aa4f551e2b831c3186d40b843898720d79da68f1c78fd4277",
+      "bytes": 141706,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -209,8 +209,8 @@
     {
       "state": "extensions",
       "path": "final-actual/extensions.png",
-      "sha256": "b239dc0e2de60e042b8f22ec5e903ecc0908ebbad1a96bced4224d3caeb730aa",
-      "bytes": 168247,
+      "sha256": "9f8182f709d0ad0aaafc5fe4bfd850db03972ed2efb5c35dcb315ebcc6ff8b4b",
+      "bytes": 167944,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -219,8 +219,8 @@
     {
       "state": "settings-resources",
       "path": "final-actual/settings-resources.png",
-      "sha256": "2cd76a6d8f0f6d40748d82d8a1414772e8db0357291e066ef3999ce7cb21eca5",
-      "bytes": 151678,
+      "sha256": "9499a48b0b1af4805a9402b16f173916afa28c0c460899dd5d2923afd879cee4",
+      "bytes": 151385,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -229,8 +229,8 @@
     {
       "state": "settings-engine",
       "path": "final-actual/settings-engine.png",
-      "sha256": "34c6f3759fb77df270e5541b6f0e455fb6492d5ac7b2c02c8d2d163f719cbee6",
-      "bytes": 160320,
+      "sha256": "240c89d6ff4d6430348defb73df326ad159b6a5f657fae9bb93a47449ca3987d",
+      "bytes": 160044,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -239,8 +239,8 @@
     {
       "state": "settings-kubernetes",
       "path": "final-actual/settings-kubernetes.png",
-      "sha256": "8b822519d2cb80f9c5668f45cf531dc03a46cdd1fe5264eeb56f518f69fdd712",
-      "bytes": 135216,
+      "sha256": "1d318a7b700eadebd504ced83a5e3777aef0fd3c7380a2dc491d53db535489b0",
+      "bytes": 134877,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -249,8 +249,8 @@
     {
       "state": "settings-updates",
       "path": "final-actual/settings-updates.png",
-      "sha256": "3539a3a72fc84eb147e05007323d86d7dafd6241fe4bee2a35e4f22990671b4b",
-      "bytes": 141794,
+      "sha256": "c6fe2d566f9898f51083fbad5d8e03122806b13c1dab75e1765e61b148e72d3d",
+      "bytes": 141475,
       "dimensions": {
         "width": 1656,
         "height": 1056

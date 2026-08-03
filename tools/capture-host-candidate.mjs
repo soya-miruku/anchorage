@@ -859,7 +859,13 @@ try {
         `document.querySelector('.detail-header h1')?.textContent?.trim()`,
     },
   ]);
-  await measureInteraction("open-files-unavailable", async () => {
+  // This gate used to require the Files tab to declare itself unavailable, which was the
+  // honest state before a real browser existed. It now reads the container's filesystem by
+  // walking tar headers from the archive endpoint, so the gap it asserted is closed. The
+  // property worth keeping is the one that mattered all along: whatever appears here must
+  // have come from the container. A listing and a stated error are both acceptable; a
+  // fabricated tree is not.
+  await measureInteraction("open-files-live", async () => {
     await evaluate(
       client,
       clickButtonText(
@@ -869,24 +875,46 @@ try {
     );
     await waitForExpression(
       client,
-      `[...document.querySelectorAll('[role="status"]')]
-        .some((element) => element.textContent?.includes("Files unavailable"))`,
-      "the explicit Files-unavailable host state",
+      `(() => {
+        const panel = document.querySelector('[data-testid="container-files"]');
+        if (!panel) return false;
+        const settled = panel.querySelector('[data-testid="container-files-table"] .files-row')
+          || panel.querySelector('.capability-error')
+          || panel.querySelector('.empty-state');
+        return Boolean(settled);
+      })()`,
+      "the live container Files browser to settle",
     );
   });
-  await capture("host-files-unavailable", [
+  await capture("host-files-live", [
     {
-      id: "host-files-unavailable-visible",
-      name: "Files unavailable state is explicit",
+      id: "host-files-live-panel",
+      name: "live container file browser is mounted",
       expression:
-        `[...document.querySelectorAll('[role="status"]')]
-          .some((element) => element.textContent?.includes("Files unavailable"))`,
+        `Boolean(document.querySelector('[data-testid="container-files"]'))`,
+    },
+    {
+      id: "host-files-live-settled",
+      name: "the browser reports a listing, an empty directory, or a stated error",
+      expression:
+        `(() => {
+          const panel = document.querySelector('[data-testid="container-files"]');
+          if (!panel) return false;
+          return Boolean(
+            panel.querySelector('[data-testid="container-files-table"] .files-row')
+              || panel.querySelector('.capability-error')
+              || panel.querySelector('.empty-state'),
+          );
+        })()`,
     },
     {
       id: "host-files-no-synthetic-filesystem",
-      name: "no synthetic filesystem claim is shown",
+      name: "no fixture filesystem is shown against a live engine",
+      // The design fixture's own paths. Seeing any of them against a real container would
+      // mean the browser had fallen back to fabricated content.
       expression:
-        `document.body.textContent?.includes("No synthetic filesystem is shown.")`,
+        `!["srv/dist/server.js", "var/log/app.log", "srv/package.json"]
+          .some((path) => document.body.textContent?.includes(path))`,
     },
   ]);
 

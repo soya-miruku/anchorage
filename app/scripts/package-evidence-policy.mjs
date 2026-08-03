@@ -127,7 +127,7 @@ export const HOST_CANDIDATE_SCREEN_IDS = Object.freeze([
   "host-dashboard",
   "host-containers",
   "host-container-detail",
-  "host-files-unavailable",
+  "host-files-live",
   "host-images",
   "host-volumes",
   "host-command-center-pinned",
@@ -150,8 +150,11 @@ export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
     "host-container-detail-visible",
     "host-container-detail-identity",
   ]),
-  "host-files-unavailable": Object.freeze([
-    "host-files-unavailable-visible",
+  // Renamed when the Files tab stopped being a declared gap and became a real browser. The
+  // no-synthetic-filesystem property survives the rename: it is the one that matters.
+  "host-files-live": Object.freeze([
+    "host-files-live-panel",
+    "host-files-live-settled",
     "host-files-no-synthetic-filesystem",
   ]),
   "host-images": Object.freeze([
@@ -227,7 +230,7 @@ export const HOST_UI_PERFORMANCE_CHECK_IDS = Object.freeze(
 
 export const HOST_UI_INTERACTION_IDS = Object.freeze([
   "open-container-detail",
-  "open-files-unavailable",
+  "open-files-live",
   "navigate-dashboard",
   "navigate-images",
   "navigate-volumes",
