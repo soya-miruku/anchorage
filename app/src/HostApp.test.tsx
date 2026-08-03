@@ -2006,6 +2006,9 @@ describe("host renderer integration", () => {
         action: "down",
         confirmed: true,
         removeVolumes: true,
+        // Ticking the box is the agreement to destroy data, which the core requires
+        // separately from the confirmation to take the project down.
+        confirmedRemoveVolumes: true,
       }),
     );
   });

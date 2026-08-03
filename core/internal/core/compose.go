@@ -95,11 +95,11 @@ func (s *Service) composeList(parent context.Context, params ComposeListParams) 
 	ctx, cancel := context.WithTimeout(parent, domainReadTimeout)
 	defer cancel()
 
-	args := withContext(contextName, "compose", "ls", "--format", "json")
+	argv := []string{"compose", "ls", "--format", "json"}
 	if params.All {
-		args = append(args, "--all")
+		argv = append(argv, "--all")
 	}
-	result, err := s.docker.run(ctx, args, s.defaultCWD, nil, domainCLIOutputLimit)
+	result, err := s.runDockerValidated(ctx, contextName, argv, domainCLIOutputLimit)
 	if err != nil {
 		return ComposeListResult{}, err
 	}
@@ -198,9 +198,9 @@ func (s *Service) composePs(parent context.Context, params ComposePsParams) (Com
 	ctx, cancel := context.WithTimeout(parent, domainReadTimeout)
 	defer cancel()
 
-	args := withContext(contextName, "compose", "--project-name", project, "ps",
-		"--all", "--format", "json")
-	result, err := s.docker.run(ctx, args, s.defaultCWD, nil, domainCLIOutputLimit)
+	result, err := s.runDockerValidated(ctx, contextName,
+		[]string{"compose", "--project-name", project, "ps", "--all", "--format", "json"},
+		domainCLIOutputLimit)
 	if err != nil {
 		return ComposePsResult{}, err
 	}
@@ -290,7 +290,7 @@ func validateComposeAction(params ComposeActionParams) error {
 				return err
 			}
 		}
-		if params.Confirmed || params.RemoveVolumes {
+		if params.Confirmed || params.RemoveVolumes || params.ConfirmedRemoveVolumes {
 			return opError("invalid_action_options",
 				"Compose up received options for another action.", nil, nil)
 		}
@@ -298,13 +298,18 @@ func validateComposeAction(params ComposeActionParams) error {
 		if !params.Confirmed {
 			return confirmationRequired("compose", params.Project, params.Action)
 		}
+		// Taking a project down is reversible from its Compose file; destroying its named
+		// volumes is not. Agreeing to the first must not imply the second.
+		if params.RemoveVolumes && !params.ConfirmedRemoveVolumes {
+			return confirmationRequired("compose-volumes", params.Project, "down --volumes")
+		}
 		if len(params.ConfigFiles) > 0 {
 			return opError("invalid_action_options",
 				"Compose down finds the project by label and takes no configuration files.", nil, nil)
 		}
 	default:
-		if params.Confirmed || params.RemoveVolumes || params.RemoveOrphans ||
-			len(params.ConfigFiles) > 0 {
+		if params.Confirmed || params.RemoveVolumes || params.ConfirmedRemoveVolumes ||
+			params.RemoveOrphans || len(params.ConfigFiles) > 0 {
 			return opError("invalid_action_options",
 				"Compose "+params.Action+" received options for another action.", nil, nil)
 		}
@@ -400,7 +405,8 @@ func (s *Service) composeAction(parent context.Context, params ComposeActionPara
 		Context: contextName, Argv: argv, Cwd: cwd, Mode: "pipes",
 		TimeoutSeconds:    params.TimeoutSeconds,
 		OutputWindowBytes: params.OutputWindowBytes,
-	}, emit)
+	}, sessionReceiptEmitter(emit, "compose.action", contextName, "compose", params.Project,
+		params.Action, "compose_action_failed", "Compose "+params.Action))
 	if err != nil {
 		return ComposeActionResult{}, err
 	}

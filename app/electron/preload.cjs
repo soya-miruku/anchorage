@@ -975,6 +975,7 @@ function composeAction(value) {
       "configFiles",
       "confirmed",
       "removeVolumes",
+      "confirmedRemoveVolumes",
       "removeOrphans",
       "timeoutSeconds",
       "outputWindowBytes",
@@ -1009,6 +1010,11 @@ function composeAction(value) {
   );
   copyDefined(
     normalized,
+    "confirmedRemoveVolumes",
+    optionalBoolean(value.confirmedRemoveVolumes, "request.confirmedRemoveVolumes"),
+  );
+  copyDefined(
+    normalized,
     "removeOrphans",
     optionalBoolean(value.removeOrphans, "request.removeOrphans"),
   );
@@ -1028,7 +1034,11 @@ function composeAction(value) {
     if (!normalized.configFiles) {
       fail("request.configFiles is required for compose up");
     }
-    if (normalized.confirmed === true || normalized.removeVolumes === true) {
+    if (
+      normalized.confirmed === true ||
+      normalized.removeVolumes === true ||
+      normalized.confirmedRemoveVolumes === true
+    ) {
       fail("request contains options that are not valid for compose up");
     }
   } else if (action === "down") {
@@ -1038,10 +1048,19 @@ function composeAction(value) {
     if (normalized.configFiles !== undefined) {
       fail("compose down finds the project by label and takes no configuration files");
     }
+    // Taking a project down is reversible from its Compose file; destroying its named
+    // volumes is not, so agreeing to the first must not carry the second.
+    if (
+      normalized.removeVolumes === true &&
+      normalized.confirmedRemoveVolumes !== true
+    ) {
+      fail("request.confirmedRemoveVolumes must be true to remove compose volumes");
+    }
   } else if (
     normalized.configFiles !== undefined ||
     normalized.confirmed === true ||
     normalized.removeVolumes === true ||
+    normalized.confirmedRemoveVolumes === true ||
     normalized.removeOrphans === true
   ) {
     fail(`request contains options that are not valid for compose ${action}`);

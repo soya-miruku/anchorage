@@ -1337,7 +1337,9 @@ export type ComposeActionParams =
       project: string;
       action: "down";
       confirmed: true;
+      /** Destroying named volumes is not reversible, so it takes its own agreement. */
       removeVolumes?: boolean;
+      confirmedRemoveVolumes?: boolean;
       removeOrphans?: boolean;
       timeoutSeconds?: number;
       outputWindowBytes?: number;

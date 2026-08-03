@@ -332,6 +332,7 @@
             },
             "confirmed": { "type": "boolean" },
             "removeVolumes": { "type": "boolean" },
+            "confirmedRemoveVolumes": { "type": "boolean" },
             "removeOrphans": { "type": "boolean" },
             "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
             "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 }
@@ -341,7 +342,11 @@
               "if": { "properties": { "action": { "const": "up" } } },
               "then": {
                 "required": ["configFiles"],
-                "properties": { "confirmed": false, "removeVolumes": false }
+                "properties": {
+                  "confirmed": false,
+                  "removeVolumes": false,
+                  "confirmedRemoveVolumes": false
+                }
               }
             },
             {
@@ -351,7 +356,10 @@
                 "properties": {
                   "confirmed": { "const": true },
                   "configFiles": false
-                }
+                },
+                "if": { "properties": { "removeVolumes": { "const": true } } },
+                "then": { "required": ["confirmedRemoveVolumes"],
+                  "properties": { "confirmedRemoveVolumes": { "const": true } } }
               }
             },
             {
@@ -363,6 +371,7 @@
                   "configFiles": false,
                   "confirmed": false,
                   "removeVolumes": false,
+                  "confirmedRemoveVolumes": false,
                   "removeOrphans": false
                 }
               }
@@ -1297,6 +1306,8 @@
             { "$ref": "#/$defs/containerOperationStartedPayload" },
             { "$ref": "#/$defs/imageOperationStartedPayload" },
             { "$ref": "#/$defs/volumeOperationStartedPayload" },
+            { "$ref": "#/$defs/containerExportOperationStartedPayload" },
+            { "$ref": "#/$defs/composeOperationStartedPayload" },
             { "$ref": "#/$defs/cliOperationStartedPayload" }
           ]
         }
@@ -1340,7 +1351,7 @@
         "context": { "type": "string", "minLength": 1, "maxLength": 255 },
         "domain": { "const": "image" },
         "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "action": { "enum": ["remove", "prune", "pull", "tag"] },
+        "action": { "enum": ["remove", "prune", "pull", "tag", "save", "load"] },
         "source": { "type": "string", "minLength": 1, "maxLength": 64 },
         "startedAt": { "$ref": "#/$defs/timestamp" }
       },
@@ -1364,6 +1375,36 @@
         "domain": { "const": "volume" },
         "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "action": { "enum": ["create", "remove", "prune"] },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "containerExportOperationStartedPayload": {
+      "type": "object",
+      "required": ["operationId", "method", "context", "domain", "action", "source", "startedAt"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "containers.export" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "domain": { "const": "container" },
+        "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "const": "export" },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "composeOperationStartedPayload": {
+      "type": "object",
+      "required": ["operationId", "method", "context", "domain", "action", "source", "startedAt"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "compose.action" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "domain": { "const": "compose" },
+        "resourceId": { "$ref": "#/$defs/composeProject" },
+        "action": { "enum": ["up", "down", "start", "stop", "restart"] },
         "source": { "type": "string", "minLength": 1, "maxLength": 64 },
         "startedAt": { "$ref": "#/$defs/timestamp" }
       },
@@ -1438,7 +1479,7 @@
         "operationId": { "$ref": "#/$defs/sessionId" },
         "context": { "type": "string", "minLength": 1, "maxLength": 255 },
         "containerId": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
-        "domain": { "enum": ["image", "volume"] },
+        "domain": { "enum": ["image", "volume", "container", "compose"] },
         "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "action": { "type": "string", "minLength": 1, "maxLength": 32 },
         "source": { "type": "string", "minLength": 1, "maxLength": 64 },
@@ -1572,7 +1613,7 @@
       "properties": {
         "operationId": { "$ref": "#/$defs/sessionId" },
         "context": { "type": "string", "minLength": 1, "maxLength": 255 },
-        "domain": { "enum": ["container", "image", "volume"] },
+        "domain": { "enum": ["container", "image", "volume", "compose"] },
         "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "action": { "type": "string", "minLength": 1, "maxLength": 32 },
         "reason": {

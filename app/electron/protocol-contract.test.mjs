@@ -464,6 +464,7 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
         action: "down",
         confirmed: true,
         removeVolumes: true,
+        confirmedRemoveVolumes: true,
       }),
     ),
     request(
@@ -1179,6 +1180,14 @@ test("protocol v1 keeps Compose verbs from borrowing each other's options", () =
     },
     // stop/start/restart take neither.
     { context: "default", project: "storefront", action: "stop", removeVolumes: true },
+    // Destroying named volumes is not reversible; down's own confirmation does not cover it.
+    {
+      context: "default",
+      project: "storefront",
+      action: "down",
+      confirmed: true,
+      removeVolumes: true,
+    },
     { context: "default", project: "storefront", action: "restart", confirmed: true },
     // The project name becomes an argv element and a label selector.
     { context: "default", project: "-p", action: "stop" },
@@ -1246,4 +1255,71 @@ test("protocol v1 keeps a Scout reference from becoming a flag", () => {
     );
     assert.throws(() => validateImagesScout(params), TypeError);
   }
+});
+
+test("session-backed verbs report receipts the event boundary accepts", () => {
+  // Compose lifecycle, image save/load and container export used to pass their emitter
+  // straight through, so their receipts existed only in the RPC result with outcome
+  // "running" and nothing driven off operation.* ever saw them finish. Now that they do
+  // emit, both the schema and the renderer validator have to accept the domains and actions
+  // they carry — a rejected event is silently dropped, which looks exactly like the old bug.
+  const operationId = "01234567-89ab-cdef-0123-456789abcdef";
+  const startedAt = "2026-08-03T12:00:00.000Z";
+  for (const payload of [
+    {
+      operationId,
+      method: "compose.action",
+      context: "default",
+      domain: "compose",
+      resourceId: "storefront",
+      action: "down",
+      source: "cli-session",
+      startedAt,
+    },
+    {
+      operationId,
+      method: "containers.export",
+      context: "default",
+      domain: "container",
+      resourceId: "ab".repeat(32),
+      action: "export",
+      source: "cli-session",
+      startedAt,
+    },
+    {
+      operationId,
+      method: "images.action",
+      context: "default",
+      domain: "image",
+      resourceId: "team/api:v1",
+      action: "save",
+      source: "cli-session",
+      startedAt,
+    },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol.$defs.event, {
+        event: "operation.started",
+        payload,
+      }),
+      true,
+      `receipt rejected by the schema: ${payload.method}/${payload.action}`,
+    );
+    assert.doesNotThrow(
+      () => validateCoreEventEnvelope("operation.started", payload),
+      `receipt rejected by the renderer boundary: ${payload.method}/${payload.action}`,
+    );
+  }
+
+  // Reconciliation for those same verbs must also be deliverable.
+  assert.doesNotThrow(() =>
+    validateCoreEventEnvelope("reconciliation.requested", {
+      operationId,
+      context: "default",
+      domain: "compose",
+      resourceId: "storefront",
+      action: "down",
+      reason: "mutation_completed",
+    }),
+  );
 });

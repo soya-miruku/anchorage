@@ -389,7 +389,11 @@ export function ComposeScreen({ store }: { store: AnchorageStore }) {
                     project: target.name,
                     action: "down",
                     confirmed: true,
-                    ...(downVolumes ? { removeVolumes: true } : {}),
+                    // The checkbox is the agreement; the core requires it separately from
+                    // the confirmation to take the project down at all.
+                    ...(downVolumes
+                      ? { removeVolumes: true, confirmedRemoveVolumes: true }
+                      : {}),
                   });
                 }}
               >

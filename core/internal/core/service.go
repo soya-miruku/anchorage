@@ -33,6 +33,12 @@ type Service struct {
 	clientCache   map[string]*engineClient
 
 	// The recursive `docker --help` walk is ~244 subprocesses; memoize it per binary hash.
+	// Scout indexes an image on first sight — minutes of CPU and IO — and a volume browse
+	// creates and removes a container. Both are per-request work the renderer can start at
+	// any rate it likes, so each is admitted through a small semaphore rather than trusting
+	// the caller to be reasonable.
+	scoutSlots     chan struct{}
+	volumeSlots    chan struct{}
 	inventoryMu    sync.Mutex
 	inventoryCache map[string]CommandInventory
 }
@@ -68,6 +74,10 @@ func NewService(config Config) (*Service, error) {
 		dockerErr:   dockerErr,
 		defaultCWD:  defaultCWD,
 		allowedCWDs: allowed,
+		// One at a time. Both operations are expensive and neither benefits from overlap;
+		// a second concurrent scan of the same image would duplicate the indexing work.
+		scoutSlots:  make(chan struct{}, 1),
+		volumeSlots: make(chan struct{}, 2),
 	}
 	service.sessions = newSessionManager(service)
 	return service, nil
@@ -617,6 +627,42 @@ func unsafeEnvironmentKey(key, targetMode string) bool {
 	default:
 		return strings.HasPrefix(key, "LD_") || strings.HasPrefix(key, "DYLD_")
 	}
+}
+
+// runDockerValidated executes a Docker subcommand with the same argv validation the Command
+// Center applies to operator-supplied argv.
+//
+// Domain code builds its own argv from values that are individually constrained, so this is
+// not the primary guarantee — but it is a structural one. Four call sites previously invoked
+// docker.run directly, which meant a later edit interpolating a laxer value into one of them
+// would have had no second check at all. The context is prepended after validation, exactly
+// as cli.run does, because validateCLIArgv rejects target-override flags such as --context in
+// pinned mode and would otherwise reject the pinning it is meant to protect.
+// acquireSlot admits one caller into a bounded operation, or fails fast rather than queueing
+// behind work that may run for minutes. Returning a busy error is more honest than a request
+// that silently waits past its own IPC timeout.
+func acquireSlot(ctx context.Context, slots chan struct{}, code, message string) (func(), error) {
+	if slots == nil {
+		return func() {}, nil
+	}
+	select {
+	case slots <- struct{}{}:
+		return func() { <-slots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return nil, opError(code, message, nil, nil)
+	}
+}
+
+func (s *Service) runDockerValidated(ctx context.Context, contextName string, argv []string, outputLimit int) (commandResult, error) {
+	if s.docker == nil {
+		return commandResult{}, opError("docker_not_found", "Docker CLI is unavailable.", nil, nil)
+	}
+	if err := validateCLIArgv(argv, s.docker.binary, "pinned"); err != nil {
+		return commandResult{}, err
+	}
+	return s.docker.run(ctx, withContext(contextName, argv...), s.defaultCWD, nil, outputLimit)
 }
 
 func validateCLIArgv(argv []string, binary BinaryFingerprint, targetMode string) error {

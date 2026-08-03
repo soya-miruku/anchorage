@@ -227,6 +227,13 @@ func (s *Service) volumeFiles(parent context.Context, params VolumeFilesParams) 
 	if err != nil {
 		return VolumeFilesResult{}, err
 	}
+	release, err := acquireSlot(parent, s.volumeSlots, "volume_browse_busy",
+		"Too many volume reads are already in flight.")
+	if err != nil {
+		return VolumeFilesResult{}, err
+	}
+	defer release()
+
 	ctx, cancel := context.WithTimeout(parent, volumeBrowseTimeout)
 	defer cancel()
 	client, _, err := s.containerArchiveClient(ctx, contextName, "volumes.files")
@@ -284,6 +291,13 @@ func (s *Service) volumeFileRead(parent context.Context, params VolumeFileReadPa
 		return VolumeFileReadResult{}, opError("invalid_path",
 			"A directory cannot be read as a file.", nil, nil)
 	}
+	release, err := acquireSlot(parent, s.volumeSlots, "volume_browse_busy",
+		"Too many volume reads are already in flight.")
+	if err != nil {
+		return VolumeFileReadResult{}, err
+	}
+	defer release()
+
 	ctx, cancel := context.WithTimeout(parent, volumeBrowseTimeout)
 	defer cancel()
 	client, _, err := s.containerArchiveClient(ctx, contextName, "volumes.fileRead")

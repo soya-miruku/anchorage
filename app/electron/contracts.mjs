@@ -149,6 +149,8 @@ const OPERATION_METHODS = new Set([
   "system.action",
   "networks.action",
   "containers.action",
+  "containers.export",
+  "compose.action",
   "images.action",
   "volumes.action",
   "cli.run",
@@ -931,6 +933,7 @@ export function validateComposeAction(value) {
       "configFiles",
       "confirmed",
       "removeVolumes",
+      "confirmedRemoveVolumes",
       "removeOrphans",
       "timeoutSeconds",
       "outputWindowBytes",
@@ -965,6 +968,11 @@ export function validateComposeAction(value) {
   );
   assignDefined(
     normalized,
+    "confirmedRemoveVolumes",
+    optionalBoolean(value.confirmedRemoveVolumes, "request.confirmedRemoveVolumes"),
+  );
+  assignDefined(
+    normalized,
     "removeOrphans",
     optionalBoolean(value.removeOrphans, "request.removeOrphans"),
   );
@@ -984,7 +992,11 @@ export function validateComposeAction(value) {
     if (!normalized.configFiles) {
       fail("request.configFiles is required for compose up");
     }
-    if (normalized.confirmed === true || normalized.removeVolumes === true) {
+    if (
+      normalized.confirmed === true ||
+      normalized.removeVolumes === true ||
+      normalized.confirmedRemoveVolumes === true
+    ) {
       fail("request contains options that are not valid for compose up");
     }
   } else if (action === "down") {
@@ -994,10 +1006,19 @@ export function validateComposeAction(value) {
     if (normalized.configFiles !== undefined) {
       fail("compose down finds the project by label and takes no configuration files");
     }
+    // Taking a project down is reversible from its Compose file; destroying its named
+    // volumes is not, so agreeing to the first must not carry the second.
+    if (
+      normalized.removeVolumes === true &&
+      normalized.confirmedRemoveVolumes !== true
+    ) {
+      fail("request.confirmedRemoveVolumes must be true to remove compose volumes");
+    }
   } else if (
     normalized.configFiles !== undefined ||
     normalized.confirmed === true ||
     normalized.removeVolumes === true ||
+    normalized.confirmedRemoveVolumes === true ||
     normalized.removeOrphans === true
   ) {
     fail(`request contains options that are not valid for compose ${action}`);
@@ -2106,14 +2127,26 @@ function validateOperationStarted(value) {
     );
     eventText(value.cwd, `${name}.cwd`, 4_096);
   } else {
-    const expectedDomain = method === "images.action" ? "image" : "volume";
+    // Each method reports exactly one domain, and its own action vocabulary. Container
+    // export and Compose lifecycle receipts arrive only on this path, never as requests.
+    const domainsByMethod = {
+      "images.action": "image",
+      "containers.export": "container",
+      "compose.action": "compose",
+    };
+    const actionsByMethod = {
+      "images.action": IMAGE_ACTIONS,
+      "containers.export": new Set(["export"]),
+      "compose.action": COMPOSE_ACTIONS,
+    };
+    const expectedDomain = domainsByMethod[method] ?? "volume";
     if (value.domain !== expectedDomain) {
       fail(`${name}.domain must be ${expectedDomain} for ${method}`);
     }
     validateEnum(
       value.action,
       `${name}.action`,
-      method === "images.action" ? IMAGE_ACTIONS : VOLUME_ACTIONS,
+      actionsByMethod[method] ?? VOLUME_ACTIONS,
     );
     eventText(value.source, `${name}.source`, 64);
     if (value.resourceId !== undefined) {
@@ -2161,14 +2194,20 @@ function validateReconciliation(value, event) {
   const domain = validateEnum(
     value.domain,
     `${name}.domain`,
-    new Set(["container", "image", "volume"]),
+    // compose joined these when Compose lifecycle verbs began reporting receipts.
+    new Set(["container", "image", "volume", "compose"]),
   );
+  // `export` is a container verb that only ever arrives on a receipt, never as a request, so
+  // it is not in CONTAINER_ACTIONS; without it a completed export is rejected at this
+  // boundary and the audit trail loses the operation it most needs to record.
   const actions =
     domain === "container"
-      ? CONTAINER_ACTIONS
+      ? new Set([...CONTAINER_ACTIONS, "export"])
       : domain === "image"
         ? IMAGE_ACTIONS
-        : VOLUME_ACTIONS;
+        : domain === "compose"
+          ? COMPOSE_ACTIONS
+          : VOLUME_ACTIONS;
   validateEnum(value.action, `${name}.action`, actions);
   if (value.resourceId !== undefined) {
     eventText(value.resourceId, `${name}.resourceId`, 4_096);

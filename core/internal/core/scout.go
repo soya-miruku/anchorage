@@ -16,13 +16,28 @@ const (
 	// a 1 GB image took over two minutes here, while a second run against the same image
 	// returned in two seconds from its cache. The timeout has to accommodate the first run.
 	scoutTimeout = 8 * time.Minute
-	// SARIF for a large image runs to a few hundred kilobytes; this is well clear of that
-	// while still bounding a runaway.
-	scoutOutputLimit = 32 * 1024 * 1024
+	// SARIF for a large image runs to a few hundred kilobytes. The response budget is 8 MiB,
+	// so buffering four times that could only ever produce a report the transport rejects.
+	scoutOutputLimit = 8 * 1024 * 1024
 	// Findings are capped so one severely outdated image cannot produce a response line the
 	// transport has to reject. The count in the summary is never capped.
 	maxScoutFindings = 500
+	// Individual fields are bounded too: capping the count alone still allows 500 findings
+	// carrying arbitrarily long package URLs, which is the same overflow by another route.
+	maxScoutFieldLength = 512
+	// A running budget stops a report degrading to nothing at all. Losing the tail of a
+	// finding list is recoverable; losing an eight-minute scan to response_too_large is not.
+	maxScoutReportBytes = 2 * 1024 * 1024
 )
+
+// boundScoutField keeps one projected field within its limit, marking a truncation rather
+// than silently shortening a version an operator might otherwise act on.
+func boundScoutField(value string) string {
+	if len(value) <= maxScoutFieldLength {
+		return value
+	}
+	return value[:maxScoutFieldLength] + "…"
+}
 
 // scoutSeverities is the display order, worst first. Scout also emits UNSPECIFIED, which
 // means it has no CVSS v3 vector — not that the CVE is harmless.
@@ -101,6 +116,7 @@ func parseScoutSARIF(stdout []byte) ([]ScoutFinding, map[string]int, string, err
 			"Docker Scout returned a report that could not be read.", err, nil)
 	}
 	findings := []ScoutFinding{}
+	budget := 0
 	scanner := ""
 	for _, run := range report.Runs {
 		driver := run.Tool.Driver
@@ -121,13 +137,22 @@ func parseScoutSARIF(stdout []byte) ([]ScoutFinding, map[string]int, string, err
 			if parsed, err := strconv.ParseFloat(rule.Properties.SecuritySev, 64); err == nil {
 				score = parsed
 			}
-			findings = append(findings, ScoutFinding{
-				ID: rule.ID, Severity: severity, Score: score,
-				Package: packageName, InstalledVersion: packageVersion,
-				AffectedVersion: rule.Properties.AffectedVersion,
-				FixedVersion:    rule.Properties.FixedVersion,
-				URL:             rule.HelpURI,
-			})
+			finding := ScoutFinding{
+				ID: boundScoutField(rule.ID), Severity: severity, Score: score,
+				Package:          boundScoutField(packageName),
+				InstalledVersion: boundScoutField(packageVersion),
+				AffectedVersion:  boundScoutField(rule.Properties.AffectedVersion),
+				FixedVersion:     boundScoutField(rule.Properties.FixedVersion),
+				URL:              boundScoutField(rule.HelpURI),
+			}
+			budget += len(finding.ID) + len(finding.Package) + len(finding.InstalledVersion) +
+				len(finding.AffectedVersion) + len(finding.FixedVersion) + len(finding.URL)
+			if budget > maxScoutReportBytes {
+				// Stop adding findings but keep counting severities, so the summary stays
+				// truthful about how many exist even when the list is cut short.
+				continue
+			}
+			findings = append(findings, finding)
 		}
 	}
 	// Worst first, then by score, then by package so the order is stable between runs.
@@ -172,11 +197,18 @@ func (s *Service) imagesScout(parent context.Context, params ImagesScoutParams) 
 			"Analysis takes an image reference or ID, not a source scheme.", nil,
 			map[string]any{"reference": reference})
 	}
+	release, err := acquireSlot(parent, s.scoutSlots, "scout_busy",
+		"Another image is being analyzed; Scout indexes one image at a time.")
+	if err != nil {
+		return ImagesScoutResult{}, err
+	}
+	defer release()
+
 	ctx, cancel := context.WithTimeout(parent, scoutTimeout)
 	defer cancel()
 
-	args := withContext(contextName, "scout", "cves", "--format", "sarif", reference)
-	result, err := s.docker.run(ctx, args, s.defaultCWD, nil, scoutOutputLimit)
+	result, err := s.runDockerValidated(ctx, contextName,
+		[]string{"scout", "cves", "--format", "sarif", reference}, scoutOutputLimit)
 	if err != nil {
 		return ImagesScoutResult{}, err
 	}

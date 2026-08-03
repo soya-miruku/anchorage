@@ -1169,11 +1169,14 @@ type ComposeActionParams struct {
 	ConfigFiles []string `json:"configFiles,omitempty"`
 	// Down removes containers and networks, so it carries the same confirmation requirement
 	// as every other destructive verb. RemoveVolumes additionally discards data.
-	Confirmed         bool `json:"confirmed,omitempty"`
-	RemoveVolumes     bool `json:"removeVolumes,omitempty"`
-	RemoveOrphans     bool `json:"removeOrphans,omitempty"`
-	TimeoutSeconds    int  `json:"timeoutSeconds,omitempty"`
-	OutputWindowBytes int  `json:"outputWindowBytes,omitempty"`
+	Confirmed bool `json:"confirmed,omitempty"`
+	// RemoveVolumes destroys data, which plain `down` does not, so it carries its own
+	// agreement rather than riding on the confirmation for taking the project down.
+	RemoveVolumes          bool `json:"removeVolumes,omitempty"`
+	ConfirmedRemoveVolumes bool `json:"confirmedRemoveVolumes,omitempty"`
+	RemoveOrphans          bool `json:"removeOrphans,omitempty"`
+	TimeoutSeconds         int  `json:"timeoutSeconds,omitempty"`
+	OutputWindowBytes      int  `json:"outputWindowBytes,omitempty"`
 }
 
 type ComposeActionResult struct {

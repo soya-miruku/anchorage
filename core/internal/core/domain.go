@@ -1132,6 +1132,63 @@ func (s *Service) imagesAction(parent context.Context, params ImagesActionParams
 	return result, nil
 }
 
+// sessionReceiptEmitter wraps an emitter so a session-backed verb also reports domain
+// receipts.
+//
+// Only image pull did this. Compose lifecycle verbs, image save/load and container export
+// passed their emitter straight through, so their receipts existed solely in the RPC result
+// with outcome "running" — anything driven off operation.* (audit, reconciliation) never saw
+// a `compose down`, an `image load`, or a host-file-writing export finish or fail. A verb
+// whose completion is invisible to the audit path is worse than one that is slow.
+func sessionReceiptEmitter(emit EventEmitter, method, contextName, domain, resource, action,
+	failureCode, failureMessage string) EventEmitter {
+	operationID := ""
+	return func(event string, payload any) {
+		switch event {
+		case "session.started":
+			if typed, ok := payload.(SessionStartedEvent); ok {
+				operationID = typed.SessionID
+				emitDomainStarted(emit, method, DomainOperationReceipt{
+					OperationID: operationID, Context: contextName, Domain: domain,
+					ResourceID: resource, Action: action, Source: "cli-session",
+					Outcome: "running", StartedAt: typed.StartedAt,
+				})
+			}
+		case "session.exited":
+			if typed, ok := payload.(SessionExitedEvent); ok {
+				receipt := DomainOperationReceipt{
+					OperationID: operationID, Context: contextName, Domain: domain,
+					ResourceID: resource, Action: action, Source: "cli-session",
+					Outcome: "failed", ExitCode: &typed.ExitCode, StartedAt: typed.StartedAt,
+					CompletedAt: typed.ExitedAt, DurationMs: typed.DurationMs,
+				}
+				var failure error
+				reconcile := false
+				switch {
+				case typed.ExitCode == 0 && !typed.Canceled && !typed.TimedOut:
+					receipt.Outcome = "succeeded"
+				case typed.Canceled || typed.TimedOut:
+					// The verb may have partly applied before it was cut short, so the outcome
+					// is genuinely unknown rather than failed.
+					receipt.Outcome = "unknown"
+					failure = opError("mutation_outcome_unknown", failureMessage+
+						" ended before a successful Docker exit; reconciliation is required.",
+						nil, map[string]any{"receipt": receipt})
+					reconcile = true
+				default:
+					failure = opError(failureCode, failureMessage+" failed.", nil,
+						map[string]any{"receipt": receipt})
+				}
+				emitDomainCompleted(emit, receipt, failure)
+				emitReconciliation(emit, receipt, reconcile)
+			}
+		}
+		if emit != nil {
+			emit(event, payload)
+		}
+	}
+}
+
 func (s *Service) imagePull(parent context.Context, params ImagesActionParams, emit EventEmitter) (ImagesActionResult, error) {
 	if params.Cwd == "" && len(s.allowedCWDs) > 0 {
 		params.Cwd = s.allowedCWDs[0]
@@ -1206,7 +1263,9 @@ func (s *Service) imagesActionCLI(parent context.Context, params ImagesActionPar
 	ctx, cancel := context.WithTimeout(parent, domainMutationTimeout)
 	defer cancel()
 
-	args := withContext(params.Context, "image")
+	// Built without the context prefix so it can go through runDockerValidated, which applies
+	// the same argv checks as operator-supplied argv and then pins the context itself.
+	args := []string{"image"}
 	switch params.Action {
 	case "remove":
 		// No tag selected: the immutable ID is the target and cannot be re-pointed, so the
@@ -1222,8 +1281,9 @@ func (s *Service) imagesActionCLI(parent context.Context, params ImagesActionPar
 			args = append(args, params.ID)
 			break
 		}
-		inspectArgs := withContext(params.Context, "image", "inspect", "--format", "{{.Id}}", params.Reference)
-		inspect, inspectErr := s.docker.run(ctx, inspectArgs, s.defaultCWD, nil, domainCLIOutputLimit)
+		inspect, inspectErr := s.runDockerValidated(ctx, params.Context,
+			[]string{"image", "inspect", "--format", "{{.Id}}", params.Reference},
+			domainCLIOutputLimit)
 		if inspectErr != nil {
 			return ImagesActionResult{}, failDomainMutation(receipt, inspectErr, emit)
 		}
@@ -1275,7 +1335,7 @@ func (s *Service) imagesActionCLI(parent context.Context, params ImagesActionPar
 			}
 		}
 	}
-	result, runErr := s.docker.run(ctx, args, s.defaultCWD, nil, domainCLIOutputLimit)
+	result, runErr := s.runDockerValidated(ctx, params.Context, args, domainCLIOutputLimit)
 	receipt.Stdout = string(result.stdout)
 	receipt.Stderr = string(result.stderr)
 	exitCode := result.exitCode
@@ -1509,6 +1569,13 @@ func validateImagesAction(params ImagesActionParams) error {
 		}
 		if params.Action == "save" && params.Reference == "" {
 			return opError("invalid_action_options", "Image save requires a reference.", nil, nil)
+		}
+		// load learns its images from the archive. Accepting a reference here and ignoring it
+		// made the core the most permissive layer, which is the wrong direction: both JS
+		// validators and the schema already reject it.
+		if params.Action == "load" && params.Reference != "" {
+			return opError("invalid_action_options",
+				"Image load reads its images from the archive and takes no reference.", nil, nil)
 		}
 		if params.Reference != "" {
 			if err := validateImageReference(params.Reference); err != nil {
@@ -2882,6 +2949,10 @@ const (
 	maxFileEntries = 500
 	// Single-file reads are bounded; this is a browser, not a download manager.
 	maxFileReadBytes = 1 * 1024 * 1024
+	// The archive endpoint returns a directory's whole subtree. Entries that are not direct
+	// children never reach the entry cap, so without a separate bound a listing of a shallow
+	// directory could stream an entire volume through the socket.
+	maxArchiveDescendants = 20000
 
 	// Browsing creates and removes a helper container, so it is slower than a plain read.
 	volumeBrowseTimeout = 90 * time.Second
@@ -2964,6 +3035,7 @@ func listArchiveChildren(ctx context.Context, client *engineClient, containerID,
 	root := path.Base(target)
 	entries := []ContainerFileEntry{}
 	truncated := false
+	descendants := 0
 	reader := tar.NewReader(body)
 	for {
 		header, readErr := reader.Next()
@@ -2980,7 +3052,16 @@ func listArchiveChildren(ctx context.Context, client *engineClient, containerID,
 		}
 		relative := strings.TrimPrefix(clean, root+"/")
 		if relative == clean || strings.Contains(relative, "/") {
-			// Not a direct child of the requested directory.
+			// Not a direct child of the requested directory. The Engine returns the whole
+			// subtree, so a directory whose content sits one level down would otherwise stream
+			// every byte beneath it before this loop could finish. Descendants are counted and
+			// the walk abandoned once they dominate, which bounds the read by depth rather
+			// than by the caller's patience.
+			descendants++
+			if descendants > maxArchiveDescendants {
+				truncated = true
+				break
+			}
 			continue
 		}
 		if len(entries) >= maxFileEntries {
@@ -3549,7 +3630,8 @@ func (s *Service) containersExport(parent context.Context, params ContainersExpo
 		Cwd:     cwd, Mode: "pipes",
 		TimeoutSeconds:    params.TimeoutSeconds,
 		OutputWindowBytes: params.OutputWindowBytes,
-	}, emit)
+	}, sessionReceiptEmitter(emit, "containers.export", contextName, "container", params.ID,
+		"export", "container_export_failed", "Container export"))
 	if err != nil {
 		return ImagesActionResult{}, err
 	}
@@ -3580,22 +3662,23 @@ func (s *Service) imageArchive(parent context.Context, params ImagesActionParams
 	} else {
 		argv = []string{"image", "load", "--input", archive}
 	}
+	resourceID := params.Reference
+	if resourceID == "" {
+		resourceID = archive
+	}
 	session, err := s.sessions.start(context.WithoutCancel(parent), SessionStartParams{
 		Context: params.Context, Argv: argv, Cwd: cwd, Mode: "pipes",
 		TimeoutSeconds:    params.TimeoutSeconds,
 		OutputWindowBytes: params.OutputWindowBytes,
 		MaxOutputBytes:    params.MaxOutputBytes,
-	}, emit)
+	}, sessionReceiptEmitter(emit, "images.action", params.Context, "image", resourceID,
+		params.Action, "image_archive_failed", "Image "+params.Action))
 	if err != nil {
 		return ImagesActionResult{}, err
 	}
-	resource := params.Reference
-	if resource == "" {
-		resource = archive
-	}
 	receipt := DomainOperationReceipt{
 		OperationID: session.SessionID, Context: params.Context, Domain: "image",
-		ResourceID: resource, Action: params.Action, Source: "cli-session",
+		ResourceID: resourceID, Action: params.Action, Source: "cli-session",
 		Outcome: "running", StartedAt: session.StartedAt,
 	}
 	return ImagesActionResult{Action: params.Action, Receipt: receipt, Session: &session}, nil

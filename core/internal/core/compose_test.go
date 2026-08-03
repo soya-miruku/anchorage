@@ -106,9 +106,22 @@ func TestComposeActionOptionsBelongToOneAction(t *testing.T) {
 		t.Fatal("down must reject configuration files")
 	}
 	if err := validateComposeAction(ComposeActionParams{
-		Project: "demo", Action: "down", Confirmed: true, RemoveVolumes: true,
+		Project: "demo", Action: "down", Confirmed: true,
 	}); err != nil {
 		t.Fatalf("a confirmed down should validate: %v", err)
+	}
+	// Taking the project down is reversible from its Compose file; destroying its named
+	// volumes is not. Agreeing to the first must not silently carry the second.
+	if err := validateComposeAction(ComposeActionParams{
+		Project: "demo", Action: "down", Confirmed: true, RemoveVolumes: true,
+	}); err == nil {
+		t.Fatal("removing volumes must take its own agreement, not down's")
+	}
+	if err := validateComposeAction(ComposeActionParams{
+		Project: "demo", Action: "down", Confirmed: true,
+		RemoveVolumes: true, ConfirmedRemoveVolumes: true,
+	}); err != nil {
+		t.Fatalf("an explicitly agreed volume removal should validate: %v", err)
 	}
 
 	// stop/start/restart take neither.
