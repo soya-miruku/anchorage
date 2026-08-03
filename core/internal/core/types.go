@@ -571,6 +571,9 @@ type ImagesActionResult struct {
 	Deleted []ImageDeleteRecord    `json:"deleted,omitempty"`
 	Prune   *ImagePruneResult      `json:"prune,omitempty"`
 	Session *SessionStartResult    `json:"session,omitempty"`
+	// Registry is where a push is going, derived from the reference. Reported so the UI can
+	// name the destination it is about to publish to rather than restating the tag.
+	Registry string `json:"registry,omitempty"`
 }
 
 type VolumesListParams struct {

@@ -586,7 +586,7 @@ describe("host renderer integration", () => {
     const harness = createHost({ listImages, listVolumes });
     const imageAction = vi.fn(
       async (request: {
-        action: "remove" | "prune" | "pull" | "save" | "load" | "tag";
+        action: "remove" | "prune" | "pull" | "save" | "load" | "tag" | "push";
         id?: string;
         reference?: string;
       }) => {
@@ -1678,6 +1678,67 @@ describe("host renderer integration", () => {
         outputWindowBytes: 65_536,
       }),
     );
+  });
+
+  it("confirms a push by naming its destination and never asks for a credential", async () => {
+    // The destination is derived from the reference rather than chosen, so publishing to an
+    // unintended registry is a disclosure. The dialog leads with the host for that reason.
+    const target = image(61, "registry.example.com/team/api");
+    const harness = createHost({
+      listImages: vi.fn(async () => imageList([target])),
+    });
+    const imageAction = vi.fn(async () => ({
+      action: "push",
+      receipt: { operationId: "push" },
+      registry: "registry.example.com",
+    }));
+    if (harness.host.images) harness.host.images.action = imageAction;
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-images"));
+    fireEvent.click(await screen.findByTestId(`image-${target.id}`));
+    fireEvent.click(await screen.findByTestId("image-detail-push"));
+
+    const dialog = await screen.findByTestId("push-image-dialog");
+    expect(within(dialog).getByTestId("push-summary")).toHaveTextContent(
+      "registry.example.com",
+    );
+    // A private registry is not Docker Hub, so the public-repository warning stays away.
+    expect(screen.queryByTestId("push-public-warning")).toBeNull();
+    // Anchorage never collects credentials; there must be no password field to leak one.
+    expect(
+      dialog.querySelector('input[type="password"]'),
+    ).toBeNull();
+    expect(imageAction).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByTestId("push-image-confirm"));
+    await waitFor(() =>
+      expect(imageAction).toHaveBeenCalledWith({
+        context: "default",
+        action: "push",
+        reference: "registry.example.com/team/api:latest",
+        confirmed: true,
+        outputWindowBytes: 65_536,
+      }),
+    );
+  });
+
+  it("warns that a reference without a registry host resolves to public Docker Hub", async () => {
+    const target = image(62, "team/api");
+    const harness = createHost({
+      listImages: vi.fn(async () => imageList([target])),
+    });
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-images"));
+    fireEvent.click(await screen.findByTestId(`image-${target.id}`));
+    fireEvent.click(await screen.findByTestId("image-detail-push"));
+
+    const dialog = await screen.findByTestId("push-image-dialog");
+    expect(within(dialog).getByTestId("push-summary")).toHaveTextContent("docker.io");
+    expect(screen.getByTestId("push-public-warning")).toBeInTheDocument();
   });
 
   it("tags an image by immutable id, not by the tag shown in the row", async () => {

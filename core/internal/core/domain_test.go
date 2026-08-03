@@ -1744,3 +1744,45 @@ func TestImageTagIsAddressedByImmutableIDOnly(t *testing.T) {
 		t.Fatalf("a well-formed tag should validate: %v", err)
 	}
 }
+
+func TestPushNamesTheRegistryItWouldPublishTo(t *testing.T) {
+	// The destination is derived from the reference, never chosen separately, so a
+	// confirmation that names the wrong host is worse than no confirmation at all.
+	for _, testCase := range []struct{ reference, registry string }{
+		{"alpine", "docker.io"},
+		{"team/api:v1", "docker.io"},
+		{"registry.example.com/team/api:v1", "registry.example.com"},
+		{"localhost:5000/team/api", "localhost:5000"},
+		{"ghcr.io/owner/name:tag", "ghcr.io"},
+		{"registry.example:5000/team/api@sha256:" + strings.Repeat("a", 64), "registry.example:5000"},
+	} {
+		if got := registryHostForReference(testCase.reference); got != testCase.registry {
+			t.Fatalf("%q resolves to %q, want %q", testCase.reference, got, testCase.registry)
+		}
+	}
+}
+
+func TestPushIsConfirmedAndTakesNoForeignOptions(t *testing.T) {
+	// Pushing publishes to a remote that may be public; it cannot be taken back.
+	if err := validateImagesAction(ImagesActionParams{
+		Context: "default", Action: "push", Reference: "team/api:v1",
+	}); err == nil {
+		t.Fatal("push must require confirmation")
+	}
+	if err := validateImagesAction(ImagesActionParams{
+		Context: "default", Action: "push", Reference: "--all", Confirmed: true,
+	}); err == nil {
+		t.Fatal("a flag-like reference must be rejected")
+	}
+	if err := validateImagesAction(ImagesActionParams{
+		Context: "default", Action: "push", Reference: "team/api:v1", Confirmed: true,
+		ArchivePath: "/tmp/x.tar",
+	}); err == nil {
+		t.Fatal("push must reject options belonging to another action")
+	}
+	if err := validateImagesAction(ImagesActionParams{
+		Context: "default", Action: "push", Reference: "team/api:v1", Confirmed: true,
+	}); err != nil {
+		t.Fatalf("a confirmed push should validate: %v", err)
+	}
+}

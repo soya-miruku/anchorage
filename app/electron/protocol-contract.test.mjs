@@ -417,6 +417,15 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
       "images.action",
       validateImagesAction({
         context: "default",
+        action: "push",
+        reference: "registry.example/team/api:latest",
+        confirmed: true,
+      }),
+    ),
+    request(
+      "images.action",
+      validateImagesAction({
+        context: "default",
         action: "tag",
         id: `sha256:${id}`,
         reference: "registry.example/team/api:release",
@@ -697,6 +706,29 @@ test("protocol v1 rejects archive paths that would be re-read as a Docker flag",
 
   // Archive options belong to exactly one action; carrying them onto another is rejected
   // rather than silently ignored, so a mis-built request can never write a file.
+  // Publishing cannot be undone and its destination is derived from the reference, so an
+  // unconfirmed push, or one carrying another verb's options, is refused at every layer.
+  for (const params of [
+    { context: "default", action: "push", reference: "team/api:v1" },
+    { context: "default", action: "push", reference: "team/api:v1", confirmed: false },
+    { context: "default", action: "push", confirmed: true },
+    { context: "default", action: "push", reference: "--all", confirmed: true },
+    {
+      context: "default",
+      action: "push",
+      reference: "team/api:v1",
+      confirmed: true,
+      archivePath: "/srv/project/api.tar",
+    },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("images.action", params)),
+      false,
+      `unsafe push unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateImagesAction(params), TypeError);
+  }
+
   // A tag names its source by immutable ID. Naming it by tag would let the operation label
   // whatever that tag points at now, which need not be the image the operator selected.
   for (const params of [

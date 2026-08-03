@@ -996,6 +996,9 @@ func (s *Service) imagesAction(parent context.Context, params ImagesActionParams
 	if params.Action == "pull" {
 		return s.imagePull(parent, params, emit)
 	}
+	if params.Action == "push" {
+		return s.imagePush(parent, params, emit)
+	}
 	if params.Action == "save" || params.Action == "load" {
 		return s.imageArchive(parent, params, emit)
 	}
@@ -1187,6 +1190,60 @@ func sessionReceiptEmitter(emit EventEmitter, method, contextName, domain, resou
 			emit(event, payload)
 		}
 	}
+}
+
+// registryHostForReference reports where a reference would be pushed.
+//
+// Docker's own rule: the first path segment is a registry only when it looks like a host —
+// it contains a dot or a port, or is localhost. Otherwise the reference belongs to Docker
+// Hub. Getting this wrong in a confirmation would name the wrong destination, which for a
+// publish is the difference between an internal registry and a public one.
+func registryHostForReference(reference string) string {
+	value := reference
+	if at := strings.Index(value, "@"); at >= 0 {
+		value = value[:at]
+	}
+	segments := strings.Split(value, "/")
+	if len(segments) > 1 {
+		candidate := segments[0]
+		if strings.Contains(candidate, ".") || strings.Contains(candidate, ":") ||
+			candidate == "localhost" {
+			return candidate
+		}
+	}
+	return "docker.io"
+}
+
+// imagePush publishes an image to its registry.
+//
+// A session rather than a request: a push uploads layers and routinely runs for minutes.
+// Credentials are never handled here — the Docker CLI resolves them from the operator's own
+// configuration and credential helpers, so nothing secret crosses this boundary or is stored.
+func (s *Service) imagePush(parent context.Context, params ImagesActionParams, emit EventEmitter) (ImagesActionResult, error) {
+	cwd := params.Cwd
+	if cwd == "" && len(s.allowedCWDs) > 0 {
+		cwd = s.allowedCWDs[0]
+	}
+	registry := registryHostForReference(params.Reference)
+	session, err := s.sessions.start(context.WithoutCancel(parent), SessionStartParams{
+		Context: params.Context, Argv: []string{"image", "push", params.Reference},
+		Cwd: cwd, Mode: "pipes",
+		TimeoutSeconds:    params.TimeoutSeconds,
+		OutputWindowBytes: params.OutputWindowBytes,
+		MaxOutputBytes:    params.MaxOutputBytes,
+	}, sessionReceiptEmitter(emit, "images.action", params.Context, "image", params.Reference,
+		"push", "image_push_failed", "Image push"))
+	if err != nil {
+		return ImagesActionResult{}, err
+	}
+	receipt := DomainOperationReceipt{
+		OperationID: session.SessionID, Context: params.Context, Domain: "image",
+		ResourceID: params.Reference, Action: "push", Source: "cli-session",
+		Outcome: "running", StartedAt: session.StartedAt,
+	}
+	return ImagesActionResult{
+		Action: "push", Receipt: receipt, Session: &session, Registry: registry,
+	}, nil
 }
 
 func (s *Service) imagePull(parent context.Context, params ImagesActionParams, emit EventEmitter) (ImagesActionResult, error) {
@@ -1597,6 +1654,21 @@ func validateImagesAction(params ImagesActionParams) error {
 		if params.ID != "" || params.Reference != "" || params.Force || params.NoPrune ||
 			params.Cwd != "" || params.TimeoutSeconds != 0 || params.OutputWindowBytes != 0 || params.MaxOutputBytes != 0 {
 			return opError("invalid_action_options", "Image prune received options for another action.", nil, nil)
+		}
+	case "push":
+		if err := validateImageReference(params.Reference); err != nil {
+			return err
+		}
+		// Pushing publishes an image to a remote that may be public, and the destination is
+		// derived from the reference rather than chosen separately — so the wrong tag is a
+		// disclosure, not just a failed command. It is confirmed like any other verb whose
+		// effect cannot be taken back.
+		if !params.Confirmed {
+			return confirmationRequired("image", params.Reference, params.Action)
+		}
+		if params.ID != "" || params.Force || params.NoPrune || len(params.Filters) > 0 ||
+			params.ArchivePath != "" || params.Overwrite {
+			return opError("invalid_action_options", "Image push received options for another action.", nil, nil)
 		}
 	case "pull":
 		if err := validateImageReference(params.Reference); err != nil {

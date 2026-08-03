@@ -2857,6 +2857,34 @@ export function useAnchorageStore() {
     [bridge, isHost],
   );
 
+  /**
+   * `docker push`: publishes an image to the registry its reference names.
+   *
+   * Anchorage never sees a credential. The Docker CLI resolves them from the operator's own
+   * configuration and helpers, so nothing secret enters the renderer, crosses the IPC
+   * boundary, or is stored here. When a registry is not authenticated, Docker says so in its
+   * own output and the panel points at `docker login` rather than offering a password field.
+   */
+  const pushImage = useCallback(
+    async (reference: string, registry: string) => {
+      if (!isHost || !reference) return;
+      await runTransferSession({
+        title: "Push",
+        reference: `${reference} → ${registry}`,
+        failureMessage: "Image push failed",
+        start: () =>
+          bridge.images.action({
+            context: dockerContextRef.current,
+            action: "push",
+            reference,
+            confirmed: true,
+            outputWindowBytes: 64 * 1024,
+          }),
+      });
+    },
+    [bridge, isHost, runTransferSession],
+  );
+
   const pullRegistryImage = useCallback(
     async (name: string) => {
       if (!isHost) {
@@ -3431,6 +3459,7 @@ export function useAnchorageStore() {
     toggleComposeProject,
     runComposeAction,
     pullRegistryImage,
+    pushImage,
     saveImageArchive,
     loadImageArchive,
     exportContainerArchive,

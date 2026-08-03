@@ -867,7 +867,7 @@
           "required": ["context", "action"],
           "properties": {
             "context": { "type": "string", "minLength": 1, "maxLength": 255 },
-            "action": { "enum": ["remove", "prune", "pull", "save", "load", "tag"] },
+            "action": { "enum": ["remove", "prune", "pull", "save", "load", "tag", "push"] },
             "id": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
             "reference": {
               "type": "string",
@@ -968,6 +968,22 @@
                   "noPrune": false,
                   "filters": false,
                   "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "push" } } },
+              "then": {
+                "required": ["reference", "confirmed"],
+                "properties": {
+                  "reference": {},
+                  "confirmed": { "const": true },
+                  "id": false,
+                  "archivePath": false,
+                  "overwrite": false,
+                  "force": false,
+                  "noPrune": false,
+                  "filters": false
                 }
               }
             },
@@ -1351,7 +1367,7 @@
         "context": { "type": "string", "minLength": 1, "maxLength": 255 },
         "domain": { "const": "image" },
         "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
-        "action": { "enum": ["remove", "prune", "pull", "tag", "save", "load"] },
+        "action": { "enum": ["remove", "prune", "pull", "tag", "save", "load", "push"] },
         "source": { "type": "string", "minLength": 1, "maxLength": 64 },
         "startedAt": { "$ref": "#/$defs/timestamp" }
       },

@@ -438,7 +438,8 @@ export type ImageAction =
   | "pull"
   | "save"
   | "load"
-  | "tag";
+  | "tag"
+  | "push";
 
 export type ImagesActionParams =
   | {
@@ -468,6 +469,20 @@ export type ImagesActionParams =
       /** Passed to Docker as one literal argv element. */
       reference: string;
       cwd?: string;
+      timeoutSeconds?: number;
+      outputWindowBytes?: number;
+      maxOutputBytes?: number;
+    }
+  | {
+      context: string;
+      /**
+       * Publishes to the registry named by the reference. Credentials are never handled by
+       * Anchorage: the Docker CLI resolves them from the operator's own configuration.
+       */
+      action: "push";
+      reference: string;
+      /** Publishing cannot be undone, so it is confirmed like any destructive verb. */
+      confirmed: true;
       timeoutSeconds?: number;
       outputWindowBytes?: number;
       maxOutputBytes?: number;
@@ -1249,6 +1264,8 @@ export interface ImagesActionResult {
    * contract, so a multi-gigabyte archive never transits this response.
    */
   session?: SessionStartResult;
+  /** Where a push is going, derived from the reference. */
+  registry?: string;
 }
 
 /** `containers.export` reuses the images.action receipt shape with its own action name. */

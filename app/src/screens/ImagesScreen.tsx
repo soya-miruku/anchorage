@@ -5,12 +5,17 @@ import { AnchorageIcon } from "../components/AnchorageIcon";
 import { ArchivePathDialog } from "../components/ArchivePathDialog";
 import { DeleteImageDialog } from "../components/DeleteImageDialog";
 import { ImageDetailPanel } from "../components/ImageDetailPanel";
+import { PushImageDialog } from "../components/PushImageDialog";
 import { SortableHeader } from "../components/SortableHeader";
 import { TagImageDialog } from "../components/TagImageDialog";
 import { FixedRowWindow } from "../components/FixedRowWindow";
 import type { AnchorageStore } from "../store/useAnchorageStore";
 import type { AnchorageImage } from "../types";
 import { useTableSort, type ColumnSort } from "../utils/tableSort";
+import {
+  looksUnauthenticated,
+  registryHostForReference,
+} from "../utils/registry";
 
 const IMAGE_COLUMNS: ReadonlyArray<
   ColumnSort<AnchorageImage, "repository" | "tag" | "created" | "size" | "usage">
@@ -234,6 +239,21 @@ function RegistrySearch({ store }: { store: AnchorageStore }) {
             {store.imageTransfer.error && (
               <p className="capability-error">{store.imageTransfer.error}</p>
             )}
+            {/* Docker reports an unauthenticated registry in its own words. Rather than
+                offer a password field, point at the command that owns the credential. */}
+            {store.imageTransfer.title === "Push" &&
+              looksUnauthenticated(store.imageTransfer.output) && (
+                <p className="capability-error" data-testid="push-auth-hint">
+                  That registry is not signed in. Run{" "}
+                  <code>
+                    docker login{" "}
+                    {registryHostForReference(
+                      store.imageTransfer.reference.split(" → ")[0],
+                    )}
+                  </code>{" "}
+                  in a terminal, then try again.
+                </p>
+              )}
             {/* Docker writes nothing at all while an archive streams, so an empty pane is
                 the normal state for save and export rather than a sign of a stall. */}
             <pre>
@@ -327,6 +347,7 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
   const [loadOpen, setLoadOpen] = useState(false);
   const [saveTarget, setSaveTarget] = useState<AnchorageImage | null>(null);
   const [tagTarget, setTagTarget] = useState<AnchorageImage | null>(null);
+  const [pushTarget, setPushTarget] = useState<AnchorageImage | null>(null);
   // Transfers share one progress panel and one session slot, so starting a second would
   // cancel the first. The controls are disabled rather than silently doing that.
   const transferRunning =
@@ -617,6 +638,13 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
                   )
               : undefined
           }
+          // A dangling image has no reference to publish under, and push addresses an
+          // image by reference rather than by ID.
+          onPush={
+            store.isHost && !transferRunning && store.selectedImage.reference
+              ? () => setPushTarget(store.selectedImage)
+              : undefined
+          }
           onTag={
             store.isHost && !store.imageMutationPending
               ? () => setTagTarget(store.selectedImage)
@@ -659,6 +687,19 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
             setLoadOpen(false);
             store.setImageTab("registry");
             void store.loadImageArchive(archivePath);
+          }}
+        />
+      )}
+
+      {pushTarget?.reference && (
+        <PushImageDialog
+          image={pushTarget}
+          busy={transferRunning}
+          onCancel={() => setPushTarget(null)}
+          onConfirm={(reference, registry) => {
+            setPushTarget(null);
+            store.setImageTab("registry");
+            void store.pushImage(reference, registry);
           }}
         />
       )}

@@ -43,6 +43,7 @@ export function ImageDetailPanel({
   onClose,
   onSave,
   onTag,
+  onPush,
   scout,
   scoutPending,
   scoutError,
@@ -56,6 +57,8 @@ export function ImageDetailPanel({
   onSave?: () => void;
   /** Omitted off-host. Tagging works on any image, including a dangling one. */
   onTag?: () => void;
+  /** Omitted when the image has no reference to publish under. */
+  onPush?: () => void;
   scout?: ImagesScoutResult | null;
   scoutPending?: boolean;
   scoutError?: string | null;
@@ -105,6 +108,16 @@ export function ImageDetailPanel({
           <p className="resource-mono resource-dim">{image.imageId.slice(0, 24)}</p>
         </div>
         <div className="image-detail__actions">
+          {onPush && (
+            <button
+              type="button"
+              className="ghost-button"
+              data-testid="image-detail-push"
+              onClick={onPush}
+            >
+              Push
+            </button>
+          )}
           {onTag && (
             <button
               type="button"

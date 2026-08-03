@@ -143,6 +143,7 @@ const IMAGE_ACTIONS = new Set([
   "save",
   "load",
   "tag",
+  "push",
 ]);
 const VOLUME_ACTIONS = new Set(["create", "remove", "prune"]);
 const OPERATION_METHODS = new Set([
@@ -1358,6 +1359,25 @@ export function validateImagesAction(value) {
       (normalized.maxOutputBytes ?? 0) !== 0
     ) {
       fail("request contains options that are not valid for image prune");
+    }
+  } else if (action === "push") {
+    if (!normalized.reference) {
+      fail("request.reference is required for image push");
+    }
+    // Publishing cannot be taken back, and the destination comes from the reference rather
+    // than a separate field, so the wrong tag is a disclosure rather than a failed command.
+    if (normalized.confirmed !== true) {
+      fail("request.confirmed must be true for image push");
+    }
+    if (
+      normalized.id !== undefined ||
+      normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
+      normalized.force === true ||
+      normalized.noPrune === true ||
+      Object.keys(normalized.filters ?? {}).length > 0
+    ) {
+      fail("request contains options that are not valid for image push");
     }
   } else if (action === "tag") {
     if (!normalized.id) {

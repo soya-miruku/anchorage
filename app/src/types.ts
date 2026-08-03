@@ -421,6 +421,15 @@ export type ImagesActionParams =
     }
   | {
       context: string;
+      /** Publishes to the registry named by the reference; credentials stay with Docker. */
+      action: "push";
+      reference: string;
+      confirmed: true;
+      timeoutSeconds?: number;
+      outputWindowBytes?: number;
+    }
+  | {
+      context: string;
       action: "tag";
       /** Full immutable image ID — a tag can be re-pointed between render and action. */
       id: string;
@@ -447,9 +456,11 @@ export type ImagesActionParams =
     };
 
 export interface ImagesActionResult {
-  action: "remove" | "prune" | "pull" | "save" | "load" | "tag";
+  action: "remove" | "prune" | "pull" | "save" | "load" | "tag" | "push";
   receipt: Record<string, unknown>;
   session?: SessionStartResult;
+  /** Where a push is going, derived from the reference. */
+  registry?: string;
   [key: string]: unknown;
 }
 
