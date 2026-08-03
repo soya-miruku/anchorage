@@ -1,0 +1,140 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--anc-app);
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.fixed-row-window__space {
+  position: relative;
+  width: 100%;
+}
+
+.fixed-row-window__items {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  will-change: transform;
+}
+
+button,
+input {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+/* Every focusable control, not just buttons and text inputs: selects, textareas, links and
+   anything given an explicit tab stop are reachable by keyboard and must show where focus is. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 1px solid var(--anc-accent);
+  outline-offset: 2px;
+}
+
+/* h3 is a first-class heading in this UI (settings toggle rows, image detail sections, build
+   steps). Without it in the reset the UA's 1em block margins reopen every row it appears in. */
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: var(--anc-scrollbar);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--anc-scrollbar-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes anc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/*
+ * Design-parity capture: hold every animation and transition at its first frame.
+ *
+ * Looping indicators were sampled at an arbitrary phase, so two capture runs of an identical
+ * build produced different bytes and invalidated the per-file hashes in the visual review
+ * attestation. Only the phase is pinned; size, position and colour stay under comparison.
+ */
+:root[data-design-capture="true"] *,
+:root[data-design-capture="true"] *::before,
+:root[data-design-capture="true"] *::after {
+  animation-play-state: paused !important;
+  animation-delay: -1ms !important;
+  animation-duration: 1ms !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  caret-color: transparent !important;
+}

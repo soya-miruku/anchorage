@@ -1,0 +1,165 @@
+:root[data-theme="github"][data-color-mode="dark"] {
+  color-scheme: dark;
+
+  --anc-desk: #010409;
+  --anc-desk-glow: #161b22;
+  --anc-app: #0d1117;
+  --anc-panel: #161b22;
+  --anc-input: #010409;
+  --anc-code: #010409;
+  --anc-table-head: #161b22;
+  --anc-surface-elevated: #21262d;
+  --anc-status-neutral: #6e7681;
+  --anc-on-accent: #ffffff;
+  --anc-on-danger: #0d1117;
+
+  --anc-accent: #2f81f7;
+  --anc-accent-hover: #58a6ff;
+  --anc-accent-deep: #1f6feb;
+  --anc-action-primary: #1f6feb;
+  --anc-action-primary-hover: #1158c7;
+  --anc-success: #3fb950;
+  --anc-warning: #d29922;
+  --anc-danger: #f85149;
+  --anc-violet: #a371f7;
+  --anc-blue: #2f81f7;
+
+  --anc-accent-rgb: 47 129 247;
+  --anc-action-primary-rgb: 31 111 235;
+  --anc-success-rgb: 63 185 80;
+  --anc-warning-rgb: 210 153 34;
+  --anc-danger-rgb: 248 81 73;
+  --anc-violet-rgb: 163 113 247;
+  --anc-blue-rgb: 47 129 247;
+  --anc-overlay-rgb: 255 255 255;
+  --anc-contrast-rgb: 255 255 255;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 1 4 9;
+  --anc-code-rgb: 1 4 9;
+  --anc-inset-rgb: 1 4 9;
+
+  --anc-text-primary: #e6edf3;
+  --anc-text-strong: #f0f6fc;
+  --anc-text-body: #c9d1d9;
+  --anc-text-mono: #b1bac4;
+  --anc-text-secondary: #8b949e;
+  --anc-text-muted: #7d8590;
+  --anc-text-dim: #7d8590;
+  --anc-text-dimmer: #7d8590;
+  --anc-text-faint: #7d8590;
+  --anc-text-quiet: #7d8590;
+  --anc-text-subdued: #7d8590;
+  --anc-text-emphasis-muted: #8b949e;
+  --anc-update-text: #a5d6ff;
+
+  --anc-line-hairline: rgba(240, 246, 252, 0.055);
+  --anc-line-border: #21262d;
+  --anc-line-strong: #30363d;
+  --anc-line-control: #30363d;
+
+  --anc-scrim: rgba(1, 4, 9, 0.78);
+  --anc-scrim-soft: rgba(1, 4, 9, 0.68);
+  --anc-control-neutral: #30363d;
+  --anc-control-neutral-hover: #484f58;
+  --anc-control-close: #6e3030;
+  --anc-error-surface: #2d1620;
+  --anc-error-text: #ffb1ab;
+  --anc-scrollbar: rgba(240, 246, 252, 0.14);
+  --anc-scrollbar-hover: rgba(240, 246, 252, 0.26);
+
+  --anc-terminal-background: #010409;
+  --anc-terminal-foreground: #e6edf3;
+  --anc-terminal-cursor: #2f81f7;
+  --anc-terminal-selection: #1f6feb;
+  --anc-terminal-black: #010409;
+  --anc-terminal-red: #f85149;
+  --anc-terminal-green: #3fb950;
+  --anc-terminal-yellow: #d29922;
+  --anc-terminal-blue: #2f81f7;
+  --anc-terminal-magenta: #a371f7;
+  --anc-terminal-cyan: #39c5cf;
+  --anc-terminal-white: #e6edf3;
+}
+
+:root[data-theme="github"][data-color-mode="light"] {
+  color-scheme: light;
+
+  --anc-desk: #f6f8fa;
+  --anc-desk-glow: #d8dee4;
+  --anc-app: #ffffff;
+  --anc-panel: #f6f8fa;
+  --anc-input: #ffffff;
+  --anc-code: #f6f8fa;
+  --anc-table-head: #f6f8fa;
+  --anc-surface-elevated: #ffffff;
+  --anc-status-neutral: #6e7781;
+  --anc-on-accent: #ffffff;
+  --anc-on-danger: #ffffff;
+
+  --anc-accent: #0969da;
+  --anc-accent-hover: #0550ae;
+  --anc-accent-deep: #1f6feb;
+  --anc-action-primary: #0969da;
+  --anc-action-primary-hover: #0550ae;
+  --anc-success: #1a7f37;
+  --anc-warning: #9a6700;
+  --anc-danger: #cf222e;
+  --anc-violet: #8250df;
+  --anc-blue: #0969da;
+
+  --anc-accent-rgb: 9 105 218;
+  --anc-action-primary-rgb: 9 105 218;
+  --anc-success-rgb: 26 127 55;
+  --anc-warning-rgb: 154 103 0;
+  --anc-danger-rgb: 207 34 46;
+  --anc-violet-rgb: 130 80 223;
+  --anc-blue-rgb: 9 105 218;
+  --anc-overlay-rgb: 31 35 40;
+  --anc-contrast-rgb: 31 35 40;
+  --anc-shadow-rgb: 31 35 40;
+  --anc-terminal-rgb: 31 35 40;
+  --anc-code-rgb: 31 35 40;
+  --anc-inset-rgb: 31 35 40;
+
+  --anc-text-primary: #1f2328;
+  --anc-text-strong: #1f2328;
+  --anc-text-body: #343a40;
+  --anc-text-mono: #424a53;
+  --anc-text-secondary: #656d76;
+  --anc-text-muted: #656d76;
+  --anc-text-dim: #656d76;
+  --anc-text-dimmer: #656d76;
+  --anc-text-faint: #656d76;
+  --anc-text-quiet: #656d76;
+  --anc-text-subdued: #656d76;
+  --anc-text-emphasis-muted: #57606a;
+  --anc-update-text: #0550ae;
+
+  --anc-line-hairline: rgba(31, 35, 40, 0.055);
+  --anc-line-border: #d0d7de;
+  --anc-line-strong: #d0d7de;
+  --anc-line-control: #afb8c1;
+
+  --anc-scrim: rgba(31, 35, 40, 0.34);
+  --anc-scrim-soft: rgba(31, 35, 40, 0.24);
+  --anc-control-neutral: #afb8c1;
+  --anc-control-neutral-hover: #8c959f;
+  --anc-control-close: #d8a0a5;
+  --anc-error-surface: #ffebe9;
+  --anc-error-text: #a40e26;
+  --anc-scrollbar: rgba(31, 35, 40, 0.18);
+  --anc-scrollbar-hover: rgba(31, 35, 40, 0.3);
+
+  --anc-terminal-background: #f6f8fa;
+  --anc-terminal-foreground: #1f2328;
+  --anc-terminal-cursor: #0969da;
+  --anc-terminal-selection: #b6d6f6;
+  --anc-terminal-black: #1f2328;
+  --anc-terminal-red: #cf222e;
+  --anc-terminal-green: #1a7f37;
+  --anc-terminal-yellow: #9a6700;
+  --anc-terminal-blue: #0969da;
+  --anc-terminal-magenta: #8250df;
+  --anc-terminal-cyan: #096f86;
+  --anc-terminal-white: #656d76;
+}

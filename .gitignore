@@ -1,0 +1,29 @@
+app/node_modules/
+app/dist/
+app/release/
+app/build/core/anchorage-core
+core/bin/
+
+*.log
+.DS_Store
+
+# Design-parity working directories.
+#
+# `docs/design-qa/final-actual` IS committed: the visual review attestation binds the SHA-256
+# of each of those 24 captures, so the gate cannot be verified without them. The capture is
+# reproducible (tools/capture-design-parity.mjs freezes the clock and animation phase), so
+# they are stable rather than churning on every run. Everything below is regenerated on
+# demand and is large — the comparison sheets alone are 15 MB.
+docs/design-qa/comparisons/
+docs/design-qa/actual/
+docs/design-qa/invalid/
+
+# Regenerated diff and contact-sheet output (~50 MB). The release evidence under
+# artifacts/docker, artifacts/performance and artifacts/security IS committed — that bundle
+# is what a release is judged against.
+artifacts/design/
+
+# Local environment. No .env exists today; this is here so one never lands by accident.
+.env
+.env.*
+!.env.example

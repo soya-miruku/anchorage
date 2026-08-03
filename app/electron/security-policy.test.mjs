@@ -1,0 +1,317 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import {
+  ELECTRON_RUNTIME_UNOBSERVABLE_PREFERENCE_KEYS,
+  assertOSSandboxEnabled,
+  findSandboxDisablingSwitches,
+  assertRuntimeSecureWebPreferences,
+  assertSecureWebPreferences,
+  createContentSecurityPolicy,
+  createSecureWebPreferences,
+  installSessionSecurity,
+  installWebContentsSecurity,
+} from "./security-policy.mjs";
+
+test("creates the exact hardened BrowserWindow webPreferences", () => {
+  const expected = {
+    preload: "/opt/anchorage/electron/preload.cjs",
+    nodeIntegration: false,
+    nodeIntegrationInWorker: false,
+    nodeIntegrationInSubFrames: false,
+    contextIsolation: true,
+    sandbox: true,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    webviewTag: false,
+    navigateOnDragDrop: false,
+    spellcheck: false,
+    devTools: false,
+  };
+  assert.deepEqual(
+    createSecureWebPreferences({
+      preload: expected.preload,
+      devTools: false,
+    }),
+    expected,
+  );
+  assert.doesNotThrow(() =>
+    assertSecureWebPreferences(
+      { ...expected, additionalRuntimePreference: true },
+      expected,
+    ),
+  );
+  assert.throws(
+    () =>
+      assertSecureWebPreferences(
+        { ...expected, sandbox: false },
+        expected,
+      ),
+    /sandbox/u,
+  );
+  assert.doesNotThrow(() =>
+    assertRuntimeSecureWebPreferences(
+      {
+        preload: undefined,
+        nodeIntegration: false,
+        nodeIntegrationInSubFrames: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
+        allowRunningInsecureContent: false,
+        webviewTag: false,
+      },
+      expected,
+    ),
+  );
+  for (const key of ELECTRON_RUNTIME_UNOBSERVABLE_PREFERENCE_KEYS) {
+    assert.throws(
+      () =>
+        assertRuntimeSecureWebPreferences(
+          {
+            ...expected,
+            preload: undefined,
+            [key]: !expected[key],
+          },
+          expected,
+        ),
+      new RegExp(key, "u"),
+    );
+  }
+  assert.throws(
+    () =>
+      assertRuntimeSecureWebPreferences(
+        {
+          preload: undefined,
+          nodeIntegration: false,
+          nodeIntegrationInSubFrames: false,
+          contextIsolation: true,
+          webSecurity: true,
+          allowRunningInsecureContent: false,
+          webviewTag: false,
+        },
+        expected,
+      ),
+    /sandbox/u,
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSecureWebPreferences(
+        { ...expected, preload: "/tmp/unexpected-preload.cjs" },
+        expected,
+      ),
+    /preload/u,
+  );
+  assert.throws(
+    () =>
+      assertRuntimeSecureWebPreferences(
+        expected,
+        { ...expected, preload: "" },
+      ),
+    /preload path/u,
+  );
+});
+
+test("creates production and loopback-development CSP without widening other directives", () => {
+  const production = createContentSecurityPolicy({
+    development: false,
+    port: null,
+  });
+  assert.equal(
+    production,
+    [
+      "default-src 'self'",
+      "base-uri 'none'",
+      "object-src 'none'",
+      "frame-src 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self'",
+      "img-src 'self' data: blob:",
+      "connect-src 'self'",
+      "worker-src 'self' blob:",
+      "media-src 'none'",
+      "manifest-src 'self'",
+    ].join("; "),
+  );
+
+  const development = createContentSecurityPolicy({
+    development: true,
+    port: "5173",
+  });
+  assert.match(development, /script-src 'self' 'unsafe-inline'/u);
+  assert.match(
+    development,
+    /connect-src 'self' ws:\/\/127\.0\.0\.1:5173 ws:\/\/localhost:5173/u,
+  );
+  assert.match(development, /object-src 'none'/u);
+  assert.match(development, /frame-ancestors 'none'/u);
+});
+
+test("installs deny-by-default session handlers and enforces request plus CSP policy", () => {
+  const registered = {};
+  const activeSession = {
+    setPermissionCheckHandler(handler) {
+      registered.permissionCheck = handler;
+    },
+    setPermissionRequestHandler(handler) {
+      registered.permissionRequest = handler;
+    },
+    setDevicePermissionHandler(handler) {
+      registered.devicePermission = handler;
+    },
+    on(event, handler) {
+      registered[event] = handler;
+    },
+    webRequest: {
+      onBeforeRequest(handler) {
+        registered.beforeRequest = handler;
+      },
+      onHeadersReceived(handler) {
+        registered.headersReceived = handler;
+      },
+    },
+  };
+  const trustedUrl = "file:///opt/anchorage/dist/client/index.html";
+  const csp = "default-src 'self'; object-src 'none'";
+
+  installSessionSecurity(activeSession, {
+    isAllowedRendererRequest: (url) => url === trustedUrl,
+    isTrustedRendererUrl: (url) => url === trustedUrl,
+    contentSecurityPolicy: csp,
+  });
+
+  assert.equal(registered.permissionCheck(), false);
+  let permissionDecision = true;
+  registered.permissionRequest(null, "notifications", (allowed) => {
+    permissionDecision = allowed;
+  });
+  assert.equal(permissionDecision, false);
+  assert.equal(registered.devicePermission({ deviceType: "usb" }), false);
+
+  const downloadEvent = {
+    prevented: false,
+    preventDefault() {
+      this.prevented = true;
+    },
+  };
+  registered["will-download"](downloadEvent);
+  assert.equal(downloadEvent.prevented, true);
+
+  let beforeRequest;
+  registered.beforeRequest({ url: trustedUrl }, (result) => {
+    beforeRequest = result;
+  });
+  assert.deepEqual(beforeRequest, { cancel: false });
+  registered.beforeRequest({ url: "https://evil.example/" }, (result) => {
+    beforeRequest = result;
+  });
+  assert.deepEqual(beforeRequest, { cancel: true });
+
+  let headersResult;
+  registered.headersReceived(
+    {
+      url: trustedUrl,
+      responseHeaders: { "Cross-Origin-Resource-Policy": ["same-origin"] },
+    },
+    (result) => {
+      headersResult = result;
+    },
+  );
+  assert.deepEqual(headersResult, {
+    responseHeaders: {
+      "Cross-Origin-Resource-Policy": ["same-origin"],
+      "Content-Security-Policy": [csp],
+    },
+  });
+  registered.headersReceived(
+    {
+      url: "https://evil.example/",
+      responseHeaders: { Server: ["untrusted"] },
+    },
+    (result) => {
+      headersResult = result;
+    },
+  );
+  assert.deepEqual(headersResult, {
+    responseHeaders: { Server: ["untrusted"] },
+  });
+});
+
+test("installs webContents handlers that deny webviews, untrusted navigation, redirects, and popups", () => {
+  const registered = {};
+  const contents = {
+    on(event, handler) {
+      registered[event] = handler;
+    },
+    setWindowOpenHandler(handler) {
+      registered.windowOpen = handler;
+    },
+  };
+  const trustedUrl = "file:///opt/anchorage/dist/client/index.html";
+
+  installWebContentsSecurity(contents, {
+    isTrustedNavigation: (url) => url === trustedUrl,
+  });
+
+  const webviewEvent = preventableEvent();
+  registered["will-attach-webview"](webviewEvent);
+  assert.equal(webviewEvent.prevented, true);
+
+  const trustedNavigation = preventableEvent();
+  registered["will-navigate"](trustedNavigation, trustedUrl);
+  assert.equal(trustedNavigation.prevented, false);
+
+  const untrustedNavigation = preventableEvent();
+  registered["will-navigate"](untrustedNavigation, "https://evil.example/");
+  assert.equal(untrustedNavigation.prevented, true);
+
+  const untrustedRedirect = preventableEvent();
+  registered["will-redirect"](untrustedRedirect, "https://evil.example/");
+  assert.equal(untrustedRedirect.prevented, true);
+
+  assert.deepEqual(registered.windowOpen({ url: trustedUrl }), {
+    action: "deny",
+  });
+});
+
+function preventableEvent() {
+  return {
+    prevented: false,
+    preventDefault() {
+      this.prevented = true;
+    },
+  };
+}
+
+test("sandbox-disabling command line switches are detected and rejected", () => {
+  assert.deepEqual(findSandboxDisablingSwitches(["/usr/bin/anchorage", "%U"]), []);
+  assert.deepEqual(
+    findSandboxDisablingSwitches(["AppRun", "--no-sandbox", "%U"]),
+    ["--no-sandbox"],
+  );
+  // electron-builder's AppImage template is the concrete regression this guards.
+  assert.throws(
+    () => assertOSSandboxEnabled(["AppRun", "--no-sandbox", "%U"]),
+    /Chromium OS sandbox disabled: --no-sandbox/,
+  );
+  assert.throws(
+    () => assertOSSandboxEnabled(["anchorage", "--disable-setuid-sandbox=1"]),
+    /--disable-setuid-sandbox/,
+  );
+  assert.doesNotThrow(() => assertOSSandboxEnabled(["anchorage", "%U"]));
+});
+
+test("the packaged desktop entry does not disable the OS sandbox", async () => {
+  const config = await readFile(
+    new URL("../electron-builder.yml", import.meta.url),
+    "utf8",
+  );
+  const execLine = config.match(/^\s*Exec:\s*(.+)$/mu);
+  assert.ok(execLine, "linux.desktop.entry.Exec must be set explicitly");
+  assert.equal(execLine[1].trim(), "AppRun %U");
+  assert.deepEqual(findSandboxDisablingSwitches(execLine[1].trim().split(/\s+/u)), []);
+});

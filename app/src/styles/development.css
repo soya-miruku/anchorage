@@ -1,0 +1,1794 @@
+.dev-environments-screen,
+.extensions-screen {
+  padding: 22px 30px 26px;
+  overflow-y: auto;
+}
+
+.dev-environments-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.dev-environments-header h1,
+.extensions-screen > header h1 {
+  color: var(--anc-text-primary);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: normal;
+}
+
+.dev-environments-header p,
+.extensions-screen > header p {
+  margin-top: 4px;
+  color: var(--anc-text-muted);
+  font-size: 12.5px;
+}
+
+.dev-environments-grid,
+.extensions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dev-environment-card,
+.extension-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
+  background: var(--anc-panel);
+}
+
+.dev-environment-card {
+  position: relative;
+  gap: 12px;
+  padding: 18px;
+}
+
+.dev-environment-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.dev-environment-card__dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.dev-environment-card__dot--running {
+  background: var(--anc-accent);
+}
+
+.dev-environment-card__dot--stopped {
+  background: var(--anc-status-neutral);
+}
+
+.dev-environment-card__heading h2 {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-environment-card__state {
+  margin-left: auto;
+  padding: 2px 8px;
+  flex: none;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.dev-environment-card__state--running {
+  background: rgb(var(--anc-accent-rgb) / 12%);
+  color: var(--anc-accent);
+}
+
+.dev-environment-card__state--stopped {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-muted);
+}
+
+.dev-environment-card__repo {
+  overflow: hidden;
+  color: var(--anc-text-muted);
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-environment-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 21px;
+}
+
+.dev-environment-card__tags span {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+}
+
+.dev-environment-card__divider {
+  height: 1px;
+  background: var(--anc-line-border);
+}
+
+.dev-environment-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dev-environment-card__open,
+.dev-environment-card__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 29px;
+  border: 1px solid rgb(var(--anc-overlay-rgb) / 11%);
+  border-radius: 7px;
+  background: transparent;
+}
+
+.dev-environment-card__open {
+  flex: 1;
+  color: var(--anc-text-body);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dev-environment-card__more {
+  width: 29px;
+  padding: 0;
+  color: var(--anc-text-muted);
+}
+
+.dev-environment-card__open:hover,
+.dev-environment-card__more:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+}
+
+.dev-environment-card__menu-wrap {
+  position: relative;
+}
+
+.dev-environment-menu {
+  position: absolute;
+  z-index: 5;
+  top: 35px;
+  right: 0;
+  width: 122px;
+  padding: 5px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 8px;
+  background: var(--anc-surface-elevated);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.dev-environment-menu button {
+  width: 100%;
+  height: 29px;
+  padding: 0 9px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  text-align: left;
+}
+
+.dev-environment-menu button:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+}
+
+.dev-environment-menu .dev-environment-menu__delete {
+  color: var(--anc-danger);
+}
+
+.dev-environments-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  padding: 100px 0;
+  text-align: center;
+}
+
+.dev-environments-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px dashed rgb(var(--anc-overlay-rgb) / 18%);
+  border-radius: 14px;
+  color: var(--anc-text-faint);
+}
+
+.dev-environments-empty h2 {
+  color: var(--anc-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dev-environments-empty p {
+  max-width: 400px;
+  color: var(--anc-text-muted);
+  font-size: 12.5px;
+  text-wrap: pretty;
+}
+
+.dev-environments-empty .primary-button {
+  margin-top: 6px;
+  padding: 0 15px;
+}
+
+.dialog-backdrop {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--anc-scrim-soft);
+  backdrop-filter: blur(2px);
+}
+
+.create-environment-dialog {
+  width: 430px;
+  padding: 20px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 11px;
+  background: var(--anc-panel);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+}
+
+.create-environment-dialog__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.create-environment-dialog__heading h2 {
+  color: var(--anc-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.create-environment-dialog__heading p {
+  margin-top: 4px;
+  color: var(--anc-text-muted);
+  font-size: 12px;
+}
+
+.create-environment-dialog__heading > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
+}
+
+.create-environment-dialog__heading > button:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-primary);
+}
+
+.create-environment-dialog > label {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.create-environment-dialog > label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.create-environment-dialog input {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+}
+
+.create-environment-dialog input:focus {
+  border-color: rgb(var(--anc-accent-rgb) / 45%);
+}
+
+.create-environment-dialog input::placeholder {
+  color: var(--anc-text-faint);
+  opacity: 1;
+}
+
+.create-environment-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.extensions-screen > header {
+  margin-bottom: 20px;
+}
+
+.extension-card {
+  gap: 11px;
+  padding: 18px;
+}
+
+.extension-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.extension-card__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 9px;
+  color: var(--anc-on-accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.extension-card__heading > div {
+  min-width: 0;
+}
+
+.extension-card__heading h2 {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.extension-card__heading > div > span {
+  display: block;
+  margin-top: 2px;
+  color: var(--anc-text-dimmer);
+  font-size: 11px;
+}
+
+.extension-card > p {
+  min-height: 36px;
+  color: var(--anc-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.extension-card__metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+}
+
+.extension-card__metrics > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.extension-card__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 30px;
+  border: 1px solid var(--anc-action-primary);
+  border-radius: 7px;
+  background: var(--anc-action-primary);
+  color: var(--anc-on-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.extension-card__action:hover {
+  background: var(--anc-action-primary-hover);
+}
+
+.extension-card__action--installed {
+  border-color: rgb(var(--anc-accent-rgb) / 35%);
+  background: transparent;
+  color: var(--anc-accent);
+}
+
+.extension-card__action--installed:hover {
+  background: rgb(var(--anc-accent-rgb) / 8%);
+}
+
+/* Destructive confirmation dialogs (container delete, volume prune). */
+.primary-button--danger {
+  background: var(--anc-danger);
+  border-color: var(--anc-danger);
+  color: var(--anc-on-danger);
+}
+
+.primary-button--danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* `label.` rather than `.` on purpose: `.create-environment-dialog > label` sets display:block
+   at a higher specificity, which broke every checkbox and radio option inside a dialog into a
+   control on one line and its label on the next. */
+label.prune-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 4px;
+  color: var(--anc-text-body);
+  font-size: 12.5px;
+}
+
+label.prune-option > span {
+  display: block;
+  margin-bottom: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
+}
+
+.prune-option input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+  flex: 0 0 auto;
+}
+
+.prune-option small {
+  display: block;
+  margin-top: 3px;
+  color: var(--anc-text-faint);
+  font-size: 11px;
+}
+
+.prune-option code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--anc-input);
+  font-size: 11px;
+}
+
+.prune-preview {
+  margin-top: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 12px;
+}
+
+.prune-preview ul {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+.prune-preview li {
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+/* Shares the 30px screen gutter with the header above it and the table below it; without a
+   gutter the filter row sat flush against the content edge, out of line with both. */
+.images-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 30px 0;
+  margin-bottom: 12px;
+}
+
+.images-toolbar__search {
+  flex: 1 1 auto;
+  max-width: 340px;
+}
+
+.clean-up-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.prune-result {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 10px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 12.5px;
+}
+
+.prune-result ul {
+  margin: 7px 0 0;
+  padding-left: 16px;
+}
+
+.prune-result li {
+  font-size: 11.5px;
+  line-height: 1.7;
+}
+
+/* 30px gutters and the shared head chrome, so this table lines up with its own screen header
+   and reads as the same component as the containers, images and volumes tables. */
+.networks-table__head,
+.network-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.6fr)
+    minmax(0, 1.2fr);
+  gap: 14px;
+  align-items: center;
+  padding: 0 30px;
+}
+
+.networks-table__head {
+  height: 34px;
+  flex: none;
+  border-bottom: 1px solid var(--anc-line-strong);
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.networks-table__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.network-row {
+  height: 52px;
+  border-bottom: 1px solid var(--anc-line-hairline);
+  font-size: 12.5px;
+}
+
+.network-row:hover {
+  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+}
+
+.network-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.network-row__name strong {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pills describe the row, they are not the row: without this they stretch and squash as the
+   name grows. */
+.network-row__name .usage-pill {
+  flex: none;
+}
+
+.network-row__attached {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--anc-text-muted);
+}
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+  padding: 9px 13px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 9px;
+  background: var(--anc-input);
+  font-size: 12.5px;
+}
+
+.bulk-bar strong {
+  margin-right: 4px;
+}
+
+.ghost-button--danger {
+  color: var(--anc-danger);
+}
+
+.ghost-button--danger:hover:not(:disabled) {
+  background: rgb(var(--anc-danger-rgb) / 12%);
+}
+
+.container-row__select {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* Native checkboxes render with the platform's own control chrome, which reads as a pale
+   olive square against this palette. accent-color only tints the CHECKED fill, so the
+   unchecked box has to be drawn explicitly for the control to belong to the design system. */
+.container-row__select input[type="checkbox"],
+.container-table__head input[type="checkbox"],
+.prune-option input[type="checkbox"],
+.prune-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 3px;
+  background: var(--anc-input);
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.prune-option input[type="radio"] {
+  border-radius: 50%;
+}
+
+.container-row__select input[type="checkbox"]:hover,
+.container-table__head input[type="checkbox"]:hover,
+.prune-option input[type="checkbox"]:hover,
+.prune-option input[type="radio"]:hover {
+  border-color: rgb(var(--anc-accent-rgb) / 60%);
+}
+
+.container-row__select input[type="checkbox"]::before,
+.container-table__head input[type="checkbox"]::before,
+.prune-option input[type="checkbox"]::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  transform: scale(0);
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  background: var(--anc-on-accent);
+  transition: transform 120ms ease;
+}
+
+.prune-option input[type="radio"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: scale(0);
+  background: var(--anc-on-accent);
+  transition: transform 120ms ease;
+}
+
+.container-row__select input[type="checkbox"]:checked,
+.container-table__head input[type="checkbox"]:checked,
+.container-table__head input[type="checkbox"]:indeterminate,
+.prune-option input[type="checkbox"]:checked,
+.prune-option input[type="radio"]:checked {
+  border-color: rgb(var(--anc-accent-rgb));
+  background: rgb(var(--anc-accent-rgb));
+}
+
+.container-row__select input[type="checkbox"]:checked::before,
+.container-table__head input[type="checkbox"]:checked::before,
+.prune-option input[type="checkbox"]:checked::before,
+.prune-option input[type="radio"]:checked::before {
+  transform: scale(1);
+}
+
+/* Partial selection is neither checked nor unchecked: a bar, not a tick. */
+.container-table__head input[type="checkbox"]:indeterminate::before {
+  transform: scale(1);
+  clip-path: none;
+  width: 7px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.container-row__select input[type="checkbox"]:focus-visible,
+.container-table__head input[type="checkbox"]:focus-visible,
+.prune-option input[type="checkbox"]:focus-visible,
+.prune-option input[type="radio"]:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 55%);
+  outline-offset: 2px;
+}
+
+.container-row__select {
+  gap: 10px;
+}
+
+.container-row__select .status-dot {
+  flex: 0 0 auto;
+}
+
+.create-container-dialog {
+  max-height: 78vh;
+  overflow-y: auto;
+}
+
+.create-container-dialog textarea {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.create-container-dialog textarea::placeholder {
+  color: var(--anc-text-faint);
+  opacity: 1;
+}
+
+/* Every dialog select, not only the run-a-container one: the resources dialog's restart
+   policy had no rule at all and rendered as raw platform chrome. */
+.create-environment-dialog select {
+  width: 100%;
+  height: 34px;
+  padding: 0 30px 0 11px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  outline: 0;
+  background-color: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.create-container-dialog textarea:focus,
+.create-environment-dialog select:focus {
+  border-color: rgb(var(--anc-accent-rgb) / 45%);
+}
+
+/* Inline with the container name; the identity cell is a column flex, so a bare span would
+   stretch to full width and push the short id onto a third line, breaking the fixed row
+   height the virtualized list depends on. */
+.container-identity__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+/* A compose project is an identifier, so it is set in the mono face like the image reference
+   and the short id. Declared rather than inherited: the identity cell is sans. */
+.compose-badge {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgb(var(--anc-accent-rgb) / 16%);
+  color: var(--anc-text-body);
+  font-family: var(--anc-font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 15px;
+  letter-spacing: 0.02em;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar__context select {
+  padding: 2px 20px 2px 6px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 6px;
+  background-color: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+/* Native select chrome is drawn by the platform, not the palette: on a dark theme over a
+   light OS (and the reverse) the control and its arrow read as foreign. The caret below is
+   two gradients in currentColor, so it tracks whatever the theme sets on the control. */
+select.filter-button,
+.create-environment-dialog select,
+.exec-toolbar select,
+.statusbar__context select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-repeat: no-repeat, no-repeat;
+  background-size: 5px 5px, 5px 5px;
+}
+
+select.filter-button {
+  padding-right: 30px;
+  background-position:
+    right 17px center,
+    right 13px center;
+}
+
+.create-environment-dialog select {
+  background-position:
+    right 17px center,
+    right 13px center;
+}
+
+.exec-toolbar select {
+  background-position:
+    right 13px center,
+    right 9px center;
+}
+
+.statusbar__context select {
+  background-position:
+    right 11px center,
+    right 7px center;
+}
+
+/* The dropdown list itself is a platform popup; give it the surface colours at least so the
+   options are legible in both modes. */
+select option {
+  background-color: var(--anc-surface-elevated);
+  color: var(--anc-text-primary);
+}
+
+.sortable-header {
+  display: flex;
+  min-width: 0;
+}
+
+.sortable-header--end {
+  justify-content: flex-end;
+}
+
+.sortable-header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  /* Table headers are uppercase in the design system; the label prop is sentence case so the
+     accessible name reads naturally to screen readers. */
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sortable-header button:hover,
+.sortable-header[aria-sort="ascending"] button,
+.sortable-header[aria-sort="descending"] button {
+  color: var(--anc-text-body);
+}
+
+.sortable-header button:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 55%);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* The host Files, Processes and Changes tabs render into this wrapper. It had no rule at all,
+   so those three tabs sat flush against the window edge while every other detail tab uses the
+   30px gutter of .detail-scroll-panel. */
+.detail-panel {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 30px 24px;
+}
+
+.processes-table {
+  overflow: hidden;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+}
+
+.image-row--clickable {
+  cursor: pointer;
+}
+
+.image-row--clickable:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 55%);
+  outline-offset: -2px;
+}
+
+.image-detail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  z-index: 5;
+  overflow-y: auto;
+  padding: 18px;
+  border-left: 1px solid var(--anc-line-strong);
+  background: var(--anc-panel);
+}
+
+/* The close control now sits inside .image-detail__actions beside Save, so this can no
+   longer be a direct child of the header. :not(.ghost-button) keeps it aimed at the icon
+   button only — Save is a normal labelled button and must not be squared off to 28px. */
+.image-detail__actions > button:not(.ghost-button) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
+}
+
+.image-detail__actions > button:not(.ghost-button):hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-primary);
+}
+
+.image-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Keeps Save beside the close control instead of letting it stretch the header row. */
+.image-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.image-detail__actions > .ghost-button {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 11.5px;
+}
+
+.image-detail__header h2 {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.image-detail__facts {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 7px 12px;
+  margin: 0 0 18px;
+  font-size: 12.5px;
+}
+
+.image-detail__facts dt {
+  color: var(--anc-text-faint);
+}
+
+.image-detail__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.image-detail__section {
+  margin-top: 18px;
+}
+
+.image-detail__section h3 {
+  margin-bottom: 9px;
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+/* Lists here are layout, not prose: without the reset the UA's 40px indent and markers push
+   the tag and layer stacks out of the panel's 18px gutter. */
+.image-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  font-size: 11.5px;
+  list-style: none;
+}
+
+.image-detail__tags li {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgb(var(--anc-accent-rgb) / 14%);
+  color: var(--anc-text-body);
+}
+
+.image-detail__layers {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  margin: 0;
+  padding: 0;
+  font-size: 11.5px;
+  list-style: none;
+}
+
+.image-detail__layer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.image-detail__layer-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  overflow: hidden;
+}
+
+.image-detail__layer-track span {
+  display: block;
+  height: 100%;
+  background: rgb(var(--anc-accent-rgb) / 70%);
+}
+
+.image-detail__layers code {
+  display: block;
+  margin-top: 5px;
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.files-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.files-breadcrumb button {
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--anc-text-body);
+  font: inherit;
+  cursor: pointer;
+}
+
+.files-breadcrumb button:hover,
+.files-breadcrumb button[aria-current="location"] {
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+}
+
+/* Scoped to the host browser's own panel. `.files-row` is also the fixture Files tab's row
+   class (detail.css), which renders five cells into a five-column grid; unscoped, this
+   four-column rule loaded later and shattered that table into two overflowing rows. */
+.container-files .files-table__head,
+.container-files .files-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.2fr);
+  gap: 12px;
+  align-items: center;
+  padding: 0 16px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.container-files .files-table__head {
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.container-files .files-row {
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.container-files .files-row:hover {
+  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+}
+
+.files-row__name,
+.files-row--up button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--anc-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-row__name--dir {
+  color: var(--anc-accent);
+  font-weight: 500;
+}
+
+.files-truncated {
+  margin: 8px 0;
+  color: var(--anc-text-faint);
+  font-size: 11.5px;
+}
+
+.file-preview {
+  margin-top: 14px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 9px;
+  background: var(--anc-input);
+}
+
+.file-preview header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--anc-line-hairline);
+  font-size: 12px;
+}
+
+.file-preview header strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-preview header button {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--anc-text-faint);
+  cursor: pointer;
+}
+
+.file-preview pre {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: 11px 12px;
+  color: var(--anc-text-mono);
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.file-preview > p {
+  padding: 11px 12px;
+}
+
+.processes-row {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px;
+  height: 34px;
+  align-items: center;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 11.5px;
+  overflow: hidden;
+}
+
+.processes-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Same header treatment as every other table in the app. The titles come from the daemon in
+   whatever case it uses, so the casing is forced here rather than assumed. */
+.processes-row--head {
+  border-top: 0;
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  list-style: none;
+}
+
+.changes-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.changes-list code {
+  overflow: hidden;
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-badge {
+  min-width: 66px;
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.change-badge--added {
+  background: rgb(var(--anc-success-rgb) / 22%);
+  color: var(--anc-success);
+}
+
+.change-badge--modified {
+  background: rgb(var(--anc-warning-rgb) / 22%);
+  color: var(--anc-warning);
+}
+
+.change-badge--deleted {
+  background: rgb(var(--anc-danger-rgb) / 22%);
+  color: var(--anc-danger);
+}
+
+.change-badge--unknown {
+  background: var(--anc-input);
+  color: var(--anc-text-muted);
+}
+
+.exec-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.exec-toolbar select,
+.exec-toolbar input {
+  padding: 4px 8px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 6px;
+  background-color: var(--anc-input);
+  color: var(--anc-text-primary);
+  font: inherit;
+  font-size: 11.5px;
+}
+
+.exec-toolbar select {
+  padding-right: 24px;
+}
+
+.exec-toolbar input {
+  width: 150px;
+}
+
+.exec-toolbar input::placeholder {
+  color: var(--anc-text-faint);
+  opacity: 1;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.files-upload {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* The real input is invisible, so it can never show its own focus ring. The label it hides
+   behind has to carry the ring, otherwise this control is a silent keyboard stop. */
+.files-upload:focus-within {
+  outline: 1px solid var(--anc-accent);
+  outline-offset: 2px;
+}
+
+.files-upload input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.files-row__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.files-row__download {
+  border: 0;
+  background: none;
+  color: var(--anc-text-faint);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.files-row__download:hover {
+  color: var(--anc-text-primary);
+}
+
+.detail-rename input {
+  padding: 3px 8px;
+  border: 1px solid rgb(var(--anc-accent-rgb) / 55%);
+  border-radius: 7px;
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-size: 19px;
+  font-weight: 600;
+  font-family: inherit;
+  min-width: 240px;
+}
+
+.host-pull-panel__actions {
+  display: flex;
+  gap: 9px;
+}
+
+/* ---------------------------------------------------------------- Compose ---- */
+
+.compose-table__head,
+.compose-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.6fr) minmax(0, 1.6fr) 90px 110px minmax(0, 340px);
+  gap: 14px;
+  align-items: center;
+  padding: 0 30px;
+}
+
+.compose-table__head {
+  height: 34px;
+  flex: none;
+  border-bottom: 1px solid var(--anc-line-strong);
+  background: var(--anc-table-head);
+  color: var(--anc-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.compose-table__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.compose-group {
+  border-bottom: 1px solid var(--anc-line-hairline);
+}
+
+.compose-row {
+  height: 46px;
+}
+
+.compose-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* A CSS triangle rather than an icon: it has to rotate, and the handoff's icon set has
+   no disclosure glyph to rotate. */
+.compose-row__caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--anc-text-muted);
+  transition: transform 120ms ease;
+}
+
+.compose-row__caret--open {
+  transform: rotate(90deg);
+}
+
+.compose-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.compose-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(var(--anc-overlay-rgb) / 7%);
+  color: var(--anc-text-secondary);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.compose-state b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.compose-state--running {
+  background: rgb(var(--anc-success-rgb) / 14%);
+  color: var(--anc-success);
+}
+
+.compose-row__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.compose-row__actions > .ghost-button {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.compose-row__down:not(:disabled) {
+  color: var(--anc-danger);
+}
+
+.compose-services {
+  padding: 0 30px 12px 52px;
+}
+
+.compose-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 110px 150px minmax(0, 1.4fr);
+  gap: 14px;
+  align-items: center;
+  height: 30px;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 11.5px;
+}
+
+.compose-service__name {
+  color: var(--anc-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A service row links through to the container detail it already maps to, so Compose does
+   not need its own logs, exec or file surfaces. */
+.compose-service__link {
+  padding: 0;
+  background: transparent;
+  color: var(--anc-accent);
+  font-size: inherit;
+  text-align: left;
+}
+
+.compose-service__link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-compose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 10px;
+}
+
+.dashboard-compose-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: rgb(var(--anc-overlay-rgb) / 3%);
+  text-align: left;
+}
+
+.dashboard-compose-card:hover {
+  border-color: rgb(var(--anc-accent-rgb) / 40%);
+}
+
+.dashboard-compose-card__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-compose-card__count {
+  flex: none;
+  color: var(--anc-success);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-compose-card__count--idle {
+  color: var(--anc-text-muted);
+}
+
+.dashboard-compose-card__count small {
+  margin-left: 2px;
+  color: var(--anc-text-muted);
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+/* Volume contents are read through a helper container, so the browser is a panel over the
+   list rather than a route: it owns a lifecycle that ends when it closes. */
+.volume-browser {
+  position: absolute;
+  z-index: 15;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 68%);
+  padding: 20px 22px;
+  overflow-y: auto;
+  border-left: 1px solid var(--anc-line-strong);
+  background: var(--anc-panel);
+  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.34);
+}
+
+.volume-browser__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.volume-browser__header h2 {
+  color: var(--anc-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.volume-browser__header p {
+  margin-top: 3px;
+  font-size: 11.5px;
+}
+
+.volume-browser__header > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  padding: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
+}
+
+.volume-browser__header > button:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-primary);
+}
+
+.volume-row__browse {
+  margin-right: 8px;
+  padding: 2px 8px;
+  border: 1px solid rgb(var(--anc-overlay-rgb) / 12%);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anc-text-secondary);
+  font-size: 10.5px;
+}
+
+.volume-row__browse:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-primary);
+}
+
+/* ------------------------------------------------------------ Scout ---- */
+
+.scout-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.scout-pill,
+.scout-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.scout-pill b {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.scout-pill--critical,
+.scout-tag--critical {
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger);
+}
+
+.scout-pill--high,
+.scout-tag--high {
+  background: rgb(var(--anc-warning-rgb) / 16%);
+  color: var(--anc-warning);
+}
+
+.scout-pill--medium,
+.scout-tag--medium,
+.scout-pill--low,
+.scout-tag--low,
+.scout-pill--unspecified,
+.scout-tag--unspecified {
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  color: var(--anc-text-secondary);
+}
+
+/* A zero count still renders, so the severity scale reads as a scale rather than a
+   list of whatever happened to be found. */
+.scout-pill--empty {
+  background: rgb(var(--anc-overlay-rgb) / 5%);
+  color: var(--anc-text-faint);
+}
+
+.scout-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scout-findings {
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.scout-findings > li {
+  padding: 9px 0;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.scout-findings > li:first-child {
+  border-top: 0;
+}
+
+.scout-finding__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.scout-finding__head strong {
+  color: var(--anc-text-primary);
+}
+
+.scout-finding__head > span:last-child {
+  color: var(--anc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.scout-finding__body {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 3px;
+  color: var(--anc-text-secondary);
+  font-size: 11px;
+}
+
+.scout-fix {
+  flex: none;
+  color: var(--anc-success);
+}
+
+/* An unfixable CVE is the one an operator cannot act on, so it must not read as advice. */
+.scout-fix--none {
+  color: var(--anc-text-muted);
+}

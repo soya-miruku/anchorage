@@ -1,0 +1,165 @@
+:root[data-theme="docker"][data-color-mode="dark"] {
+  color-scheme: dark;
+
+  --anc-desk: #00091b;
+  --anc-desk-glow: #001f55;
+  --anc-app: #00153c;
+  --anc-panel: #071f47;
+  --anc-input: #031331;
+  --anc-code: #000f2d;
+  --anc-table-head: #08234e;
+  --anc-surface-elevated: #0b2b5a;
+  --anc-status-neutral: #5a78a5;
+  --anc-on-accent: #ffffff;
+  --anc-on-danger: #210b0b;
+
+  --anc-accent: #6f96ff;
+  --anc-accent-hover: #8eb0ff;
+  --anc-accent-deep: #2560ff;
+  --anc-action-primary: #2560ff;
+  --anc-action-primary-hover: #1749d2;
+  --anc-success: #46c991;
+  --anc-warning: #f0b45a;
+  --anc-danger: #ff7b72;
+  --anc-violet: #b59cff;
+  --anc-blue: #74a7ff;
+
+  --anc-accent-rgb: 111 150 255;
+  --anc-action-primary-rgb: 37 96 255;
+  --anc-success-rgb: 70 201 145;
+  --anc-warning-rgb: 240 180 90;
+  --anc-danger-rgb: 255 123 114;
+  --anc-violet-rgb: 181 156 255;
+  --anc-blue-rgb: 116 167 255;
+  --anc-overlay-rgb: 255 255 255;
+  --anc-contrast-rgb: 255 255 255;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 0 15 45;
+  --anc-code-rgb: 0 15 45;
+  --anc-inset-rgb: 0 9 27;
+
+  --anc-text-primary: #f4f7ff;
+  --anc-text-strong: #e9f0ff;
+  --anc-text-body: #d9e5fc;
+  --anc-text-mono: #c6d7f7;
+  --anc-text-secondary: #b8caed;
+  --anc-text-muted: #9db3db;
+  --anc-text-dim: #8da5cf;
+  --anc-text-dimmer: #7f98c4;
+  --anc-text-faint: #728bb8;
+  --anc-text-quiet: #728bb8;
+  --anc-text-subdued: #7890ba;
+  --anc-text-emphasis-muted: #b3c7eb;
+  --anc-update-text: #d9e5fc;
+
+  --anc-line-hairline: rgba(217, 229, 252, 0.05);
+  --anc-line-border: rgba(217, 229, 252, 0.08);
+  --anc-line-strong: rgba(217, 229, 252, 0.11);
+  --anc-line-control: rgba(217, 229, 252, 0.16);
+
+  --anc-scrim: rgba(0, 9, 27, 0.78);
+  --anc-scrim-soft: rgba(0, 9, 27, 0.68);
+  --anc-control-neutral: #31517f;
+  --anc-control-neutral-hover: #476792;
+  --anc-control-close: #693b4a;
+  --anc-error-surface: #351d31;
+  --anc-error-text: #ffb4ae;
+  --anc-scrollbar: rgba(217, 229, 252, 0.14);
+  --anc-scrollbar-hover: rgba(217, 229, 252, 0.26);
+
+  --anc-terminal-background: #000f2d;
+  --anc-terminal-foreground: #f4f7ff;
+  --anc-terminal-cursor: #2560ff;
+  --anc-terminal-selection: #1749d2;
+  --anc-terminal-black: #000f2d;
+  --anc-terminal-red: #ff7b72;
+  --anc-terminal-green: #46c991;
+  --anc-terminal-yellow: #f0b45a;
+  --anc-terminal-blue: #74a7ff;
+  --anc-terminal-magenta: #b59cff;
+  --anc-terminal-cyan: #58d4e8;
+  --anc-terminal-white: #f4f7ff;
+}
+
+:root[data-theme="docker"][data-color-mode="light"] {
+  color-scheme: light;
+
+  --anc-desk: #e9f0ff;
+  --anc-desk-glow: #d9e5fc;
+  --anc-app: #ffffff;
+  --anc-panel: #f2f6ff;
+  --anc-input: #ffffff;
+  --anc-code: #edf3ff;
+  --anc-table-head: #eaf1ff;
+  --anc-surface-elevated: #ffffff;
+  --anc-status-neutral: #7186a9;
+  --anc-on-accent: #ffffff;
+  --anc-on-danger: #ffffff;
+
+  --anc-accent: #2560ff;
+  --anc-accent-hover: #1749d2;
+  --anc-accent-deep: #123cae;
+  --anc-action-primary: #2560ff;
+  --anc-action-primary-hover: #1749d2;
+  --anc-success: #13764b;
+  --anc-warning: #8a5700;
+  --anc-danger: #bd2c2c;
+  --anc-violet: #6846c7;
+  --anc-blue: #1255c7;
+
+  --anc-accent-rgb: 37 96 255;
+  --anc-action-primary-rgb: 37 96 255;
+  --anc-success-rgb: 19 118 75;
+  --anc-warning-rgb: 138 87 0;
+  --anc-danger-rgb: 189 44 44;
+  --anc-violet-rgb: 104 70 199;
+  --anc-blue-rgb: 18 85 199;
+  --anc-overlay-rgb: 0 21 60;
+  --anc-contrast-rgb: 0 21 60;
+  --anc-shadow-rgb: 0 21 60;
+  --anc-terminal-rgb: 0 21 60;
+  --anc-code-rgb: 0 21 60;
+  --anc-inset-rgb: 0 21 60;
+
+  --anc-text-primary: #00153c;
+  --anc-text-strong: #092552;
+  --anc-text-body: #1d3967;
+  --anc-text-mono: #284672;
+  --anc-text-secondary: #405a82;
+  --anc-text-muted: #576e92;
+  --anc-text-dim: #576e92;
+  --anc-text-dimmer: #576e92;
+  --anc-text-faint: #576e92;
+  --anc-text-quiet: #576e92;
+  --anc-text-subdued: #576e92;
+  --anc-text-emphasis-muted: #405a82;
+  --anc-update-text: #123cae;
+
+  --anc-line-hairline: rgba(0, 21, 60, 0.055);
+  --anc-line-border: rgba(0, 21, 60, 0.09);
+  --anc-line-strong: rgba(0, 21, 60, 0.13);
+  --anc-line-control: rgba(0, 21, 60, 0.2);
+
+  --anc-scrim: rgba(0, 21, 60, 0.34);
+  --anc-scrim-soft: rgba(0, 21, 60, 0.24);
+  --anc-control-neutral: #a7b8d5;
+  --anc-control-neutral-hover: #8ea4c6;
+  --anc-control-close: #dda09d;
+  --anc-error-surface: #fff0ef;
+  --anc-error-text: #9b2424;
+  --anc-scrollbar: rgba(0, 21, 60, 0.18);
+  --anc-scrollbar-hover: rgba(0, 21, 60, 0.3);
+
+  --anc-terminal-background: #f4f7ff;
+  --anc-terminal-foreground: #00153c;
+  --anc-terminal-cursor: #2560ff;
+  --anc-terminal-selection: #c4d5ff;
+  --anc-terminal-black: #00153c;
+  --anc-terminal-red: #bd2c2c;
+  --anc-terminal-green: #13764b;
+  --anc-terminal-yellow: #8a5700;
+  --anc-terminal-blue: #1255c7;
+  --anc-terminal-magenta: #6846c7;
+  --anc-terminal-cyan: #08788c;
+  --anc-terminal-white: #6b7d9c;
+}

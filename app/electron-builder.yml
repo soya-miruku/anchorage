@@ -1,0 +1,64 @@
+appId: io.anchorage.desktop
+productName: Anchorage
+electronVersion: 43.2.0
+asar: true
+compression: maximum
+npmRebuild: false
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - package.json
+  - electron/**/*.mjs
+  - electron/preload.cjs
+  - "!electron/**/*.test.mjs"
+  - dist/client/**/*
+  - "!**/*.map"
+
+extraResources:
+  - from: build/core
+    to: core
+    filter:
+      - anchorage-core
+      - manifest.json
+
+electronLanguages:
+  - en-GB
+  - en-US
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  # A deb target requires a canonical project homepage. Keep it disabled until
+  # the project publishes one; substituting an unrelated or invented URL would
+  # make the installed package metadata incorrect.
+  category: Development
+  icon: build/icon.png
+  executableName: anchorage
+  syncDesktopName: true
+  synopsis: A fast desktop interface for Docker Engine and the installed Docker CLI.
+  description: >-
+    Anchorage is a performant desktop interface for inspecting and operating
+    Docker through a capability-aware native core and the installed Docker CLI.
+  maintainer: Anchorage Contributors
+  vendor: Anchorage Contributors
+  desktop:
+    entry:
+      Name: Anchorage
+      GenericName: Docker Container Manager
+      Comment: Inspect and operate Docker from a native desktop interface
+      Categories: Development;System;
+      Keywords: Docker;Container;Image;Volume;Build;Compose;
+      StartupWMClass: anchorage
+      X-GNOME-UsesNotifications: "false"
+      # electron-builder's AppImage template defaults this to `AppRun --no-sandbox %U`, which
+      # disables the Chromium OS sandbox (seccomp-bpf + namespaces) for every desktop-integrated
+      # launch. That is a different control from webPreferences.sandbox and must stay enabled.
+      # main.mjs asserts at startup that the flag is absent.
+      Exec: AppRun %U
+
+artifactName: Anchorage-${version}-${arch}.${ext}

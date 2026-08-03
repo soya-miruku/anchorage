@@ -1,0 +1,1763 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://anchorage.local/protocol/v1.schema.json",
+  "title": "Anchorage Core JSON-lines protocol v1",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" },
+    { "$ref": "#/$defs/event" }
+  ],
+  "$defs": {
+    "id": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 256 },
+        { "type": "integer" }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "details": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "request": {
+      "oneOf": [
+        { "$ref": "#/$defs/healthRequest" },
+        { "$ref": "#/$defs/capabilitiesRequest" },
+        { "$ref": "#/$defs/systemSnapshotRequest" },
+        { "$ref": "#/$defs/systemActionRequest" },
+        { "$ref": "#/$defs/listRequest" },
+        { "$ref": "#/$defs/containerInspectRequest" },
+        { "$ref": "#/$defs/containerStatsRequest" },
+        { "$ref": "#/$defs/containersStatsBatchRequest" },
+        { "$ref": "#/$defs/containerFilesRequest" },
+        { "$ref": "#/$defs/containerFileReadRequest" },
+        { "$ref": "#/$defs/containerFileWriteRequest" },
+        { "$ref": "#/$defs/containerTopRequest" },
+        { "$ref": "#/$defs/containerDiffRequest" },
+        { "$ref": "#/$defs/actionRequest" },
+        { "$ref": "#/$defs/containersCreateRequest" },
+        { "$ref": "#/$defs/containersExportRequest" },
+        { "$ref": "#/$defs/composeListRequest" },
+        { "$ref": "#/$defs/composePsRequest" },
+        { "$ref": "#/$defs/composeActionRequest" },
+        { "$ref": "#/$defs/volumeFilesRequest" },
+        { "$ref": "#/$defs/volumeFileReadRequest" },
+        { "$ref": "#/$defs/imagesScoutRequest" },
+        { "$ref": "#/$defs/imagesListRequest" },
+        { "$ref": "#/$defs/imagesActionRequest" },
+        { "$ref": "#/$defs/imagesInspectRequest" },
+        { "$ref": "#/$defs/imagesSearchRequest" },
+        { "$ref": "#/$defs/containersCommitRequest" },
+        { "$ref": "#/$defs/volumesListRequest" },
+        { "$ref": "#/$defs/volumesActionRequest" },
+        { "$ref": "#/$defs/networksListRequest" },
+        { "$ref": "#/$defs/networksActionRequest" },
+        { "$ref": "#/$defs/cliRequest" },
+        { "$ref": "#/$defs/sessionStartRequest" },
+        { "$ref": "#/$defs/sessionInputRequest" },
+        { "$ref": "#/$defs/sessionResizeRequest" },
+        { "$ref": "#/$defs/sessionSignalRequest" },
+        { "$ref": "#/$defs/sessionCancelRequest" },
+        { "$ref": "#/$defs/sessionAckRequest" }
+      ]
+    },
+    "healthRequest": {
+      "type": "object",
+      "required": ["id", "method"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "health" },
+        "params": {
+          "type": "object",
+          "maxProperties": 0,
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilitiesRequest": {
+      "type": "object",
+      "required": ["id", "method"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.capabilities" },
+        "params": {
+          "type": "object",
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "systemSnapshotRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.snapshot" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "includeDiskUsage": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "listRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "all": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerInspectRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.inspect" },
+        "params": { "$ref": "#/$defs/containerIdentityParams" }
+      },
+      "additionalProperties": false
+    },
+    "containerStatsRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.stats" },
+        "params": { "$ref": "#/$defs/containerIdentityParams" }
+      },
+      "additionalProperties": false
+    },
+    "containerIdentityParams": {
+      "type": "object",
+      "required": ["context", "id"],
+      "properties": {
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "actionOptions": {
+      "type": "object",
+      "properties": {
+        "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "force": { "type": "boolean" },
+        "volumes": { "type": "boolean" },
+        "confirmed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "imagesSearchRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "images.search" },
+        "params": {
+          "type": "object",
+          "required": ["context", "term"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "term": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^\\u0000\\r\\n]+$" },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "composeProject": {
+      "description": "Compose project name. Becomes an argv element and a label selector; Compose itself normalizes to this shape.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "imagesScoutRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "images.scout" },
+        "params": {
+          "type": "object",
+          "required": ["context", "reference"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumeFilesRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.files" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumeFileReadRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.fileRead" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name", "path"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "path": { "type": "string", "minLength": 2, "maxLength": 4096, "pattern": "^/" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "composeListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "compose.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "all": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "composePsRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "compose.ps" },
+        "params": {
+          "type": "object",
+          "required": ["context", "project"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "project": { "$ref": "#/$defs/composeProject" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "composeActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "compose.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "project", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "project": { "$ref": "#/$defs/composeProject" },
+            "action": { "enum": ["up", "down", "start", "stop", "restart"] },
+            "configFiles": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^(?!-)[^\\u0000\\r\\n]+$"
+              }
+            },
+            "confirmed": { "type": "boolean" },
+            "removeVolumes": { "type": "boolean" },
+            "removeOrphans": { "type": "boolean" },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+            "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "up" } } },
+              "then": {
+                "required": ["configFiles"],
+                "properties": { "confirmed": false, "removeVolumes": false }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "down" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": {
+                  "confirmed": { "const": true },
+                  "configFiles": false
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": { "action": { "enum": ["start", "stop", "restart"] } }
+              },
+              "then": {
+                "properties": {
+                  "configFiles": false,
+                  "confirmed": false,
+                  "removeVolumes": false,
+                  "removeOrphans": false
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containersExportRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.export" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "archivePath"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "archivePath": { "$ref": "#/$defs/archivePath" },
+            "cwd": { "type": "string", "minLength": 1 },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+            "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containersCommitRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.commit" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "repository"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "repository": { "type": "string", "minLength": 1, "maxLength": 2048, "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$" },
+            "tag": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$" },
+            "comment": { "type": "string", "maxLength": 1024 },
+            "author": { "type": "string", "maxLength": 255 },
+            "pause": { "type": "boolean" },
+            "changes": { "type": "array", "maxItems": 64, "items": { "type": "string", "maxLength": 1024 } }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "imagesInspectRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "images.inspect" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerFilesRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.files" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/[^\\u0000\\r\\n]*$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerFileReadRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.fileRead" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "path"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/[^\\u0000\\r\\n]*$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerFileWriteRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.fileWrite" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "path", "name", "content"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/[^\\u0000\\r\\n]*$" },
+            "name": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^/\\\\\\u0000]+$" },
+            "content": { "type": "string", "maxLength": 4194304 },
+            "mode": { "type": "integer", "minimum": 1, "maximum": 511 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerTopRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.top" },
+        "params": { "$ref": "#/$defs/containerIdentityParams" }
+      },
+      "additionalProperties": false
+    },
+    "containerDiffRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.diff" },
+        "params": { "$ref": "#/$defs/containerIdentityParams" }
+      },
+      "additionalProperties": false
+    },
+    "containerIdentityParams": {
+      "type": "object",
+      "required": ["context", "id"],
+      "properties": {
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "containersStatsBatchRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.statsBatch" },
+        "params": {
+          "type": "object",
+          "required": ["context", "ids"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "ids": {
+              "type": "array",
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containersCreateRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.create" },
+        "params": {
+          "type": "object",
+          "required": ["context", "image"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "image": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "command": {
+              "type": "array",
+              "maxItems": 256,
+              "items": { "type": "string", "maxLength": 4096 }
+            },
+            "env": {
+              "type": "array",
+              "maxItems": 512,
+              "items": { "type": "string", "pattern": "^[^=]+=", "maxLength": 4096 }
+            },
+            "ports": {
+              "type": "object",
+              "maxProperties": 128,
+              "propertyNames": { "pattern": "^[0-9]{1,5}$" },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9]{1,5}(/(tcp|udp|sctp))?$"
+              }
+            },
+            "binds": {
+              "type": "array",
+              "maxItems": 128,
+              "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+            },
+            "labels": { "$ref": "#/$defs/stringMap" },
+            "restartPolicy": {
+              "enum": ["no", "always", "unless-stopped", "on-failure"]
+            },
+            "network": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "maxLength": 255
+            },
+            "autoRemove": { "type": "boolean" },
+            "start": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "networksListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "networks.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "networksActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "networks.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": {
+              "enum": ["create", "remove", "prune", "connect", "disconnect"]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{12,64}$" },
+            "containerId": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "driver": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "subnet": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "gateway": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "internal": { "type": "boolean" },
+            "attachable": { "type": "boolean" },
+            "enableIpv6": { "type": "boolean" },
+            "force": { "type": "boolean" },
+            "labels": { "$ref": "#/$defs/stringMap" },
+            "options": { "$ref": "#/$defs/stringMap" },
+            "filters": { "$ref": "#/$defs/pruneFilters" },
+            "confirmed": { "type": "boolean" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "create" } } },
+              "then": {
+                "required": ["name"],
+                "properties": {
+                  "id": false,
+                  "containerId": false,
+                  "force": false,
+                  "filters": false,
+                  "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["id", "confirmed"],
+                "properties": {
+                  "confirmed": { "const": true },
+                  "name": false,
+                  "containerId": false,
+                  "filters": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "prune" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": {
+                  "confirmed": { "const": true },
+                  "id": false,
+                  "name": false,
+                  "containerId": false
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "action": { "enum": ["connect", "disconnect"] }
+                }
+              },
+              "then": {
+                "required": ["id", "containerId"],
+                "properties": { "name": false, "filters": false, "confirmed": false }
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "systemActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action", "confirmed"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": { "const": "prune" },
+            "all": { "type": "boolean" },
+            "volumes": { "type": "boolean" },
+            "confirmed": { "const": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "actionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+            "action": { "enum": ["start", "stop", "restart", "remove"] },
+            "options": { "$ref": "#/$defs/actionOptions" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "start" } } },
+              "then": {
+                "properties": {
+                  "options": {
+                    "type": "object",
+                    "maxProperties": 0
+                  }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "enum": ["stop", "restart"] } } },
+              "then": {
+                "properties": {
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "force": false,
+                      "volumes": false,
+                      "confirmed": false
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["options"],
+                "properties": {
+                  "options": {
+                    "type": "object",
+                    "required": ["confirmed"],
+                    "properties": {
+                      "timeoutSeconds": false,
+                      "confirmed": { "const": true }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "pruneFilters": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      }
+    },
+    "archivePath": {
+      "description": "Absolute host path for save/load/export. A leading '-' is rejected because the value becomes an argv element next to a Docker flag; the core additionally canonicalizes the parent directory against the working-directory allowlist.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!-)(?:/|[A-Za-z]:[\\\\/])[^\\u0000\\r\\n]*$"
+    },
+    "stringMap": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": { "minLength": 1, "maxLength": 4096 },
+      "additionalProperties": { "type": "string", "maxLength": 65536 }
+    },
+    "imagesListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "images.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "all": { "type": "boolean" },
+            "includeDangling": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "imagesActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "images.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": { "enum": ["remove", "prune", "pull", "save", "load", "tag"] },
+            "id": { "type": "string", "pattern": "^sha256:[A-Fa-f0-9]{64}$" },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048,
+              "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$"
+            },
+            "archivePath": { "$ref": "#/$defs/archivePath" },
+            "force": { "type": "boolean" },
+            "noPrune": { "type": "boolean" },
+            "filters": { "$ref": "#/$defs/pruneFilters" },
+            "confirmed": { "type": "boolean" },
+            "cwd": { "type": "string", "minLength": 1 },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+            "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 },
+            "maxOutputBytes": { "type": "integer", "minimum": 0, "maximum": 1099511627776 }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["id", "confirmed"],
+                "properties": {
+                  "id": {},
+                  "reference": {},
+                  "confirmed": { "const": true },
+                  "filters": false,
+                  "archivePath": false,
+                  "cwd": false,
+                  "timeoutSeconds": false,
+                  "outputWindowBytes": false,
+                  "maxOutputBytes": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "prune" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": {
+                  "confirmed": { "const": true },
+                  "id": false,
+                  "reference": false,
+                  "force": false,
+                  "noPrune": false,
+                  "archivePath": false,
+                  "cwd": false,
+                  "timeoutSeconds": false,
+                  "outputWindowBytes": false,
+                  "maxOutputBytes": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "pull" } } },
+              "then": {
+                "required": ["reference"],
+                "properties": {
+                  "reference": {},
+                  "id": false,
+                  "force": false,
+                  "noPrune": false,
+                  "filters": false,
+                  "archivePath": false,
+                  "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "save" } } },
+              "then": {
+                "required": ["reference", "archivePath"],
+                "properties": {
+                  "reference": {},
+                  "archivePath": {},
+                  "id": false,
+                  "force": false,
+                  "noPrune": false,
+                  "filters": false,
+                  "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "load" } } },
+              "then": {
+                "required": ["archivePath"],
+                "properties": {
+                  "archivePath": {},
+                  "id": false,
+                  "reference": false,
+                  "force": false,
+                  "noPrune": false,
+                  "filters": false,
+                  "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "tag" } } },
+              "then": {
+                "required": ["id", "reference"],
+                "properties": {
+                  "id": {},
+                  "reference": {},
+                  "archivePath": false,
+                  "force": false,
+                  "noPrune": false,
+                  "filters": false,
+                  "confirmed": false,
+                  "cwd": false,
+                  "timeoutSeconds": false,
+                  "outputWindowBytes": false,
+                  "maxOutputBytes": false
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumesListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumesActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": { "enum": ["create", "remove", "prune"] },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "driver": { "type": "string", "maxLength": 4096 },
+            "driverOpts": { "$ref": "#/$defs/stringMap" },
+            "labels": { "$ref": "#/$defs/stringMap" },
+            "force": { "type": "boolean" },
+            "filters": { "$ref": "#/$defs/pruneFilters" },
+            "confirmed": { "type": "boolean" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "create" } } },
+              "then": {
+                "required": ["name"],
+                "properties": {
+                  "name": {},
+                  "force": false,
+                  "filters": false,
+                  "confirmed": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["name", "confirmed"],
+                "properties": {
+                  "name": {},
+                  "confirmed": { "const": true },
+                  "driver": false,
+                  "driverOpts": false,
+                  "labels": false,
+                  "filters": false
+                }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "prune" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": {
+                  "confirmed": { "const": true },
+                  "name": false,
+                  "driver": false,
+                  "driverOpts": false,
+                  "labels": false,
+                  "force": false
+                }
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "cliRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "cli.run" },
+        "params": {
+          "type": "object",
+          "required": ["context", "argv"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "targetMode": { "enum": ["pinned", "literal"] },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1024,
+              "items": { "type": "string", "maxLength": 1048576 }
+            },
+            "cwd": { "type": "string", "minLength": 1 },
+            "env": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "additionalProperties": { "type": "string" }
+            },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 3600 },
+            "interactive": { "type": "boolean" },
+            "streaming": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "sessionStartRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.start" },
+        "params": {
+          "type": "object",
+          "required": ["context", "argv", "mode"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "targetMode": { "enum": ["pinned", "literal"] },
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1024,
+              "items": { "type": "string", "maxLength": 1048576 }
+            },
+            "cwd": { "type": "string", "minLength": 1 },
+            "env": {
+              "type": "object",
+              "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "additionalProperties": { "type": "string" }
+            },
+            "mode": { "enum": ["pipes", "pty"] },
+            "rows": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "cols": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+            "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 },
+            "maxOutputBytes": { "type": "integer", "minimum": 0, "maximum": 1099511627776 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionInputRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.input" },
+        "params": {
+          "type": "object",
+          "required": ["sessionId"],
+          "properties": {
+            "sessionId": { "$ref": "#/$defs/sessionId" },
+            "data": { "type": "string" },
+            "encoding": { "enum": ["utf-8", "base64"] },
+            "eof": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionResizeRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.resize" },
+        "params": {
+          "type": "object",
+          "required": ["sessionId", "rows", "cols"],
+          "properties": {
+            "sessionId": { "$ref": "#/$defs/sessionId" },
+            "rows": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "cols": { "type": "integer", "minimum": 1, "maximum": 1000 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionSignalRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.signal" },
+        "params": {
+          "type": "object",
+          "required": ["sessionId", "signal"],
+          "properties": {
+            "sessionId": { "$ref": "#/$defs/sessionId" },
+            "signal": { "enum": ["interrupt", "terminate", "kill", "hangup", "quit"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionCancelRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.cancel" },
+        "params": {
+          "type": "object",
+          "required": ["sessionId"],
+          "properties": {
+            "sessionId": { "$ref": "#/$defs/sessionId" },
+            "gracePeriodMs": { "type": "integer", "minimum": 0, "maximum": 30000 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionAckRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "session.ack" },
+        "params": {
+          "type": "object",
+          "required": ["sessionId", "throughSequence"],
+          "properties": {
+            "sessionId": { "$ref": "#/$defs/sessionId" },
+            "throughSequence": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "result"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" },
+            "result": true
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["id", "error"],
+          "properties": {
+            "id": {
+              "oneOf": [
+                { "$ref": "#/$defs/id" },
+                { "type": "null" }
+              ]
+            },
+            "error": { "$ref": "#/$defs/error" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "event": {
+      "oneOf": [
+        { "$ref": "#/$defs/operationStartedEvent" },
+        { "$ref": "#/$defs/operationCompletedEvent" },
+        { "$ref": "#/$defs/reconciliationRequestedEvent" },
+        { "$ref": "#/$defs/reconciliationRequiredEvent" },
+        { "$ref": "#/$defs/sessionStartedEvent" },
+        { "$ref": "#/$defs/sessionOutputEvent" },
+        { "$ref": "#/$defs/sessionOutputTruncatedEvent" },
+        { "$ref": "#/$defs/sessionErrorEvent" },
+        { "$ref": "#/$defs/sessionExitedEvent" }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$",
+      "maxLength": 64
+    },
+    "operationStartedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "operation.started" },
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/containerOperationStartedPayload" },
+            { "$ref": "#/$defs/imageOperationStartedPayload" },
+            { "$ref": "#/$defs/volumeOperationStartedPayload" },
+            { "$ref": "#/$defs/cliOperationStartedPayload" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "containerOperationStartedPayload": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "method",
+        "context",
+        "containerId",
+        "action",
+        "startedAt"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "containers.action" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "containerId": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "action": { "enum": ["start", "stop", "restart", "remove"] },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "imageOperationStartedPayload": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "method",
+        "context",
+        "domain",
+        "action",
+        "source",
+        "startedAt"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "images.action" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "domain": { "const": "image" },
+        "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "enum": ["remove", "prune", "pull", "tag"] },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "volumeOperationStartedPayload": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "method",
+        "context",
+        "domain",
+        "action",
+        "source",
+        "startedAt"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "volumes.action" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "domain": { "const": "volume" },
+        "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "enum": ["create", "remove", "prune"] },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "cliOperationStartedPayload": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "method",
+        "context",
+        "targetMode",
+        "argv",
+        "cwd",
+        "startedAt"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "method": { "const": "cli.run" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "targetMode": { "enum": ["pinned", "literal"] },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": { "type": "string", "maxLength": 1048576 }
+        },
+        "cwd": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "startedAt": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "operationCompletedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "operation.completed" },
+        "payload": { "$ref": "#/$defs/operationCompletedPayload" }
+      },
+      "additionalProperties": false
+    },
+    "operationCompletedPayload": {
+      "type": "object",
+      "properties": {
+        "receipt": { "$ref": "#/$defs/operationReceipt" },
+        "result": { "$ref": "#/$defs/cliRunResult" },
+        "error": { "$ref": "#/$defs/error" }
+      },
+      "oneOf": [
+        {
+          "required": ["receipt"],
+          "properties": { "result": false }
+        },
+        {
+          "required": ["result"],
+          "properties": { "receipt": false }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "operationReceipt": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "context",
+        "action",
+        "source",
+        "outcome",
+        "startedAt"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "containerId": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "domain": { "enum": ["image", "volume"] },
+        "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "source": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "outcome": {
+          "enum": ["pending", "running", "succeeded", "failed", "unknown"]
+        },
+        "httpStatus": { "type": "integer", "minimum": 100, "maximum": 599 },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "completedAt": { "$ref": "#/$defs/timestamp" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "endpointHash": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "stdout": { "type": "string", "maxLength": 1048576 },
+        "stderr": { "type": "string", "maxLength": 1048576 }
+      },
+      "oneOf": [
+        {
+          "required": ["containerId", "completedAt", "durationMs"],
+          "properties": {
+            "domain": false,
+            "resourceId": false,
+            "outcome": { "enum": ["succeeded", "failed", "unknown"] }
+          }
+        },
+        {
+          "required": ["domain"],
+          "properties": {
+            "containerId": false
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "capturedOutput": {
+      "type": "object",
+      "required": ["data", "encoding", "bytes", "truncated"],
+      "properties": {
+        "data": { "type": "string", "maxLength": 1398104 },
+        "encoding": { "enum": ["utf-8", "base64"] },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "cliRunResult": {
+      "type": "object",
+      "required": [
+        "operationId",
+        "context",
+        "targetMode",
+        "executable",
+        "argv",
+        "cwd",
+        "exitCode",
+        "timedOut",
+        "startedAt",
+        "completedAt",
+        "durationMs",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "targetMode": { "enum": ["pinned", "literal"] },
+        "executable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": { "type": "string", "maxLength": 1048576 }
+        },
+        "cwd": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "timedOut": { "type": "boolean" },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "completedAt": { "$ref": "#/$defs/timestamp" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "stdout": { "$ref": "#/$defs/capturedOutput" },
+        "stderr": { "$ref": "#/$defs/capturedOutput" }
+      },
+      "additionalProperties": false
+    },
+    "reconciliationRequestedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "reconciliation.requested" },
+        "payload": {
+          "allOf": [
+            { "$ref": "#/$defs/reconciliationPayload" },
+            {
+              "properties": {
+                "reason": { "const": "mutation_completed" }
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "reconciliationRequiredEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "reconciliation.required" },
+        "payload": {
+          "allOf": [
+            { "$ref": "#/$defs/reconciliationPayload" },
+            {
+              "properties": {
+                "reason": { "const": "mutation_outcome_unknown" }
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "reconciliationPayload": {
+      "type": "object",
+      "required": ["operationId", "context", "domain", "action", "reason"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/sessionId" },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "domain": { "enum": ["container", "image", "volume"] },
+        "resourceId": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "action": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "reason": {
+          "enum": ["mutation_completed", "mutation_outcome_unknown"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "sessionStartedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "session.started" },
+        "payload": { "$ref": "#/$defs/sessionStartedPayload" }
+      },
+      "additionalProperties": false
+    },
+    "sessionStartedPayload": {
+      "type": "object",
+      "required": [
+        "sessionId",
+        "mode",
+        "pid",
+        "context",
+        "targetMode",
+        "executable",
+        "argv",
+        "cwd",
+        "outputWindowBytes",
+        "maxOutputBytes",
+        "startedAt",
+        "state"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "mode": { "enum": ["pipes", "pty"] },
+        "pid": { "type": "integer", "minimum": 1 },
+        "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "targetMode": { "enum": ["pinned", "literal"] },
+        "executable": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": { "type": "string", "maxLength": 1048576 }
+        },
+        "cwd": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "rows": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "cols": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "outputWindowBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 8388608
+        },
+        "maxOutputBytes": { "type": "integer", "minimum": 0 },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "state": { "const": "running" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "pty" } }
+          },
+          "then": { "required": ["rows", "cols"] },
+          "else": {
+            "properties": {
+              "rows": false,
+              "cols": false
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "sessionOutputEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "session.output" },
+        "payload": { "$ref": "#/$defs/sessionOutputPayload" }
+      },
+      "additionalProperties": false
+    },
+    "sessionOutputPayload": {
+      "type": "object",
+      "required": [
+        "sessionId",
+        "sequence",
+        "stream",
+        "data",
+        "encoding",
+        "bytes"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "stream": { "enum": ["stdout", "stderr", "pty"] },
+        "data": { "type": "string", "maxLength": 1048576 },
+        "encoding": { "enum": ["utf-8", "base64"] },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 1048576 }
+      },
+      "additionalProperties": false
+    },
+    "sessionOutputTruncatedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "session.output.truncated" },
+        "payload": { "$ref": "#/$defs/sessionOutputTruncatedPayload" }
+      },
+      "additionalProperties": false
+    },
+    "sessionOutputTruncatedPayload": {
+      "type": "object",
+      "required": ["sessionId", "maxOutputBytes", "droppedBytes"],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "maxOutputBytes": { "type": "integer", "minimum": 0 },
+        "droppedBytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "sessionErrorEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "session.error" },
+        "payload": { "$ref": "#/$defs/sessionErrorPayload" }
+      },
+      "additionalProperties": false
+    },
+    "sessionErrorPayload": {
+      "type": "object",
+      "required": ["sessionId", "code", "message"],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "stream": { "enum": ["stdout", "stderr", "pty"] }
+      },
+      "additionalProperties": false
+    },
+    "sessionExitedEvent": {
+      "type": "object",
+      "required": ["event", "payload"],
+      "properties": {
+        "event": { "const": "session.exited" },
+        "payload": { "$ref": "#/$defs/sessionExitedPayload" }
+      },
+      "additionalProperties": false
+    },
+    "sessionExitedPayload": {
+      "type": "object",
+      "required": [
+        "sessionId",
+        "state",
+        "exitCode",
+        "timedOut",
+        "canceled",
+        "startedAt",
+        "exitedAt",
+        "durationMs",
+        "output"
+      ],
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/sessionId" },
+        "state": { "const": "exited" },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "signal": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "timedOut": { "type": "boolean" },
+        "canceled": { "type": "boolean" },
+        "startedAt": { "$ref": "#/$defs/timestamp" },
+        "exitedAt": { "$ref": "#/$defs/timestamp" },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "output": { "$ref": "#/$defs/sessionExitOutput" }
+      },
+      "additionalProperties": false
+    },
+    "sessionExitOutput": {
+      "type": "object",
+      "required": [
+        "stdoutBytes",
+        "stderrBytes",
+        "ptyBytes",
+        "emittedBytes",
+        "droppedBytes",
+        "truncated",
+        "lastSequence"
+      ],
+      "properties": {
+        "stdoutBytes": { "type": "integer", "minimum": 0 },
+        "stderrBytes": { "type": "integer", "minimum": 0 },
+        "ptyBytes": { "type": "integer", "minimum": 0 },
+        "emittedBytes": { "type": "integer", "minimum": 0 },
+        "droppedBytes": { "type": "integer", "minimum": 0 },
+        "truncated": { "type": "boolean" },
+        "lastSequence": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

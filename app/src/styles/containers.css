@@ -1,0 +1,308 @@
+.containers-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--anc-text-body);
+  font-size: 12.5px;
+}
+
+/* background-color, not the background shorthand: the compose-project filter is a <select>
+   whose custom caret is painted as a background-image, and a shorthand here would erase it. */
+.filter-button:hover {
+  background-color: rgb(var(--anc-overlay-rgb) / 3.5%);
+}
+
+.filter-button > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--anc-control-neutral-hover);
+}
+
+.filter-button--active {
+  background-color: rgb(var(--anc-accent-rgb) / 12%);
+  color: var(--anc-accent);
+}
+
+.filter-button--active > span {
+  background: var(--anc-accent);
+}
+
+.container-table {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.container-table__head,
+.container-row {
+  display: grid;
+  grid-template-columns: var(--anc-container-grid);
+  align-items: center;
+  gap: 14px;
+  padding: 0 30px;
+}
+
+.container-table__head {
+  height: 34px;
+  flex: none;
+  border-bottom: 1px solid var(--anc-line-strong);
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.container-table__head > span:last-child {
+  text-align: right;
+}
+
+.container-table__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.container-row {
+  height: var(--anc-container-row-height);
+  border-bottom: 1px solid var(--anc-line-hairline);
+  background: transparent;
+  cursor: pointer;
+}
+
+.container-row:hover {
+  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+}
+
+/* Inset, like the image rows: the row sits inside a clipping scroll container, so an outset
+   ring would be cut off at the top and bottom of the viewport. */
+.container-row:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 55%);
+  outline-offset: -2px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.status-dot--running {
+  background: var(--anc-accent);
+  box-shadow: 0 0 0 3px rgb(var(--anc-accent-rgb) / 15%);
+}
+
+.status-dot--unhealthy {
+  background: var(--anc-danger);
+  box-shadow: 0 0 0 3px rgb(var(--anc-danger-rgb) / 16%);
+}
+
+.status-dot--stopped {
+  background: var(--anc-status-neutral);
+  box-shadow: 0 0 0 3px rgb(var(--anc-overlay-rgb) / 6%);
+}
+
+.status-dot--pulling {
+  background: var(--anc-violet);
+  box-shadow: 0 0 0 3px rgb(var(--anc-violet-rgb) / 16%);
+}
+
+.container-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.container-identity strong {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Targeted at the short id, not at every span in the cell. The identity cell now also wraps
+   the name row in a span, and a descendant selector here put the container name — and the
+   compose badge — into the mono id style. */
+.container-identity__id {
+  margin-top: 2px;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  line-height: normal;
+}
+
+.container-image,
+.container-ports {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.container-image {
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+}
+
+.container-ports {
+  color: var(--anc-text-dim);
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+}
+
+.container-status {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 21px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.status-pill--running {
+  background: rgb(var(--anc-accent-rgb) / 13%);
+  color: var(--anc-accent);
+}
+
+.status-pill--unhealthy {
+  background: rgb(var(--anc-danger-rgb) / 14%);
+  color: var(--anc-danger);
+}
+
+.status-pill--stopped {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+  color: var(--anc-text-muted);
+}
+
+.status-pill--pulling {
+  background: rgb(var(--anc-violet-rgb) / 14%);
+  color: var(--anc-violet);
+}
+
+.pull-progress {
+  display: block;
+  width: 80px;
+  height: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+}
+
+.pull-progress span {
+  display: block;
+  height: 100%;
+  background: var(--anc-violet);
+}
+
+.container-metric {
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+}
+
+.container-metric--warning {
+  color: var(--anc-warning);
+}
+
+.container-metric--danger {
+  color: var(--anc-danger);
+}
+
+.container-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
+}
+
+.icon-action:hover:not(:disabled) {
+  background: rgb(var(--anc-overlay-rgb) / 7%);
+  color: var(--anc-text-primary);
+}
+
+.icon-action--toggle {
+  color: var(--anc-accent);
+}
+
+.icon-action--stop {
+  color: var(--anc-warning);
+}
+
+.icon-action--delete:hover:not(:disabled) {
+  background: rgb(var(--anc-danger-rgb) / 14%);
+  color: var(--anc-danger);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 90px 30px;
+  text-align: center;
+}
+
+.empty-state__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  border: 1px dashed rgb(var(--anc-overlay-rgb) / 18%);
+  border-radius: 12px;
+}
+
+.empty-state__glyph {
+  color: rgb(var(--anc-overlay-rgb) / 14%);
+}
+
+.empty-state strong {
+  color: var(--anc-text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty-state p {
+  max-width: 360px;
+  color: var(--anc-text-muted);
+  font-size: 12.5px;
+  text-wrap: pretty;
+}

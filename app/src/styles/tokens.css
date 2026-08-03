@@ -1,0 +1,19 @@
+:root {
+  --anc-font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --anc-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --anc-window-width: 1600px;
+  --anc-window-height: 1000px;
+  --anc-desk-padding: 28px;
+  --anc-titlebar-height: 46px;
+  --anc-banner-height: 34px;
+  --anc-sidebar-width: 216px;
+  --anc-statusbar-height: 26px;
+  --anc-container-row-height: 56px;
+  /* The last track holds the row action cluster. It must stay wide enough for every button
+     the row can render (4 x 27px + 3 x 6px gaps = 126px); a narrower track does not clip the
+     buttons, it overflows them leftwards on top of the ports column. */
+  --anc-container-grid:
+    26px minmax(0, 1.5fr) minmax(0, 1.5fr) 116px 78px 96px
+    minmax(0, 1.1fr) 126px;
+}

@@ -1,0 +1,270 @@
+{
+  "schemaVersion": 1,
+  "captureMode": "fixture-browser",
+  "bridgeMode": "fixture",
+  "capturedAt": "2026-08-03T20:56:52.966Z",
+  "source": "app/dist/client",
+  "canonicalViewport": {
+    "width": 1656,
+    "height": 1056
+  },
+  "rendererBuild": {
+    "sha256": "b35f7845e1e0a010506462eacb5264c11de2fc2b8508231202ce4ea764981fd6",
+    "files": 19,
+    "bytes": 1242596
+  },
+  "harness": {
+    "path": "tools/capture-design-parity.mjs",
+    "sha256": "e70984ac0377642e43bc8ed02a7ef65b8532ca482ec380c38c50deabf1569829"
+  },
+  "runtime": {
+    "executable": "app/node_modules/electron/dist/electron",
+    "product": "Chrome/150.0.7871.129",
+    "protocolVersion": "1.3",
+    "revision": "@e69b30bba288603e514cffb4c79c359cac68e923",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.129 Electron/43.2.0 Safari/537.36",
+    "jsVersion": "15.0.1240245"
+  },
+  "states": [
+    {
+      "state": "containers",
+      "path": "final-actual/containers.png",
+      "sha256": "bc2b4aff3d3879b507144a13ba271338ec3920080e406bc06ed0ef7286b4e9f0",
+      "bytes": 205101,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "containers-current",
+      "path": "final-actual/containers-current.png",
+      "sha256": "bc2b4aff3d3879b507144a13ba271338ec3920080e406bc06ed0ef7286b4e9f0",
+      "bytes": 205101,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "containers-only-running",
+      "path": "final-actual/containers-only-running.png",
+      "sha256": "b611499fd1a899433d5091ff2416bd6da55e5bfad68bae043b3c40009f17e5a5",
+      "bytes": 177782,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "containers-search-empty",
+      "path": "final-actual/containers-search-empty.png",
+      "sha256": "80ad141d79edb99dad40f3ac092af2b45323edbe4a8f1a3db254043a81ea84f9",
+      "bytes": 135431,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "containers-row-hover",
+      "path": "final-actual/containers-row-hover.png",
+      "sha256": "aa1d04de8a601e0081492cda7acd0a7d3ca2fc693f44101fd777aac7aa071a04",
+      "bytes": 204992,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "containers-banner-dismissed",
+      "path": "final-actual/containers-banner-dismissed.png",
+      "sha256": "509b21f260bcbecd0b3d98b301a11eba8cd2e2d37bdb3f870b1729ca9ef1abd9",
+      "bytes": 181657,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-logs",
+      "path": "final-actual/container-detail-logs.png",
+      "sha256": "c07ed7bb5ab511e385b90df6bfc63ebcad9bd3f3926e2c12973a26b3336bfafa",
+      "bytes": 284726,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-inspect",
+      "path": "final-actual/container-detail-inspect.png",
+      "sha256": "761bab11bab5b8759e29a48ed69ae27548756c4a689b4709e1b62d9668b8edce",
+      "bytes": 181524,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-mounts",
+      "path": "final-actual/container-detail-mounts.png",
+      "sha256": "ace7e905a7aa319a4b56ecfe9675c495af83e3e30ad23017c633448b7e3e8b63",
+      "bytes": 144480,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-exec",
+      "path": "final-actual/container-detail-exec.png",
+      "sha256": "f31c078082784d91cc6c9c8593feeff6ed7d6ddd1b2b37ab0fc56fa8e26a3415",
+      "bytes": 139147,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-files",
+      "path": "final-actual/container-detail-files.png",
+      "sha256": "f99b1cc98bed6699e2f9bdedef04c0acb349f6ad0d30ceaa4e96c77d3bfe0c2a",
+      "bytes": 167136,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "container-detail-stats",
+      "path": "final-actual/container-detail-stats.png",
+      "sha256": "c6ee980a6502c1bb7f42a6e16c8f8da7dd40aeed4079d350d79473ae688ccef1",
+      "bytes": 162871,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "dashboard",
+      "path": "final-actual/dashboard.png",
+      "sha256": "3556746fc931ddaf588b434c62d77730d1216e9e58cd15641f89d3093c1a7155",
+      "bytes": 210096,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "images-local",
+      "path": "final-actual/images-local.png",
+      "sha256": "d181e10f278bdcb7059c774e85e2c1ba3334021639cb8b45fcb1a092f22b17fb",
+      "bytes": 174556,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "images-registry",
+      "path": "final-actual/images-registry.png",
+      "sha256": "183958fe33a50947e16ec76ef88a2fef045d9e75b02ca449add043f69f7e3f5b",
+      "bytes": 183386,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "volumes",
+      "path": "final-actual/volumes.png",
+      "sha256": "013eecea7a009e00438fcbf8d18e0cb458f298e56a68ddbcf8add029841bf530",
+      "bytes": 149579,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "builds",
+      "path": "final-actual/builds.png",
+      "sha256": "8cc98f98e42cf2fa71df98c4041e8d4254dfdc23cba2c51f1de65145dbe8a983",
+      "bytes": 195319,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "dev-environments",
+      "path": "final-actual/dev-environments.png",
+      "sha256": "a51d288a65e9d06509a9ed6c79527d1603c1faa78c56e7c4e35049f96e26d6ad",
+      "bytes": 142020,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "extensions",
+      "path": "final-actual/extensions.png",
+      "sha256": "b239dc0e2de60e042b8f22ec5e903ecc0908ebbad1a96bced4224d3caeb730aa",
+      "bytes": 168247,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "settings-resources",
+      "path": "final-actual/settings-resources.png",
+      "sha256": "2cd76a6d8f0f6d40748d82d8a1414772e8db0357291e066ef3999ce7cb21eca5",
+      "bytes": 151678,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "settings-engine",
+      "path": "final-actual/settings-engine.png",
+      "sha256": "34c6f3759fb77df270e5541b6f0e455fb6492d5ac7b2c02c8d2d163f719cbee6",
+      "bytes": 160320,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "settings-kubernetes",
+      "path": "final-actual/settings-kubernetes.png",
+      "sha256": "8b822519d2cb80f9c5668f45cf531dc03a46cdd1fe5264eeb56f518f69fdd712",
+      "bytes": 135216,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "settings-updates",
+      "path": "final-actual/settings-updates.png",
+      "sha256": "3539a3a72fc84eb147e05007323d86d7dafd6241fe4bee2a35e4f22990671b4b",
+      "bytes": 141794,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    },
+    {
+      "state": "settings-advanced",
+      "path": "final-actual/settings-advanced.png",
+      "sha256": "0ec7d0fa16035c92bd210a44a7b92b8cd2b6d382088f314f6c3a8d6b491cfc1d",
+      "bytes": 146107,
+      "dimensions": {
+        "width": 1656,
+        "height": 1056
+      }
+    }
+  ]
+}

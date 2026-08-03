@@ -1,0 +1,1752 @@
+import { isDeepStrictEqual } from "node:util";
+
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
+
+export const REQUIRED_EXACT_DEV_DEPENDENCIES = Object.freeze({
+  electron: "43.2.0",
+  "electron-builder": "26.15.3",
+  "lucide-react": "1.28.0",
+});
+
+export function validatePinnedDevDependencies(packageMetadata) {
+  const devDependencies = packageMetadata?.devDependencies;
+  for (const [name, version] of Object.entries(
+    REQUIRED_EXACT_DEV_DEPENDENCIES,
+  )) {
+    if (devDependencies?.[name] !== version) {
+      throw new Error(
+        `${name} must remain exactly pinned to ${version} for reproducible packaging`,
+      );
+    }
+  }
+}
+
+export const READ_ONLY_ACCEPTANCE_CHECK_IDS = Object.freeze([
+  "container-inspect-stats",
+  "core-handshake",
+  "installed-command-inventory",
+  "literal-cli-run",
+  "literal-pipes-session",
+  "pinned-cli-run",
+  "pinned-pipes-session",
+  "snapshot-list-conformance",
+]);
+
+export const MUTATION_ACCEPTANCE_CHECK_IDS = Object.freeze([
+  "container-lifecycle",
+  "dind-isolation",
+  "image-prune-all",
+  "image-prune-dangling",
+  "image-pull-session",
+  "image-remove-one-tag",
+  "pty-session",
+  "volume-prune-all",
+  "volume-prune-default",
+  "volume-remove-exact",
+]);
+
+export const DESIGN_PARITY_STATE_IDS = Object.freeze([
+  "containers",
+  "containers-current",
+  "containers-only-running",
+  "containers-search-empty",
+  "containers-row-hover",
+  "containers-banner-dismissed",
+  "container-detail-logs",
+  "container-detail-inspect",
+  "container-detail-mounts",
+  "container-detail-exec",
+  "container-detail-files",
+  "container-detail-stats",
+  "dashboard",
+  "images-local",
+  "images-registry",
+  "volumes",
+  "builds",
+  "dev-environments",
+  "extensions",
+  "settings-resources",
+  "settings-engine",
+  "settings-kubernetes",
+  "settings-updates",
+  "settings-advanced",
+]);
+
+export const DESIGN_VISUAL_CONFORMANCE_CLAIM =
+  "reviewed-visual-conformance-not-pixel-identity";
+export const DESIGN_VISUAL_CONFORMANCE_THRESHOLD = 0.02;
+export const DESIGN_VISUAL_REVIEW_CRITERIA = Object.freeze([
+  "geometry",
+  "typography",
+  "colour",
+  "borders-and-radii",
+  "spacing",
+  "iconography",
+  "layer-order",
+  "clipping",
+  "scroll-behavior",
+  "state-specific-content",
+]);
+
+const PACKAGED_PACKAGE_JSON_KEYS = Object.freeze([
+  "name",
+  "productName",
+  "desktopName",
+  "version",
+  "description",
+  "author",
+  "private",
+  "type",
+  "main",
+  "allowScripts",
+]);
+
+export function canonicalPackagedPackageJson(content) {
+  const parsed = JSON.parse(
+    Buffer.isBuffer(content) ? content.toString("utf8") : String(content),
+  );
+  const packaged = {};
+  for (const key of PACKAGED_PACKAGE_JSON_KEYS) {
+    if (!Object.hasOwn(parsed, key)) {
+      throw new Error(
+        `Application package metadata is missing packaged key ${key}`,
+      );
+    }
+    packaged[key] = parsed[key];
+  }
+  return Buffer.from(JSON.stringify(packaged, null, 2));
+}
+
+export const HOST_CANDIDATE_CHECK_IDS = Object.freeze([
+  "candidate-integrity",
+  "clean-shutdown",
+  "console-and-page-errors",
+  "core-handshake",
+  "docker-context-ready",
+  "host-bridge-attestation",
+  "host-ui-performance",
+  "live-resource-screens",
+  "literal-cli-run",
+  "outside-home-cwd-cli-run",
+  "pinned-cli-run",
+  "unsupported-host-states",
+]);
+
+export const HOST_CANDIDATE_SCREEN_IDS = Object.freeze([
+  "host-dashboard",
+  "host-containers",
+  "host-container-detail",
+  "host-files-unavailable",
+  "host-images",
+  "host-volumes",
+  "host-command-center-pinned",
+  "host-command-center-literal",
+  "host-unsupported-builds",
+]);
+
+export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
+  "host-dashboard": Object.freeze([
+    "host-dashboard-visible",
+    "host-dashboard-live-context",
+    "host-dashboard-snapshot-state-explicit",
+  ]),
+  "host-containers": Object.freeze([
+    "host-containers-visible",
+    "host-containers-live-row",
+    "host-containers-fixture-banner-absent",
+  ]),
+  "host-container-detail": Object.freeze([
+    "host-container-detail-visible",
+    "host-container-detail-identity",
+  ]),
+  "host-files-unavailable": Object.freeze([
+    "host-files-unavailable-visible",
+    "host-files-no-synthetic-filesystem",
+  ]),
+  "host-images": Object.freeze([
+    "host-images-visible",
+    "host-images-capability-error-absent",
+  ]),
+  "host-volumes": Object.freeze([
+    "host-volumes-visible",
+    "host-volumes-capability-error-absent",
+  ]),
+  "host-command-center-pinned": Object.freeze([
+    "host-command-inventory-visible",
+    "host-command-target-pinned",
+  ]),
+  "host-command-center-literal": Object.freeze([
+    "host-command-target-literal",
+    "host-command-literal-disclosure-visible",
+  ]),
+  "host-unsupported-builds": Object.freeze([
+    "host-builds-unsupported-visible",
+    "host-builds-fixture-disclaimer-visible",
+  ]),
+});
+
+export const HOST_UI_PERFORMANCE_PROFILE = Object.freeze({
+  id: "anchorage-host-ui-v1",
+  thresholds: Object.freeze({
+    spawnToHostReadyMs: 60_000,
+    navigationDomContentLoadedMs: 10_000,
+    firstContentfulPaintMs: 10_000,
+    scriptedInteractionSettleMaxMs: 30_000,
+    domNodeCount: 5_000,
+    visibleContainerRows: 200,
+  }),
+});
+
+const HOST_UI_PERFORMANCE_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    id: "spawn-to-host-ready",
+    metric: "spawnToHostReadyMs",
+    threshold: "spawnToHostReadyMs",
+  }),
+  Object.freeze({
+    id: "navigation-dom-content-loaded",
+    metric: "navigationDomContentLoadedMs",
+    threshold: "navigationDomContentLoadedMs",
+  }),
+  Object.freeze({
+    id: "first-contentful-paint",
+    metric: "firstContentfulPaintMs",
+    threshold: "firstContentfulPaintMs",
+  }),
+  Object.freeze({
+    id: "scripted-interaction-settle-max",
+    metric: "scriptedInteractionSettleMaxMs",
+    threshold: "scriptedInteractionSettleMaxMs",
+  }),
+  Object.freeze({
+    id: "bounded-dom-nodes",
+    metric: "domNodeCount",
+    threshold: "domNodeCount",
+  }),
+  Object.freeze({
+    id: "bounded-visible-container-rows",
+    metric: "visibleContainerRows",
+    threshold: "visibleContainerRows",
+  }),
+]);
+
+export const HOST_UI_PERFORMANCE_CHECK_IDS = Object.freeze(
+  HOST_UI_PERFORMANCE_DEFINITIONS.map(({ id }) => id),
+);
+
+export const HOST_UI_INTERACTION_IDS = Object.freeze([
+  "open-container-detail",
+  "open-files-unavailable",
+  "navigate-dashboard",
+  "navigate-images",
+  "navigate-volumes",
+  "navigate-builds",
+  "open-command-center",
+  "select-literal-target",
+]);
+
+const HOST_BRIDGE_FUNCTIONS = Object.freeze([
+  "cli.run",
+  "containers.inspect",
+  "containers.list",
+  "containers.stats",
+  "images.list",
+  "session.start",
+  "subscribe",
+  "system.capabilities",
+  "system.snapshot",
+  "volumes.list",
+  "window.close",
+]);
+
+const DESIGN_HANDOFF_DECLARED_SOURCES = Object.freeze([
+  "docs/design_handoff_anchorage/Anchorage.dc.html",
+  "docs/design_handoff_anchorage/README.md",
+  "docs/design_handoff_anchorage/support.js",
+]);
+
+export const RELEASE_PERFORMANCE_PROFILE = Object.freeze({
+  id: "anchorage-desktop-release-v1",
+  thresholds: Object.freeze({
+    coldHealthLatencyMs: 2_000,
+    warmHealthP95LatencyMs: 100,
+    containersFirstLatencyMs: 5_000,
+    containersWarmP95LatencyMs: 2_000,
+    imagesFirstLatencyMs: 10_000,
+    imagesWarmP95LatencyMs: 5_000,
+    volumesFirstLatencyMs: 15_000,
+    volumesWarmP95LatencyMs: 5_000,
+    snapshotFirstLatencyMs: 5_000,
+    snapshotWarmP95LatencyMs: 1_000,
+    capabilitiesFirstLatencyMs: 10_000,
+    capabilitiesWarmP95LatencyMs: 500,
+    statsFanoutWallLatencyMs: 3_000,
+    statsIndividualP95LatencyMs: 3_000,
+    warmHealthMinimumSamples: 20,
+    listWarmMinimumSamples: 20,
+    statsMinimumRounds: 20,
+    sessionCancelToExitMs: 2_000,
+    coreRssP95Bytes: 128 * 1024 * 1024,
+    coreRssMaxBytes: 160 * 1024 * 1024,
+    coreRssGrowthBytes: 32 * 1024 * 1024,
+  }),
+});
+
+const RELEASE_PERFORMANCE_MAXIMUM_CHECKS = Object.freeze([
+  Object.freeze({
+    id: "cold-health-latency",
+    metric: "health.cold.latencyMs",
+    threshold: "coldHealthLatencyMs",
+    observed: (results) => results.health?.cold?.latencyMs,
+  }),
+  Object.freeze({
+    id: "warm-health-p95-latency",
+    metric: "health.warm.latencyMs.p95",
+    threshold: "warmHealthP95LatencyMs",
+    observed: (results) => results.health?.warm?.latencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "containers-first-latency",
+    metric: "nativeLists.containers.firstLatencyMs",
+    threshold: "containersFirstLatencyMs",
+    observed: (results) => results.nativeLists?.containers?.firstLatencyMs,
+  }),
+  Object.freeze({
+    id: "containers-warm-p95-latency",
+    metric: "nativeLists.containers.subsequentLatencyMs.p95",
+    threshold: "containersWarmP95LatencyMs",
+    observed: (results) =>
+      results.nativeLists?.containers?.subsequentLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "images-first-latency",
+    metric: "nativeLists.images.firstLatencyMs",
+    threshold: "imagesFirstLatencyMs",
+    observed: (results) => results.nativeLists?.images?.firstLatencyMs,
+  }),
+  Object.freeze({
+    id: "images-warm-p95-latency",
+    metric: "nativeLists.images.subsequentLatencyMs.p95",
+    threshold: "imagesWarmP95LatencyMs",
+    observed: (results) =>
+      results.nativeLists?.images?.subsequentLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "volumes-first-latency",
+    metric: "nativeLists.volumes.firstLatencyMs",
+    threshold: "volumesFirstLatencyMs",
+    observed: (results) => results.nativeLists?.volumes?.firstLatencyMs,
+  }),
+  Object.freeze({
+    id: "volumes-warm-p95-latency",
+    metric: "nativeLists.volumes.subsequentLatencyMs.p95",
+    threshold: "volumesWarmP95LatencyMs",
+    observed: (results) =>
+      results.nativeLists?.volumes?.subsequentLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "snapshot-first-latency",
+    metric: "nativeLists.snapshot.firstLatencyMs",
+    threshold: "snapshotFirstLatencyMs",
+    observed: (results) => results.nativeLists?.snapshot?.firstLatencyMs,
+  }),
+  Object.freeze({
+    id: "snapshot-warm-p95-latency",
+    metric: "nativeLists.snapshot.subsequentLatencyMs.p95",
+    threshold: "snapshotWarmP95LatencyMs",
+    observed: (results) =>
+      results.nativeLists?.snapshot?.subsequentLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "capabilities-first-latency",
+    metric: "nativeLists.capabilities.firstLatencyMs",
+    threshold: "capabilitiesFirstLatencyMs",
+    observed: (results) => results.nativeLists?.capabilities?.firstLatencyMs,
+  }),
+  Object.freeze({
+    id: "capabilities-warm-p95-latency",
+    metric: "nativeLists.capabilities.subsequentLatencyMs.p95",
+    threshold: "capabilitiesWarmP95LatencyMs",
+    observed: (results) =>
+      results.nativeLists?.capabilities?.subsequentLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "stats-fanout-wall-latency",
+    metric: "visibleContainerStats.wallLatencyMs.p95",
+    threshold: "statsFanoutWallLatencyMs",
+    observed: (results) => results.visibleContainerStats?.wallLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "stats-individual-p95-latency",
+    metric: "visibleContainerStats.individualLatencyMs.p95",
+    threshold: "statsIndividualP95LatencyMs",
+    observed: (results) =>
+      results.visibleContainerStats?.individualLatencyMs?.p95,
+  }),
+  Object.freeze({
+    id: "session-cancel-to-exit",
+    metric: "streamingSoak.cancellation.cancelToExitMs",
+    threshold: "sessionCancelToExitMs",
+    observed: (results) =>
+      results.streamingSoak?.cancellation?.cancelToExitMs,
+  }),
+  Object.freeze({
+    id: "core-rss-p95",
+    metric: "streamingSoak.rssBytes.p95",
+    threshold: "coreRssP95Bytes",
+    observed: (results) => results.streamingSoak?.rssBytes?.p95,
+  }),
+  Object.freeze({
+    id: "core-rss-max",
+    metric: "streamingSoak.rssBytes.max",
+    threshold: "coreRssMaxBytes",
+    observed: (results) => results.streamingSoak?.rssBytes?.max,
+  }),
+  Object.freeze({
+    id: "core-rss-growth",
+    metric: "max(0, streamingSoak.rssDeltaBytes)",
+    threshold: "coreRssGrowthBytes",
+    observed: (results) => Math.max(0, results.streamingSoak?.rssDeltaBytes),
+  }),
+]);
+
+const RELEASE_PERFORMANCE_MINIMUM_CHECKS = Object.freeze([
+  Object.freeze({
+    id: "warm-health-sample-floor",
+    metric: "health.warm.latencyMs.count",
+    threshold: "warmHealthMinimumSamples",
+    observed: (results) => results.health?.warm?.latencyMs?.count,
+  }),
+  Object.freeze({
+    id: "containers-warm-sample-floor",
+    metric: "nativeLists.containers.subsequentLatencyMs.count",
+    threshold: "listWarmMinimumSamples",
+    observed: (results) =>
+      results.nativeLists?.containers?.subsequentLatencyMs?.count,
+  }),
+  Object.freeze({
+    id: "images-warm-sample-floor",
+    metric: "nativeLists.images.subsequentLatencyMs.count",
+    threshold: "listWarmMinimumSamples",
+    observed: (results) =>
+      results.nativeLists?.images?.subsequentLatencyMs?.count,
+  }),
+  Object.freeze({
+    id: "volumes-warm-sample-floor",
+    metric: "nativeLists.volumes.subsequentLatencyMs.count",
+    threshold: "listWarmMinimumSamples",
+    observed: (results) =>
+      results.nativeLists?.volumes?.subsequentLatencyMs?.count,
+  }),
+  Object.freeze({
+    id: "stats-round-sample-floor",
+    metric: "visibleContainerStats.actualRounds",
+    threshold: "statsMinimumRounds",
+    observed: (results) => results.visibleContainerStats?.actualRounds,
+  }),
+]);
+
+const RELEASE_PERFORMANCE_EQUAL_CHECKS = Object.freeze([
+  Object.freeze({
+    id: "stats-fanout-complete",
+    metric: "visibleContainerStats.actualFanout",
+    observed: (results) => results.visibleContainerStats?.actualFanout,
+    expected: (results) => results.visibleContainerStats?.requestedFanout,
+  }),
+  Object.freeze({
+    id: "stats-rounds-complete",
+    metric: "visibleContainerStats.actualRounds",
+    observed: (results) => results.visibleContainerStats?.actualRounds,
+    expected: (results) => results.visibleContainerStats?.requestedRounds,
+  }),
+  Object.freeze({
+    id: "stats-sample-matrix-complete",
+    metric: "visibleContainerStats.samples.length",
+    observed: (results) => results.visibleContainerStats?.samples?.length,
+    expected: (results) =>
+      results.visibleContainerStats?.actualFanout *
+        results.visibleContainerStats?.actualRounds,
+  }),
+  Object.freeze({
+    id: "session-output-not-dropped",
+    metric: "streamingSoak.cancellation.exit.output.droppedBytes",
+    observed: (results) =>
+      results.streamingSoak?.cancellation?.exit?.output?.droppedBytes,
+    expected: () => 0,
+  }),
+  Object.freeze({
+    id: "session-output-not-truncated",
+    metric: "streamingSoak.cancellation.exit.output.truncated",
+    observed: (results) =>
+      results.streamingSoak?.cancellation?.exit?.output?.truncated,
+    expected: () => false,
+  }),
+  Object.freeze({
+    id: "session-event-acknowledgements",
+    metric: "streamingSoak.sessionOutput.acknowledgements",
+    observed: (results) =>
+      results.streamingSoak?.sessionOutput?.acknowledgements,
+    expected: (results) => results.streamingSoak?.sessionOutput?.events,
+  }),
+  Object.freeze({
+    id: "session-byte-acknowledgements",
+    metric: "streamingSoak.sessionOutput.acknowledgedBytes",
+    observed: (results) =>
+      results.streamingSoak?.sessionOutput?.acknowledgedBytes,
+    expected: (results) => results.streamingSoak?.sessionOutput?.bytes,
+  }),
+]);
+
+export const RELEASE_PERFORMANCE_CHECK_IDS = Object.freeze([
+  ...RELEASE_PERFORMANCE_MAXIMUM_CHECKS.map(({ id }) => id),
+  ...RELEASE_PERFORMANCE_MINIMUM_CHECKS.map(({ id }) => id),
+  ...RELEASE_PERFORMANCE_EQUAL_CHECKS.map(({ id }) => id),
+]);
+
+function requireCondition(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function requireSchemaVersion(evidence, description, expected = 1) {
+  requireCondition(
+    evidence?.schemaVersion === expected,
+    `${description} must use schemaVersion ${expected}`,
+  );
+}
+
+function requireSha256(value, description) {
+  requireCondition(
+    typeof value === "string" && SHA256_PATTERN.test(value),
+    `${description} must be a lowercase SHA-256 digest`,
+  );
+}
+
+function requireIsoDate(value, description) {
+  requireCondition(
+    typeof value === "string" && Number.isFinite(Date.parse(value)),
+    `${description} must be an ISO date`,
+  );
+}
+
+function acceptanceCheckIds(mutationsEnabled) {
+  return mutationsEnabled
+    ? [...READ_ONLY_ACCEPTANCE_CHECK_IDS, ...MUTATION_ACCEPTANCE_CHECK_IDS].sort()
+    : [...READ_ONLY_ACCEPTANCE_CHECK_IDS];
+}
+
+function sameStringArray(actual, expected) {
+  return (
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    actual.every((value, index) => value === expected[index])
+  );
+}
+
+function sameBuildFingerprint(actual, expected) {
+  return (
+    actual?.sha256 === expected?.sha256 &&
+    actual?.files === expected?.files &&
+    actual?.bytes === expected?.bytes
+  );
+}
+
+function sameFileFingerprint(actual, expected) {
+  return (
+    actual?.path === expected?.path &&
+    actual?.sha256 === expected?.sha256 &&
+    actual?.bytes === expected?.bytes
+  );
+}
+
+function samePlainRecord(actual, expected) {
+  const actualEntries =
+    actual && typeof actual === "object" && !Array.isArray(actual)
+      ? Object.entries(actual).sort(([left], [right]) =>
+        left.localeCompare(right, "en"))
+      : [];
+  const expectedEntries = Object.entries(expected).sort(
+    ([left], [right]) => left.localeCompare(right, "en"),
+  );
+  return (
+    actualEntries.length === expectedEntries.length &&
+    actualEntries.every(
+      ([key, value], index) =>
+        key === expectedEntries[index][0] &&
+        Object.is(value, expectedEntries[index][1]),
+    )
+  );
+}
+
+function hasCanonicalDimensions(value) {
+  return value?.width === 1_656 && value?.height === 1_056;
+}
+
+function validHostSemanticObservation(id, actual, evidence) {
+  switch (id) {
+    case "host-dashboard-live-context":
+      return actual === evidence.docker?.context;
+    case "host-containers-live-row":
+      return Number.isSafeInteger(actual) && actual > 0;
+    case "host-container-detail-identity":
+      return typeof actual === "string" && actual.trim().length > 0;
+    case "host-command-target-pinned":
+      return actual === "pinned";
+    case "host-command-target-literal":
+      return actual === "literal";
+    default:
+      return actual === true;
+  }
+}
+
+export function validateHostCandidateEvidence(
+  evidence,
+  {
+    expectedRendererBuild,
+    expectedCore,
+    expectedElectronBinary,
+    expectedElectronMain,
+    expectedElectronPreload,
+    expectedElectronRuntimeClosure,
+    expectedProtocolSchema,
+    expectedHarnessSha256,
+    observedScreens,
+  } = {},
+) {
+  const description = "Staged production HostBridge candidate evidence";
+  requireSchemaVersion(evidence, description);
+  requireCondition(
+    evidence?.matrixVersion === 1 &&
+      evidence.status === "passed" &&
+      evidence.candidateMode === "staged-inputs" &&
+      evidence.scope === "host-integration-smoke-not-pixel-parity" &&
+      evidence.bridgeMode === "host" &&
+      evidence.source === "app/dist/client",
+    `${description} must attest the real HostBridge staged-input candidate`,
+  );
+  requireIsoDate(evidence.startedAt, `${description} startedAt`);
+  requireIsoDate(evidence.completedAt, `${description} completedAt`);
+  requireCondition(
+    Date.parse(evidence.completedAt) >= Date.parse(evidence.startedAt),
+    `${description} completedAt must not precede startedAt`,
+  );
+  requireCondition(
+    hasCanonicalDimensions(evidence.canonicalViewport),
+    `${description} must use the canonical 1656x1056 viewport`,
+  );
+  requireCondition(
+    sameStringArray(evidence.requiredChecks, HOST_CANDIDATE_CHECK_IDS),
+    `${description} requiredChecks must equal matrix v1`,
+  );
+  requireCondition(
+    Array.isArray(evidence.checks) &&
+      evidence.checks.length === HOST_CANDIDATE_CHECK_IDS.length &&
+      evidence.checks.every(
+        (check) =>
+          check &&
+          typeof check.id === "string" &&
+          typeof check.name === "string" &&
+          check.name.length > 0 &&
+          check.status === "passed",
+      ),
+    `${description} must contain the exact required check set as named passing checks`,
+  );
+  const actualCheckIds = evidence.checks.map((check) => check.id);
+  requireCondition(
+    new Set(actualCheckIds).size === actualCheckIds.length,
+    `${description} must contain unique check ids`,
+  );
+  requireCondition(
+    sameStringArray(
+      [...actualCheckIds].sort(),
+      [...HOST_CANDIDATE_CHECK_IDS].sort(),
+    ),
+    `${description} must contain the exact required check set`,
+  );
+
+  requireCondition(
+    sameBuildFingerprint(
+      evidence.candidate?.rendererBuild,
+      expectedRendererBuild,
+    ),
+    `${description} must identify the exact freshly built renderer`,
+  );
+  requireCondition(
+    sameFileFingerprint(evidence.candidate?.core, expectedCore),
+    `${description} must identify the exact staged core`,
+  );
+  requireCondition(
+    sameFileFingerprint(
+      evidence.candidate?.electron?.binary,
+      expectedElectronBinary,
+    ),
+    `${description} must identify the exact Electron binary`,
+  );
+  requireCondition(
+    sameFileFingerprint(
+      evidence.candidate?.electron?.main,
+      expectedElectronMain,
+    ),
+    `${description} must identify the exact Electron main process`,
+  );
+  requireCondition(
+    sameFileFingerprint(
+      evidence.candidate?.electron?.preload,
+      expectedElectronPreload,
+    ),
+    `${description} must identify the exact Electron preload`,
+  );
+  requireCondition(
+    evidence.candidate?.electron?.runtimeClosure?.scope ===
+      "packaged-electron-runtime-v1" &&
+      sameBuildFingerprint(
+        evidence.candidate.electron.runtimeClosure,
+        expectedElectronRuntimeClosure,
+      ),
+    `${description} must identify the exact packaged Electron runtime closure`,
+  );
+  requireCondition(
+    sameFileFingerprint(
+      evidence.candidate?.protocolSchema,
+      expectedProtocolSchema,
+    ),
+    `${description} must identify the exact protocol schema`,
+  );
+  requireCondition(
+    evidence.candidate?.harness?.path ===
+      "tools/capture-host-candidate.mjs" &&
+      evidence.candidate.harness.sha256 === expectedHarnessSha256 &&
+      Number.isSafeInteger(evidence.candidate.harness.bytes) &&
+      evidence.candidate.harness.bytes > 0,
+    `${description} must identify the current host capture harness`,
+  );
+  requireCondition(
+    typeof evidence.runtime?.product === "string" &&
+      evidence.runtime.product.startsWith("Chrome/") &&
+      typeof evidence.runtime.protocolVersion === "string" &&
+      evidence.runtime.protocolVersion.length > 0 &&
+      typeof evidence.runtime.revision === "string" &&
+      evidence.runtime.revision.length > 0 &&
+      typeof evidence.runtime.userAgent === "string" &&
+      evidence.runtime.userAgent.includes("Electron/") &&
+      typeof evidence.runtime.jsVersion === "string" &&
+      evidence.runtime.jsVersion.length > 0,
+    `${description} must record its Electron and Chromium runtime`,
+  );
+  requireCondition(
+    evidence.bridge?.hostApiPresent === true &&
+      evidence.bridge.fixtureBridgeAbsent === true &&
+      sameStringArray(evidence.bridge.functions, HOST_BRIDGE_FUNCTIONS),
+    `${description} must attest the complete real HostBridge shape`,
+  );
+  requireCondition(
+    evidence.docker?.ready === true &&
+      evidence.docker.containerAvailable === true &&
+      typeof evidence.docker.context === "string" &&
+      evidence.docker.context.length > 0,
+    `${description} must record a ready Docker context and live container`,
+  );
+  requireCondition(
+    evidence.cli?.pinned?.targetMode === "pinned" &&
+      evidence.cli.pinned.exitCode === 0 &&
+      evidence.cli.pinned.outputPresent === true &&
+      evidence.cli?.literal?.targetMode === "literal" &&
+      evidence.cli.literal.exitCode === 0 &&
+      evidence.cli.literal.outputPresent === true,
+    `${description} must prove pinned and literal CLI execution`,
+  );
+  requireCondition(
+    evidence.cli?.cwdSensitive?.targetMode === "pinned" &&
+      evidence.cli.cwdSensitive.exitCode === 0 &&
+      evidence.cli.cwdSensitive.timedOut === false &&
+      evidence.cli.cwdSensitive.composeConfigValidated === true &&
+      evidence.cli.cwdSensitive.outsideHome === true &&
+      typeof evidence.cli.cwdSensitive.requestedCwd === "string" &&
+      evidence.cli.cwdSensitive.requestedCwd.startsWith("/") &&
+      evidence.cli.cwdSensitive.resultCwd ===
+        evidence.cli.cwdSensitive.requestedCwd &&
+      sameStringArray(
+        evidence.cli.cwdSensitive.executedArgv,
+        [
+          "--context",
+          evidence.docker.context,
+          "compose",
+          "--project-name",
+          "anchorage-cwd-proof",
+          "config",
+          "--quiet",
+        ],
+      ),
+    `${description} must prove a cwd-sensitive Compose command outside HOME`,
+  );
+  const uiPerformance = evidence.uiPerformance;
+  requireCondition(
+    uiPerformance?.schemaVersion === 1 &&
+      uiPerformance.profile === HOST_UI_PERFORMANCE_PROFILE.id &&
+      uiPerformance.status === "passed" &&
+      samePlainRecord(
+        uiPerformance.thresholds,
+        HOST_UI_PERFORMANCE_PROFILE.thresholds,
+      ),
+    `${description} must use the exact passing host UI performance profile`,
+  );
+  requireCondition(
+    uiPerformance.observations?.liveContainerCount ===
+      evidence.docker.containerCount &&
+      Number.isSafeInteger(uiPerformance.observations.liveContainerCount) &&
+      uiPerformance.observations.liveContainerCount > 0,
+    `${description} UI performance must identify the live container workload`,
+  );
+  requireCondition(
+    Array.isArray(uiPerformance.checks) &&
+      uiPerformance.checks.length === HOST_UI_PERFORMANCE_CHECK_IDS.length &&
+      new Set(uiPerformance.checks.map((check) => check?.id)).size ===
+        HOST_UI_PERFORMANCE_CHECK_IDS.length &&
+      sameStringArray(
+        uiPerformance.checks.map((check) => check?.id).sort(),
+        [...HOST_UI_PERFORMANCE_CHECK_IDS].sort(),
+      ),
+    `${description} must contain the exact host UI performance check set`,
+  );
+  const uiChecksById = new Map(
+    uiPerformance.checks.map((check) => [check.id, check]),
+  );
+  requireCondition(
+    HOST_UI_PERFORMANCE_DEFINITIONS.every((definition) => {
+      const check = uiChecksById.get(definition.id);
+      const observed =
+        uiPerformance.observations?.[definition.metric];
+      const limit =
+        HOST_UI_PERFORMANCE_PROFILE.thresholds[definition.threshold];
+      return (
+        check?.metric === definition.metric &&
+        check.comparison === "<=" &&
+        Object.is(check.observed, observed) &&
+        Object.is(check.limit, limit) &&
+        check.status === "passed" &&
+        Number.isFinite(observed) &&
+        (
+          definition.metric.endsWith("Ms")
+            ? observed > 0
+            : observed >= 0
+        ) &&
+        observed <= limit
+      );
+    }),
+    `${description} host UI performance observations must satisfy policy`,
+  );
+  requireCondition(
+    Array.isArray(uiPerformance.interactionTimings) &&
+      uiPerformance.interactionTimings.length ===
+        HOST_UI_INTERACTION_IDS.length &&
+      new Set(
+        uiPerformance.interactionTimings.map((timing) => timing?.id),
+      ).size === HOST_UI_INTERACTION_IDS.length &&
+      sameStringArray(
+        uiPerformance.interactionTimings.map((timing) => timing?.id),
+        HOST_UI_INTERACTION_IDS,
+      ) &&
+      uiPerformance.interactionTimings.every(
+        (timing) =>
+          Number.isFinite(timing.durationMs) &&
+          timing.durationMs > 0 &&
+          timing.durationMs <=
+            HOST_UI_PERFORMANCE_PROFILE.thresholds
+              .scriptedInteractionSettleMaxMs,
+      ) &&
+      Object.is(
+        Math.max(
+          ...uiPerformance.interactionTimings.map(
+            (timing) => timing.durationMs,
+          ),
+        ),
+        uiPerformance.observations.scriptedInteractionSettleMaxMs,
+      ),
+    `${description} must record the exact passing host UI interaction matrix`,
+  );
+  requireCondition(
+    Array.isArray(evidence.diagnostics?.consoleErrors) &&
+      evidence.diagnostics.consoleErrors.length === 0 &&
+      Array.isArray(evidence.diagnostics?.pageErrors) &&
+      evidence.diagnostics.pageErrors.length === 0 &&
+      Array.isArray(evidence.diagnostics?.processErrors) &&
+      evidence.diagnostics.processErrors.length === 0,
+    `${description} must report zero console, page, and process errors`,
+  );
+  requireCondition(
+    evidence.processExit?.code === 0 && evidence.processExit.signal === null,
+    `${description} Electron process must exit cleanly`,
+  );
+  requireCondition(
+    sameStringArray(evidence.requiredScreens, HOST_CANDIDATE_SCREEN_IDS),
+    `${description} requiredScreens must equal matrix v1`,
+  );
+  requireCondition(
+    Array.isArray(evidence.screens) &&
+      evidence.screens.length === HOST_CANDIDATE_SCREEN_IDS.length &&
+      sameStringArray(
+        evidence.screens.map((screen) => screen?.id).sort(),
+        [...HOST_CANDIDATE_SCREEN_IDS].sort(),
+      ),
+    `${description} must contain the exact required screen set`,
+  );
+  requireCondition(
+    evidence.screens.every(
+      (screen) => {
+        const expectedSemanticIds =
+          HOST_CANDIDATE_SCREEN_SEMANTIC_IDS[screen.id];
+        const actualSemanticIds = Array.isArray(screen.semanticChecks)
+          ? screen.semanticChecks.map((check) => check?.id)
+          : [];
+        return (
+          screen.path === `screens/${screen.id}.png` &&
+          SHA256_PATTERN.test(screen.sha256 ?? "") &&
+          Number.isSafeInteger(screen.bytes) &&
+          screen.bytes > 0 &&
+          hasCanonicalDimensions(screen.dimensions) &&
+          Array.isArray(expectedSemanticIds) &&
+          actualSemanticIds.length === expectedSemanticIds.length &&
+          new Set(actualSemanticIds).size === actualSemanticIds.length &&
+          sameStringArray(
+            [...actualSemanticIds].sort(),
+            [...expectedSemanticIds].sort(),
+          ) &&
+          screen.semanticChecks.every(
+            (check) =>
+              typeof check?.name === "string" &&
+              check.name.length > 0 &&
+              check.status === "passed" &&
+              validHostSemanticObservation(
+                check.id,
+                check.actual,
+                evidence,
+              ),
+          )
+        );
+      },
+    ),
+    `${description} must contain the exact policy-owned passing screen semantics`,
+  );
+  requireCondition(
+    Array.isArray(observedScreens) &&
+      observedScreens.length === HOST_CANDIDATE_SCREEN_IDS.length &&
+      sameStringArray(
+        observedScreens.map((screen) => screen?.id).sort(),
+        [...HOST_CANDIDATE_SCREEN_IDS].sort(),
+      ),
+    `${description} must be paired with every recomputed screen file`,
+  );
+  const declaredScreens = new Map(
+    evidence.screens.map((screen) => [screen.id, screen]),
+  );
+  requireCondition(
+    observedScreens.every((observed) => {
+      const declared = declaredScreens.get(observed.id);
+      return (
+        observed.path === `screens/${observed.id}.png` &&
+        observed.sha256 === declared?.sha256 &&
+        observed.bytes === declared?.bytes &&
+        observed.dimensions?.width === declared?.dimensions?.width &&
+        observed.dimensions?.height === declared?.dimensions?.height
+      );
+    }),
+    `${description} declared screenshots must match recomputed PNG files`,
+  );
+}
+
+function requirePassingChecks(evidence, description, mutationsEnabled) {
+  const expectedIds = acceptanceCheckIds(mutationsEnabled);
+  requireSchemaVersion(evidence, description, 2);
+  requireCondition(
+    evidence?.matrixVersion === 1,
+    `${description} must use matrixVersion 1`,
+  );
+  requireCondition(
+    evidence?.status === "passed",
+    `${description} must report status passed`,
+  );
+  requireCondition(
+    Array.isArray(evidence.checks) && evidence.checks.length > 0,
+    `${description} must include at least one check`,
+  );
+  requireCondition(
+    evidence.checks.every(
+      (check) =>
+        check &&
+        typeof check.id === "string" &&
+        check.id.length > 0 &&
+        typeof check.name === "string" &&
+        check.name.length > 0 &&
+        check.status === "passed",
+    ),
+    `${description} must contain only named passing checks`,
+  );
+  const actualIds = evidence.checks.map((check) => check.id);
+  requireCondition(
+    new Set(actualIds).size === actualIds.length,
+    `${description} must contain unique check ids`,
+  );
+  requireCondition(
+    sameStringArray([...actualIds].sort(), expectedIds),
+    `${description} must contain the exact required check set`,
+  );
+  requireCondition(
+    sameStringArray(evidence.requiredChecks, expectedIds),
+    `${description} requiredChecks must equal matrix v1`,
+  );
+}
+
+export function validateStagedCoreEvidenceHashes(
+  stagedCoreSha256,
+  { mutation, capability, performance },
+) {
+  const description = "Fresh staged core evidence binding";
+  requireSha256(stagedCoreSha256, `${description} staged sha256`);
+  for (const [name, sha256] of Object.entries({
+    mutation,
+    capability,
+    performance,
+  })) {
+    requireSha256(sha256, `${description} ${name} sha256`);
+    requireCondition(
+      sha256 === stagedCoreSha256,
+      `${description} must match the ${name}-tested core`,
+    );
+  }
+}
+
+export function validatePackagedElectronRuntimeClosure(
+  packaged,
+  hostCaptured,
+) {
+  const description = "Packaged Electron runtime closure";
+  requireCondition(
+    packaged?.scope === "packaged-electron-runtime-v1" &&
+      hostCaptured?.scope === "packaged-electron-runtime-v1" &&
+      sameBuildFingerprint(packaged, hostCaptured),
+    `${description} must match the HostBridge-captured runtime`,
+  );
+}
+
+export function validateMutationConformance(evidence) {
+  const description = "Mutation conformance evidence";
+  requireCondition(
+    evidence.mutationsEnabled === true,
+    `${description} must have mutationsEnabled=true`,
+  );
+  requirePassingChecks(evidence, description, true);
+  requireCondition(
+    evidence.cleanup?.status === "passed" &&
+      Array.isArray(evidence.cleanup.errors) &&
+      evidence.cleanup.errors.length === 0,
+    `${description} must report clean disposable-resource cleanup`,
+  );
+  requireCondition(
+    evidence.error === null,
+    `${description} must not contain an error`,
+  );
+  requireSha256(evidence.coreSha256, `${description} coreSha256`);
+  requireSha256(evidence.generator?.sha256, `${description} generator sha256`);
+  requireCondition(
+    typeof evidence.corePath === "string" && evidence.corePath.length > 0,
+    `${description} must identify the tested core`,
+  );
+  requireCondition(
+    typeof evidence.generator?.path === "string" &&
+      evidence.generator.path.length > 0,
+    `${description} must identify its generator`,
+  );
+  requireIsoDate(evidence.startedAt, `${description} startedAt`);
+  requireIsoDate(evidence.completedAt, `${description} completedAt`);
+  requireCondition(
+    Date.parse(evidence.completedAt) >= Date.parse(evidence.startedAt),
+    `${description} completedAt must not precede startedAt`,
+  );
+}
+
+export function validateReadOnlyAcceptance(
+  evidence,
+  { expectedCorePath, expectedCoreSha256 },
+) {
+  const description = "Read-only staged-core acceptance evidence";
+  requireCondition(
+    evidence.mutationsEnabled === false,
+    `${description} must have mutationsEnabled=false`,
+  );
+  requirePassingChecks(evidence, description, false);
+  requireCondition(
+    evidence.cleanup?.status === "passed" &&
+      Array.isArray(evidence.cleanup.errors) &&
+      evidence.cleanup.errors.length === 0,
+    `${description} must report clean cleanup`,
+  );
+  requireCondition(
+    evidence.error === null,
+    `${description} must not contain an error`,
+  );
+  requireCondition(
+    evidence.corePath === expectedCorePath,
+    `${description} must target the exact staged core path`,
+  );
+  requireCondition(
+    evidence.coreSha256 === expectedCoreSha256,
+    `${description} must target the exact staged core hash`,
+  );
+  requireSha256(evidence.generator?.sha256, `${description} generator sha256`);
+}
+
+export function validateDesignLedger(
+  ledger,
+  {
+    expectedRendererBuild,
+    expectedCaptureHarnessSha256,
+    expectedDesignGeneratorSha256,
+    expectedDesignHandoffSource,
+    expectedVisualReviewAttestation,
+    expectedVisualReviewSource,
+  } = {},
+) {
+  const description = "Canonical handoff visual conformance ledger";
+  requireSchemaVersion(ledger, description);
+  requireIsoDate(ledger.generatedAt, `${description} generatedAt`);
+  requireCondition(
+    ledger.claim === DESIGN_VISUAL_CONFORMANCE_CLAIM,
+    `${description} must identify reviewed conformance without claiming pixel identity`,
+  );
+  requireSha256(
+    ledger.rendererBuild?.sha256,
+    `${description} rendererBuild sha256`,
+  );
+  requireCondition(
+    Number.isSafeInteger(ledger.rendererBuild?.files) &&
+      ledger.rendererBuild.files > 0 &&
+      Number.isSafeInteger(ledger.rendererBuild?.bytes) &&
+      ledger.rendererBuild.bytes > 0,
+    `${description} rendererBuild must contain positive file and byte counts`,
+  );
+  if (expectedRendererBuild !== undefined) {
+    requireCondition(
+      sameBuildFingerprint(ledger.rendererBuild, expectedRendererBuild),
+      `${description} must identify the exact freshly built renderer`,
+    );
+  }
+  requireCondition(
+    hasCanonicalDimensions(ledger.canonicalViewport),
+    `${description} must use the canonical 1656x1056 viewport`,
+  );
+  requireCondition(
+    ledger.generator?.path === "tools/measure-design-parity.mjs",
+    `${description} must identify the canonical design generator`,
+  );
+  requireSha256(
+    ledger.generator?.sha256,
+    `${description} generator sha256`,
+  );
+  if (expectedDesignGeneratorSha256 !== undefined) {
+    requireCondition(
+      ledger.generator.sha256 === expectedDesignGeneratorSha256,
+      `${description} generator must match the current source`,
+    );
+  }
+  requireCondition(
+    ledger.handoffSource?.scope === "anchorage-design-handoff-v1" &&
+      sameStringArray(
+        ledger.handoffSource.declaredSources,
+        DESIGN_HANDOFF_DECLARED_SOURCES,
+      ) &&
+      ledger.handoffSource.referenceDirectory ===
+        "docs/design_handoff_anchorage/reference-captures" &&
+      SHA256_PATTERN.test(ledger.handoffSource.sha256 ?? "") &&
+      Number.isSafeInteger(ledger.handoffSource.files) &&
+      ledger.handoffSource.files >=
+        DESIGN_HANDOFF_DECLARED_SOURCES.length &&
+      Number.isSafeInteger(ledger.handoffSource.bytes) &&
+      ledger.handoffSource.bytes > 0,
+    `${description} must bind the declared design handoff source`,
+  );
+  if (expectedDesignHandoffSource !== undefined) {
+    requireCondition(
+      sameBuildFingerprint(
+        ledger.handoffSource,
+        expectedDesignHandoffSource,
+      ),
+      `${description} handoff source must match the current source files`,
+    );
+  }
+  const visualReviewBundle = ledger.visualReviewAttestation;
+  requireCondition(
+    visualReviewBundle?.source?.path ===
+      "docs/design-qa/visual-review-attestation.json" &&
+      SHA256_PATTERN.test(
+        visualReviewBundle.source.sha256 ?? "",
+      ) &&
+      Number.isSafeInteger(visualReviewBundle.source.bytes) &&
+      visualReviewBundle.source.bytes > 0,
+    `${description} must bind the visual review attestation sidecar`,
+  );
+  if (expectedVisualReviewSource !== undefined) {
+    requireCondition(
+      sameFileFingerprint(
+        visualReviewBundle.source,
+        expectedVisualReviewSource,
+      ),
+      `${description} visual review sidecar must match the current source`,
+    );
+  }
+  const visualReviewAttestation = visualReviewBundle.attestation;
+  requireCondition(
+    visualReviewAttestation?.schemaVersion === 1 &&
+      visualReviewAttestation.claim ===
+        DESIGN_VISUAL_CONFORMANCE_CLAIM,
+    `${description} must embed the reviewed visual conformance attestation`,
+  );
+  requireIsoDate(
+    visualReviewAttestation?.reviewedAt,
+    `${description} visual review reviewedAt`,
+  );
+  requireCondition(
+    Date.parse(visualReviewAttestation.reviewedAt) <=
+      Date.parse(ledger.generatedAt),
+    `${description} visual review must not postdate ledger generation`,
+  );
+  if (expectedVisualReviewAttestation !== undefined) {
+    requireCondition(
+      isDeepStrictEqual(
+        visualReviewAttestation,
+        expectedVisualReviewAttestation,
+      ),
+      `${description} must embed the exact current visual review attestation`,
+    );
+  }
+  requireCondition(
+    Array.isArray(visualReviewAttestation.states) &&
+      visualReviewAttestation.states.length ===
+        DESIGN_PARITY_STATE_IDS.length &&
+      new Set(
+        visualReviewAttestation.states.map((state) => state?.state),
+      ).size === DESIGN_PARITY_STATE_IDS.length &&
+      sameStringArray(
+        visualReviewAttestation.states
+          .map((state) => state?.state)
+          .sort(),
+        [...DESIGN_PARITY_STATE_IDS].sort(),
+      ),
+    `${description} visual review must contain the exact 24-state matrix`,
+  );
+  const visualReviewByState = new Map(
+    visualReviewAttestation.states.map((state) => [
+      state.state,
+      state,
+    ]),
+  );
+  const capture = ledger.captureProvenance;
+  requireCondition(
+    capture?.schemaVersion === 1 &&
+      capture.captureMode === "fixture-browser" &&
+      capture.bridgeMode === "fixture" &&
+      capture.source === "app/dist/client",
+    `${description} must contain honest fixture bridge provenance`,
+  );
+  requireIsoDate(capture.capturedAt, `${description} capturedAt`);
+  requireCondition(
+    Date.parse(capture.capturedAt) <= Date.parse(ledger.generatedAt),
+    `${description} capture must not postdate ledger generation`,
+  );
+  requireCondition(
+    hasCanonicalDimensions(capture.canonicalViewport),
+    `${description} capture must use the canonical viewport`,
+  );
+  requireCondition(
+    sameBuildFingerprint(capture.rendererBuild, ledger.rendererBuild),
+    `${description} capture must bind the measured renderer build`,
+  );
+  requireCondition(
+    capture.harness?.path === "tools/capture-design-parity.mjs",
+    `${description} must identify the canonical capture harness`,
+  );
+  requireSha256(
+    capture.harness?.sha256,
+    `${description} capture harness sha256`,
+  );
+  if (expectedCaptureHarnessSha256 !== undefined) {
+    requireCondition(
+      capture.harness.sha256 === expectedCaptureHarnessSha256,
+      `${description} capture harness must match the current source`,
+    );
+  }
+  requireCondition(
+    capture.runtime?.executable ===
+      "app/node_modules/electron/dist/electron" &&
+      typeof capture.runtime.product === "string" &&
+      capture.runtime.product.startsWith("Chrome/") &&
+      typeof capture.runtime.protocolVersion === "string" &&
+      capture.runtime.protocolVersion.length > 0 &&
+      typeof capture.runtime.revision === "string" &&
+      capture.runtime.revision.length > 0 &&
+      typeof capture.runtime.userAgent === "string" &&
+      capture.runtime.userAgent.includes("Electron/") &&
+      typeof capture.runtime.jsVersion === "string" &&
+      capture.runtime.jsVersion.length > 0,
+    `${description} must record the Electron and Chromium capture runtime`,
+  );
+  requireCondition(
+    ledger.reviewRecorded === true,
+    `${description} must record paired visual review`,
+  );
+  requireCondition(
+    Array.isArray(ledger.rows) &&
+      ledger.rows.length === DESIGN_PARITY_STATE_IDS.length,
+    `${description} must contain all 24 canonical reviewed states`,
+  );
+  requireCondition(
+    ledger.summary?.total === ledger.rows.length,
+    `${description} summary total must match its rows`,
+  );
+  requireCondition(
+    ledger.summary.passed === ledger.rows.length,
+    `${description} summary must report every state passed`,
+  );
+  requireCondition(
+    sameStringArray(
+      ledger.rows.map((row) => row?.state).sort(),
+      [...DESIGN_PARITY_STATE_IDS].sort(),
+    ),
+    `${description} must contain the exact canonical state set`,
+  );
+  requireCondition(
+    Array.isArray(capture.states) &&
+      capture.states.length === ledger.rows.length &&
+      sameStringArray(
+        capture.states.map((state) => state?.state).sort(),
+        [...DESIGN_PARITY_STATE_IDS].sort(),
+      ),
+    `${description} capture provenance must contain 24 unique states`,
+  );
+  const captureByState = new Map(
+    capture.states.map((state) => [state?.state, state]),
+  );
+  requireCondition(
+    ledger.rows.every(
+      (row) => {
+        const stateCapture = captureByState.get(row?.state);
+        const stateReview = visualReviewByState.get(row?.state);
+        return (
+          row?.status === "passed" &&
+          typeof row.state === "string" &&
+          row.state.length > 0 &&
+          Number.isFinite(row.mae?.normalized) &&
+          Object.is(
+            row.reviewThreshold,
+            DESIGN_VISUAL_CONFORMANCE_THRESHOLD,
+          ) &&
+          row.mae.normalized <= row.reviewThreshold &&
+          typeof row.reference === "string" &&
+          row.reference.endsWith(`/${row.state}.png`) &&
+          typeof row.actual === "string" &&
+          row.actual.endsWith(`/${row.state}.png`) &&
+          typeof row.diff === "string" &&
+          row.diff.endsWith(`/${row.state}.png`) &&
+          stateCapture?.path === `final-actual/${row.state}.png` &&
+          SHA256_PATTERN.test(stateCapture.sha256 ?? "") &&
+          Number.isSafeInteger(stateCapture.bytes) &&
+          stateCapture.bytes > 0 &&
+          hasCanonicalDimensions(stateCapture.dimensions) &&
+          stateReview?.status === "approved" &&
+          stateReview.reviewer?.kind === "agent-visual-review" &&
+          typeof stateReview.reviewer?.name === "string" &&
+          stateReview.reviewer.name.trim().length > 0 &&
+          sameStringArray(
+            stateReview.criteria,
+            DESIGN_VISUAL_REVIEW_CRITERIA,
+          ) &&
+          typeof stateReview.notes === "string" &&
+          stateReview.notes.trim().length >= 20 &&
+          stateReview.reference?.path ===
+            `docs/design_handoff_anchorage/reference-captures/${row.state}.png` &&
+          SHA256_PATTERN.test(
+            stateReview.reference?.sha256 ?? "",
+          ) &&
+          Number.isSafeInteger(stateReview.reference?.bytes) &&
+          stateReview.reference.bytes > 0 &&
+          hasCanonicalDimensions(
+            stateReview.reference?.dimensions,
+          ) &&
+          stateReview.actual?.path ===
+            `docs/design-qa/final-actual/${row.state}.png` &&
+          SHA256_PATTERN.test(stateReview.actual?.sha256 ?? "") &&
+          Number.isSafeInteger(stateReview.actual?.bytes) &&
+          stateReview.actual.bytes > 0 &&
+          hasCanonicalDimensions(stateReview.actual?.dimensions) &&
+          row.referenceEvidence?.sha256 ===
+            stateReview.reference.sha256 &&
+          row.referenceEvidence?.bytes ===
+            stateReview.reference.bytes &&
+          row.referenceEvidence?.dimensions?.width ===
+            stateReview.reference.dimensions.width &&
+          row.referenceEvidence?.dimensions?.height ===
+            stateReview.reference.dimensions.height &&
+          row.actualEvidence?.sha256 === stateCapture.sha256 &&
+          row.actualEvidence?.bytes === stateCapture.bytes &&
+          row.actualEvidence?.dimensions?.width ===
+            stateCapture.dimensions.width &&
+          row.actualEvidence?.dimensions?.height ===
+            stateCapture.dimensions.height &&
+          row.actualEvidence.sha256 === stateReview.actual.sha256 &&
+          row.actualEvidence.bytes === stateReview.actual.bytes &&
+          row.actualEvidence.dimensions.width ===
+            stateReview.actual.dimensions.width &&
+          row.actualEvidence.dimensions.height ===
+            stateReview.actual.dimensions.height &&
+          isDeepStrictEqual(row.visualReview, {
+            status: stateReview.status,
+            reviewer: stateReview.reviewer,
+            criteria: stateReview.criteria,
+            notes: stateReview.notes,
+          })
+        );
+      },
+    ),
+    `${description} rows and actual evidence must match capture provenance`,
+  );
+  requireCondition(
+    Object.entries(ledger.summary).every(
+      ([name, count]) =>
+        name === "total" ||
+        name === "passed" ||
+        (Number.isSafeInteger(count) && count === 0),
+    ),
+    `${description} summary must not contain non-passing states`,
+  );
+}
+
+export function validateCapabilityEvidence({
+  generation,
+  ledger,
+  systemCapabilities,
+}) {
+  const description = "Installed Docker capability evidence";
+  requireSchemaVersion(generation, `${description} generation`);
+  requireSchemaVersion(ledger, `${description} ledger`);
+  const flattenAvailableLeaves = (node, result = []) => {
+    const children = Array.isArray(node?.subcommands)
+      ? node.subcommands
+      : [];
+    if (
+      children.length === 0 &&
+      node?.status === "available" &&
+      Array.isArray(node.path) &&
+      node.path.length > 0
+    ) {
+      result.push(node);
+      return result;
+    }
+    for (const child of children) {
+      flattenAvailableLeaves(child, result);
+    }
+    return result;
+  };
+  const availableLeaves = flattenAvailableLeaves(
+    systemCapabilities?.commandInventory?.root,
+  );
+  const leafKeys = availableLeaves.map((leaf) =>
+    JSON.stringify(leaf.path));
+  requireCondition(
+    availableLeaves.length > 0 &&
+      availableLeaves.every((leaf) =>
+        leaf.path.every(
+          (token) => typeof token === "string" && token.length > 0,
+        )) &&
+      new Set(leafKeys).size === leafKeys.length,
+    `${description} system snapshot must contain unique available leaf identities`,
+  );
+  const selectedContext =
+    systemCapabilities?.selectedContext ??
+    systemCapabilities?.currentContext;
+  requireCondition(
+    typeof selectedContext === "string" &&
+      selectedContext.length > 0 &&
+      generation.context === selectedContext &&
+      ledger.selectedContext === selectedContext,
+    `${description} context must match across snapshot, ledger, and generation`,
+  );
+  requireIsoDate(
+    systemCapabilities?.observedAt,
+    `${description} source observedAt`,
+  );
+  requireIsoDate(generation.startedAt, `${description} generation startedAt`);
+  requireIsoDate(
+    generation.completedAt,
+    `${description} generation completedAt`,
+  );
+  requireIsoDate(ledger.generatedAt, `${description} ledger generatedAt`);
+  requireCondition(
+    generation.sourceObservedAt === systemCapabilities.observedAt &&
+      ledger.sourceObservedAt === systemCapabilities.observedAt &&
+      ledger.generatedAt === generation.completedAt &&
+      Date.parse(generation.startedAt) <=
+        Date.parse(systemCapabilities.observedAt) &&
+      Date.parse(systemCapabilities.observedAt) <=
+        Date.parse(generation.completedAt),
+    `${description} timestamps must identify the same inventory observation`,
+  );
+  requireCondition(
+    generation.complete === true &&
+      Number.isSafeInteger(generation.leafCount) &&
+      generation.leafCount === availableLeaves.length &&
+      generation.nodeCount ===
+        systemCapabilities.commandInventory.nodeCount &&
+      generation.transportCovered === generation.leafCount &&
+      generation.commandExecutedConformancePassed === 0 &&
+      generation.blocked === 0,
+    `${description} generation counts must match the exact available inventory`,
+  );
+  requireSha256(generation.coreSha256, `${description} core sha256`);
+  requireSha256(
+    generation.dockerBinarySha256,
+    `${description} Docker binary sha256`,
+  );
+  requireSha256(
+    generation.generator?.sha256,
+    `${description} generator sha256`,
+  );
+  requireCondition(
+    ledger.inventory?.complete === true &&
+      ledger.inventory.nodeCount === generation.nodeCount &&
+      ledger.inventory.leafCount === generation.leafCount &&
+      ledger.inventory.transportCovered === generation.transportCovered &&
+      ledger.inventory.commandExecutedConformancePassed === 0 &&
+      ledger.inventory.blocked === 0 &&
+      Array.isArray(ledger.rows) &&
+      ledger.rows.length === generation.leafCount,
+    `${description} ledger inventory must match its generation record`,
+  );
+  const rowsByLeafKey = new Map(
+    ledger.rows.map((row) => [
+      JSON.stringify(row?.commandIdentity?.path),
+      row,
+    ]),
+  );
+  requireCondition(
+    rowsByLeafKey.size === ledger.rows.length &&
+      availableLeaves.every((leaf) => {
+        const row = rowsByLeafKey.get(JSON.stringify(leaf.path));
+        return (
+          row?.id === `docker:${leaf.path.join(":")}` &&
+          row.commandIdentity.executable ===
+            systemCapabilities.binary.realPath &&
+          row.commandIdentity.executableSha256 ===
+            generation.dockerBinarySha256 &&
+          row.commandIdentity.plugin === (leaf.pluginRoot ?? null) &&
+          row.commandIdentity.command ===
+            `docker ${leaf.path.join(" ")}` &&
+          row.commandIdentity.kind === leaf.kind &&
+          row.discovery?.status === "available" &&
+          row.discovery.reason === leaf.reason &&
+          row.discovery.usage === (leaf.usage ?? null) &&
+          sameStringArray(
+            row.discovery.transports,
+            leaf.transports,
+          ) &&
+          row.invocation?.context === selectedContext &&
+          sameStringArray(
+            row.invocation.argvPrefix,
+            ["--context", selectedContext],
+          ) &&
+          sameStringArray(row.invocation.commandArgv, leaf.path) &&
+          row.uiPath?.selection === leaf.path.join(" ") &&
+          row.status === "transport-covered" &&
+          row.blockedReason === null &&
+          row.result?.coverage === "executable-through-installed-cli" &&
+          typeof row.result?.commandExecution === "string" &&
+          row.result.commandExecution.startsWith(
+            "not-run-by-ledger-generator",
+          ) &&
+          Array.isArray(row.transportEvidence) &&
+          row.transportEvidence.length > 0
+        );
+      }),
+    `${description} ledger rows must exactly reconcile one-to-one with available leaves`,
+  );
+  requireCondition(
+    ledger.rows.every(
+      (row) =>
+        row?.status === "transport-covered" &&
+        row.blockedReason === null &&
+        row.result?.coverage === "executable-through-installed-cli" &&
+        typeof row.result?.commandExecution === "string" &&
+        row.result.commandExecution.startsWith("not-run-by-ledger-generator") &&
+        Array.isArray(row.transportEvidence) &&
+        row.transportEvidence.length > 0 &&
+        row.commandIdentity?.executableSha256 ===
+          generation.dockerBinarySha256
+    ),
+    `${description} ledger must distinguish transport coverage from command execution`,
+  );
+  requireCondition(
+    systemCapabilities?.binary?.sha256 ===
+      generation.dockerBinarySha256,
+    `${description} system snapshot must match the Docker binary hash`,
+  );
+  requireCondition(
+    systemCapabilities?.commandInventory?.complete === true &&
+      systemCapabilities.commandInventory.limitReached === false &&
+      ledger.inventory.nodeCount ===
+        systemCapabilities.commandInventory.nodeCount &&
+      ledger.inventory.leafCount ===
+        availableLeaves.length &&
+      Array.isArray(systemCapabilities.commandInventory.warnings) &&
+      systemCapabilities.commandInventory.warnings.length === 0 &&
+      Array.isArray(ledger.inventory.warnings) &&
+      ledger.inventory.warnings.length === 0,
+    `${description} system snapshot must contain the complete inventory`,
+  );
+}
+
+export function validatePerformanceEvidence(
+  { results, environment },
+  {
+    minimumSoakDurationSeconds = 1_800,
+    expectedHarnessSha256,
+  } = {},
+) {
+  const description = "Performance evidence";
+  requireSchemaVersion(results, `${description} results`);
+  requireSchemaVersion(environment, `${description} environment`);
+  requireCondition(
+    results.status === "passed" && results.error === undefined,
+    `${description} must report a passing run without an error`,
+  );
+  requireCondition(
+    results.readOnly === true && environment.harness?.readOnly === true,
+    `${description} must be read-only`,
+  );
+  requireCondition(
+    environment.harness?.script ===
+      "tools/run-performance-evidence.mjs",
+    `${description} must identify the canonical performance harness`,
+  );
+  requireSha256(
+    environment.harness?.sha256,
+    `${description} harness sha256`,
+  );
+  if (expectedHarnessSha256 !== undefined) {
+    requireCondition(
+      environment.harness.sha256 === expectedHarnessSha256,
+      `${description} harness must match the current source`,
+    );
+  }
+  requireCondition(
+    results.requestedSoakDurationSeconds >= minimumSoakDurationSeconds &&
+      environment.harness?.requestedSoakDurationSeconds ===
+        results.requestedSoakDurationSeconds,
+    `${description} must contain the authoritative soak duration`,
+  );
+  requireCondition(
+    results.streamingSoak?.requestedDurationSeconds ===
+      results.requestedSoakDurationSeconds &&
+      results.streamingSoak?.actualDurationMs >=
+        results.requestedSoakDurationSeconds * 1_000 &&
+      Array.isArray(results.streamingSoak?.rssSamples) &&
+      results.streamingSoak.rssSamples.length > 1,
+    `${description} must contain the complete streaming soak`,
+  );
+  const slo = results.performanceSLO;
+  requireCondition(
+    slo?.profile === RELEASE_PERFORMANCE_PROFILE.id &&
+      slo.status === "passed",
+    `${description} must use the passing ${RELEASE_PERFORMANCE_PROFILE.id} profile`,
+  );
+  requireCondition(
+    samePlainRecord(
+      slo.thresholds,
+      RELEASE_PERFORMANCE_PROFILE.thresholds,
+    ),
+    `${description} must use the exact release SLO thresholds`,
+  );
+  requireCondition(
+    Array.isArray(slo.checks) &&
+      slo.checks.length === RELEASE_PERFORMANCE_CHECK_IDS.length,
+    `${description} must contain the exact release SLO check set`,
+  );
+  const actualSloIds = slo.checks.map((check) => check?.id);
+  requireCondition(
+    new Set(actualSloIds).size === actualSloIds.length,
+    `${description} must contain unique release SLO check ids`,
+  );
+  requireCondition(
+    sameStringArray(
+      [...actualSloIds].sort(),
+      [...RELEASE_PERFORMANCE_CHECK_IDS].sort(),
+    ),
+    `${description} must contain the exact release SLO check set`,
+  );
+  const checksById = new Map(slo.checks.map((check) => [check.id, check]));
+  requireCondition(
+    RELEASE_PERFORMANCE_MAXIMUM_CHECKS.every((definition) => {
+      const check = checksById.get(definition.id);
+      const observed = definition.observed(results);
+      const limit =
+        RELEASE_PERFORMANCE_PROFILE.thresholds[definition.threshold];
+      return (
+        check?.metric === definition.metric &&
+        check.comparison === "<=" &&
+        Object.is(check.observed, observed) &&
+        Object.is(check.limit, limit) &&
+        check.status === "passed" &&
+        Number.isFinite(observed) &&
+        observed <= limit
+      );
+    }) &&
+      RELEASE_PERFORMANCE_MINIMUM_CHECKS.every((definition) => {
+        const check = checksById.get(definition.id);
+        const observed = definition.observed(results);
+        const limit =
+          RELEASE_PERFORMANCE_PROFILE.thresholds[definition.threshold];
+        return (
+          check?.metric === definition.metric &&
+          check.comparison === ">=" &&
+          Object.is(check.observed, observed) &&
+          Object.is(check.limit, limit) &&
+          check.status === "passed" &&
+          Number.isFinite(observed) &&
+          observed >= limit
+        );
+      }) &&
+      RELEASE_PERFORMANCE_EQUAL_CHECKS.every((definition) => {
+        const check = checksById.get(definition.id);
+        const observed = definition.observed(results);
+        const expected = definition.expected(results);
+        return (
+          check?.metric === definition.metric &&
+          check.comparison === "===" &&
+          Object.is(check.observed, observed) &&
+          Object.is(check.expected, expected) &&
+          check.status === "passed" &&
+          Object.is(observed, expected)
+        );
+      }),
+    `${description} release SLO observed values must match results`,
+  );
+  requireCondition(
+    results.coreExit?.code === 0 && results.coreExit.signal === null,
+    `${description} core must exit cleanly`,
+  );
+  requireCondition(
+    environment.tools?.core?.runtime?.protocolVersion === "1" &&
+      environment.tools.core.runtime.dockerReady === true,
+    `${description} environment must record a ready protocol-v1 core`,
+  );
+  requireSha256(
+    environment.tools?.core?.sha256,
+    `${description} core sha256`,
+  );
+  requireCondition(
+    results.completedAt === environment.completedAt,
+    `${description} results and environment must describe the same run`,
+  );
+  requireCondition(
+    results.context === environment.harness?.context,
+    `${description} results and environment context must match`,
+  );
+}

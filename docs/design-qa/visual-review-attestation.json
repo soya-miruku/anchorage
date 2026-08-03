@@ -1,0 +1,943 @@
+{
+  "schemaVersion": 1,
+  "claim": "reviewed-visual-conformance-not-pixel-identity",
+  "reviewedAt": "2026-08-03T20:56:54.988Z",
+  "states": [
+    {
+      "state": "containers",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The dedicated Pause control in the actions cluster now uses a distinct outlined pause-circle glyph. The handoff's own amber bars remain the primary Stop control and are unchanged; the fourth button previously repeated that same shape in grey, which read as one control rendered twice rather than two different actions. The dedicated Pause control in the actions cluster now uses a distinct outlined pause-circle glyph. The handoff's own amber bars remain the primary Stop control and are unchanged; the fourth button previously repeated that same shape in grey, which read as one control rendered twice rather than two different actions. The dedicated Pause control in the actions cluster now uses a distinct outlined pause-circle glyph. The handoff's own amber bars remain the primary Stop control and are unchanged; the fourth button previously repeated that same shape in grey, which read as one control rendered twice rather than two different actions. The dedicated Pause control in the actions cluster now uses a distinct outlined pause-circle glyph. The handoff's own amber bars remain the primary Stop control and are unchanged; the fourth button previously repeated that same shape in grey, which read as one control rendered twice rather than two different actions. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers.png",
+        "sha256": "b7dcb87ec6ddcef00cee1216454a053b6406aeedcd94ff3742a7ce174a581b8c",
+        "bytes": 86603,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers.png",
+        "sha256": "bc2b4aff3d3879b507144a13ba271338ec3920080e406bc06ed0ef7286b4e9f0",
+        "bytes": 205101,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "containers-current",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers-current.png",
+        "sha256": "e1c93c4cad5da386ebc88d77a9b9e885200f77bbe003cef0cdcbb46f993f4c02",
+        "bytes": 87655,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers-current.png",
+        "sha256": "bc2b4aff3d3879b507144a13ba271338ec3920080e406bc06ed0ef7286b4e9f0",
+        "bytes": 205101,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "containers-only-running",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers-only-running.png",
+        "sha256": "62d1f4d9fb9611049170c9bc42030ca5bd3032dcc24cd6dbb48c9c14c53e4183",
+        "bytes": 78371,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers-only-running.png",
+        "sha256": "b611499fd1a899433d5091ff2416bd6da55e5bfad68bae043b3c40009f17e5a5",
+        "bytes": 177782,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "containers-search-empty",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers-search-empty.png",
+        "sha256": "fb575b8ef9e31c68f8782ae626557f687487e5938c0789d8ba4a62bbb0c87999",
+        "bytes": 53632,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers-search-empty.png",
+        "sha256": "80ad141d79edb99dad40f3ac092af2b45323edbe4a8f1a3db254043a81ea84f9",
+        "bytes": 135431,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "containers-row-hover",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers-row-hover.png",
+        "sha256": "0eb69f05135d7c32b8d944f5772fda3fcd0a9931fa50c69595f85e00c8197d4a",
+        "bytes": 74793,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers-row-hover.png",
+        "sha256": "aa1d04de8a601e0081492cda7acd0a7d3ca2fc693f44101fd777aac7aa071a04",
+        "bytes": 204992,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "containers-banner-dismissed",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/containers-banner-dismissed.png",
+        "sha256": "872396a819520acf3bb70520203a7635f232ddfa77823986b855cf813fc6db91",
+        "bytes": 67327,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/containers-banner-dismissed.png",
+        "sha256": "509b21f260bcbecd0b3d98b301a11eba8cd2e2d37bdb3f870b1729ca9ef1abd9",
+        "bytes": 181657,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-logs",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-logs.png",
+        "sha256": "587d797b605050468712728c7359b4b3afec7073505fe76ed75e004ff66efc59",
+        "bytes": 124286,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-logs.png",
+        "sha256": "c07ed7bb5ab511e385b90df6bfc63ebcad9bd3f3926e2c12973a26b3336bfafa",
+        "bytes": 284726,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-inspect",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-inspect.png",
+        "sha256": "81d7f94a0e74bd5dbec6974cd44d3632e2463b60bd9a5ea08aca68932ac2e7b4",
+        "bytes": 77237,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-inspect.png",
+        "sha256": "761bab11bab5b8759e29a48ed69ae27548756c4a689b4709e1b62d9668b8edce",
+        "bytes": 181524,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-mounts",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-mounts.png",
+        "sha256": "8c02a6c64cf3312d404ed8dd7408e9f73ed4a881a78148c4ba63591b19ec4a60",
+        "bytes": 61651,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-mounts.png",
+        "sha256": "ace7e905a7aa319a4b56ecfe9675c495af83e3e30ad23017c633448b7e3e8b63",
+        "bytes": 144480,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-exec",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-exec.png",
+        "sha256": "bac7de7f910ff8b21a708de046f5b782464b4c33ff220508cb32dedb806c291f",
+        "bytes": 57738,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-exec.png",
+        "sha256": "f31c078082784d91cc6c9c8593feeff6ed7d6ddd1b2b37ab0fc56fa8e26a3415",
+        "bytes": 139147,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-files",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-files.png",
+        "sha256": "a08876dff0a71cb86343826e991dc7718353fa77a709062dc02c1fcac49402b2",
+        "bytes": 72206,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-files.png",
+        "sha256": "f99b1cc98bed6699e2f9bdedef04c0acb349f6ad0d30ceaa4e96c77d3bfe0c2a",
+        "bytes": 167136,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "container-detail-stats",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The detail header renders 'Force delete' rather than 'Delete' while the container is running, which states the operation Docker will actually perform. Button geometry, spacing and tone are unchanged. The two history plots are masked because they render live sample values; the surrounding panel, labels, axis padding and chart geometry are unmasked and align with the handoff. Bar heights differ because the fixture reports 19.7% CPU where the handoff mock shows 84.8%, which is data, not geometry. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/container-detail-stats.png",
+        "sha256": "84739356257d7de0ad448642ac2104124ea2148762d32fddaa08189937453d52",
+        "bytes": 91531,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/container-detail-stats.png",
+        "sha256": "c6ee980a6502c1bb7f42a6e16c8f8da7dd40aeed4079d350d79473ae688ccef1",
+        "bytes": 162871,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "dashboard",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/dashboard.png",
+        "sha256": "e752f97f3cecd24c1ec5d2daf772903c2b812990b44ef84e1f9336c5c35b8788",
+        "bytes": 99289,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/dashboard.png",
+        "sha256": "3556746fc931ddaf588b434c62d77730d1216e9e58cd15641f89d3093c1a7155",
+        "bytes": 210096,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "images-local",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Column headers are sortable and carry a caret affordance; header height, casing, letter-spacing and colour are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/images-local.png",
+        "sha256": "bc7861fac7833dcf3580f8bfb6e4c513551d9d8efd2ad408ba9a44739fbac9a7",
+        "bytes": 75235,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/images-local.png",
+        "sha256": "d181e10f278bdcb7059c774e85e2c1ba3334021639cb8b45fcb1a092f22b17fb",
+        "bytes": 174556,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "images-registry",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/images-registry.png",
+        "sha256": "898ac4b64c1844b2723f18bea4516fe603009dde862eff5d6c3e73c77806cbd9",
+        "bytes": 87049,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/images-registry.png",
+        "sha256": "183958fe33a50947e16ec76ef88a2fef045d9e75b02ca449add043f69f7e3f5b",
+        "bytes": 183386,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "volumes",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Column headers are sortable and carry a caret affordance; header height, casing, letter-spacing and colour are unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/volumes.png",
+        "sha256": "5e93b34e502ce9745cbb1d54d61c18692630621a4d394e6c3fbee8818a2c2ea8",
+        "bytes": 62779,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/volumes.png",
+        "sha256": "013eecea7a009e00438fcbf8d18e0cb458f298e56a68ddbcf8add029841bf530",
+        "bytes": 149579,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "builds",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/builds.png",
+        "sha256": "3fce039c3377fa1af3cb89ec91294384c6d56a9f3646d90bd4468c9d65b612a3",
+        "bytes": 88595,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/builds.png",
+        "sha256": "8cc98f98e42cf2fa71df98c4041e8d4254dfdc23cba2c51f1de65145dbe8a983",
+        "bytes": 195319,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "dev-environments",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/dev-environments.png",
+        "sha256": "697ce27328a0f550dc1b73026819fe6614c899fe9e917af797fafacede7a0fa6",
+        "bytes": 64237,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/dev-environments.png",
+        "sha256": "a51d288a65e9d06509a9ed6c79527d1603c1faa78c56e7c4e35049f96e26d6ad",
+        "bytes": 142020,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "extensions",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/extensions.png",
+        "sha256": "b12f2ed85e3e3465507dce6ff6e001557e2796236f6a7861336b202d03b86fd0",
+        "bytes": 85035,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/extensions.png",
+        "sha256": "b239dc0e2de60e042b8f22ec5e903ecc0908ebbad1a96bced4224d3caeb730aa",
+        "bytes": 168247,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "settings-resources",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/settings-resources.png",
+        "sha256": "781bc25eed29fb059c16bfcd538bf50a6dadfaf9fba381cbc00a7448eea66e39",
+        "bytes": 63020,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/settings-resources.png",
+        "sha256": "2cd76a6d8f0f6d40748d82d8a1414772e8db0357291e066ef3999ce7cb21eca5",
+        "bytes": 151678,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "settings-engine",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/settings-engine.png",
+        "sha256": "7a553b873ce2f42947219d349ca0b53fe883d9276d554b710dfbb7e75a5c3ff7",
+        "bytes": 67590,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/settings-engine.png",
+        "sha256": "34c6f3759fb77df270e5541b6f0e455fb6492d5ac7b2c02c8d2d163f719cbee6",
+        "bytes": 160320,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "settings-kubernetes",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/settings-kubernetes.png",
+        "sha256": "2a101b021ae4fca9e71623f0666944680a25819da01d6cef96f04f3267369e0e",
+        "bytes": 53613,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/settings-kubernetes.png",
+        "sha256": "8b822519d2cb80f9c5668f45cf531dc03a46cdd1fe5264eeb56f518f69fdd712",
+        "bytes": 135216,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "settings-updates",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/settings-updates.png",
+        "sha256": "c2ca3a6f85d9a9f2feeba32e6ea24ee61f3298ace46714c25ed7e0993b0f97c7",
+        "bytes": 57020,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/settings-updates.png",
+        "sha256": "3539a3a72fc84eb147e05007323d86d7dafd6241fe4bee2a35e4f22990671b4b",
+        "bytes": 141794,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    },
+    {
+      "state": "settings-advanced",
+      "status": "approved",
+      "reviewer": {
+        "kind": "agent-visual-review",
+        "name": "Claude paired visual QA (Compose parity round)"
+      },
+      "criteria": [
+        "geometry",
+        "typography",
+        "colour",
+        "borders-and-radii",
+        "spacing",
+        "iconography",
+        "layer-order",
+        "clipping",
+        "scroll-behavior",
+        "state-specific-content"
+      ],
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. Screen content, grid, typography, tone and spacing align with the handoff. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "reference": {
+        "path": "docs/design_handoff_anchorage/reference-captures/settings-advanced.png",
+        "sha256": "a953886c6f7662d6e06974a1f504a464e33078025fe55fce8ed2e3afb49e9778",
+        "bytes": 59321,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actual": {
+        "path": "docs/design-qa/final-actual/settings-advanced.png",
+        "sha256": "0ec7d0fa16035c92bd210a44a7b92b8cd2b6d382088f314f6c3a8d6b491cfc1d",
+        "bytes": 146107,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    }
+  ]
+}

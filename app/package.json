@@ -1,0 +1,55 @@
+{
+  "name": "anchorage",
+  "productName": "Anchorage",
+  "desktopName": "anchorage",
+  "version": "0.1.0",
+  "description": "A fast, capability-complete desktop interface for Docker Engine and the installed Docker CLI.",
+  "author": {
+    "name": "Anchorage Contributors"
+  },
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "node scripts/dev-desktop.mjs",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "desktop": "electron .",
+    "capture:host-candidate": "node ../tools/capture-host-candidate.mjs",
+    "package:preflight": "node scripts/package-desktop.mjs --preflight",
+    "package:linux:dir": "node scripts/package-desktop.mjs --dir",
+    "package:linux": "node scripts/package-desktop.mjs --linux",
+    "preview": "vite preview",
+    "test": "npm run test:renderer && npm run test:protocol && npm run test:security-evidence && npm run test:package-evidence && npm run test:electron && npm run test:sites",
+    "test:electron": "node --test electron/*.test.mjs",
+    "test:protocol": "tsc -p ../protocol/tsconfig.json && node --test ../protocol/schema.test.mjs",
+    "test:package-evidence": "node --test scripts/package-evidence-policy.test.mjs",
+    "test:renderer": "vitest run src",
+    "test:security-evidence": "node --test ../tools/security-evidence-helpers.test.mjs",
+    "typecheck:renderer": "tsc --noEmit --jsx react-jsx --moduleResolution bundler --module preserve --target es2022 --lib es2022,dom --strict --skipLibCheck src/*.ts src/*.tsx src/**/*.ts src/**/*.tsx",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.0.4",
+    "@xterm/xterm": "6.0.0",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3",
+    "jsdom": "27.0.1",
+    "lucide-react": "1.28.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "typescript": "7.0.2",
+    "vite": "6.4.3",
+    "vitest": "4.1.10"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "application": {
+    "name": "anchorage",
+    "productName": "Anchorage",
+    "version": "0.1.0",
+    "electronVersion": "43.2.0"
+  },
+  "core": {
+    "path": "core/anchorage-core",
+    "sha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99",
+    "bytes": 6983828,
+    "version": "anchorage-core 0.1.0 protocol 1 go go1.25.5",
+    "goToolchain": "go version go1.25.5 linux/amd64",
+    "build": {
+      "cgoEnabled": false,
+      "trimpath": true,
+      "stripped": true
+    }
+  },
+  "renderer": {
+    "path": "app.asar/dist/client",
+    "sha256": "f9ba851ce97b942d1181aadfcacf91fbb605e8960437134fc2ca1fc6cc2b129c",
+    "files": 21,
+    "bytes": 1176726
+  },
+  "evidence": {
+    "designConformance": {
+      "path": "artifacts/design/design-ledger.json",
+      "sha256": "911a6e892dd7dec08d0f888bc59805c40ad525c761db69968dfbd1002bbda816",
+      "bytes": 97779,
+      "generatedAt": "2026-08-03T15:10:07.036Z",
+      "reviewedStates": 24,
+      "generatorSha256": "51e9f5096eb99f0ca3181f6276f395f60639c60874e3e2a92f60e4e946bb0608",
+      "handoffSource": {
+        "scope": "anchorage-design-handoff-v1",
+        "sha256": "ae9ff03c01772cef09f4ce496e85c9bd51fe7683191d2963273f834bc5eff433",
+        "files": 27,
+        "bytes": 1979780,
+        "declaredSources": [
+          "docs/design_handoff_anchorage/Anchorage.dc.html",
+          "docs/design_handoff_anchorage/README.md",
+          "docs/design_handoff_anchorage/support.js"
+        ],
+        "referenceDirectory": "docs/design_handoff_anchorage/reference-captures"
+      },
+      "visualReviewAttestation": {
+        "path": "docs/design-qa/visual-review-attestation.json",
+        "sha256": "b1a7b3f435231d8fb6b94183e75b99cc81a47382d722d135107f647a5fad361d",
+        "bytes": 34628,
+        "claim": "reviewed-visual-conformance-not-pixel-identity",
+        "reviewedAt": "2026-08-03T15:09:59.129Z",
+        "states": 24
+      },
+      "rendererBuild": {
+        "sha256": "f9ba851ce97b942d1181aadfcacf91fbb605e8960437134fc2ca1fc6cc2b129c",
+        "files": 21,
+        "bytes": 1176726
+      },
+      "captureProvenance": {
+        "path": "docs/design-qa/final-actual/capture-provenance.json",
+        "sha256": "1f9eab32c20cf50314592e3bca2b603c04dc71fa714f4a70f2c3691d267db604",
+        "bytes": 7758,
+        "capturedAt": "2026-08-03T15:09:29.078Z",
+        "captureMode": "fixture-browser",
+        "bridgeMode": "fixture",
+        "harnessSha256": "ea1e18ca279b532f35a915c34762d6d08668f45d5ad01d87ca3be1839e6305a0"
+      }
+    },
+    "mutationConformance": {
+      "path": "artifacts/docker/conformance-results.json",
+      "sha256": "ffcc897aecb9c2b9109481ab9c24d47c57702598cc8312c0d694db88aa0a5aca",
+      "bytes": 13279,
+      "completedAt": "2026-08-03T15:11:00.049Z",
+      "schemaVersion": 2,
+      "matrixVersion": 1,
+      "mutationsEnabled": true,
+      "coreSha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99",
+      "checks": 18,
+      "requiredChecks": [
+        "container-inspect-stats",
+        "container-lifecycle",
+        "core-handshake",
+        "dind-isolation",
+        "image-prune-all",
+        "image-prune-dangling",
+        "image-pull-session",
+        "image-remove-one-tag",
+        "installed-command-inventory",
+        "literal-cli-run",
+        "literal-pipes-session",
+        "pinned-cli-run",
+        "pinned-pipes-session",
+        "pty-session",
+        "snapshot-list-conformance",
+        "volume-prune-all",
+        "volume-prune-default",
+        "volume-remove-exact"
+      ]
+    },
+    "dockerCapabilities": {
+      "generation": {
+        "path": "artifacts/docker/capability-generation.json",
+        "sha256": "5efeedc94c11631b16879cb3eea7c9c6d2bb2b276ea353c714621aaff313093d",
+        "bytes": 796,
+        "completedAt": "2026-08-03T15:10:16.927Z",
+        "leafCount": 219,
+        "transportCovered": 219,
+        "commandExecutedConformancePassed": 0,
+        "coreSha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99",
+        "dockerBinarySha256": "f19b55b0ac322d601a4057c8304025939bf2bbd6742747e5547e21084e839315"
+      },
+      "ledger": {
+        "path": "artifacts/docker/capability-ledger.json",
+        "sha256": "ee5f5d828a01f4ec5b3712b246bbf5b13e5dc6e6fdccb5416ed17adbca15bf22",
+        "bytes": 705387
+      },
+      "systemSnapshot": {
+        "path": "artifacts/docker/system-capabilities.json",
+        "sha256": "82b330e94298e2d28cb8d99dba463e375ebb57b5d52500ce6037e9e645c814d7",
+        "bytes": 521554
+      }
+    },
+    "performance": {
+      "results": {
+        "path": "artifacts/performance/results.json",
+        "sha256": "0199f5f109e304059313778d82529c319a98b1a5af383efc9a1f578e0317374b",
+        "bytes": 147427,
+        "completedAt": "2026-08-03T15:42:40.512Z",
+        "soakDurationSeconds": 1800,
+        "harnessSha256": "3615b36ac4f1908840b5ad33ff28a76c694b9d9aa224130eb07afa11168b510f"
+      },
+      "environment": {
+        "path": "artifacts/performance/environment.json",
+        "sha256": "4fd040ed58f5c3f742f78607ee069d79b4456317571f9fc70631e06a8d96e23a",
+        "bytes": 2820,
+        "coreSha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99"
+      }
+    },
+    "hostCandidate": {
+      "path": "artifacts/host-candidate/host-candidate.json",
+      "sha256": "c037e85e5d550a5b6bb99d27aa16d9c200b26d569573b2e214de60c34c80bbee",
+      "bytes": 21219,
+      "completedAt": "2026-08-03T15:43:38.646Z",
+      "scope": "host-integration-smoke-not-pixel-parity",
+      "bridgeMode": "host",
+      "checks": 12,
+      "requiredChecks": [
+        "candidate-integrity",
+        "clean-shutdown",
+        "console-and-page-errors",
+        "core-handshake",
+        "docker-context-ready",
+        "host-bridge-attestation",
+        "host-ui-performance",
+        "live-resource-screens",
+        "literal-cli-run",
+        "outside-home-cwd-cli-run",
+        "pinned-cli-run",
+        "unsupported-host-states"
+      ],
+      "screens": [
+        {
+          "id": "host-dashboard",
+          "path": "screens/host-dashboard.png",
+          "sha256": "c469979f43470d39e97c5dc52ea8aa5d4a552bb96c8570cb82083e6a3be70555",
+          "bytes": 100889,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-containers",
+          "path": "screens/host-containers.png",
+          "sha256": "5a7540aeb8fd30f00b681c5c3ba9d2dc3556f32c0919a1e471eb285fb5eed707",
+          "bytes": 225198,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-container-detail",
+          "path": "screens/host-container-detail.png",
+          "sha256": "73197f8ce02f3a470dedc711d467edc0af5631e56b9bfb98890f7354c840937d",
+          "bytes": 492256,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-files-unavailable",
+          "path": "screens/host-files-unavailable.png",
+          "sha256": "93dcbdd0ba8014ca2a4b8d887abf8fff0b897b0df69d5ac69628999166fe0e9f",
+          "bytes": 67570,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-images",
+          "path": "screens/host-images.png",
+          "sha256": "8eef63315a8dead4d16c594fed3eccb35cf68c3535cfe3f180ce46172db028f0",
+          "bytes": 212600,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-volumes",
+          "path": "screens/host-volumes.png",
+          "sha256": "e10d35072fa6de3552be7ecb526953cac94af3fc4cfbc12e7944a6461fd58f70",
+          "bytes": 224558,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-command-center-pinned",
+          "path": "screens/host-command-center-pinned.png",
+          "sha256": "f3c72257947c0bc3959fb88668b56a0e9d50c704bfb7f7273d1bb5af59372bbc",
+          "bytes": 133233,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-command-center-literal",
+          "path": "screens/host-command-center-literal.png",
+          "sha256": "77b3907b9704cf9d14d0c61e71190705bcd8645608ff6887e59f1b93beef7c65",
+          "bytes": 145603,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        },
+        {
+          "id": "host-unsupported-builds",
+          "path": "screens/host-unsupported-builds.png",
+          "sha256": "3b691e14174261249f57e6de5038bc482bfc723459ad7939d00b46a79a5c611a",
+          "bytes": 66404,
+          "dimensions": {
+            "width": 1656,
+            "height": 1056
+          }
+        }
+      ],
+      "rendererBuild": {
+        "sha256": "f9ba851ce97b942d1181aadfcacf91fbb605e8960437134fc2ca1fc6cc2b129c",
+        "files": 21,
+        "bytes": 1176726
+      },
+      "coreSha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99",
+      "electronBinary": {
+        "path": "app/node_modules/electron/dist/electron",
+        "sha256": "84e1078c8f38659f3785fec90b68ff47dcb7b5ed94e97e4e4cc6dd3290758991",
+        "bytes": 219917560
+      },
+      "electronRuntimeClosure": {
+        "scope": "packaged-electron-runtime-v1",
+        "sha256": "926045bdb2a3345aef32022804d526b72e1590e63ff67ff6f7fc2f5272ab68d3",
+        "files": 13,
+        "bytes": 164245
+      },
+      "harnessSha256": "c175bbe505d4e198c876ef9bfef1825f46319fbccbe063da47b4690d613da8ab"
+    },
+    "coreAcceptance": {
+      "path": "artifacts/docker/read-only-acceptance.json",
+      "sha256": "eaeca30e62db10ca368166dbaa2ffe79cdcfec1420dcaadd3b0983eaf2032c7a",
+      "bytes": 7729,
+      "coreSha256": "ed7a1de18f889b7b31f45ead7a9be02c81245b2203872cf2c7f4c70e090acd99",
+      "completedAt": "2026-08-03T15:43:44.189Z",
+      "schemaVersion": 2,
+      "matrixVersion": 1,
+      "mutationsEnabled": false,
+      "checks": 8,
+      "requiredChecks": [
+        "container-inspect-stats",
+        "core-handshake",
+        "installed-command-inventory",
+        "literal-cli-run",
+        "literal-pipes-session",
+        "pinned-cli-run",
+        "pinned-pipes-session",
+        "snapshot-list-conformance"
+      ]
+    },
+    "electronSecurity": {
+      "path": "artifacts/security/electron-config.json",
+      "sha256": "64702f773936b133ddedf5b41a1f52aaa1e17c3a653d419edb1700ae90fe98c0",
+      "bytes": 3958,
+      "generatedAt": "2026-08-03T15:43:44.969Z",
+      "policyVersion": 1
+    },
+    "dependencyAudit": {
+      "path": "artifacts/security/dependency-audit.json",
+      "sha256": "f10533769fe70e07a82af5ed4f4c6145be69536aaa012f59f4757049ab649185",
+      "bytes": 527,
+      "generatedAt": "2026-08-03T15:43:44.969Z",
+      "vulnerabilities": 0
+    }
+  },
+  "tests": {
+    "rendererTests": 12,
+    "protocolTests": 2,
+    "securityEvidenceTests": 1,
+    "packageEvidenceTests": 1,
+    "electronTests": 13,
+    "coreTests": 4
+  }
+}

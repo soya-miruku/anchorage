@@ -1,0 +1,14 @@
+@import "./default.css";
+@import "./docker.css";
+@import "./github.css";
+
+/*
+ * Theme contract
+ * --------------
+ * Families own colour only. Typography, spacing, geometry, and component
+ * anatomy remain in tokens.css and the component stylesheets.
+ *
+ * The default/dark fallback deliberately reproduces the canonical Anchorage
+ * handoff. Runtime code selects a family and mode with data-theme and
+ * data-color-mode on the document element.
+ */
