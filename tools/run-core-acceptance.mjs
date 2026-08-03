@@ -2,9 +2,15 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ACCEPTANCE_MATRIX_VERSION,
+  ACCEPTANCE_SCHEMA_VERSION,
+  MUTATION_ACCEPTANCE_CHECK_IDS,
+  READ_ONLY_ACCEPTANCE_CHECK_IDS,
+} from "./acceptance-check-ids.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(scriptPath), "..");
@@ -14,27 +20,30 @@ const corePath = resolve(
 );
 const context = process.env.ANCHORAGE_DOCKER_CONTEXT?.trim() || "default";
 const runMutations = process.env.ANCHORAGE_ACCEPTANCE_MUTATIONS === "1";
-const READ_ONLY_CHECK_IDS = Object.freeze([
-  "container-inspect-stats",
-  "core-handshake",
-  "installed-command-inventory",
-  "literal-cli-run",
-  "literal-pipes-session",
-  "pinned-cli-run",
-  "pinned-pipes-session",
-  "snapshot-list-conformance",
-]);
-const MUTATION_CHECK_IDS = Object.freeze([
-  "container-lifecycle",
-  "dind-isolation",
-  "image-prune-all",
-  "image-prune-dangling",
-  "image-pull-session",
-  "image-remove-one-tag",
-  "pty-session",
-  "volume-prune-all",
-  "volume-prune-default",
-  "volume-remove-exact",
+// Sourced from one shared definition; the packaging policy validates the artifact against
+// exactly these ids, and keeping a second copy here is what broke packaging when the matrix
+// last grew.
+const READ_ONLY_CHECK_IDS = READ_ONLY_ACCEPTANCE_CHECK_IDS;
+const MUTATION_CHECK_IDS = MUTATION_ACCEPTANCE_CHECK_IDS;
+// A long-lived session must be observed well past the return of the request that created it.
+// A per-request cancellation change once passed the request context into the session lifetime
+// watcher, so every session died the instant session.start returned; eighteen checks that only
+// ran short-lived sessions all still passed. Nothing shorter than "several unrelated requests
+// later, seconds afterwards" distinguishes a healthy session from that defect.
+const LONG_SESSION_PROBE_MS = 2_000;
+const LONG_SESSION_HOLD_MS = 8_000;
+const LONG_SESSION_EXIT_MS = 10_000;
+// Scout indexes an image the first time it sees one, in proportion to its size. Bound the
+// candidate so a host whose smallest image is enormous reports an explicit skip instead of
+// stalling the read-only gate for minutes.
+const SCOUT_MAX_IMAGE_BYTES = 512 * 1_048_576;
+const SCOUT_TIMEOUT_MS = 300_000;
+const SCOUT_SEVERITIES = Object.freeze([
+  "CRITICAL",
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+  "UNSPECIFIED",
 ]);
 const requiredChecks = runMutations
   ? [...READ_ONLY_CHECK_IDS, ...MUTATION_CHECK_IDS].sort()
@@ -140,6 +149,10 @@ class CoreClient {
           const error = new Error(
             `${message.error.code ?? "core_error"}: ${message.error.message}`,
           );
+          // The code is kept as a field, not just inside the message, because the optional
+          // plugin checks must distinguish "the plugin is genuinely not installed" from every
+          // other failure by an exact code rather than by matching prose.
+          error.code = message.error.code ?? "core_error";
           error.details = message.error.details;
           pending.reject(error);
         } else {
@@ -252,17 +265,46 @@ function identityEvidence(values) {
   };
 }
 
+function elapsedMs(startedNs) {
+  return (
+    Math.round((Number(process.hrtime.bigint() - startedNs) / 1_000_000) * 100) /
+    100
+  );
+}
+
 function record(checks, id, name, passed, evidence, startedNs) {
   checks.push({
     id,
     name,
     status: passed ? "passed" : "failed",
-    durationMs:
-      Math.round((Number(process.hrtime.bigint() - startedNs) / 1_000_000) * 100) /
-      100,
+    durationMs: elapsedMs(startedNs),
     evidence,
   });
   if (!passed) throw new Error(`${name} failed: ${JSON.stringify(evidence)}`);
+}
+
+// recordSkipped exists for exactly one situation: an optional Docker CLI plugin is genuinely
+// not installed, or the environment offers nothing the check could legitimately act on. It is
+// deliberately a third status rather than a pass, because "18 checks passed" while a verb was
+// never exercised is precisely how the session-cancellation defect survived. The reason is
+// carried into the artifact and printed in the run summary so an absent plugin cannot be
+// mistaken for coverage.
+function recordSkipped(checks, id, name, reason, evidence, startedNs) {
+  checks.push({
+    id,
+    name,
+    status: "skipped",
+    durationMs: elapsedMs(startedNs),
+    reason,
+    evidence,
+  });
+}
+
+// isMissingPlugin matches only the core's own "this optional plugin is not installed" codes.
+// Any other failure — a broken plugin, a rejected argument, an unreachable daemon — is a real
+// failure and must not be softened into a skip.
+function isMissingPlugin(error, code) {
+  return error?.code === code;
 }
 
 async function dockerRun(contextName, args, options) {
@@ -341,6 +383,153 @@ async function collectSession(
   return { exited: exited.payload, text };
 }
 
+// attachSessionOutput subscribes to a session's output and acknowledges it, but never waits
+// for the session to end. collectSession cannot be used for a session that is meant to stay
+// alive, because its whole contract is to block until session.exited arrives.
+function attachSessionOutput(client, sessionId) {
+  const chunks = [];
+  const seenSequences = new Set();
+  const state = { lastSequence: 0, chunkCount: 0, exited: null, ackErrors: [] };
+  const acceptOutput = async (payload) => {
+    if (seenSequences.has(payload.sequence)) return;
+    seenSequences.add(payload.sequence);
+    chunks.push(outputText(payload));
+    state.chunkCount += 1;
+    if (payload.sequence > state.lastSequence) {
+      state.lastSequence = payload.sequence;
+    }
+    try {
+      await client.request("session.ack", {
+        sessionId,
+        throughSequence: payload.sequence,
+      });
+    } catch (error) {
+      state.ackErrors.push(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const listener = async (event) => {
+    if (event.payload?.sessionId !== sessionId) return;
+    if (event.event === "session.output") {
+      await acceptOutput(event.payload);
+      return;
+    }
+    if (event.event === "session.exited" && !state.exited) {
+      state.exited = event.payload;
+    }
+  };
+  client.listeners.add(listener);
+  return {
+    state,
+    text: () => chunks.join(""),
+    detach: () => client.listeners.delete(listener),
+  };
+}
+
+// readTarHeader reads the leading POSIX tar header block. Save, load and export all write a
+// host file whose failure mode is a partially written or empty archive, so the check has to
+// look at the bytes rather than trust a zero exit code.
+async function readTarHeader(path) {
+  const handle = await open(path, "r");
+  try {
+    const header = Buffer.alloc(512);
+    const { bytesRead } = await handle.read(header, 0, 512, 0);
+    return {
+      bytesRead,
+      magic: header.subarray(257, 262).toString("ascii"),
+      firstEntry: header
+        .subarray(0, 100)
+        .toString("ascii")
+        .replace(/\0[\s\S]*$/u, ""),
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
+async function describeArchive(path) {
+  const info = await stat(path);
+  const header = await readTarHeader(path);
+  return {
+    path,
+    sizeBytes: info.size,
+    tarMagic: header.magic,
+    firstEntry: header.firstEntry,
+    isTar: header.bytesRead === 512 && header.magic === "ustar",
+  };
+}
+
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// summarizeSarif is the CLI-side truth the core's Scout projection is compared against. It is
+// deliberately an independent reading of the same SARIF — one rule is one finding, graded by
+// its CVSS v3 severity — rather than a re-use of anything the core computed.
+function summarizeSarif(text) {
+  const summary = Object.fromEntries(
+    SCOUT_SEVERITIES.map((severity) => [severity, 0]),
+  );
+  const trimmed = text.trim();
+  if (!trimmed) return { summary, total: 0 };
+  const report = JSON.parse(trimmed);
+  let total = 0;
+  for (const run of report.runs ?? []) {
+    for (const rule of run.tool?.driver?.rules ?? []) {
+      const raw = (rule.properties?.cvssV3_severity ?? "").trim().toUpperCase();
+      const severity = SCOUT_SEVERITIES.includes(raw) ? raw : "UNSPECIFIED";
+      summary[severity] += 1;
+      total += 1;
+    }
+  }
+  return { summary, total };
+}
+
+function composeProjectNames(projects) {
+  return sortedUnique(projects.map((project) => project.name));
+}
+
+// composeCliProjects reads the same `compose ls` surface the core reads, so the comparison is
+// against the plugin's own JSON rather than against a re-derived expectation.
+async function composeCliProjects(contextName) {
+  const raw = await dockerOutputAt(contextName, [
+    "compose",
+    "ls",
+    "--all",
+    "--format",
+    "json",
+  ]);
+  const records = raw ? JSON.parse(raw) : [];
+  return sortedUnique(records.map((record_) => record_.Name));
+}
+
+async function composeCliContainerIds(contextName, project) {
+  return sortedUnique(
+    await dockerLinesAt(contextName, [
+      "container",
+      "ls",
+      "--all",
+      "--quiet",
+      "--no-trunc",
+      "--filter",
+      `label=com.docker.compose.project=${project}`,
+    ]),
+  );
+}
+
+// Compose service IDs are short in the plugin's JSON, so equivalence is by unambiguous prefix
+// against the daemon's full IDs rather than by string equality.
+function resolveShortIds(shortIds, fullIds) {
+  return shortIds.map((short) => {
+    const matches = fullIds.filter((full) => full.startsWith(short));
+    return matches.length === 1 ? matches[0] : null;
+  });
+}
+
 async function verifyDisposableOwnership(contextName, name, token) {
   const result = await runProcess("docker", [
     "--context",
@@ -362,20 +551,55 @@ async function verifyDisposableOwnership(contextName, name, token) {
   return { exists: true, owned: result.stdout.trim() === token };
 }
 
+async function containerVolumeMounts(contextName, name) {
+  const result = await runProcess("docker", [
+    "--context",
+    contextName,
+    "container",
+    "inspect",
+    "--format",
+    '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}\n{{end}}{{end}}',
+    name,
+  ]);
+  if (result.code !== 0) return [];
+  return result.stdout
+    .split(/\r?\n/u)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+async function volumeExistsAt(contextName, name) {
+  const result = await runProcess("docker", [
+    "--context",
+    contextName,
+    "volume",
+    "inspect",
+    name,
+  ]);
+  return result.code === 0;
+}
+
 async function cleanupDisposable(contextName, name, token) {
   const before = await verifyDisposableOwnership(contextName, name, token);
-  if (!before.exists) return;
+  if (!before.exists) return { anonymousVolumes: [] };
   if (!before.owned) {
     throw new Error(
       `Refusing to clean ${name}: acceptance ownership label does not match`,
     );
   }
+  // docker:29-dind declares VOLUME /var/lib/docker, so every disposable daemon creates an
+  // anonymous volume on the host. Removing the container without --volumes left exactly one
+  // of those behind per mutation run, which accumulated silently on a daemon this harness does
+  // not own. --volumes removes only the anonymous volumes of this container; named volumes
+  // and volumes shared with anything else are untouched.
+  const attachedVolumes = await containerVolumeMounts(contextName, name);
   const removed = await runProcess("docker", [
     "--context",
     contextName,
     "container",
     "rm",
     "--force",
+    "--volumes",
     name,
   ]);
   if (removed.code !== 0 || removed.timedOut) {
@@ -387,6 +611,16 @@ async function cleanupDisposable(contextName, name, token) {
   if (after.exists) {
     throw new Error(`Disposable container ${name} still exists after cleanup`);
   }
+  const surviving = [];
+  for (const volume of attachedVolumes) {
+    if (await volumeExistsAt(contextName, volume)) surviving.push(volume);
+  }
+  if (surviving.length > 0) {
+    throw new Error(
+      `Disposable container ${name} left anonymous volumes on ${contextName}: ${surviving.join(", ")}`,
+    );
+  }
+  return { anonymousVolumes: attachedVolumes };
 }
 
 async function inspectDockerContext(name) {
@@ -489,7 +723,9 @@ let failure = null;
 const cleanupErrors = [];
 const cleanupEvidence = {
   dockerContext: null,
+  dockerSocketContext: null,
   dindContainer: null,
+  scratchDirectory: null,
 };
 
 try {
@@ -867,28 +1103,441 @@ try {
     );
   }
 
+  // A session deliberately outlives the request that created it. When request contexts became
+  // individually cancellable, session.start passed its request context into the session's
+  // lifetime watcher, so every session was torn down the instant session.start returned. Every
+  // other check in this matrix runs a session that finishes in well under a second, so all of
+  // them still passed; only a thirty-minute soak noticed. This check is the cheap version of
+  // that soak: hold one session open across several later requests and prove it is still both
+  // producing output and accepting input before cancelling it.
+  {
+    const longSessionStarted = process.hrtime.bigint();
+    const longSessionName = "long-lived session outlives its originating request";
+    if (!running) {
+      record(
+        checks,
+        "long-lived-session",
+        longSessionName,
+        false,
+        {
+          reason:
+            "No running container was available to stream a long-lived read-only session from.",
+        },
+        longSessionStarted,
+      );
+    } else {
+      const longSession = await client.request("session.start", {
+        context,
+        targetMode: "pinned",
+        argv: [
+          "stats",
+          "--format",
+          "ANCHORAGE_LIVE {{.Name}} {{.CPUPerc}}",
+          running.id,
+        ],
+        mode: "pipes",
+        outputWindowBytes: 65_536,
+        maxOutputBytes: 8 * 1_048_576,
+      });
+      const startReturnedAt = Date.now();
+      const attached = attachSessionOutput(client, longSession.sessionId);
+      let evidence = null;
+      let passed = false;
+      try {
+        await new Promise((wait) => setTimeout(wait, LONG_SESSION_PROBE_MS));
+        const sequenceAtProbe = attached.state.lastSequence;
+        const exitedAtProbe = attached.state.exited;
+        // Unrelated requests are issued and completed while the session is supposed to keep
+        // running. Under the defect each of these returning was fatal to the session, so the
+        // interleaving is the part that reproduces it rather than incidental noise.
+        const interleaved = [];
+        for (let index = 0; index < 4; index += 1) {
+          const health = await client.request("health", {});
+          interleaved.push(health.status);
+          await new Promise((wait) =>
+            setTimeout(wait, LONG_SESSION_HOLD_MS / 4),
+          );
+        }
+        const heldMs = Date.now() - startReturnedAt;
+        const sequenceAfterHold = attached.state.lastSequence;
+        const exitedDuringHold = attached.state.exited;
+        let inputAccepted = null;
+        let inputError = null;
+        try {
+          // session.input is refused with session_closed once the core considers the process
+          // gone, so accepting a byte here is positive proof the session is still live rather
+          // than merely still tombstoned in the session map.
+          inputAccepted = await client.request("session.input", {
+            sessionId: longSession.sessionId,
+            data: "\n",
+            encoding: "utf-8",
+          });
+        } catch (error) {
+          inputError = error instanceof Error ? error.message : String(error);
+        }
+        const canceled = await client.request("session.cancel", {
+          sessionId: longSession.sessionId,
+          gracePeriodMs: 2_000,
+        });
+        const cancelRequestedAt = Date.now();
+        const exitEvent = await client.waitForEvent(
+          (event) =>
+            event.event === "session.exited" &&
+            event.payload.sessionId === longSession.sessionId,
+          LONG_SESSION_EXIT_MS,
+        );
+        const exitLatencyMs = Date.now() - cancelRequestedAt;
+        const exited = exitEvent.payload;
+        const survivedHold = !exitedAtProbe && !exitedDuringHold;
+        const producedBeforeHold = sequenceAtProbe > 0;
+        const producedAfterHold = sequenceAfterHold > sequenceAtProbe;
+        const acceptedInput = inputAccepted?.acceptedBytes === 1;
+        const cancelAccepted =
+          canceled.accepted === true && canceled.state === "canceling";
+        const exitedOnCancel =
+          exited.canceled === true && exited.timedOut === false;
+        passed =
+          survivedHold &&
+          heldMs >= LONG_SESSION_HOLD_MS &&
+          producedBeforeHold &&
+          producedAfterHold &&
+          acceptedInput &&
+          cancelAccepted &&
+          exitedOnCancel &&
+          attached.state.ackErrors.length === 0;
+        evidence = {
+          sessionId: longSession.sessionId,
+          pid: longSession.pid,
+          argv: longSession.argv,
+          heldMs,
+          interleavedRequestsWhileHeld: interleaved.length,
+          survivedHold,
+          exitedDuringHold: exitedDuringHold
+            ? {
+                exitCode: exitedDuringHold.exitCode,
+                canceled: exitedDuringHold.canceled,
+                durationMs: exitedDuringHold.durationMs,
+              }
+            : null,
+          outputSequenceAtProbe: sequenceAtProbe,
+          outputSequenceAfterHold: sequenceAfterHold,
+          producedOutputAfterHold: producedAfterHold,
+          outputChunks: attached.state.chunkCount,
+          acknowledgementErrors: attached.state.ackErrors,
+          inputAcceptedBytes: inputAccepted?.acceptedBytes ?? null,
+          inputError,
+          cancelAccepted: canceled.accepted,
+          cancelState: canceled.state,
+          exitLatencyMs,
+          exitCode: exited.exitCode,
+          exitCanceled: exited.canceled,
+          exitTimedOut: exited.timedOut,
+          exitDurationMs: exited.durationMs,
+        };
+      } finally {
+        attached.detach();
+      }
+      record(
+        checks,
+        "long-lived-session",
+        longSessionName,
+        passed,
+        evidence,
+        longSessionStarted,
+      );
+    }
+  }
+
+  {
+    const composeStarted = process.hrtime.bigint();
+    const composeName = "Compose project and service conformance";
+    let composeList = null;
+    let composeUnavailable = null;
+    try {
+      composeList = await client.request(
+        "compose.list",
+        { context, all: true },
+        60_000,
+      );
+    } catch (error) {
+      if (!isMissingPlugin(error, "compose_unavailable")) throw error;
+      composeUnavailable = error.message;
+    }
+    if (composeUnavailable) {
+      recordSkipped(
+        checks,
+        "compose-project-conformance",
+        composeName,
+        "The Docker Compose CLI plugin is not installed for this Docker CLI, so compose.list and compose.ps have no surface to exercise.",
+        { context, error: composeUnavailable },
+        composeStarted,
+      );
+    } else {
+      // The daemon is live and user-owned, so a project or container can legitimately appear
+      // between two reads. The core reading is compared against a CLI reading on either side
+      // of it, which tolerates that churn without weakening the equality itself.
+      const cliProjectsBefore = await composeCliProjects(context);
+      const coreProjects = composeProjectNames(composeList.projects);
+      const cliProjectsAfter = await composeCliProjects(context);
+      const projectsMatch =
+        sameValues(coreProjects, cliProjectsBefore) ||
+        sameValues(coreProjects, cliProjectsAfter);
+      const statesConsistent = composeList.projects.every((project) => {
+        const counted = project.states.filter((term) => term.count >= 0);
+        const total = counted.reduce((sum, term) => sum + term.count, 0);
+        const runningTotal = counted
+          .filter((term) => term.state === "running")
+          .reduce((sum, term) => sum + term.count, 0);
+        return (
+          total === project.totalCount &&
+          runningTotal === project.runningCount &&
+          project.states.every((term) => project.status.includes(term.state))
+        );
+      });
+      const target = composeList.projects.find(
+        (project) => project.totalCount > 0,
+      );
+      if (!target) {
+        recordSkipped(
+          checks,
+          "compose-project-conformance",
+          composeName,
+          "Docker Compose is installed, but this daemon hosts no Compose project with containers to compare service listings against.",
+          {
+            context,
+            source: composeList.source,
+            coreProjects: identityEvidence(coreProjects),
+            cliProjects: identityEvidence(cliProjectsAfter),
+            projectsMatch,
+          },
+          composeStarted,
+        );
+      } else {
+        const cliIdsBefore = await composeCliContainerIds(context, target.name);
+        const servicesResult = await client.request(
+          "compose.ps",
+          { context, project: target.name },
+          60_000,
+        );
+        const cliIdsAfter = await composeCliContainerIds(context, target.name);
+        const shortIds = sortedUnique(
+          servicesResult.services.map((service) => service.containerId),
+        );
+        const matchesSnapshot = (fullIds) => {
+          const resolved = resolveShortIds(shortIds, fullIds);
+          return (
+            resolved.every(Boolean) &&
+            sameValues(sortedUnique(resolved), fullIds)
+          );
+        };
+        const servicesMatch =
+          matchesSnapshot(cliIdsBefore) || matchesSnapshot(cliIdsAfter);
+        record(
+          checks,
+          "compose-project-conformance",
+          composeName,
+          composeList.source === "cli-json" &&
+            servicesResult.source === "cli-json" &&
+            servicesResult.project === target.name &&
+            projectsMatch &&
+            statesConsistent &&
+            servicesMatch &&
+            servicesResult.services.every(
+              (service) => service.service !== "" && service.state !== "",
+            ),
+          {
+            context,
+            listSource: composeList.source,
+            psSource: servicesResult.source,
+            coreProjects: identityEvidence(coreProjects),
+            cliProjects: identityEvidence(cliProjectsAfter),
+            projectsMatch,
+            statusParsingConsistent: statesConsistent,
+            comparedProject: target.name,
+            comparedProjectStatus: target.status,
+            coreServiceIds: identityEvidence(shortIds),
+            cliContainerIds: identityEvidence(cliIdsAfter),
+            servicesMatch,
+          },
+          composeStarted,
+        );
+      }
+    }
+  }
+
+  {
+    const scoutStarted = process.hrtime.bigint();
+    const scoutName = "Scout SARIF projection conformance";
+    // The smallest tagged image is chosen because Scout's first analysis of an image builds an
+    // SBOM in proportion to its size. The choice is deterministic for a given daemon, and the
+    // reference is the immutable ID so a tag moving mid-run cannot change what was scanned.
+    const scoutCandidate = defaultImageList.images
+      .filter((image) => image.repoTags.length > 0 && image.sizeBytes > 0)
+      .sort((left, right) => left.sizeBytes - right.sizeBytes)
+      .at(0);
+    if (!scoutCandidate) {
+      recordSkipped(
+        checks,
+        "image-scout-report",
+        scoutName,
+        "This daemon exposes no tagged local image with a known size for Scout to analyze.",
+        { context },
+        scoutStarted,
+      );
+    } else if (scoutCandidate.sizeBytes > SCOUT_MAX_IMAGE_BYTES) {
+      recordSkipped(
+        checks,
+        "image-scout-report",
+        scoutName,
+        "The smallest tagged local image is larger than the bounded first-scan budget, so a Scout index would dominate the read-only gate.",
+        {
+          context,
+          smallestImageId: scoutCandidate.id,
+          smallestImageBytes: scoutCandidate.sizeBytes,
+          budgetBytes: SCOUT_MAX_IMAGE_BYTES,
+        },
+        scoutStarted,
+      );
+    } else {
+      let scout = null;
+      let scoutUnavailable = null;
+      try {
+        scout = await client.request(
+          "images.scout",
+          { context, reference: scoutCandidate.id },
+          SCOUT_TIMEOUT_MS,
+        );
+      } catch (error) {
+        if (!isMissingPlugin(error, "scout_unavailable")) throw error;
+        scoutUnavailable = error.message;
+      }
+      if (scoutUnavailable) {
+        recordSkipped(
+          checks,
+          "image-scout-report",
+          scoutName,
+          "The Docker Scout CLI plugin is not installed for this Docker CLI, so images.scout has no surface to exercise.",
+          { context, error: scoutUnavailable },
+          scoutStarted,
+        );
+      } else {
+        const direct = await dockerRun(
+          context,
+          ["scout", "cves", "--format", "sarif", scoutCandidate.id],
+          { timeoutMs: SCOUT_TIMEOUT_MS },
+        );
+        const directReport =
+          direct.code === 0 && !direct.timedOut
+            ? summarizeSarif(direct.stdout)
+            : null;
+        const summaryKeys = Object.keys(scout.summary).sort();
+        const summaryTotal = Object.values(scout.summary).reduce(
+          (sum, value) => sum + value,
+          0,
+        );
+        const summaryMatches =
+          directReport !== null &&
+          SCOUT_SEVERITIES.every(
+            (severity) =>
+              scout.summary[severity] === directReport.summary[severity],
+          );
+        const rank = new Map(
+          SCOUT_SEVERITIES.map((severity, index) => [severity, index]),
+        );
+        const ordered = scout.findings.every(
+          (finding, index) =>
+            index === 0 ||
+            rank.get(scout.findings[index - 1].severity) <=
+              rank.get(finding.severity),
+        );
+        record(
+          checks,
+          "image-scout-report",
+          scoutName,
+          scout.source === "cli-sarif" &&
+            scout.reference === scoutCandidate.id &&
+            sameValues(summaryKeys, [...SCOUT_SEVERITIES].sort()) &&
+            scout.total === summaryTotal &&
+            directReport?.total === scout.total &&
+            summaryMatches &&
+            scout.findings.length === Math.min(scout.total, 500) &&
+            ordered &&
+            scout.findings.every(
+              (finding) =>
+                finding.id !== "" && rank.has(finding.severity),
+            ),
+          {
+            context,
+            reference: scoutCandidate.id,
+            referenceTags: scoutCandidate.repoTags,
+            imageBytes: scoutCandidate.sizeBytes,
+            source: scout.source,
+            scanner: scout.scanner,
+            summary: scout.summary,
+            total: scout.total,
+            directSarifSummary: directReport?.summary ?? null,
+            directSarifTotal: directReport?.total ?? null,
+            directExitCode: direct.code,
+            severityCountsMatch: summaryMatches,
+            findingCount: scout.findings.length,
+            findingsOrdered: ordered,
+            // A clean image is a legitimate result, but it makes the severity comparison
+            // vacuous. Recording it keeps a zero-finding run from reading as proof that
+            // severity projection works.
+            comparedNonEmptyReport: scout.total > 0,
+            limitations: scout.limitations,
+          },
+          scoutStarted,
+        );
+      }
+    }
+  }
+
   if (runMutations) {
     const token = randomUUID();
     const suffix = token.slice(0, 8);
     const dindName = `anchorage-dind-${suffix}`;
     const dindContext = `anchorage-dind-${suffix}`;
+    const dindSocketContext = `anchorage-dind-sock-${suffix}`;
+    // Archives must land inside the core's cwd allowlist, which is this workspace, so the
+    // scratch directory lives under the evidence tree and is removed with verification.
+    const scratchDirectory = resolve(
+      workspaceRoot,
+      `artifacts/docker/acceptance-scratch-${suffix}`,
+    );
+    const dindSocketDirectory = resolve(scratchDirectory, "engine");
+    const dindSocketPath = resolve(dindSocketDirectory, "docker.sock");
     dindResource = {
       containerName: dindName,
       contextName: dindContext,
+      socketContextName: dindSocketContext,
+      socketEndpoint: `unix://${dindSocketPath}`,
+      scratchDirectory,
       endpoint: null,
       token,
     };
 
     const isolationStarted = process.hrtime.bigint();
-    const [existingContainer, existingContext] = await Promise.all([
-      verifyDisposableOwnership(context, dindName, token),
-      inspectDockerContext(dindContext),
-    ]);
-    if (existingContainer.exists || existingContext.exists) {
+    const [existingContainer, existingContext, existingSocketContext] =
+      await Promise.all([
+        verifyDisposableOwnership(context, dindName, token),
+        inspectDockerContext(dindContext),
+        inspectDockerContext(dindSocketContext),
+      ]);
+    if (
+      existingContainer.exists ||
+      existingContext.exists ||
+      existingSocketContext.exists
+    ) {
       throw new Error(
         `Random DinD isolation name collision: ${dindName}/${dindContext}`,
       );
     }
+    // The scratch directory owns two things the daemon cannot: the host archives that save,
+    // load and export read and write, and the Unix socket the disposable daemon is additionally
+    // published on. Mode 0700 keeps the socket of a privileged daemon unreachable by other
+    // local users for the few seconds it exists.
+    await mkdir(dindSocketDirectory, { recursive: true, mode: 0o700 });
     const launched = await dockerRun(
       context,
       [
@@ -903,8 +1552,20 @@ try {
         "DOCKER_TLS_CERTDIR=",
         "--publish",
         "127.0.0.1::2375",
+        "--volume",
+        `${dindSocketDirectory}:/anchorage-socket`,
         "docker:29-dind",
         "--storage-driver=vfs",
+        // The published TCP endpoint stays the primary context so the CLI-routed transport
+        // remains under test, but the Engine-API methods (containers/volumes archive reads)
+        // require a directly reachable Unix socket and are unreachable over TCP. Naming any
+        // --host suppresses the entrypoint's defaults, so all three are listed explicitly.
+        "--host=unix:///var/run/docker.sock",
+        "--host=tcp://0.0.0.0:2375",
+        "--host=unix:///anchorage-socket/docker.sock",
+        // Without this the bind-mounted socket is owned by the container's docker group, whose
+        // GID is unrelated to this host's, and the core could not open it.
+        `--group=${process.getgid()}`,
       ],
       { timeoutMs: 180_000 },
     );
@@ -955,6 +1616,30 @@ try {
       throw new Error("DinD Docker context endpoint verification failed");
     }
     const serverVersion = await waitForDockerDaemon(dindContext);
+    const socketEndpoint = `unix://${dindSocketPath}`;
+    const createdSocketContext = await runProcess("docker", [
+      "context",
+      "create",
+      "--description",
+      `Anchorage acceptance engine ${token}`,
+      "--docker",
+      `host=${socketEndpoint}`,
+      dindSocketContext,
+    ]);
+    if (createdSocketContext.code !== 0 || createdSocketContext.timedOut) {
+      throw new Error(
+        `Could not create isolated Docker socket context: ${createdSocketContext.stderr}`,
+      );
+    }
+    const socketContextOwnership =
+      await inspectDockerContext(dindSocketContext);
+    if (
+      !socketContextOwnership.exists ||
+      socketContextOwnership.endpoint !== socketEndpoint
+    ) {
+      throw new Error("DinD socket context endpoint verification failed");
+    }
+    const socketServerVersion = await waitForDockerDaemon(dindSocketContext);
     const dindCapabilities = await client.request(
       "system.capabilities",
       { context: dindContext },
@@ -966,7 +1651,9 @@ try {
       "owned isolated Docker 29 DinD",
       ownership.owned &&
         contextOwnership.endpoint === endpoint &&
+        socketContextOwnership.endpoint === socketEndpoint &&
         /^29(?:\.|$)/u.test(serverVersion) &&
+        socketServerVersion === serverVersion &&
         dindCapabilities.selectedContext === dindContext &&
         dindCapabilities.versions.server.version === serverVersion,
       {
@@ -976,6 +1663,10 @@ try {
         ownershipLabelVerified: ownership.owned,
         dockerContext: dindContext,
         endpoint,
+        socketContext: dindSocketContext,
+        socketEndpoint,
+        socketServerVersion,
+        scratchDirectory,
         serverVersion,
         capabilitiesSelectedContext: dindCapabilities.selectedContext,
         capabilitiesServerVersion:
@@ -1200,6 +1891,539 @@ try {
       },
       ptyStarted,
     );
+
+    const tagStarted = process.hrtime.bigint();
+    const structuredTag = `anchorage-acceptance/tagged:${suffix}`;
+    const tagReceipt = await client.request("images.action", {
+      context: dindContext,
+      action: "tag",
+      id: pulledImage.id,
+      reference: structuredTag,
+    });
+    const afterTag = await client.request(
+      "images.list",
+      { context: dindContext, all: true },
+      60_000,
+    );
+    const taggedImage = imageWithId(afterTag, pulledImage.id);
+    record(
+      checks,
+      "image-tag-action",
+      "structured image tag by immutable ID",
+      tagReceipt.action === "tag" &&
+        tagReceipt.receipt.outcome === "succeeded" &&
+        tagReceipt.receipt.resourceId === pulledImage.id &&
+        Boolean(taggedImage) &&
+        taggedImage.repoTags.includes(structuredTag) &&
+        // Tagging adds a name, it does not move one: the source tag must survive.
+        taggedImage.repoTags.includes(sourceRef) &&
+        // No other image may acquire the new name.
+        afterTag.images.filter((image) =>
+          image.repoTags.includes(structuredTag),
+        ).length === 1,
+      {
+        imageId: pulledImage.id,
+        addedReference: structuredTag,
+        sourceReference: sourceRef,
+        receiptSource: tagReceipt.receipt.source,
+        receiptOutcome: tagReceipt.receipt.outcome,
+        postReferences: taggedImage?.repoTags ?? [],
+      },
+      tagStarted,
+    );
+
+    const archiveStarted = process.hrtime.bigint();
+    const imageArchivePath = resolve(
+      scratchDirectory,
+      `image-${suffix}.tar`,
+    );
+    const save = await client.request("images.action", {
+      context: dindContext,
+      action: "save",
+      reference: structuredTag,
+      archivePath: imageArchivePath,
+      timeoutSeconds: 300,
+      outputWindowBytes: 65_536,
+      maxOutputBytes: 8 * 1_048_576,
+    });
+    if (!save.session) {
+      throw new Error("Image save did not return a session");
+    }
+    const saved = await collectSession(client, save.session, "", 300_000);
+    const savedArchive = await describeArchive(imageArchivePath);
+    // Removing the saved name is what makes the load meaningful: without it a successful load
+    // is indistinguishable from a no-op against an image that never went away.
+    const removedSavedTag = await client.request("images.action", {
+      context: dindContext,
+      action: "remove",
+      id: pulledImage.id,
+      reference: structuredTag,
+      confirmed: true,
+    });
+    const betweenArchive = await client.request(
+      "images.list",
+      { context: dindContext, all: true },
+      60_000,
+    );
+    const withoutSavedTag = imageWithId(betweenArchive, pulledImage.id);
+    const load = await client.request("images.action", {
+      context: dindContext,
+      action: "load",
+      archivePath: imageArchivePath,
+      timeoutSeconds: 300,
+      outputWindowBytes: 65_536,
+      maxOutputBytes: 8 * 1_048_576,
+    });
+    if (!load.session) {
+      throw new Error("Image load did not return a session");
+    }
+    const loaded = await collectSession(client, load.session, "", 300_000);
+    const afterArchive = await client.request(
+      "images.list",
+      { context: dindContext, all: true },
+      60_000,
+    );
+    const restoredImage = imageWithId(afterArchive, pulledImage.id);
+    record(
+      checks,
+      "image-save-load-roundtrip",
+      "session-backed image save and load round trip",
+      save.receipt.source === "cli-session" &&
+        save.receipt.action === "save" &&
+        saved.exited.exitCode === 0 &&
+        !saved.exited.timedOut &&
+        !saved.exited.output.truncated &&
+        savedArchive.isTar &&
+        savedArchive.sizeBytes > 1_048_576 &&
+        removedSavedTag.receipt.outcome === "succeeded" &&
+        Boolean(withoutSavedTag) &&
+        !withoutSavedTag.repoTags.includes(structuredTag) &&
+        load.receipt.source === "cli-session" &&
+        load.receipt.action === "load" &&
+        loaded.exited.exitCode === 0 &&
+        !loaded.exited.timedOut &&
+        loaded.text.includes(structuredTag) &&
+        Boolean(restoredImage) &&
+        // The archive must restore the same immutable image, not a re-derived one.
+        restoredImage.repoTags.includes(structuredTag) &&
+        restoredImage.repoTags.includes(sourceRef),
+      {
+        imageId: pulledImage.id,
+        reference: structuredTag,
+        archive: savedArchive,
+        saveSessionId: save.session.sessionId,
+        saveExitCode: saved.exited.exitCode,
+        saveReceiptSource: save.receipt.source,
+        removedBetween: !withoutSavedTag?.repoTags.includes(structuredTag),
+        referencesBetween: withoutSavedTag?.repoTags ?? [],
+        loadSessionId: load.session.sessionId,
+        loadExitCode: loaded.exited.exitCode,
+        loadReceiptSource: load.receipt.source,
+        loadOutput: loaded.text.trim(),
+        restoredImageId: restoredImage?.id ?? null,
+        restoredReferences: restoredImage?.repoTags ?? [],
+      },
+      archiveStarted,
+    );
+
+    const exportStarted = process.hrtime.bigint();
+    const exportName = `anchorage-export-${suffix}`;
+    const exportArchivePath = resolve(
+      scratchDirectory,
+      `container-${suffix}.tar`,
+    );
+    const exportCreated = await client.request("cli.run", {
+      context: dindContext,
+      targetMode: "pinned",
+      argv: [
+        "container",
+        "create",
+        "--name",
+        exportName,
+        "--label",
+        `io.anchorage.acceptance=${token}`,
+        sourceRef,
+        "sleep",
+        "60",
+      ],
+      timeoutSeconds: 60,
+    });
+    assertCoreRunSucceeded(exportCreated, "Export source container create");
+    const exportId = outputText(exportCreated.stdout).trim();
+    if (!/^[a-f0-9]{64}$/u.test(exportId)) {
+      throw new Error(
+        `Export source container create returned invalid id: ${exportId}`,
+      );
+    }
+    const exported = await client.request("containers.export", {
+      context: dindContext,
+      id: exportId,
+      archivePath: exportArchivePath,
+      timeoutSeconds: 300,
+      outputWindowBytes: 65_536,
+    });
+    if (!exported.session) {
+      throw new Error("Container export did not return a session");
+    }
+    const exportRun = await collectSession(
+      client,
+      exported.session,
+      "",
+      300_000,
+    );
+    const exportedArchive = await describeArchive(exportArchivePath);
+    await client.request("containers.action", {
+      context: dindContext,
+      id: exportId,
+      action: "remove",
+      options: { confirmed: true },
+    });
+    const exportSourceAbsent = await verifyDisposableOwnership(
+      dindContext,
+      exportName,
+      token,
+    );
+    record(
+      checks,
+      "container-export-archive",
+      "session-backed container filesystem export",
+      exported.action === "export" &&
+        exported.receipt.source === "cli-session" &&
+        exported.receipt.resourceId === exportId &&
+        exportRun.exited.exitCode === 0 &&
+        !exportRun.exited.timedOut &&
+        !exportRun.exited.output.truncated &&
+        exportedArchive.isTar &&
+        exportedArchive.sizeBytes > 1_048_576 &&
+        exportedArchive.firstEntry !== "" &&
+        !exportSourceAbsent.exists,
+      {
+        containerId: exportId,
+        containerName: exportName,
+        sessionId: exported.session.sessionId,
+        exitCode: exportRun.exited.exitCode,
+        receiptSource: exported.receipt.source,
+        archive: exportedArchive,
+        sourceContainerVerifiedAbsent: !exportSourceAbsent.exists,
+      },
+      exportStarted,
+    );
+
+    const browseStarted = process.hrtime.bigint();
+    const browseVolumeName = `anchorage_browse_${suffix}`;
+    const browseMarker = `ANCHORAGE_VOLUME_${suffix}`;
+    const createdBrowseVolume = await client.request("volumes.action", {
+      context: dindContext,
+      action: "create",
+      name: browseVolumeName,
+      labels: { "io.anchorage.acceptance": token },
+    });
+    const madeDirectory = await client.request("cli.run", {
+      context: dindContext,
+      targetMode: "pinned",
+      argv: [
+        "run",
+        "--rm",
+        "--volume",
+        `${browseVolumeName}:/data`,
+        sourceRef,
+        "mkdir",
+        "-p",
+        "/data/nested",
+      ],
+      timeoutSeconds: 120,
+    });
+    assertCoreRunSucceeded(madeDirectory, "Volume browse directory seed");
+    // The file is written through a session's stdin rather than a shell, because argv-level
+    // `sh -c` is refused: `-c` is the Docker CLI's own --context shorthand.
+    const seedSession = await client.request("session.start", {
+      context: dindContext,
+      targetMode: "pinned",
+      argv: [
+        "run",
+        "--rm",
+        "--interactive",
+        "--volume",
+        `${browseVolumeName}:/data`,
+        sourceRef,
+        "tee",
+        "/data/nested/anchorage.txt",
+      ],
+      mode: "pipes",
+      outputWindowBytes: 65_536,
+      maxOutputBytes: 1_048_576,
+      timeoutSeconds: 120,
+    });
+    const seedCollected = collectSession(client, seedSession, "", 120_000);
+    await new Promise((wait) => setTimeout(wait, 1_500));
+    await client.request("session.input", {
+      sessionId: seedSession.sessionId,
+      data: `${browseMarker}\n`,
+      encoding: "utf-8",
+      eof: true,
+    });
+    const seeded = await seedCollected;
+    if (seeded.exited.exitCode !== 0) {
+      throw new Error(
+        `Volume browse file seed exited ${seeded.exited.exitCode}: ${seeded.text}`,
+      );
+    }
+    // volumes.files and volumes.fileRead are Engine-API-only, so they run against the Unix
+    // socket context; the published TCP context cannot serve them at all.
+    const rootListing = await client.request(
+      "volumes.files",
+      { context: dindSocketContext, name: browseVolumeName, path: "/" },
+      120_000,
+    );
+    const nestedListing = await client.request(
+      "volumes.files",
+      { context: dindSocketContext, name: browseVolumeName, path: "/nested" },
+      120_000,
+    );
+    const fileRead = await client.request(
+      "volumes.fileRead",
+      {
+        context: dindSocketContext,
+        name: browseVolumeName,
+        path: "/nested/anchorage.txt",
+      },
+      120_000,
+    );
+    const nestedEntry = rootListing.entries.find(
+      (entry) => entry.name === "nested",
+    );
+    const seededEntry = nestedListing.entries.find(
+      (entry) => entry.name === "anchorage.txt",
+    );
+    // The helper is created and never started, and must not survive the read: a leaked helper
+    // holds a reference on the volume and silently blocks its removal.
+    const leakedHelpers = await dockerLinesAt(dindSocketContext, [
+      "container",
+      "ls",
+      "--all",
+      "--quiet",
+      "--no-trunc",
+      "--filter",
+      "label=io.anchorage.helper=volume-browse",
+    ]);
+    const removedBrowseVolume = await client.request("volumes.action", {
+      context: dindContext,
+      action: "remove",
+      name: browseVolumeName,
+      confirmed: true,
+    });
+    const afterBrowseRemove = await client.request("volumes.list", {
+      context: dindContext,
+    });
+    record(
+      checks,
+      "volume-file-browse",
+      "read-only volume browse through an unstarted helper",
+      createdBrowseVolume.receipt.outcome === "succeeded" &&
+        rootListing.source === "engine-api" &&
+        // The helper's mount point must never leak into the reported paths.
+        rootListing.path === "/" &&
+        Boolean(nestedEntry) &&
+        nestedEntry.isDir &&
+        nestedEntry.path === "/nested" &&
+        nestedListing.path === "/nested" &&
+        Boolean(seededEntry) &&
+        !seededEntry.isDir &&
+        seededEntry.path === "/nested/anchorage.txt" &&
+        fileRead.path === "/nested/anchorage.txt" &&
+        fileRead.encoding === "utf-8" &&
+        fileRead.content.trim() === browseMarker &&
+        fileRead.sizeBytes === browseMarker.length + 1 &&
+        !fileRead.truncated &&
+        leakedHelpers.length === 0 &&
+        removedBrowseVolume.receipt.outcome === "succeeded" &&
+        !volumeNames(afterBrowseRemove).includes(browseVolumeName),
+      {
+        volume: browseVolumeName,
+        engineContext: dindSocketContext,
+        listSource: rootListing.source,
+        rootEntries: identityEvidence(
+          sortedUnique(rootListing.entries.map((entry) => entry.path)),
+        ),
+        nestedEntries: identityEvidence(
+          sortedUnique(nestedListing.entries.map((entry) => entry.path)),
+        ),
+        readPath: fileRead.path,
+        readSizeBytes: fileRead.sizeBytes,
+        readEncoding: fileRead.encoding,
+        readMatched: fileRead.content.trim() === browseMarker,
+        leakedHelperContainers: leakedHelpers.length,
+        volumeVerifiedAbsent: !volumeNames(afterBrowseRemove).includes(
+          browseVolumeName,
+        ),
+      },
+      browseStarted,
+    );
+
+    const composeLifecycleStarted = process.hrtime.bigint();
+    const composeLifecycleName = "disposable Compose project lifecycle";
+    let dindComposeAvailable = true;
+    let dindComposeError = null;
+    try {
+      await client.request(
+        "compose.list",
+        { context: dindContext, all: true },
+        60_000,
+      );
+    } catch (error) {
+      if (!isMissingPlugin(error, "compose_unavailable")) throw error;
+      dindComposeAvailable = false;
+      dindComposeError = error.message;
+    }
+    if (!dindComposeAvailable) {
+      recordSkipped(
+        checks,
+        "compose-lifecycle",
+        composeLifecycleName,
+        "The Docker Compose CLI plugin is not installed for this Docker CLI, so compose.action up/stop/start/restart/down cannot be exercised.",
+        { context: dindContext, error: dindComposeError },
+        composeLifecycleStarted,
+      );
+    } else {
+      const composeProject = `anchorage-acceptance-${suffix}`;
+      const composeFile = resolve(scratchDirectory, `compose-${suffix}.yaml`);
+      // A one-second stop grace keeps stop/restart/down bounded; the default ten-second wait
+      // for a process that ignores SIGTERM would triple this check's runtime for no coverage.
+      await writeFile(
+        composeFile,
+        [
+          "services:",
+          "  idle:",
+          `    image: ${sourceRef}`,
+          '    command: ["sleep", "600"]',
+          "    stop_grace_period: 1s",
+          "    labels:",
+          `      io.anchorage.acceptance: "${token}"`,
+          "",
+        ].join("\n"),
+      );
+      const composeReceipts = {};
+      const composeExits = {};
+      const runComposeAction = async (action, extra = {}) => {
+        const started = await client.request("compose.action", {
+          context: dindContext,
+          project: composeProject,
+          action,
+          timeoutSeconds: 300,
+          outputWindowBytes: 65_536,
+          ...extra,
+        });
+        if (!started.session) {
+          throw new Error(`Compose ${action} did not return a session`);
+        }
+        const collected = await collectSession(
+          client,
+          started.session,
+          "",
+          300_000,
+        );
+        composeReceipts[action] = started.receipt;
+        composeExits[action] = collected.exited;
+        return { started, collected };
+      };
+      const up = await runComposeAction("up", { configFiles: [composeFile] });
+      const composeProjects = await client.request(
+        "compose.list",
+        { context: dindContext, all: true },
+        60_000,
+      );
+      const listedProject = composeProjects.projects.find(
+        (project) => project.name === composeProject,
+      );
+      const composeServices = await client.request(
+        "compose.ps",
+        { context: dindContext, project: composeProject },
+        60_000,
+      );
+      await runComposeAction("stop");
+      const stoppedServices = await client.request(
+        "compose.ps",
+        { context: dindContext, project: composeProject },
+        60_000,
+      );
+      await runComposeAction("start");
+      await runComposeAction("restart");
+      const restartedServices = await client.request(
+        "compose.ps",
+        { context: dindContext, project: composeProject },
+        60_000,
+      );
+      await runComposeAction("down", { confirmed: true, removeOrphans: true });
+      const afterDown = await client.request(
+        "compose.list",
+        { context: dindContext, all: true },
+        60_000,
+      );
+      const projectContainersAfterDown = await composeCliContainerIds(
+        dindContext,
+        composeProject,
+      );
+      const allActionsSucceeded = ["up", "stop", "start", "restart", "down"]
+        .every(
+          (action) =>
+            composeReceipts[action]?.source === "cli-session" &&
+            composeReceipts[action]?.outcome === "running" &&
+            composeExits[action]?.exitCode === 0 &&
+            composeExits[action]?.timedOut === false,
+        );
+      record(
+        checks,
+        "compose-lifecycle",
+        composeLifecycleName,
+        allActionsSucceeded &&
+          Boolean(listedProject) &&
+          listedProject.runningCount === 1 &&
+          listedProject.totalCount === 1 &&
+          listedProject.configFiles.includes(composeFile) &&
+          composeServices.services.length === 1 &&
+          composeServices.services[0].service === "idle" &&
+          composeServices.services[0].state === "running" &&
+          stoppedServices.services.length === 1 &&
+          stoppedServices.services[0].state === "exited" &&
+          restartedServices.services.length === 1 &&
+          restartedServices.services[0].state === "running" &&
+          // down must remove the project outright, not merely stop it.
+          !afterDown.projects.some(
+            (project) => project.name === composeProject,
+          ) &&
+          projectContainersAfterDown.length === 0,
+        {
+          context: dindContext,
+          project: composeProject,
+          configFile: composeFile,
+          actions: Object.fromEntries(
+            ["up", "stop", "start", "restart", "down"].map((action) => [
+              action,
+              {
+                receiptAction: composeReceipts[action]?.action ?? null,
+                receiptOutcome: composeReceipts[action]?.outcome ?? null,
+                source: composeReceipts[action]?.source ?? null,
+                exitCode: composeExits[action]?.exitCode ?? null,
+                durationMs: composeExits[action]?.durationMs ?? null,
+              },
+            ]),
+          ),
+          upOutput: up.collected.text.trim().split("\n").slice(-2),
+          listedRunningCount: listedProject?.runningCount ?? null,
+          listedTotalCount: listedProject?.totalCount ?? null,
+          serviceStates: {
+            afterUp: composeServices.services.map((s) => s.state),
+            afterStop: stoppedServices.services.map((s) => s.state),
+            afterRestart: restartedServices.services.map((s) => s.state),
+          },
+          projectVerifiedAbsent: !afterDown.projects.some(
+            (project) => project.name === composeProject,
+          ),
+          containersVerifiedAbsent: projectContainersAfterDown.length === 0,
+        },
+        composeLifecycleStarted,
+      );
+    }
 
     const removeStarted = process.hrtime.bigint();
     const tagA = `anchorage-acceptance/dual:${suffix}-a`;
@@ -1513,9 +2737,31 @@ try {
       };
     }
   }
+  if (dindResource?.socketContextName) {
+    try {
+      await cleanupDockerContext(
+        dindResource.socketContextName,
+        dindResource.socketEndpoint,
+      );
+      cleanupEvidence.dockerSocketContext = {
+        name: dindResource.socketContextName,
+        endpoint: dindResource.socketEndpoint,
+        verifiedAbsent: true,
+      };
+    } catch (error) {
+      cleanupErrors.push(
+        error instanceof Error ? error.message : String(error),
+      );
+      cleanupEvidence.dockerSocketContext = {
+        name: dindResource.socketContextName,
+        endpoint: dindResource.socketEndpoint,
+        verifiedAbsent: false,
+      };
+    }
+  }
   if (dindResource) {
     try {
-      await cleanupDisposable(
+      const disposed = await cleanupDisposable(
         context,
         dindResource.containerName,
         dindResource.token,
@@ -1530,6 +2776,8 @@ try {
         name: dindResource.containerName,
         ownershipLabel: dindResource.token,
         verifiedAbsent: !after.exists,
+        anonymousVolumes: disposed.anonymousVolumes,
+        anonymousVolumesVerifiedAbsent: true,
       };
     } catch (error) {
       cleanupErrors.push(
@@ -1540,6 +2788,8 @@ try {
         name: dindResource.containerName,
         ownershipLabel: dindResource.token,
         verifiedAbsent: false,
+        anonymousVolumes: null,
+        anonymousVolumesVerifiedAbsent: false,
       };
     }
   }
@@ -1549,6 +2799,31 @@ try {
     cleanupErrors.push(
       `Core shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+  // The scratch tree is removed after the core exits, because the disposable daemon's Unix
+  // socket lives inside it and the core caches an open transport to that endpoint.
+  if (dindResource?.scratchDirectory) {
+    try {
+      await rm(dindResource.scratchDirectory, { recursive: true, force: true });
+      const stillPresent = await pathExists(dindResource.scratchDirectory);
+      if (stillPresent) {
+        throw new Error(
+          `Acceptance scratch directory ${dindResource.scratchDirectory} still exists after cleanup`,
+        );
+      }
+      cleanupEvidence.scratchDirectory = {
+        path: dindResource.scratchDirectory,
+        verifiedAbsent: true,
+      };
+    } catch (error) {
+      cleanupErrors.push(
+        error instanceof Error ? error.message : String(error),
+      );
+      cleanupEvidence.scratchDirectory = {
+        path: dindResource.scratchDirectory,
+        verifiedAbsent: false,
+      };
+    }
   }
   if (!failure && cleanupErrors.length > 0) {
     failure = new Error(cleanupErrors.join("; "));
@@ -1564,9 +2839,15 @@ if (!failure && !checkMatrixComplete) {
     `Acceptance check matrix mismatch: required=${requiredChecks.join(",")} observed=${observedCheckIds.join(",")}`,
   );
 }
+// A skipped check is not a passing check. It is surfaced at the top of the artifact and in the
+// run summary so an optional plugin that is simply absent can never be read as coverage of the
+// verbs it would have exercised.
+const skippedChecks = checks
+  .filter((check) => check.status === "skipped")
+  .map((check) => ({ id: check.id, reason: check.reason }));
 const result = {
-  schemaVersion: 2,
-  matrixVersion: 1,
+  schemaVersion: ACCEPTANCE_SCHEMA_VERSION,
+  matrixVersion: ACCEPTANCE_MATRIX_VERSION,
   startedAt,
   completedAt: new Date().toISOString(),
   context,
@@ -1581,9 +2862,13 @@ const result = {
   status:
     !failure &&
     checkMatrixComplete &&
-    checks.every((check) => check.status === "passed")
+    checks.every(
+      (check) => check.status === "passed" || check.status === "skipped",
+    )
       ? "passed"
       : "failed",
+  passedCheckCount: checks.filter((check) => check.status === "passed").length,
+  skippedChecks,
   checks,
   cleanup: {
     status: cleanupErrors.length === 0 ? "passed" : "failed",
@@ -1601,8 +2886,12 @@ const result = {
 await mkdir(resolve(outputPath, ".."), { recursive: true });
 await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`);
 const summary =
-  `${result.status.toUpperCase()}: ${checks.length} core acceptance checks ` +
-  `(${runMutations ? "including" : "excluding"} disposable mutations).\n`;
+  `${result.status.toUpperCase()}: ${result.passedCheckCount} of ${checks.length} ` +
+  `core acceptance checks executed, ${skippedChecks.length} skipped ` +
+  `(${runMutations ? "including" : "excluding"} disposable mutations).\n` +
+  skippedChecks
+    .map((check) => `  skipped ${check.id}: ${check.reason}\n`)
+    .join("");
 if (failure) {
   process.stderr.write(summary);
   process.stderr.write(`${result.error.message}\n`);

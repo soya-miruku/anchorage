@@ -65,25 +65,92 @@ advertised leaf has no executable transport route, a shared session loses
 output or exit status, or an interactive session cannot receive input,
 terminal resize, signals, and cancellation.
 
-Operation-level conformance is stored separately. Matrix v1 contains eight
-read-only checks and ten disposable mutation checks. It covers the core
-handshake and inventory, list/inspect/stats equivalence, pinned and literal
-pipes sessions, container lifecycle and PTY control, image pull/one-tag
-removal/dangling-and-all prune semantics, and volume default/all/exact-remove
-semantics. Mutation mode owns an isolated Docker-in-Docker daemon and requires
-the temporary context, daemon, containers, images, and volumes to be absent
-afterward. A read-only package preflight cannot replace this mutation-enabled
-artifact.
+Operation-level conformance is stored separately. Matrix v2 contains eleven
+read-only checks and fifteen disposable mutation checks. The read-only set
+covers the core handshake and inventory, list/inspect/stats equivalence, pinned
+and literal CLI runs and pipes sessions, Compose project and service
+projection, the Scout SARIF projection, and long-lived session survival. The
+mutation set covers container lifecycle and PTY control, image
+pull/tag/one-tag-removal/dangling-and-all prune semantics, image save-and-load
+round trips, container filesystem export, read-only volume browsing, the
+Compose up/stop/start/restart/down lifecycle, and volume
+default/all/exact-remove semantics. Mutation mode owns an isolated
+Docker-in-Docker daemon and requires the temporary contexts, daemon,
+containers, images, volumes, and host scratch directory to be absent afterward.
+A read-only package preflight cannot replace this mutation-enabled artifact.
 
-The matrix does not yet cover the archive verbs (`images.action` save/load,
-`containers.export`) or `images.action` tag. Save, load and export are session
-transfers whose failure mode is a partially written host file, and every one of
-them writes outside the Docker-in-Docker daemon's own state, so a check has to
-own and clean up a scratch directory as well as the temporary daemon. Tag is
-cheap to cover and only omitted because it landed after the last matrix
-revision. Both are stated here rather than left to be inferred from a passing
-run, because a matrix that reports "18 checks passed" while silently not
-exercising a verb is how an earlier session-cancellation defect survived.
+### What each added check actually establishes
+
+`long-lived-session` is the check the rest of the matrix could not have caught.
+When requests became individually cancellable, `session.start` passed its
+request context into the session's lifetime watcher, so every session was torn
+down the instant `session.start` returned. Every other session in the matrix
+finishes in well under a second, so all eighteen checks of matrix v1 still
+passed and only the thirty-minute soak noticed. The check now holds one
+streaming session open for ten seconds, issues unrelated requests that begin and
+complete during that window, and requires the session to still be emitting new
+output sequences and to still accept `session.input` afterwards — input is
+refused with `session_closed` once the core believes the process is gone, so
+accepting a byte is positive proof of life rather than proof of a surviving
+tombstone. It then cancels the session and requires an actual exit reported as
+cancelled. A session that dies with its originating request fails this check
+outright.
+
+The archive verbs write outside the daemon's own state, so their failure mode is
+a partially written host file rather than a non-zero exit. `image-save-load-roundtrip`
+and `container-export-archive` therefore read the produced bytes: each archive
+must carry a POSIX `ustar` header and a plausible size, not merely exist. The
+save round trip additionally removes the saved reference before loading it back,
+because a load into a daemon that still holds the image is indistinguishable
+from a no-op, and then requires the restored reference to land on the same
+immutable image ID.
+
+`volume-file-browse` exercises the browse path end to end, including its most
+important property: the helper container is created and never started, and must
+not survive the read. A leaked helper holds a reference on the volume and
+silently blocks its removal, so the check counts helpers by label afterwards and
+requires zero. It also requires that the helper's internal mount point never
+appears in a reported path.
+
+### Transport and daemon topology under test
+
+The disposable daemon is published twice: on a loopback TCP port, which remains
+the primary context so the CLI-routed transport stays under test, and on a Unix
+socket bind-mounted into a scratch directory. The second endpoint exists because
+the Engine-API-only methods — the container and volume archive reads behind
+`volumes.files` and `volumes.fileRead` — require a directly reachable Unix
+socket and return `context_transport_unsupported` over TCP. Without it those
+verbs are not reachable inside Docker-in-Docker at all. Both contexts, the
+daemon's anonymous volume, and the scratch directory are removed and verified
+absent.
+
+### Optional plugins are skipped explicitly, never passed silently
+
+Compose and Scout are optional CLI plugins. Their checks report a third status,
+`skipped`, with a stated reason, and only when the core returns exactly
+`compose_unavailable` or `scout_unavailable`; every other failure remains a
+failure. Skips are listed at the top of the artifact, counted separately from
+passes, and printed in the run summary, because a matrix that reports "26 checks
+passed" while a verb was never exercised is precisely how the session
+cancellation defect survived.
+
+### Still uncovered
+
+The matrix does not cover `images.search`, `containers.commit`,
+`containers.files`/`fileRead`/`fileWrite`, `containers.top`, `containers.diff`,
+`containers.statsBatch`, `containers.create`, `networks.list`/`action`, or
+`system.action`. `compose.action` is covered for all five lifecycle verbs, but
+only for a single-service project on a local daemon; multi-service dependency
+ordering, `up` on a project with build stages, and `down --volumes` are not
+exercised. The Scout check compares the core's projection against an
+independent reading of the same SARIF, including per-severity counts, but the
+smallest local image on a given host is frequently clean, in which case the
+severity comparison is structurally correct and substantively vacuous; the
+artifact records `comparedNonEmptyReport` so a zero-finding run cannot be read
+as proof that severity projection works. Remote, rootless, and TLS-secured
+daemons remain unexercised, as does the Engine-API transport for every mutation
+verb other than volume browsing, because the disposable daemon's primary context
+is TCP and therefore CLI-routed.
 
 ## Canonical handoff visual conformance ledger
 

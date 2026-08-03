@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ACCEPTANCE_MATRIX_VERSION,
+  ACCEPTANCE_SCHEMA_VERSION,
+  SKIPPABLE_ACCEPTANCE_CHECK_IDS,
+} from "../../tools/acceptance-check-ids.mjs";
+import {
   DESIGN_PARITY_STATE_IDS,
   DESIGN_VISUAL_CONFORMANCE_CLAIM,
   DESIGN_VISUAL_REVIEW_CRITERIA,
@@ -90,8 +95,8 @@ function acceptanceFixture(mutationsEnabled) {
     ? [...READ_ONLY_ACCEPTANCE_CHECK_IDS, ...MUTATION_ACCEPTANCE_CHECK_IDS].sort()
     : [...READ_ONLY_ACCEPTANCE_CHECK_IDS];
   return {
-    schemaVersion: 2,
-    matrixVersion: 1,
+    schemaVersion: ACCEPTANCE_SCHEMA_VERSION,
+    matrixVersion: ACCEPTANCE_MATRIX_VERSION,
     startedAt: ISO,
     completedAt: ISO,
     corePath: "/tmp/anchorage-core",
@@ -105,6 +110,7 @@ function acceptanceFixture(mutationsEnabled) {
       name: `Acceptance check: ${id}`,
       status: "passed",
     })),
+    skippedChecks: [],
     cleanup: { status: "passed", errors: [] },
     error: null,
   };
@@ -132,7 +138,63 @@ test("mutation and read-only acceptance enforce distinct modes and passing check
     /mutationsEnabled=true/u,
   );
   mutation.checks[0].status = "failed";
-  assert.throws(() => validateMutationConformance(mutation), /only named passing/u);
+  assert.throws(() => validateMutationConformance(mutation), /only named checks that passed/u);
+});
+
+test("acceptance evidence permits a skip only for an absent optional plugin, and only on the record", () => {
+  // Compose and Scout are optional Docker CLI plugins, so a release machine can lack them.
+  // Everything else skipping means the matrix did not exercise what it claims to cover.
+  const skippableId = SKIPPABLE_ACCEPTANCE_CHECK_IDS[0];
+  const permitted = acceptanceFixture(true);
+  permitted.checks = permitted.checks.map((check) =>
+    check.id === skippableId ? { ...check, status: "skipped" } : check,
+  );
+  permitted.skippedChecks = [skippableId];
+  validateMutationConformance(permitted, { corePath: "/tmp/anchorage-core", coreSha256: SHA });
+
+  // A skip that is not recorded reads as a pass to anyone signing the release off.
+  const unrecorded = acceptanceFixture(true);
+  unrecorded.checks = unrecorded.checks.map((check) =>
+    check.id === skippableId ? { ...check, status: "skipped" } : check,
+  );
+  assert.throws(
+    () =>
+      validateMutationConformance(unrecorded, {
+        corePath: "/tmp/anchorage-core",
+        coreSha256: SHA,
+      }),
+    /skippedChecks must record exactly/u,
+  );
+
+  // A skip claimed on the record but not actually skipped is equally misleading.
+  const overclaimed = acceptanceFixture(true);
+  overclaimed.skippedChecks = [skippableId];
+  assert.throws(
+    () =>
+      validateMutationConformance(overclaimed, {
+        corePath: "/tmp/anchorage-core",
+        coreSha256: SHA,
+      }),
+    /skippedChecks must record exactly/u,
+  );
+
+  // A non-optional check may never skip.
+  const mandatory = acceptanceFixture(true);
+  const mandatoryId = mandatory.checks
+    .map((check) => check.id)
+    .find((id) => !SKIPPABLE_ACCEPTANCE_CHECK_IDS.includes(id));
+  mandatory.checks = mandatory.checks.map((check) =>
+    check.id === mandatoryId ? { ...check, status: "skipped" } : check,
+  );
+  mandatory.skippedChecks = [mandatoryId];
+  assert.throws(
+    () =>
+      validateMutationConformance(mandatory, {
+        corePath: "/tmp/anchorage-core",
+        coreSha256: SHA,
+      }),
+    /only named checks that passed/u,
+  );
 });
 
 test("acceptance evidence rejects missing, duplicate, extra, and self-declared check matrices", () => {
@@ -173,7 +235,7 @@ test("acceptance evidence rejects missing, duplicate, extra, and self-declared c
         expectedCorePath: selfDeclared.corePath,
         expectedCoreSha256: SHA,
       }),
-    /requiredChecks must equal matrix v1/u,
+    /requiredChecks must equal matrix v2/u,
   );
 });
 
@@ -901,6 +963,8 @@ function hostCandidateFixture() {
   };
   const evidence = {
       schemaVersion: 1,
+      // The host-candidate matrix is versioned independently of the
+      // operation-conformance matrix and is still at v1.
       matrixVersion: 1,
       status: "passed",
       candidateMode: "staged-inputs",

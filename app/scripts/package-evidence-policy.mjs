@@ -1,4 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
+import {
+  ACCEPTANCE_MATRIX_VERSION,
+  ACCEPTANCE_SCHEMA_VERSION,
+  MUTATION_ACCEPTANCE_CHECK_IDS as MUTATION_IDS,
+  READ_ONLY_ACCEPTANCE_CHECK_IDS as READ_ONLY_IDS,
+  SKIPPABLE_ACCEPTANCE_CHECK_IDS,
+} from "../../tools/acceptance-check-ids.mjs";
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 
@@ -21,29 +28,13 @@ export function validatePinnedDevDependencies(packageMetadata) {
   }
 }
 
-export const READ_ONLY_ACCEPTANCE_CHECK_IDS = Object.freeze([
-  "container-inspect-stats",
-  "core-handshake",
-  "installed-command-inventory",
-  "literal-cli-run",
-  "literal-pipes-session",
-  "pinned-cli-run",
-  "pinned-pipes-session",
-  "snapshot-list-conformance",
-]);
-
-export const MUTATION_ACCEPTANCE_CHECK_IDS = Object.freeze([
-  "container-lifecycle",
-  "dind-isolation",
-  "image-prune-all",
-  "image-prune-dangling",
-  "image-pull-session",
-  "image-remove-one-tag",
-  "pty-session",
-  "volume-prune-all",
-  "volume-prune-default",
-  "volume-remove-exact",
-]);
+// Re-exported from the single shared definition rather than copied. The previous duplicate
+// silently went stale when the matrix grew, so the policy rejected an artifact the runner had
+// just produced.
+export {
+  READ_ONLY_ACCEPTANCE_CHECK_IDS,
+  MUTATION_ACCEPTANCE_CHECK_IDS,
+} from "../../tools/acceptance-check-ids.mjs";
 
 export const DESIGN_PARITY_STATE_IDS = Object.freeze([
   "containers",
@@ -532,8 +523,8 @@ function requireIsoDate(value, description) {
 
 function acceptanceCheckIds(mutationsEnabled) {
   return mutationsEnabled
-    ? [...READ_ONLY_ACCEPTANCE_CHECK_IDS, ...MUTATION_ACCEPTANCE_CHECK_IDS].sort()
-    : [...READ_ONLY_ACCEPTANCE_CHECK_IDS];
+    ? [...READ_ONLY_IDS, ...MUTATION_IDS].sort()
+    : [...READ_ONLY_IDS];
 }
 
 function sameStringArray(actual, expected) {
@@ -637,7 +628,7 @@ export function validateHostCandidateEvidence(
   );
   requireCondition(
     sameStringArray(evidence.requiredChecks, HOST_CANDIDATE_CHECK_IDS),
-    `${description} requiredChecks must equal matrix v1`,
+    `${description} requiredChecks must equal matrix v${ACCEPTANCE_MATRIX_VERSION}`,
   );
   requireCondition(
     Array.isArray(evidence.checks) &&
@@ -957,10 +948,10 @@ export function validateHostCandidateEvidence(
 
 function requirePassingChecks(evidence, description, mutationsEnabled) {
   const expectedIds = acceptanceCheckIds(mutationsEnabled);
-  requireSchemaVersion(evidence, description, 2);
+  requireSchemaVersion(evidence, description, ACCEPTANCE_SCHEMA_VERSION);
   requireCondition(
-    evidence?.matrixVersion === 1,
-    `${description} must use matrixVersion 1`,
+    evidence?.matrixVersion === ACCEPTANCE_MATRIX_VERSION,
+    `${description} must use matrixVersion ${ACCEPTANCE_MATRIX_VERSION}`,
   );
   requireCondition(
     evidence?.status === "passed",
@@ -970,6 +961,11 @@ function requirePassingChecks(evidence, description, mutationsEnabled) {
     Array.isArray(evidence.checks) && evidence.checks.length > 0,
     `${description} must include at least one check`,
   );
+  // Compose and Scout are optional Docker CLI plugins, so a release machine can genuinely
+  // lack them; blocking a release for that would be wrong. Every other check must pass — a
+  // skip elsewhere means the matrix did not exercise something it claims to cover, which is
+  // precisely how a session-cancellation defect survived eighteen passing checks.
+  const skippable = new Set(SKIPPABLE_ACCEPTANCE_CHECK_IDS);
   requireCondition(
     evidence.checks.every(
       (check) =>
@@ -978,9 +974,21 @@ function requirePassingChecks(evidence, description, mutationsEnabled) {
         check.id.length > 0 &&
         typeof check.name === "string" &&
         check.name.length > 0 &&
-        check.status === "passed",
+        (check.status === "passed" ||
+          (check.status === "skipped" && skippable.has(check.id))),
     ),
-    `${description} must contain only named passing checks`,
+    `${description} must contain only named checks that passed, or were skipped for an absent optional plugin`,
+  );
+  // A permitted skip is still not a pass: it has to be recorded where a person signing the
+  // release off will see it, and the record has to agree with the checks themselves.
+  const skippedInChecks = evidence.checks
+    .filter((check) => check?.status === "skipped")
+    .map((check) => check.id)
+    .sort();
+  requireCondition(
+    Array.isArray(evidence.skippedChecks) &&
+      sameStringArray([...evidence.skippedChecks].sort(), skippedInChecks),
+    `${description} skippedChecks must record exactly the checks that were skipped`,
   );
   const actualIds = evidence.checks.map((check) => check.id);
   requireCondition(
@@ -993,7 +1001,7 @@ function requirePassingChecks(evidence, description, mutationsEnabled) {
   );
   requireCondition(
     sameStringArray(evidence.requiredChecks, expectedIds),
-    `${description} requiredChecks must equal matrix v1`,
+    `${description} requiredChecks must equal matrix v${ACCEPTANCE_MATRIX_VERSION}`,
   );
 }
 
