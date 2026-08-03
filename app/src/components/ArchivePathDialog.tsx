@@ -13,7 +13,9 @@ import { useState } from "react";
  *
  * Only the shapes that would change what the argument *is* are caught here — a leading `-`
  * reads as a flag. Everything else is the core's decision, reported through the same error
- * surface as any other failed operation.
+ * surface as any other failed operation. That includes whether the file already exists: the
+ * core refuses to replace one unless overwriting was explicitly agreed, so this dialog offers
+ * the agreement rather than checking the filesystem itself and racing it.
  */
 export function ArchivePathDialog({
   title,
@@ -22,6 +24,7 @@ export function ArchivePathDialog({
   confirmLabel,
   testId,
   busy,
+  allowOverwrite,
   onCancel,
   onConfirm,
 }: {
@@ -32,9 +35,12 @@ export function ArchivePathDialog({
   testId: string;
   busy?: boolean;
   onCancel: () => void;
-  onConfirm: (archivePath: string) => void;
+  /** Present only for the verbs that write a file; omitted for load. */
+  allowOverwrite?: boolean;
+  onConfirm: (archivePath: string, overwrite: boolean) => void;
 }) {
   const [archivePath, setArchivePath] = useState("");
+  const [overwrite, setOverwrite] = useState(false);
   const trimmed = archivePath.trim();
   const looksLikeFlag = trimmed.startsWith("-");
   const isAbsolute = trimmed.startsWith("/");
@@ -57,7 +63,7 @@ export function ArchivePathDialog({
         onSubmit={(event) => {
           event.preventDefault();
           if (!trimmed || problem || busy) return;
-          onConfirm(trimmed);
+          onConfirm(trimmed, overwrite);
         }}
       >
         <div className="create-environment-dialog__heading">
@@ -85,6 +91,23 @@ export function ArchivePathDialog({
           <p className="capability-error" role="status">
             {problem}
           </p>
+        )}
+        {allowOverwrite && (
+          <label className="prune-option">
+            <input
+              type="checkbox"
+              data-testid={`${testId}-overwrite`}
+              checked={overwrite}
+              onChange={(event) => setOverwrite(event.currentTarget.checked)}
+            />
+            <span>
+              Replace the file if it already exists
+              <small>
+                Docker truncates the target, so an existing file is destroyed rather
+                than appended to. Without this the write is refused instead.
+              </small>
+            </span>
+          </label>
         )}
         <div className="create-environment-dialog__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>

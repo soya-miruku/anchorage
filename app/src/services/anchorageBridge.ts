@@ -1465,8 +1465,13 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
         }
         return structuredClone(raw) as unknown as ContainersCommitResult;
       },
-      export: async (id, archivePath, context = "default") => {
-        const request = { context, id, archivePath };
+      export: async (id, archivePath, options = {}, context = "default") => {
+        const request = {
+          context,
+          id,
+          archivePath,
+          ...(options.overwrite ? { overwrite: true } : {}),
+        };
         const result = api?.export
           ? await api.export(request)
           : host.invoke

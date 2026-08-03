@@ -1497,9 +1497,15 @@ func validateImagesAction(params ImagesActionParams) error {
 			return opError("invalid_action_options", "Image tag received options for another action.", nil, nil)
 		}
 	case "save", "load":
-		// Path validation happens in the handler, which owns the allowlist check.
+		// Path validation happens in the handler, which owns the existence and overwrite
+		// checks. `confirmed` belongs to the destructive Docker-side verbs; an archive write is
+		// gated by `overwrite` instead, which names the specific thing being agreed to.
 		if params.Confirmed || len(params.Filters) > 0 {
 			return opError("invalid_action_options", "Image archive actions received options for another action.", nil, nil)
+		}
+		if params.Action == "load" && params.Overwrite {
+			return opError("invalid_action_options",
+				"Image load reads an archive and never writes one.", nil, nil)
 		}
 		if params.Action == "save" && params.Reference == "" {
 			return opError("invalid_action_options", "Image save requires a reference.", nil, nil)
@@ -3466,7 +3472,7 @@ func (s *Service) containersCommit(parent context.Context, params ContainersComm
 // exist yet (save creates it), so the *parent directory* is what is canonicalized and checked
 // against the same allowlist that governs command working directories. A leading '-' is
 // rejected outright: the value becomes an argv element next to a Docker flag.
-func (s *Service) validateArchivePath(raw string, mustExist bool) (string, error) {
+func (s *Service) validateArchivePath(raw string, mustExist, overwrite bool) (string, error) {
 	value := strings.TrimSpace(raw)
 	if value == "" || len(value) > 4096 {
 		return "", opError("invalid_archive_path", "Archive path must be between 1 and 4096 characters.", nil, nil)
@@ -3483,10 +3489,32 @@ func (s *Service) validateArchivePath(raw string, mustExist bool) (string, error
 		}
 	}
 	cleaned := filepath.Clean(value)
-	if mustExist {
-		info, err := os.Stat(cleaned)
-		if err != nil || info.IsDir() {
-			return "", opError("invalid_archive_path", "Archive file does not exist.", err, map[string]any{"path": cleaned})
+	// The final component is checked with Lstat, not Stat: resolveAllowedCWD canonicalizes the
+	// parent, so a symlink in the last position would otherwise redirect the write to wherever
+	// it pointed. Character and block devices are refused for the same reason /dev/stdin is —
+	// Docker would happily read a Compose-style stream from one, or write into it.
+	info, statErr := os.Lstat(cleaned)
+	switch {
+	case mustExist:
+		if statErr != nil || info.IsDir() || !info.Mode().IsRegular() {
+			return "", opError("invalid_archive_path", "Archive file does not exist.", statErr,
+				map[string]any{"path": cleaned})
+		}
+	case statErr == nil:
+		if info.IsDir() {
+			return "", opError("invalid_archive_path", "That path is a directory.", nil,
+				map[string]any{"path": cleaned})
+		}
+		if !info.Mode().IsRegular() {
+			return "", opError("invalid_archive_path",
+				"That path is not a regular file.", nil, map[string]any{"path": cleaned})
+		}
+		// Docker's --output truncates. Replacing a file the operator did not mean to name is
+		// not recoverable, so it takes a second, explicit decision rather than a silent write.
+		if !overwrite {
+			return "", opError("archive_exists",
+				"A file already exists at that path; confirm replacing it.", nil,
+				map[string]any{"path": cleaned})
 		}
 	}
 	// The parent must resolve and sit inside the allowlist, so an archive can never be written
@@ -3507,7 +3535,7 @@ func (s *Service) containersExport(parent context.Context, params ContainersExpo
 	if err := validateContainerID(params.ID); err != nil {
 		return ImagesActionResult{}, err
 	}
-	archive, err := s.validateArchivePath(params.ArchivePath, false)
+	archive, err := s.validateArchivePath(params.ArchivePath, false, params.Overwrite)
 	if err != nil {
 		return ImagesActionResult{}, err
 	}
@@ -3538,7 +3566,7 @@ func (s *Service) containersExport(parent context.Context, params ContainersExpo
 // must never transit the JSON RPC; Docker's own -o/-i handling does the streaming.
 func (s *Service) imageArchive(parent context.Context, params ImagesActionParams, emit EventEmitter) (ImagesActionResult, error) {
 	mustExist := params.Action == "load"
-	archive, err := s.validateArchivePath(params.ArchivePath, mustExist)
+	archive, err := s.validateArchivePath(params.ArchivePath, mustExist, params.Overwrite)
 	if err != nil {
 		return ImagesActionResult{}, err
 	}

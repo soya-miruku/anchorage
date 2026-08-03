@@ -16,6 +16,10 @@ import (
 // distinctive so a listing can never be confused with the helper image's own filesystem.
 const volumeHelperMount = "/anchorage-volume"
 
+// volumeHelperLabel marks a helper so a leaked one can be found and removed by label rather
+// than by guessing at its name.
+const volumeHelperLabel = "io.anchorage.helper"
+
 // volumeHelperImage picks an image to instantiate the helper from.
 //
 // The helper is created and never started, so the image's contents are irrelevant — Docker
@@ -62,6 +66,41 @@ func (s *Service) volumeHelperImage(ctx context.Context, client *engineClient) (
 	return best, nil
 }
 
+// sweepVolumeHelpers force-removes any helper left behind by an earlier browse.
+//
+// The helper is labelled specifically so it can be found without guessing from a name. A leak
+// matters more than it looks: the helper holds a reference on the volume, so `docker volume
+// rm` fails with "volume is in use" and the volume survives a prune, with nothing on screen
+// connecting the two.
+func (s *Service) sweepVolumeHelpers(ctx context.Context, client *engineClient) {
+	filters := `{"label":["` + volumeHelperLabel + `=volume-browse"]}`
+	values := url.Values{}
+	values.Set("all", "true")
+	values.Set("filters", filters)
+	status, body, err := client.request(ctx, http.MethodGet,
+		"/v"+client.apiVersion+"/containers/json?"+values.Encode(), nil)
+	if err != nil || status < 200 || status >= 300 {
+		// Sweeping is opportunistic; a failure here must not block the browse the caller asked
+		// for, and the per-request cleanup remains the primary mechanism.
+		return
+	}
+	var containers []struct {
+		ID string `json:"Id"`
+	}
+	if json.Unmarshal(body, &containers) != nil {
+		return
+	}
+	for _, container := range containers {
+		if container.ID == "" {
+			continue
+		}
+		remove := url.Values{}
+		remove.Set("force", "true")
+		_, _, _ = client.request(ctx, http.MethodDelete,
+			"/v"+client.apiVersion+"/containers/"+url.PathEscape(container.ID)+"?"+remove.Encode(), nil)
+	}
+}
+
 // requireExistingVolume fails unless the volume already exists.
 func (s *Service) requireExistingVolume(ctx context.Context, client *engineClient, volume string) error {
 	status, body, err := client.request(ctx, http.MethodGet,
@@ -103,7 +142,7 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		"Labels": map[string]string{
 			// Labelled so an operator can identify a helper that outlived its request, and so
 			// a future sweep can find one without guessing from the name.
-			"io.anchorage.helper": "volume-browse",
+			volumeHelperLabel:     "volume-browse",
 			"io.anchorage.volume": volume,
 		},
 		"HostConfig": map[string]any{
@@ -114,9 +153,19 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 	if err != nil {
 		return opError("volume_browse_failed", "The volume helper request could not be built.", err, nil)
 	}
+	// Sweep before creating. A helper only survives a request if the core died between the
+	// create call and its cleanup, or if the create response was lost after the daemon had
+	// already built the container — in both cases the ID was never known, so the label is the
+	// only way back to it. Doing this here rather than only at startup means a leak is cleared
+	// by the next browse instead of persisting until a restart.
+	s.sweepVolumeHelpers(ctx, client)
+
 	status, body, err := client.request(ctx, http.MethodPost,
 		"/v"+client.apiVersion+"/containers/create", bytes.NewReader(payload))
 	if err != nil {
+		// The daemon may have created the container before the response was lost, in which
+		// case nothing else will ever know its ID.
+		s.sweepVolumeHelpers(context.WithoutCancel(ctx), client)
 		return err
 	}
 	if status < 200 || status >= 300 {

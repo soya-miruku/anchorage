@@ -911,7 +911,7 @@ function volumeFiles(value) {
   };
   if (value.path !== undefined) {
     const target = text(value.path, "request.path", 4_096);
-    if (!VOLUME_BROWSE_PATH.test(target)) {
+    if (!VOLUME_BROWSE_PATH.test(target) || target.split("/").includes("..")) {
       fail("request.path must be an absolute path inside the volume");
     }
     normalized.path = target;
@@ -923,7 +923,13 @@ function volumeFileRead(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context", "name", "path"]), "request");
   const target = text(value.path, "request.path", 4_096);
-  if (!VOLUME_BROWSE_PATH.test(target) || target === "/") {
+  // The same traversal check the container-path validators apply. The core rejects this too,
+  // but a gap in only one layer defeats the point of validating at each boundary.
+  if (
+    !VOLUME_BROWSE_PATH.test(target) ||
+    target === "/" ||
+    target.split("/").includes("..")
+  ) {
     fail("request.path must name a file inside the volume");
   }
   return {
@@ -1051,6 +1057,7 @@ function containersExport(value) {
       "context",
       "id",
       "archivePath",
+      "overwrite",
       "cwd",
       "timeoutSeconds",
       "outputWindowBytes",
@@ -1066,6 +1073,11 @@ function containersExport(value) {
     id,
     archivePath: archivePath(value.archivePath),
   };
+  copyDefined(
+    normalized,
+    "overwrite",
+    optionalBoolean(value.overwrite, "request.overwrite"),
+  );
   copyDefined(normalized, "cwd", cwd(value.cwd));
   copyDefined(
     normalized,
@@ -1224,6 +1236,7 @@ function imagesAction(value) {
       "id",
       "reference",
       "archivePath",
+      "overwrite",
       "force",
       "noPrune",
       "filters",
@@ -1254,6 +1267,11 @@ function imagesAction(value) {
     }
     normalized.reference = reference;
   }
+  copyDefined(
+    normalized,
+    "overwrite",
+    optionalBoolean(value.overwrite, "request.overwrite"),
+  );
   if (value.archivePath !== undefined) {
     normalized.archivePath = archivePath(value.archivePath);
   }
@@ -1314,6 +1332,7 @@ function imagesAction(value) {
     if (
       Object.keys(normalized.filters ?? {}).length > 0 ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.cwd !== undefined ||
       (normalized.timeoutSeconds ?? 0) !== 0 ||
       normalized.outputWindowBytes !== undefined ||
@@ -1329,6 +1348,7 @@ function imagesAction(value) {
       normalized.id !== undefined ||
       normalized.reference !== undefined ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.force === true ||
       normalized.noPrune === true ||
       normalized.cwd !== undefined ||
@@ -1369,6 +1389,10 @@ function imagesAction(value) {
     if (action === "load" && normalized.reference !== undefined) {
       fail("request.reference is not valid for image load");
     }
+    // `overwrite` agrees to replace a file; load only ever reads one.
+    if (action === "load" && normalized.overwrite !== undefined) {
+      fail("request.overwrite is not valid for image load");
+    }
     if (
       normalized.id !== undefined ||
       normalized.force === true ||
@@ -1385,6 +1409,7 @@ function imagesAction(value) {
     if (
       normalized.id !== undefined ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.force === true ||
       normalized.noPrune === true ||
       Object.keys(normalized.filters ?? {}).length > 0 ||

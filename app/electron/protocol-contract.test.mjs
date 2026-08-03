@@ -120,6 +120,12 @@ function schemaMatches(inputSchema, value) {
       return false;
     }
   }
+  // `not` is used by the volume-path definitions to forbid traversal segments. Without this
+  // branch the matcher silently ignores the keyword, and a schema constraint that exists only
+  // in the file would read as tested.
+  if (schema.not && schemaMatches(schema.not, value)) {
+    return false;
+  }
   if (Object.hasOwn(schema, "const") && value !== schema.const) {
     return false;
   }
@@ -140,9 +146,22 @@ function schemaMatches(inputSchema, value) {
       (schema.maximum === undefined || value <= schema.maximum)
     );
   }
-  if (schema.type === "string") {
+  // String constraints are applied whenever they are present, not only when an explicit
+  // `type: "string"` accompanies them. A bare `{ "pattern": ... }` is what appears inside
+  // `not`, and treating it as an unconstrained schema made the negation always true — which
+  // silently rejected every valid path rather than the traversal it was meant to forbid.
+  const hasStringConstraint =
+    schema.minLength !== undefined ||
+    schema.maxLength !== undefined ||
+    schema.pattern !== undefined;
+  if (schema.type === "string" || (hasStringConstraint && !schema.type)) {
+    if (schema.type === "string" && typeof value !== "string") {
+      return false;
+    }
+    if (typeof value !== "string") {
+      return true;
+    }
     return (
-      typeof value === "string" &&
       (schema.minLength === undefined || value.length >= schema.minLength) &&
       (schema.maxLength === undefined || value.length <= schema.maxLength) &&
       (schema.pattern === undefined || new RegExp(schema.pattern, "u").test(value))
@@ -383,6 +402,7 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
         reference: "registry.example/team/api:latest",
         archivePath: "/srv/project/api.tar",
         timeoutSeconds: 1_800,
+        overwrite: true,
       }),
     ),
     request(
@@ -693,6 +713,28 @@ test("protocol v1 rejects archive paths that would be re-read as a Docker flag",
       schemaMatches(protocol, request("images.action", params)),
       false,
       `unsafe image tag unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateImagesAction(params), TypeError);
+  }
+
+  // `overwrite` agrees to destroy an existing host file. It belongs only to the verbs that
+  // write one, and must never be accepted where it would be silently ignored.
+  for (const params of [
+    { context: "default", action: "load", archivePath: "/srv/project/api.tar", overwrite: true },
+    { context: "default", action: "pull", reference: "team/api", overwrite: true },
+    { context: "default", action: "prune", confirmed: true, overwrite: true },
+    {
+      context: "default",
+      action: "remove",
+      id: "sha256:" + "ab".repeat(32),
+      confirmed: true,
+      overwrite: true,
+    },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("images.action", params)),
+      false,
+      `misplaced overwrite unexpectedly matched: ${JSON.stringify(params)}`,
     );
     assert.throws(() => validateImagesAction(params), TypeError);
   }
@@ -1162,6 +1204,9 @@ test("protocol v1 keeps a volume browse inside the volume", () => {
   // that escapes it would read the helper image's own filesystem instead.
   for (const params of [
     { context: "default", name: "project_data", path: "config" },
+    { context: "default", name: "project_data", path: "/a/../../etc/passwd" },
+    { context: "default", name: "project_data", path: "/.." },
+    { context: "default", name: "project_data", path: "/../etc" },
     { context: "default", name: "project_data", path: "" },
     { context: "default", name: "../etc", path: "/" },
     { context: "default", name: "-rf", path: "/" },

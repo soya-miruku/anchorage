@@ -540,12 +540,16 @@ type ImagesActionParams struct {
 	// multi-gigabyte tar through the JSON transport is not viable, so Docker's own -o/-i
 	// file handling is used instead.
 	ArchivePath string `json:"archivePath,omitempty"`
+	// Overwrite is the operator's explicit decision to replace an existing file, which
+	// Docker's --output would otherwise do silently.
+	Overwrite bool `json:"overwrite,omitempty"`
 }
 
 type ContainersExportParams struct {
 	Context           string `json:"context"`
 	ID                string `json:"id"`
 	ArchivePath       string `json:"archivePath"`
+	Overwrite         bool   `json:"overwrite,omitempty"`
 	Cwd               string `json:"cwd,omitempty"`
 	TimeoutSeconds    int    `json:"timeoutSeconds,omitempty"`
 	OutputWindowBytes int    `json:"outputWindowBytes,omitempty"`

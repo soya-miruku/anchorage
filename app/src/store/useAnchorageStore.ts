@@ -2888,7 +2888,7 @@ export function useAnchorageStore() {
    * destination fails here rather than writing a file somewhere unexpected.
    */
   const saveImageArchive = useCallback(
-    async (reference: string, archivePath: string) => {
+    async (reference: string, archivePath: string, overwrite = false) => {
       if (!isHost) return;
       await runTransferSession({
         title: "Save",
@@ -2900,6 +2900,7 @@ export function useAnchorageStore() {
             action: "save",
             reference,
             archivePath,
+            ...(overwrite ? { overwrite: true } : {}),
             outputWindowBytes: 64 * 1024,
           }),
       });
@@ -2935,7 +2936,7 @@ export function useAnchorageStore() {
    * silently produce an archive that does not do what the operator expected.
    */
   const exportContainerArchive = useCallback(
-    async (container: AnchorageContainer, archivePath: string) => {
+    async (container: AnchorageContainer, archivePath: string, overwrite = false) => {
       if (!isHost) return;
       await runTransferSession({
         title: "Export",
@@ -2945,6 +2946,7 @@ export function useAnchorageStore() {
           bridge.containers.export(
             container.id,
             archivePath,
+            { overwrite },
             dockerContextRef.current,
           ),
       });

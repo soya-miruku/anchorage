@@ -632,14 +632,15 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
           description={`Writes ${saveTarget.reference} to a tar archive, layers and metadata intact. Load restores it on another machine.`}
           placeholder="/home/you/images/api.tar"
           confirmLabel="Save"
+          allowOverwrite
           busy={transferRunning}
           onCancel={() => setSaveTarget(null)}
-          onConfirm={(archivePath) => {
+          onConfirm={(archivePath, overwrite) => {
             const reference = saveTarget.reference;
             setSaveTarget(null);
             if (reference) {
               store.setImageTab("registry");
-              void store.saveImageArchive(reference, archivePath);
+              void store.saveImageArchive(reference, archivePath, overwrite);
             }
           }}
         />

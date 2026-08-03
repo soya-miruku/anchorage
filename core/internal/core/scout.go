@@ -163,6 +163,15 @@ func (s *Service) imagesScout(parent context.Context, params ImagesScoutParams) 
 	if err := validateImageReference(reference); err != nil {
 		return ImagesScoutResult{}, err
 	}
+	// Scout resolves more than images: `fs://` walks a local directory, `archive://` reads a
+	// tarball, `sbom://` reads an SBOM. Because CVE matching is a network service, `fs:///home`
+	// would build an inventory of the operator's files and send it off the machine. This
+	// method analyses images, so every scheme is refused rather than allowlisting image://.
+	if strings.Contains(reference, "://") {
+		return ImagesScoutResult{}, opError("invalid_image_reference",
+			"Analysis takes an image reference or ID, not a source scheme.", nil,
+			map[string]any{"reference": reference})
+	}
 	ctx, cancel := context.WithTimeout(parent, scoutTimeout)
 	defer cancel()
 

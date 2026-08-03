@@ -494,6 +494,11 @@ export type ImagesActionParams =
       /** Required for `save` (what to write); `load` learns the images from the archive. */
       reference?: string;
       /**
+       * Explicit agreement to replace a file that already exists. Docker's `--output`
+       * truncates, so without this a save that names an existing file destroys it silently.
+       */
+      overwrite?: boolean;
+      /**
        * Absolute host path. The core canonicalizes its *parent* against the same allowlist
        * that governs command working directories, so an archive can never be written
        * somewhere the command surface itself could not reach.
@@ -522,6 +527,7 @@ export interface ContainersExportRequest {
     context: string;
     id: string;
     archivePath: string;
+    overwrite?: boolean;
     cwd?: string;
     timeoutSeconds?: number;
     outputWindowBytes?: number;

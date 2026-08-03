@@ -232,7 +232,13 @@
           "properties": {
             "context": { "type": "string", "minLength": 1, "maxLength": 255 },
             "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
-            "path": { "type": "string", "minLength": 1, "maxLength": 4096, "pattern": "^/" }
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^/",
+              "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+            }
           },
           "additionalProperties": false
         }
@@ -251,7 +257,13 @@
           "properties": {
             "context": { "type": "string", "minLength": 1, "maxLength": 255 },
             "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
-            "path": { "type": "string", "minLength": 2, "maxLength": 4096, "pattern": "^/" }
+            "path": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 4096,
+              "pattern": "^/",
+              "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+            }
           },
           "additionalProperties": false
         }
@@ -374,6 +386,7 @@
             "context": { "type": "string", "minLength": 1, "maxLength": 255 },
             "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
             "archivePath": { "$ref": "#/$defs/archivePath" },
+            "overwrite": { "type": "boolean" },
             "cwd": { "type": "string", "minLength": 1 },
             "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
             "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 }
@@ -854,6 +867,7 @@
               "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$"
             },
             "archivePath": { "$ref": "#/$defs/archivePath" },
+            "overwrite": { "type": "boolean" },
             "force": { "type": "boolean" },
             "noPrune": { "type": "boolean" },
             "filters": { "$ref": "#/$defs/pruneFilters" },
@@ -874,6 +888,7 @@
                   "confirmed": { "const": true },
                   "filters": false,
                   "archivePath": false,
+                  "overwrite": false,
                   "cwd": false,
                   "timeoutSeconds": false,
                   "outputWindowBytes": false,
@@ -892,6 +907,7 @@
                   "force": false,
                   "noPrune": false,
                   "archivePath": false,
+                  "overwrite": false,
                   "cwd": false,
                   "timeoutSeconds": false,
                   "outputWindowBytes": false,
@@ -910,6 +926,7 @@
                   "noPrune": false,
                   "filters": false,
                   "archivePath": false,
+                  "overwrite": false,
                   "confirmed": false
                 }
               }
@@ -935,6 +952,7 @@
                 "required": ["archivePath"],
                 "properties": {
                   "archivePath": {},
+                  "overwrite": false,
                   "id": false,
                   "reference": false,
                   "force": false,

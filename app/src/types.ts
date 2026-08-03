@@ -436,6 +436,8 @@ export type ImagesActionParams =
       action: "save" | "load";
       /** Required for `save`; `load` learns its images from the archive. */
       reference?: string;
+      /** Explicit agreement to replace an existing file; `--output` truncates silently. */
+      overwrite?: boolean;
       /** Absolute host path; the core checks its parent against the command allowlist. */
       archivePath: string;
       cwd?: string;
@@ -709,6 +711,7 @@ export interface ContainerOperations {
   export(
     id: string,
     archivePath: string,
+    options?: { overwrite?: boolean },
     context?: string,
   ): Promise<ContainersExportResult>;
   top(id: string, context?: string): Promise<ContainerTopResult>;
@@ -1141,6 +1144,7 @@ export interface HostContainersApi {
     context: string;
     id: string;
     archivePath: string;
+    overwrite?: boolean;
     cwd?: string;
     timeoutSeconds?: number;
     outputWindowBytes?: number;

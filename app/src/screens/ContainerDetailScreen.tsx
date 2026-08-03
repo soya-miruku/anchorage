@@ -294,11 +294,12 @@ function DetailHeader({
           description="Writes this container's filesystem to a flat tar. Unlike Commit, layers and image configuration are not preserved, so the archive cannot be run directly."
           placeholder="/home/you/exports/api-filesystem.tar"
           confirmLabel="Export"
+          allowOverwrite
           busy={exportRunning}
           onCancel={() => setExportOpen(false)}
-          onConfirm={(archivePath) => {
+          onConfirm={(archivePath, overwrite) => {
             setExportOpen(false);
-            void store.exportContainerArchive(container, archivePath);
+            void store.exportContainerArchive(container, archivePath, overwrite);
           }}
         />
       )}

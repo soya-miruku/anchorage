@@ -1619,19 +1619,42 @@ func TestArchivePathValidationRejectsUnsafeTargets(t *testing.T) {
 	}
 
 	// A path whose parent exists and is inside the allowlist is accepted for save.
-	if _, err := service.validateArchivePath(filepath.Join(writable, "new.tar"), false); err != nil {
+	if _, err := service.validateArchivePath(filepath.Join(writable, "new.tar"), false, false); err != nil {
 		t.Fatalf("writable target should be accepted: %v", err)
 	}
 	// load requires the file to already exist.
-	if _, err := service.validateArchivePath(existing, true); err != nil {
+	if _, err := service.validateArchivePath(existing, true, false); err != nil {
 		t.Fatalf("existing archive should be accepted for load: %v", err)
 	}
-	if _, err := service.validateArchivePath(filepath.Join(writable, "absent.tar"), true); err == nil {
+	if _, err := service.validateArchivePath(filepath.Join(writable, "absent.tar"), true, false); err == nil {
 		t.Fatal("load must reject a missing archive")
 	}
 	// A directory is not an archive.
-	if _, err := service.validateArchivePath(writable, true); err == nil {
+	if _, err := service.validateArchivePath(writable, true, false); err == nil {
 		t.Fatal("a directory must not be accepted as an archive file")
+	}
+
+	// `docker save --output` truncates, so replacing an existing file takes an explicit
+	// decision. Without this an operator naming a real file by mistake loses it silently.
+	if _, err := service.validateArchivePath(existing, false, false); err == nil {
+		t.Fatal("save must refuse to overwrite an existing file without being told to")
+	}
+	if _, err := service.validateArchivePath(existing, false, true); err != nil {
+		t.Fatalf("an acknowledged overwrite should be accepted: %v", err)
+	}
+
+	// The parent is canonicalized, so only a symlink in the FINAL position could redirect the
+	// write. Lstat sees the link itself rather than following it.
+	link := filepath.Join(writable, "link.tar")
+	if err := os.Symlink(filepath.Join(writable, "elsewhere.tar"), link); err != nil {
+		t.Fatalf("seed symlink: %v", err)
+	}
+	if _, err := service.validateArchivePath(link, false, true); err == nil {
+		t.Fatal("a symlink target must be rejected even when overwrite is agreed")
+	}
+	// A device would let Docker write into a stream rather than a file.
+	if _, err := service.validateArchivePath("/dev/null", false, true); err == nil {
+		t.Fatal("a device node must not be accepted as an archive target")
 	}
 
 	for _, bad := range []string{
@@ -1641,7 +1664,7 @@ func TestArchivePathValidationRejectsUnsafeTargets(t *testing.T) {
 		"/tmp/bad\nname.tar",   // control character
 		"/tmp/bad\x00name.tar", // NUL
 	} {
-		if _, err := service.validateArchivePath(bad, false); err == nil {
+		if _, err := service.validateArchivePath(bad, false, false); err == nil {
 			t.Fatalf("archive path %q must be rejected", bad)
 		}
 	}

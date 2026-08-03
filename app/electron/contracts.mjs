@@ -867,7 +867,7 @@ export function validateVolumeFiles(value) {
   };
   if (value.path !== undefined) {
     const target = boundedString(value.path, "request.path", 4_096);
-    if (!VOLUME_BROWSE_PATH.test(target)) {
+    if (!VOLUME_BROWSE_PATH.test(target) || target.split("/").includes("..")) {
       fail("request.path must be an absolute path inside the volume");
     }
     normalized.path = target;
@@ -879,7 +879,13 @@ export function validateVolumeFileRead(value) {
   assertPlainObject(value, "request");
   assertOnlyKeys(value, new Set(["context", "name", "path"]), "request");
   const target = boundedString(value.path, "request.path", 4_096);
-  if (!VOLUME_BROWSE_PATH.test(target) || target === "/") {
+  // The same traversal check the container-path validators apply. The core rejects this too,
+  // but a gap in only one layer defeats the point of validating at each boundary.
+  if (
+    !VOLUME_BROWSE_PATH.test(target) ||
+    target === "/" ||
+    target.split("/").includes("..")
+  ) {
     fail("request.path must name a file inside the volume");
   }
   return {
@@ -1007,6 +1013,7 @@ export function validateContainersExport(value) {
       "context",
       "id",
       "archivePath",
+      "overwrite",
       "cwd",
       "timeoutSeconds",
       "outputWindowBytes",
@@ -1022,6 +1029,11 @@ export function validateContainersExport(value) {
     id,
     archivePath: validateArchivePath(value.archivePath),
   };
+  assignDefined(
+    normalized,
+    "overwrite",
+    optionalBoolean(value.overwrite, "request.overwrite"),
+  );
   assignDefined(normalized, "cwd", validateCwd(value.cwd));
   assignDefined(
     normalized,
@@ -1199,6 +1211,7 @@ export function validateImagesAction(value) {
       "id",
       "reference",
       "archivePath",
+      "overwrite",
       "force",
       "noPrune",
       "filters",
@@ -1233,6 +1246,11 @@ export function validateImagesAction(value) {
     }
     normalized.reference = reference;
   }
+  assignDefined(
+    normalized,
+    "overwrite",
+    optionalBoolean(value.overwrite, "request.overwrite"),
+  );
   if (value.archivePath !== undefined) {
     normalized.archivePath = validateArchivePath(value.archivePath);
   }
@@ -1294,6 +1312,7 @@ export function validateImagesAction(value) {
     if (
       Object.keys(normalized.filters ?? {}).length > 0 ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.cwd !== undefined ||
       (normalized.timeoutSeconds ?? 0) !== 0 ||
       normalized.outputWindowBytes !== undefined ||
@@ -1309,6 +1328,7 @@ export function validateImagesAction(value) {
       normalized.id !== undefined ||
       normalized.reference !== undefined ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.force === true ||
       normalized.noPrune === true ||
       normalized.cwd !== undefined ||
@@ -1349,6 +1369,10 @@ export function validateImagesAction(value) {
     if (action === "load" && normalized.reference !== undefined) {
       fail("request.reference is not valid for image load");
     }
+    // `overwrite` agrees to replace a file; load only ever reads one.
+    if (action === "load" && normalized.overwrite !== undefined) {
+      fail("request.overwrite is not valid for image load");
+    }
     if (
       normalized.id !== undefined ||
       normalized.force === true ||
@@ -1365,6 +1389,7 @@ export function validateImagesAction(value) {
     if (
       normalized.id !== undefined ||
       normalized.archivePath !== undefined ||
+      normalized.overwrite !== undefined ||
       normalized.force === true ||
       normalized.noPrune === true ||
       Object.keys(normalized.filters ?? {}).length > 0 ||
