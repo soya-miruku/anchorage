@@ -8,8 +8,8 @@
   },
   "core": {
     "path": "core/anchorage-core",
-    "sha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725",
-    "bytes": 7295124,
+    "sha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2",
+    "bytes": 7299220,
     "version": "anchorage-core 0.1.0 protocol 1 go go1.25.5",
     "goToolchain": "go version go1.25.5 linux/amd64",
     "build": {
@@ -20,16 +20,16 @@
   },
   "renderer": {
     "path": "app.asar/dist/client",
-    "sha256": "4f094d0980d18699aef42b603b96ff5adaffec456c4d13f7e0221f24c868c746",
+    "sha256": "c3d68521cfbe816760a3de3e575367bfe18860e02df70f3eaf6ac2ca02b74d1c",
     "files": 19,
-    "bytes": 1243207
+    "bytes": 1246652
   },
   "evidence": {
     "designConformance": {
       "path": "artifacts/design/design-ledger.json",
-      "sha256": "da9aa68f6db8e0e484f5f09bf7591688963401e3f685326a2a89fa3a23506197",
-      "bytes": 121030,
-      "generatedAt": "2026-08-03T22:38:20.849Z",
+      "sha256": "2916d01f57248e4985c8a9b91f5b6dbc97c2b503de56a61fa1f942b4179e55d6",
+      "bytes": 121668,
+      "generatedAt": "2026-08-03T22:56:39.244Z",
       "reviewedStates": 24,
       "generatorSha256": "51e9f5096eb99f0ca3181f6276f395f60639c60874e3e2a92f60e4e946bb0608",
       "handoffSource": {
@@ -46,22 +46,22 @@
       },
       "visualReviewAttestation": {
         "path": "docs/design-qa/visual-review-attestation.json",
-        "sha256": "fd2880714dc47a31ee04b8611dfc1a874f6fc7dd92a4b515f7bbbf50567717eb",
-        "bytes": 46255,
+        "sha256": "3814e8cddd5f5e5ff0325b7f28305957afa6ae072645dac76cde2352b7484fb4",
+        "bytes": 46574,
         "claim": "reviewed-visual-conformance-not-pixel-identity",
-        "reviewedAt": "2026-08-03T22:38:11.069Z",
+        "reviewedAt": "2026-08-03T22:56:29.399Z",
         "states": 24
       },
       "rendererBuild": {
-        "sha256": "4f094d0980d18699aef42b603b96ff5adaffec456c4d13f7e0221f24c868c746",
+        "sha256": "c3d68521cfbe816760a3de3e575367bfe18860e02df70f3eaf6ac2ca02b74d1c",
         "files": 19,
-        "bytes": 1243207
+        "bytes": 1246652
       },
       "captureProvenance": {
         "path": "docs/design-qa/final-actual/capture-provenance.json",
-        "sha256": "7825c217798e1184179f7214280d2a8cee5e62fdc79f21f105549a9337c40aff",
+        "sha256": "3a83ad8cb66d166e5f61307a701a2adc9a48a0194e0e36847064b9f34e9e30d7",
         "bytes": 7758,
-        "capturedAt": "2026-08-03T22:38:09.046Z",
+        "capturedAt": "2026-08-03T22:56:27.377Z",
         "captureMode": "fixture-browser",
         "bridgeMode": "fixture",
         "harnessSha256": "e70984ac0377642e43bc8ed02a7ef65b8532ca482ec380c38c50deabf1569829"
@@ -69,13 +69,13 @@
     },
     "mutationConformance": {
       "path": "artifacts/docker/conformance-results.json",
-      "sha256": "bdb4d84c92b063eb16e51f51a89cf1290b700063c02c9d2512bade7b5605bb7a",
-      "bytes": 23776,
-      "completedAt": "2026-08-03T21:51:53.227Z",
+      "sha256": "1db09c5443ba6f9e5b8294de27c1083839c7632babb140637ca73f06671003e6",
+      "bytes": 23779,
+      "completedAt": "2026-08-03T22:58:54.814Z",
       "schemaVersion": 3,
       "matrixVersion": 2,
       "mutationsEnabled": true,
-      "coreSha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725",
+      "coreSha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2",
       "checks": 26,
       "requiredChecks": [
         "compose-lifecycle",
@@ -109,47 +109,47 @@
     "dockerCapabilities": {
       "generation": {
         "path": "artifacts/docker/capability-generation.json",
-        "sha256": "152d03d8f598ed7f4e86cca008ac04fa066fa580f37cea4211db56f7eda11937",
+        "sha256": "87a85159bab54580a74a30dbfbef9189311761277389bf01f43c2cd155514d5a",
         "bytes": 796,
-        "completedAt": "2026-08-03T22:39:47.717Z",
+        "completedAt": "2026-08-03T22:56:50.268Z",
         "leafCount": 219,
         "transportCovered": 219,
         "commandExecutedConformancePassed": 0,
-        "coreSha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725",
+        "coreSha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2",
         "dockerBinarySha256": "f19b55b0ac322d601a4057c8304025939bf2bbd6742747e5547e21084e839315"
       },
       "ledger": {
         "path": "artifacts/docker/capability-ledger.json",
-        "sha256": "ecd4597314287358f06096ded7ecb9e4ecfd3f6890ed041cf556b340def10e17",
-        "bytes": 705399
+        "sha256": "7be2179ee53f2fb852b3a79d4753581d96db39aa45363d18adcfc44d75e183dd",
+        "bytes": 705390
       },
       "systemSnapshot": {
         "path": "artifacts/docker/system-capabilities.json",
-        "sha256": "29ad5e6a7b68c105a0d75998c6ac14ebdaf3f88fb45e524410c5b3746e07016d",
-        "bytes": 521570
+        "sha256": "a06da323aa55930a97960b3fcc25a08203c58ffdeaf7b6eea872382ba567f37b",
+        "bytes": 521560
       }
     },
     "performance": {
       "results": {
         "path": "artifacts/performance/results.json",
-        "sha256": "b2a599cd0ba62f14b38093b93e1d873817aa480381d7df51e31e67d14abe768d",
-        "bytes": 147483,
-        "completedAt": "2026-08-03T22:33:40.538Z",
+        "sha256": "e5d7a42dcac29b56837ea6eef8e51cd316844b9178de6f5bbd21aaf5898662bf",
+        "bytes": 147410,
+        "completedAt": "2026-08-03T23:30:41.012Z",
         "soakDurationSeconds": 1800,
         "harnessSha256": "3615b36ac4f1908840b5ad33ff28a76c694b9d9aa224130eb07afa11168b510f"
       },
       "environment": {
         "path": "artifacts/performance/environment.json",
-        "sha256": "b311594e98c4fa21446058966c700f8bf3280755e599d416faa885842aab0944",
-        "bytes": 2821,
-        "coreSha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725"
+        "sha256": "0412945abf2d8bc68f248bd91fcaabebd6cfdee4e1bd70e2764d58bd57c16f56",
+        "bytes": 2820,
+        "coreSha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2"
       }
     },
     "hostCandidate": {
       "path": "artifacts/host-candidate/host-candidate.json",
-      "sha256": "10e740b906db4103fec35ea69b00a5613dc1fc00bfe9c0177f904e6111422fb8",
-      "bytes": 21413,
-      "completedAt": "2026-08-03T22:40:24.014Z",
+      "sha256": "7688ae54c65ac8ea99398663fb9d4b1d7f9adb17016be69ef80db1a445ded145",
+      "bytes": 21417,
+      "completedAt": "2026-08-03T23:41:32.164Z",
       "scope": "host-integration-smoke-not-pixel-parity",
       "bridgeMode": "host",
       "checks": 12,
@@ -171,8 +171,8 @@
         {
           "id": "host-dashboard",
           "path": "screens/host-dashboard.png",
-          "sha256": "7453a995de6233aa6889705369c54ff9988569095c21e11889626f57b30eed39",
-          "bytes": 103942,
+          "sha256": "6babac2eb6ce7ecd417f50f2039901afd38e5e321adab2d8e1525c162e99bcc2",
+          "bytes": 103691,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -181,8 +181,8 @@
         {
           "id": "host-containers",
           "path": "screens/host-containers.png",
-          "sha256": "43c3defe6d0ea1b9da2d8c27c9319758466700a2341640a81769d6c6cfd651b2",
-          "bytes": 226952,
+          "sha256": "888fcf86e7616653feb5f4bd34d1c93c35b96761d106198ea84d3a61b4b736ba",
+          "bytes": 227233,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -191,8 +191,8 @@
         {
           "id": "host-container-detail",
           "path": "screens/host-container-detail.png",
-          "sha256": "46afb0d601e0d74a0aaa34973f013a03c909e4cd141a068a3c5b833c012ce07a",
-          "bytes": 497296,
+          "sha256": "0e27930bc09319c78f50d920ab73a7bb4ff3f9e81af1d700ed6598104a1d6801",
+          "bytes": 497237,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -201,8 +201,8 @@
         {
           "id": "host-files-live",
           "path": "screens/host-files-live.png",
-          "sha256": "7e1546eed85e39a0ad01c225da811f224dfb8457a05b4443c3b01ff3e4250d63",
-          "bytes": 68797,
+          "sha256": "6f2eb7ac3c94b0baede5202659ef7202b6dee3fc5532da0cc3f11fa673d6929f",
+          "bytes": 68836,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -211,8 +211,8 @@
         {
           "id": "host-images",
           "path": "screens/host-images.png",
-          "sha256": "d3ee1bdf4e6b98c882781d0acbe782e677cffafe50cd49d35f5061230714cd2d",
-          "bytes": 216563,
+          "sha256": "e0b218927b48b5f2bf76edacf9ad914fa9d2b282c253d9d16caa51c975f38cce",
+          "bytes": 216625,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -221,8 +221,8 @@
         {
           "id": "host-volumes",
           "path": "screens/host-volumes.png",
-          "sha256": "f615d3f46addc08821b5aca6fede273242bd443ae2312e16a6cb0cb3b158814a",
-          "bytes": 229620,
+          "sha256": "1784fdd965bdd296d620a802e26cb28ed24958032100ca43d4bee6347b3a6812",
+          "bytes": 229669,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -231,8 +231,8 @@
         {
           "id": "host-command-center-pinned",
           "path": "screens/host-command-center-pinned.png",
-          "sha256": "2cb6102d81ed64e25dc050a3cfb3da5168b4662d0ff7616f8688c91fc4de68e2",
-          "bytes": 134585,
+          "sha256": "295c447b1a6932d0ee6409ba89dab5b3a8f5f0a73ddd46cba65b149b92ddbcae",
+          "bytes": 134651,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -241,8 +241,8 @@
         {
           "id": "host-command-center-literal",
           "path": "screens/host-command-center-literal.png",
-          "sha256": "65af05573df53c0b6632bd4dc42f3230cf7c243160cf8c23fee063573c7c64dc",
-          "bytes": 146749,
+          "sha256": "0b36dbf140169c153516eb6d81deae33e0ac588ee524dab1f27e680544121b7b",
+          "bytes": 146788,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -251,8 +251,8 @@
         {
           "id": "host-unsupported-builds",
           "path": "screens/host-unsupported-builds.png",
-          "sha256": "11e6f66e6714a2d4618aa6a2f55b1c853906ce821592ec91b2115b34bd39a36f",
-          "bytes": 67796,
+          "sha256": "ef7aeb07a05961c12c91125a7848951591d5d1b76441e6b18dc60c830bf227b3",
+          "bytes": 67968,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -260,11 +260,11 @@
         }
       ],
       "rendererBuild": {
-        "sha256": "4f094d0980d18699aef42b603b96ff5adaffec456c4d13f7e0221f24c868c746",
+        "sha256": "c3d68521cfbe816760a3de3e575367bfe18860e02df70f3eaf6ac2ca02b74d1c",
         "files": 19,
-        "bytes": 1243207
+        "bytes": 1246652
       },
-      "coreSha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725",
+      "coreSha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2",
       "electronBinary": {
         "path": "app/node_modules/electron/dist/electron",
         "sha256": "84e1078c8f38659f3785fec90b68ff47dcb7b5ed94e97e4e4cc6dd3290758991",
@@ -272,18 +272,18 @@
       },
       "electronRuntimeClosure": {
         "scope": "packaged-electron-runtime-v1",
-        "sha256": "4f0c7c27d851c398891439958314ab465a7a55558706c83256d1c8b64a60cde8",
+        "sha256": "1ed740015be6ecb80c2ca38e9942081843b47bf9e10e1120519f7b2ec3d19c4a",
         "files": 13,
-        "bytes": 205589
+        "bytes": 207163
       },
       "harnessSha256": "02dfd28673d7fe0b83ac5d5e7c17059b675999debff6b68fd661a11efc8ec39d"
     },
     "coreAcceptance": {
       "path": "artifacts/docker/read-only-acceptance.json",
-      "sha256": "6469a0fb688c0411a4b06b00297fdd64f366db145343066a6fe725a71e91d835",
-      "bytes": 11562,
-      "coreSha256": "45ee69c116ac0bbf85a83d1e89db1bfe417045fb00fb7f2fff39b1cf82004725",
-      "completedAt": "2026-08-03T22:40:45.366Z",
+      "sha256": "82d7bf44ca48a7447c7af23aaef34fe29658982d7abd3c6d303e8e00faac28a4",
+      "bytes": 11561,
+      "coreSha256": "a83343f937c967c70f2c6d8fd0e1826a6d225d8776fcb12ae757003bdd1ac0d2",
+      "completedAt": "2026-08-03T23:41:53.112Z",
       "schemaVersion": 3,
       "matrixVersion": 2,
       "mutationsEnabled": false,
@@ -304,16 +304,16 @@
     },
     "electronSecurity": {
       "path": "artifacts/security/electron-config.json",
-      "sha256": "c9d603c7e3d3ebce192d5bef819aa79236644a84288d74fdc184e57e1c7bf510",
+      "sha256": "d239d9da8ebf21e7c2e1c18ba475b58800a3e54ac2f5eeb19e00d77841fa170d",
       "bytes": 3958,
-      "generatedAt": "2026-08-03T22:40:46.338Z",
+      "generatedAt": "2026-08-03T23:41:54.432Z",
       "policyVersion": 1
     },
     "dependencyAudit": {
       "path": "artifacts/security/dependency-audit.json",
-      "sha256": "2a42167dd6fdc0ae380f936b47ddd47e1c3e6884bd82d1795b7fdd18f91897c9",
+      "sha256": "634350ff41da7acf4bf3ea714d2b3fe7b9e842fea646a7f0d9564fdac100d1fb",
       "bytes": 527,
-      "generatedAt": "2026-08-03T22:40:46.338Z",
+      "generatedAt": "2026-08-03T23:41:54.432Z",
       "vulnerabilities": 0
     }
   },
