@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -51,6 +53,35 @@ func validateComposeConfigFile(path string) error {
 	if strings.ContainsAny(path, "\x00\r\n") {
 		return opError("invalid_compose_file",
 			"Compose file path contains a control character.", nil, nil)
+	}
+	if !filepath.IsAbs(path) {
+		return opError("invalid_compose_file",
+			"Compose file path must be absolute.", nil, map[string]any{"file": path})
+	}
+	// Compose runs with a real stdin pipe and the renderer holds the session id, so a path
+	// naming that pipe — /dev/stdin, /proc/self/fd/0 — would let the caller stream in a
+	// Compose file of its own and have Compose build whatever it described: privileged, with
+	// any bind it liked. Symlinks are resolved first so the check cannot be stepped around,
+	// then the target must be an ordinary file rather than a device, FIFO or socket.
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return opError("invalid_compose_file",
+			"Compose file does not exist.", err, map[string]any{"file": path})
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.Mode().IsRegular() {
+		return opError("invalid_compose_file",
+			"Compose file must be an ordinary file.", err, map[string]any{"file": path})
+	}
+	// The kernel's synthetic filesystems are where a "file" is really a stream. Nothing under
+	// them is a Compose project, so refusing the whole tree costs nothing and closes the
+	// remaining routes to the process's own descriptors.
+	for _, deny := range []string{"/proc", "/dev", "/sys"} {
+		if resolved == deny || strings.HasPrefix(resolved, deny+"/") {
+			return opError("invalid_compose_file",
+				"Compose file path resolves into a kernel filesystem.", nil,
+				map[string]any{"file": path, "resolved": resolved})
+		}
 	}
 	return nil
 }
@@ -317,38 +348,6 @@ func validateComposeAction(params ComposeActionParams) error {
 	return nil
 }
 
-// requireReportedComposeFiles rejects any configuration path Compose does not itself attribute
-// to this project. Compose is the authority on what a project is built from, so this both
-// closes the stdin path above and stops a project being recreated from an unrelated file.
-func (s *Service) requireReportedComposeFiles(ctx context.Context, params ComposeActionParams) error {
-	listed, err := s.composeList(ctx, ComposeListParams{Context: params.Context, All: true})
-	if err != nil {
-		return err
-	}
-	reported := map[string]bool{}
-	for _, project := range listed.Projects {
-		if project.Name != params.Project {
-			continue
-		}
-		for _, file := range project.ConfigFiles {
-			reported[file] = true
-		}
-	}
-	if len(reported) == 0 {
-		return opError("compose_project_unknown",
-			"Compose does not report a configuration file for that project.", nil,
-			map[string]any{"project": params.Project})
-	}
-	for _, file := range params.ConfigFiles {
-		if !reported[file] {
-			return opError("invalid_compose_file",
-				"That configuration file is not one Compose reports for this project.", nil,
-				map[string]any{"project": params.Project, "file": file})
-		}
-	}
-	return nil
-}
-
 // composeAction runs a Compose lifecycle verb as a cancellable session. `up` and `down` pull
 // images and wait on health checks, so they routinely run for minutes and must stream rather
 // than block a request.
@@ -361,18 +360,6 @@ func (s *Service) composeAction(parent context.Context, params ComposeActionPara
 	params.Project = strings.TrimSpace(params.Project)
 	if err := validateComposeAction(params); err != nil {
 		return ComposeActionResult{}, err
-	}
-
-	// Compose is started with a real stdin pipe, and the renderer is handed the session id, so
-	// a path naming that pipe — /dev/stdin, /proc/self/fd/0 — would let the caller stream in a
-	// Compose file of its own and have Compose build whatever it described, privileged and
-	// with any bind it liked. The paths the UI sends always came from `compose ls`, so that is
-	// made a requirement rather than a convention: each one must still be a file Compose
-	// itself reports for this project.
-	if len(params.ConfigFiles) > 0 {
-		if err := s.requireReportedComposeFiles(parent, params); err != nil {
-			return ComposeActionResult{}, err
-		}
 	}
 
 	argv := []string{"compose", "--project-name", params.Project}

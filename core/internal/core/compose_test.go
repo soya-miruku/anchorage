@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -75,6 +77,11 @@ func TestComposeProjectNamesAreConstrained(t *testing.T) {
 }
 
 func TestComposeActionOptionsBelongToOneAction(t *testing.T) {
+	realFile := filepath.Join(t.TempDir(), "compose.yaml")
+	if err := os.WriteFile(realFile, []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatalf("seed compose file: %v", err)
+	}
+
 	// up cannot recreate containers without the file that defines them.
 	if err := validateComposeAction(ComposeActionParams{
 		Project: "demo", Action: "up",
@@ -87,9 +94,37 @@ func TestComposeActionOptionsBelongToOneAction(t *testing.T) {
 		t.Fatal("a flag-like configuration path must be rejected")
 	}
 	if err := validateComposeAction(ComposeActionParams{
-		Project: "demo", Action: "up", ConfigFiles: []string{"/srv/app/compose.yaml"},
+		Project: "demo", Action: "up", ConfigFiles: []string{realFile},
 	}); err != nil {
 		t.Fatalf("a well-formed up should validate: %v", err)
+	}
+
+	// Compose runs with a real stdin pipe and the caller holds the session id, so a path
+	// naming that pipe would let it stream in a project of its own design — privileged, with
+	// any bind it liked. Anything that is not an ordinary file is refused.
+	for _, streamed := range []string{
+		"/dev/stdin",
+		"/proc/self/fd/0",
+		"/dev/null",
+		"compose.yaml", // relative: resolved against a working directory the caller cannot see
+		filepath.Join(t.TempDir(), "absent.yaml"),
+	} {
+		if err := validateComposeAction(ComposeActionParams{
+			Project: "demo", Action: "up", ConfigFiles: []string{streamed},
+		}); err == nil {
+			t.Fatalf("compose file %q must be rejected", streamed)
+		}
+	}
+
+	// A symlink to an ordinary file is fine; the check resolves it rather than banning links.
+	link := filepath.Join(t.TempDir(), "linked.yaml")
+	if err := os.Symlink(realFile, link); err != nil {
+		t.Fatalf("seed symlink: %v", err)
+	}
+	if err := validateComposeAction(ComposeActionParams{
+		Project: "demo", Action: "up", ConfigFiles: []string{link},
+	}); err != nil {
+		t.Fatalf("a symlink to a real compose file should validate: %v", err)
 	}
 
 	// down removes containers and networks, so it is confirmed like every other
