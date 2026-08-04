@@ -47,6 +47,7 @@
         { "$ref": "#/$defs/composeActionRequest" },
         { "$ref": "#/$defs/volumeFilesRequest" },
         { "$ref": "#/$defs/volumeFileReadRequest" },
+        { "$ref": "#/$defs/volumeFileWriteRequest" },
         { "$ref": "#/$defs/imagesScoutRequest" },
         { "$ref": "#/$defs/imagesListRequest" },
         { "$ref": "#/$defs/imagesActionRequest" },
@@ -196,6 +197,40 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "volumeFileWriteRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.fileWrite" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name", "path", "fileName", "content"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "^/",
+              "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+            },
+            "fileName": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^(?!\\.{1,2}$)[^/\\\\\\u0000\\r\\n]+$"
+            },
+            "content": { "type": "string", "maxLength": 8388608 },
+            "mode": { "type": "integer", "minimum": 1, "maximum": 511 },
+            "confirmedInUse": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "imagesScoutRequest": {
       "type": "object",

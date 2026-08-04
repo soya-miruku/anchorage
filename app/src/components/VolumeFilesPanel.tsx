@@ -27,10 +27,14 @@ const crumbsFor = (target: string) => {
 /**
  * A volume's contents.
  *
- * Docker exposes no way to read a volume directly, so the core mounts it read-only into a
- * helper container that is created and never started, then walks tar headers from the archive
+ * Docker exposes no way to read a volume directly, so the core mounts it into a helper
+ * container that is created and never started, then walks tar headers from the archive
  * endpoint — the same mechanism the container file browser uses. Nothing is executed, and the
  * helper is removed even if the request is cancelled.
+ *
+ * Reads mount read-only so a browse can never alter what it inspects; only an upload asks for
+ * write access, and only for that request. Writing into a volume a running container holds is
+ * refused by the core until it is explicitly acknowledged.
  */
 export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
   const volume = store.browsedVolume;
@@ -62,7 +66,8 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
         <div>
           <h2 id="volume-browser-title">{volume}</h2>
           <p className="resource-dim">
-            Mounted read-only into a helper container that is never started.
+            Read through a helper container that is created and never started.
+            Uploads mount it writable for that request alone.
           </p>
         </div>
         <button
@@ -74,6 +79,23 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
           <XIcon aria-hidden="true" size={15} />
         </button>
       </header>
+
+      <div className="files-toolbar">
+        <label className="ghost-button files-upload">
+          Upload
+          <input
+            type="file"
+            data-testid="volume-upload"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              // Reset so re-selecting the same file fires change again.
+              event.currentTarget.value = "";
+              if (file) void store.uploadVolumeFile(file);
+            }}
+          />
+        </label>
+        <span className="resource-dim">into {store.volumePath}</span>
+      </div>
 
       <nav className="files-breadcrumb" aria-label="Volume path">
         {crumbs.map((crumb, index) => (
@@ -89,6 +111,38 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
           </span>
         ))}
       </nav>
+
+      {/* Docker permits mounting a volume into a second container while one is running, so
+          this is a decision rather than a failure: the operator is told what is holding it
+          and only a deliberate retry carries the acknowledgement. */}
+      {store.volumeInUseUpload && (
+        <div className="volume-inuse-warning" role="alert" data-testid="volume-in-use-warning">
+          <p>
+            <strong>{volume}</strong> is attached to a running container. Writing
+            to it now can corrupt data that container is using.
+          </p>
+          <div className="volume-inuse-warning__actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={store.dismissVolumeInUseUpload}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="primary-button"
+              data-testid="volume-in-use-confirm"
+              onClick={() => {
+                const pending = store.volumeInUseUpload;
+                if (pending) void store.uploadVolumeFile(pending.file, true);
+              }}
+            >
+              Upload anyway
+            </button>
+          </div>
+        </div>
+      )}
 
       {store.volumeBrowseError && (
         <p className="capability-error" role="status">

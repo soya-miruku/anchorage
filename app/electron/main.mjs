@@ -25,6 +25,7 @@ import {
   validateImagesScout,
   validateVolumeFiles,
   validateVolumeFileRead,
+  validateVolumeFileWrite,
   validateComposeList,
   validateComposePs,
   validateComposeAction,
@@ -738,6 +739,14 @@ function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.volumesFiles, (request) =>
     core.request("volumes.files", validateVolumeFiles(request), { timeoutMs: 120_000 }),
   );
+  // Writing mounts the helper rw, so it is a mutation even though the volume's own
+  // containers are untouched.
+  registerHandler(IPC_CHANNELS.volumesFileWrite, (request) => {
+    assertMutationsEnabled();
+    return core.request("volumes.fileWrite", validateVolumeFileWrite(request), {
+      timeoutMs: 120_000,
+    });
+  });
   registerHandler(IPC_CHANNELS.volumesFileRead, (request) =>
     core.request("volumes.fileRead", validateVolumeFileRead(request), { timeoutMs: 120_000 }),
   );

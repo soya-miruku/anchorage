@@ -62,6 +62,7 @@ import type {
   VolumesListResult,
   VolumeFilesResult,
   VolumeFileReadResult,
+  VolumeFileWriteResult,
   WindowAction,
 } from "../types";
 
@@ -799,6 +800,7 @@ class FixtureBridge implements AnchorageBridge {
     action: async () => fixtureUnsupported("volumes.action"),
     files: async () => fixtureUnsupported("volumes.files"),
     fileRead: async () => fixtureUnsupported("volumes.fileRead"),
+    fileWrite: async () => fixtureUnsupported("volumes.fileWrite"),
   };
 
   readonly cli = {
@@ -1247,6 +1249,28 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as VolumeFileReadResult;
   };
+  const volumeFileWrite = async (
+    name: string,
+    request: {
+      path: string;
+      fileName: string;
+      content: string;
+      confirmedInUse?: boolean;
+    },
+    context: string,
+  ) => {
+    const payload = { context, name, ...request };
+    const result = host.volumes?.fileWrite
+      ? await host.volumes.fileWrite(payload)
+      : host.invoke
+        ? await host.invoke("volumes.fileWrite", payload)
+        : await Promise.reject(new Error("Volume upload is unavailable"));
+    const raw = requireObjectResult(result, "volumes.fileWrite");
+    if (typeof raw.path !== "string") {
+      throw new Error("volumes.fileWrite returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as VolumeFileWriteResult;
+  };
   const composeList = async (context: string, all = true) => {
     const request = { context, all };
     const result = host.compose
@@ -1551,6 +1575,16 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
         volumeFiles(name, targetPath, context),
       fileRead: (name: string, targetPath: string, context = "default") =>
         volumeFileRead(name, targetPath, context),
+      fileWrite: (
+        name: string,
+        request: {
+          path: string;
+          fileName: string;
+          content: string;
+          confirmedInUse?: boolean;
+        },
+        context = "default",
+      ) => volumeFileWrite(name, request, context),
       action: mutateVolumes,
     },
     cli: {

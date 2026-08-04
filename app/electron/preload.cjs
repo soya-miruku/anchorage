@@ -21,6 +21,7 @@ const CHANNELS = Object.freeze({
   imagesScout: "anchorage:images.scout",
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
+  volumesFileWrite: "anchorage:volumes.fileWrite",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeAction: "anchorage:compose.action",
@@ -891,6 +892,43 @@ function volumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+function volumeFileWrite(value) {
+  plainObject(value, "request");
+  onlyKeys(
+    value,
+    new Set(["context", "name", "path", "fileName", "content", "mode", "confirmedInUse"]),
+    "request",
+  );
+  const target = text(value.path, "request.path", 4_096);
+  if (!VOLUME_BROWSE_PATH.test(target) || target.split("/").includes("..")) {
+    fail("request.path must be an absolute path inside the volume");
+  }
+  // The name becomes a tar entry, so a separator or traversal segment would let the upload
+  // escape the directory the operator chose.
+  const fileName = text(value.fileName, "request.fileName", 255);
+  if (
+    fileName === "." ||
+    fileName === ".." ||
+    /[/\\\u0000\r\n]/u.test(fileName)
+  ) {
+    fail("request.fileName must be a single path segment");
+  }
+  const normalized = {
+    context: context(value.context),
+    name: volumeName(value.name),
+    path: target,
+    fileName,
+    content: text(value.content, "request.content", 8_388_608, true),
+  };
+  copyDefined(normalized, "mode", optionalInteger(value.mode, "request.mode", 1, 511));
+  copyDefined(
+    normalized,
+    "confirmedInUse",
+    optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
+  );
+  return normalized;
+}
 
 function imagesScout(value) {
   plainObject(value, "request");
@@ -1806,6 +1844,8 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesFiles, volumeFiles(payload));
     case "volumes.fileRead":
       return call(CHANNELS.volumesFileRead, volumeFileRead(payload));
+    case "volumes.fileWrite":
+      return call(CHANNELS.volumesFileWrite, volumeFileWrite(payload));
     case "compose.list":
       return call(CHANNELS.composeList, composeList(payload));
     case "compose.ps":
@@ -1894,6 +1934,7 @@ const api = Object.freeze({
     action: (request) => call(CHANNELS.volumesAction, volumesAction(request)),
     files: (request) => call(CHANNELS.volumesFiles, volumeFiles(request)),
     fileRead: (request) => call(CHANNELS.volumesFileRead, volumeFileRead(request)),
+    fileWrite: (request) => call(CHANNELS.volumesFileWrite, volumeFileWrite(request)),
   }),
   networks: Object.freeze({
     list: (request) => call(CHANNELS.networksList, networksList(request)),

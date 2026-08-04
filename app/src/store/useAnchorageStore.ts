@@ -69,6 +69,7 @@ import type {
   ImagesInspectResult,
   VolumeProjection,
 } from "../types";
+import { readFileAsBase64 } from "../utils/fileEncoding";
 
 const formatClock = () =>
   new Intl.DateTimeFormat("en-GB", {
@@ -481,6 +482,12 @@ export function useAnchorageStore() {
     null,
   );
   const [volumeBrowseError, setVolumeBrowseError] = useState<string | null>(null);
+  // Set when the core refused an upload because a running container holds the volume. Held
+  // as state rather than an error so the operator can decide, then retry deliberately.
+  const [volumeInUseUpload, setVolumeInUseUpload] = useState<{
+    file: File;
+    message: string;
+  } | null>(null);
   const [selectedBuildId, setSelectedBuildId] = useState(
     BUILD_FIXTURES[0]?.id ?? "",
   );
@@ -1996,14 +2003,11 @@ export function useAnchorageStore() {
       if (!isHost || !id) return;
       setFileError(null);
       try {
-        const buffer = new Uint8Array(await file.arrayBuffer());
-        let binary = "";
-        for (const byte of buffer) binary += String.fromCharCode(byte);
         await bridge.containers.fileWrite(
           id,
           filePathRef.current,
           file.name,
-          window.btoa(binary),
+          await readFileAsBase64(file),
           dockerContextRef.current,
         );
         await browseFiles(filePathRef.current);
@@ -2818,6 +2822,51 @@ export function useAnchorageStore() {
     [bridge, browsedVolume, isHost],
   );
 
+  /**
+   * Uploads a file into the volume currently being browsed.
+   *
+   * The core refuses when a running container holds the volume unless that is explicitly
+   * acknowledged, because Docker will happily mount the same volume twice and an upload can
+   * land under a live database mid-write. The refusal is surfaced as a question rather than
+   * an error, and only a deliberate retry carries the acknowledgement.
+   */
+  const uploadVolumeFile = useCallback(
+    async (file: File, confirmedInUse = false) => {
+      if (!isHost || !browsedVolume) return;
+      setVolumeBrowseError(null);
+      setVolumeInUseUpload(null);
+      try {
+        const content = await readFileAsBase64(file);
+        await bridge.volumes.fileWrite(
+          browsedVolume,
+          {
+            path: volumePath,
+            fileName: file.name,
+            content,
+            ...(confirmedInUse ? { confirmedInUse: true } : {}),
+          },
+          dockerContextRef.current,
+        );
+        await browseVolume(browsedVolume, volumePath);
+      } catch (reason) {
+        const message =
+          reason instanceof Error ? reason.message : "Volume upload failed";
+        // A live-container refusal is a decision to put to the operator, not a failure.
+        if (/volume_in_use|attached to a running container/iu.test(message)) {
+          setVolumeInUseUpload({ file, message });
+          return;
+        }
+        setVolumeBrowseError(message);
+      }
+    },
+    [bridge, browseVolume, browsedVolume, isHost, volumePath],
+  );
+
+  const dismissVolumeInUseUpload = useCallback(
+    () => setVolumeInUseUpload(null),
+    [],
+  );
+
   const closeVolumeBrowser = useCallback(() => {
     setBrowsedVolume(null);
     setVolumeListing(null);
@@ -3447,6 +3496,9 @@ export function useAnchorageStore() {
     volumePreview,
     volumeBrowseError,
     browseVolume,
+    uploadVolumeFile,
+    volumeInUseUpload,
+    dismissVolumeInUseUpload,
     previewVolumeFile,
     closeVolumeBrowser,
     closeVolumePreview,

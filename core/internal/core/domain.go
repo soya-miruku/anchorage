@@ -3394,6 +3394,59 @@ type ContainerFileWriteResult struct {
 
 // containerFileWrite is the upload half of `docker cp`. It builds a one-entry tar in memory
 // and PUTs it to the Engine archive endpoint, which extracts it into the target directory.
+// validateUploadName checks the single path segment an upload lands under. Shared with the
+// volume writer: the value becomes a tar entry name, so a separator or a traversal segment
+// would let the upload escape the directory the operator chose.
+func validateUploadName(raw string) (string, error) {
+	name := strings.TrimSpace(raw)
+	if name == "" || len(name) > 255 || strings.ContainsAny(name, `/\`) ||
+		name == "." || name == ".." {
+		return "", opError("invalid_path",
+			"Upload name must be a single path segment.", nil, map[string]any{"name": raw})
+	}
+	return name, nil
+}
+
+// decodeUploadContent bounds and decodes a base64 upload body.
+func decodeUploadContent(encoded string) ([]byte, error) {
+	content, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, opError("invalid_content", "Upload content must be base64-encoded.", err, nil)
+	}
+	if int64(len(content)) > maxFileWriteBytes {
+		return nil, opError("content_too_large", "Upload exceeds the supported size.", nil,
+			map[string]any{"bytes": len(content), "maximum": maxFileWriteBytes})
+	}
+	return content, nil
+}
+
+// buildUploadArchive wraps one file in the single-entry tar the Engine's archive endpoint
+// expects. Shared so the container and volume writers cannot drift in how they frame it.
+func buildUploadArchive(name string, content []byte, requestedMode int64) ([]byte, error) {
+	mode := requestedMode
+	if mode <= 0 || mode > 0o777 {
+		mode = 0o644
+	}
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	if err := writer.WriteHeader(&tar.Header{
+		Name: name, Mode: mode, Size: int64(len(content)), ModTime: time.Now(),
+		Typeflag: tar.TypeReg,
+	}); err != nil {
+		return nil, opError("upload_encode_failed",
+			"The upload archive could not be created.", err, nil)
+	}
+	if _, err := writer.Write(content); err != nil {
+		return nil, opError("upload_encode_failed",
+			"The upload archive could not be written.", err, nil)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, opError("upload_encode_failed",
+			"The upload archive could not be finalized.", err, nil)
+	}
+	return archive.Bytes(), nil
+}
+
 func (s *Service) containerFileWrite(parent context.Context, params ContainerFileWriteParams) (ContainerFileWriteResult, error) {
 	contextName := strings.TrimSpace(params.Context)
 	if err := validateRequiredContext(contextName); err != nil {
@@ -3414,37 +3467,13 @@ func (s *Service) containerFileWrite(parent context.Context, params ContainerFil
 		return ContainerFileWriteResult{}, opError("invalid_path",
 			"Upload name must be a single path segment.", nil, map[string]any{"name": params.Name})
 	}
-	content, err := base64.StdEncoding.DecodeString(params.Content)
+	content, err := decodeUploadContent(params.Content)
 	if err != nil {
-		return ContainerFileWriteResult{}, opError("invalid_content",
-			"Upload content must be base64-encoded.", err, nil)
+		return ContainerFileWriteResult{}, err
 	}
-	if int64(len(content)) > maxFileWriteBytes {
-		return ContainerFileWriteResult{}, opError("content_too_large",
-			"Upload exceeds the supported size.", nil,
-			map[string]any{"bytes": len(content), "maximum": maxFileWriteBytes})
-	}
-	mode := params.Mode
-	if mode <= 0 || mode > 0o777 {
-		mode = 0o644
-	}
-
-	var archive bytes.Buffer
-	writer := tar.NewWriter(&archive)
-	if err := writer.WriteHeader(&tar.Header{
-		Name: name, Mode: mode, Size: int64(len(content)), ModTime: time.Now(),
-		Typeflag: tar.TypeReg,
-	}); err != nil {
-		return ContainerFileWriteResult{}, opError("upload_encode_failed",
-			"The upload archive could not be created.", err, nil)
-	}
-	if _, err := writer.Write(content); err != nil {
-		return ContainerFileWriteResult{}, opError("upload_encode_failed",
-			"The upload archive could not be written.", err, nil)
-	}
-	if err := writer.Close(); err != nil {
-		return ContainerFileWriteResult{}, opError("upload_encode_failed",
-			"The upload archive could not be finalized.", err, nil)
+	archive, err := buildUploadArchive(name, content, params.Mode)
+	if err != nil {
+		return ContainerFileWriteResult{}, err
 	}
 
 	ctx, cancel := context.WithTimeout(parent, domainMutationTimeout)
@@ -3457,7 +3486,7 @@ func (s *Service) containerFileWrite(parent context.Context, params ContainerFil
 	values.Set("path", target)
 	status, body, err := client.request(ctx, http.MethodPut,
 		"/v"+client.apiVersion+"/containers/"+url.PathEscape(params.ID)+"/archive?"+values.Encode(),
-		bytes.NewReader(archive.Bytes()))
+		bytes.NewReader(archive))
 	if err != nil {
 		return ContainerFileWriteResult{}, err
 	}

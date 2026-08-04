@@ -20,6 +20,13 @@ const volumeHelperMount = "/anchorage-volume"
 // than by guessing at its name.
 const volumeHelperLabel = "io.anchorage.helper"
 
+func mountMode(writable bool) string {
+	if writable {
+		return ":rw"
+	}
+	return ":ro"
+}
+
 // volumeHelperImage picks an image to instantiate the helper from.
 //
 // The helper is created and never started, so the image's contents are irrelevant — Docker
@@ -125,8 +132,11 @@ func (s *Service) requireExistingVolume(ctx context.Context, client *engineClien
 // The helper is never started: Docker's archive endpoint reads a container's filesystem
 // whether or not a process has ever run in it, so browsing a volume executes no code at all.
 // The mount is read-only so a browse cannot alter what it is inspecting.
+// writable selects the mount mode. Browsing passes false so a read cannot alter what it is
+// inspecting; only the upload path asks for write access, and only for the duration of the
+// request.
 func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, volume string,
-	fn func(containerID string) error) error {
+	writable bool, fn func(containerID string) error) error {
 	// Docker creates a volume implicitly when a bind names one that does not exist, so
 	// browsing a mistyped name would silently create an empty volume. A read must not have
 	// that side effect; the volume's existence is confirmed first.
@@ -146,7 +156,7 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 			"io.anchorage.volume": volume,
 		},
 		"HostConfig": map[string]any{
-			"Binds":      []string{volume + ":" + volumeHelperMount + ":ro"},
+			"Binds":      []string{volume + ":" + volumeHelperMount + mountMode(writable)},
 			"AutoRemove": false,
 		},
 	})
@@ -243,7 +253,7 @@ func (s *Service) volumeFiles(parent context.Context, params VolumeFilesParams) 
 
 	var entries []ContainerFileEntry
 	truncated := false
-	if err := s.withVolumeHelper(ctx, client, params.Name, func(containerID string) error {
+	if err := s.withVolumeHelper(ctx, client, params.Name, false, func(containerID string) error {
 		listed, cut, listErr := listArchiveChildren(ctx, client, containerID, internal)
 		if listErr != nil {
 			return listErr
@@ -306,7 +316,7 @@ func (s *Service) volumeFileRead(parent context.Context, params VolumeFileReadPa
 	}
 
 	var result VolumeFileReadResult
-	if err := s.withVolumeHelper(ctx, client, params.Name, func(containerID string) error {
+	if err := s.withVolumeHelper(ctx, client, params.Name, false, func(containerID string) error {
 		values := url.Values{}
 		values.Set("path", internal)
 		requestPath := "/v" + client.apiVersion + "/containers/" + url.PathEscape(containerID) +
@@ -335,4 +345,120 @@ func (s *Service) volumeFileRead(parent context.Context, params VolumeFileReadPa
 		return VolumeFileReadResult{}, err
 	}
 	return result, nil
+}
+
+// volumeFileWrite uploads one file into a volume.
+//
+// The counterpart to browsing, and the only path that mounts the helper writable. The mode is
+// a parameter of the operation rather than a property of the helper, so a read can never be
+// made to alter what it inspects.
+//
+// The real hazard is writing into a volume a running container is using: Docker will happily
+// mount the same volume into a second container, so an upload can land under a live database
+// while it is writing. The core refuses unless that specific situation has been acknowledged,
+// and the count comes from the daemon rather than from the caller.
+func (s *Service) volumeFileWrite(parent context.Context, params VolumeFileWriteParams) (VolumeFileWriteResult, error) {
+	contextName := strings.TrimSpace(params.Context)
+	if err := validateRequiredContext(contextName); err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	if err := validateVolumeName(params.Name); err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	internal, err := volumeInternalPath(params.Path)
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	entry, err := validateUploadName(params.FileName)
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	content, err := decodeUploadContent(params.Content)
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+
+	release, err := acquireSlot(parent, s.volumeSlots, "volume_browse_busy",
+		"Too many volume reads are already in flight.")
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	defer release()
+
+	ctx, cancel := context.WithTimeout(parent, volumeBrowseTimeout)
+	defer cancel()
+	client, _, err := s.containerArchiveClient(ctx, contextName, "volumes.fileWrite")
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	inUse, err := s.volumeReferenceCount(ctx, client, params.Name)
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	if inUse > 0 && !params.ConfirmedInUse {
+		return VolumeFileWriteResult{}, opError("volume_in_use",
+			"That volume is attached to a running container; writing to it now can corrupt data it is using.",
+			nil, map[string]any{"volume": params.Name, "containers": inUse})
+	}
+
+	archive, err := buildUploadArchive(entry, content, params.Mode)
+	if err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	if err := s.withVolumeHelper(ctx, client, params.Name, true, func(containerID string) error {
+		values := url.Values{}
+		values.Set("path", internal)
+		status, body, requestErr := client.request(ctx, http.MethodPut,
+			"/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+
+				"/archive?"+values.Encode(), bytes.NewReader(archive))
+		if requestErr != nil {
+			return requestErr
+		}
+		if status < 200 || status >= 300 {
+			return engineHTTPError("volume_file_write_failed",
+				"Docker Engine rejected the volume upload.", status, body)
+		}
+		return nil
+	}); err != nil {
+		return VolumeFileWriteResult{}, err
+	}
+	return VolumeFileWriteResult{
+		Context: contextName, Volume: params.Name,
+		Path:      path.Join(volumeVisiblePath(internal), entry),
+		SizeBytes: int64(len(content)), ObservedAt: nowUTC(),
+	}, nil
+}
+
+// volumeReferenceCount asks the daemon how many running containers hold the volume. The
+// answer must come from Docker rather than a renderer-supplied flag, since the whole point is
+// to stop an upload landing under something live.
+func (s *Service) volumeReferenceCount(ctx context.Context, client *engineClient, volume string) (int, error) {
+	values := url.Values{}
+	values.Set("all", "true")
+	values.Set("filters", `{"volume":["`+volume+`"]}`)
+	status, body, err := client.request(ctx, http.MethodGet,
+		"/v"+client.apiVersion+"/containers/json?"+values.Encode(), nil)
+	if err != nil {
+		return 0, err
+	}
+	if status < 200 || status >= 300 {
+		return 0, engineHTTPError("volume_file_write_failed",
+			"Docker Engine could not report which containers use the volume.", status, body)
+	}
+	var containers []struct {
+		State string `json:"State"`
+	}
+	if err := json.Unmarshal(body, &containers); err != nil {
+		return 0, opError("volume_file_write_failed",
+			"Docker Engine returned invalid container JSON.", err, nil)
+	}
+	running := 0
+	for _, container := range containers {
+		// A stopped container holding the volume cannot be writing to it, so it is not the
+		// hazard this gate exists for.
+		if container.State == "running" || container.State == "paused" {
+			running++
+		}
+	}
+	return running, nil
 }

@@ -24,6 +24,7 @@ import {
   validateImagesScout,
   validateVolumeFiles,
   validateVolumeFileRead,
+  validateVolumeFileWrite,
   validateComposeList,
   validateComposePs,
   validateComposeAction,
@@ -441,6 +442,17 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
     request(
       "volumes.files",
       validateVolumeFiles({ context: "default", name: "project_data", path: "/config" }),
+    ),
+    request(
+      "volumes.fileWrite",
+      validateVolumeFileWrite({
+        context: "default",
+        name: "project_data",
+        path: "/config",
+        fileName: "app.json",
+        content: "aGVsbG8=",
+        confirmedInUse: true,
+      }),
     ),
     request(
       "volumes.fileRead",
@@ -1354,4 +1366,25 @@ test("session-backed verbs report receipts the event boundary accepts", () => {
       reason: "mutation_completed",
     }),
   );
+});
+
+test("protocol v1 keeps a volume upload inside the directory it names", () => {
+  // The file name becomes a tar entry, so a separator or traversal segment would place the
+  // upload somewhere the operator did not choose.
+  for (const params of [
+    { context: "default", name: "v", path: "/", fileName: "../escape.txt", content: "aGk=" },
+    { context: "default", name: "v", path: "/", fileName: "a/b.txt", content: "aGk=" },
+    { context: "default", name: "v", path: "/", fileName: "..", content: "aGk=" },
+    { context: "default", name: "v", path: "/", fileName: ".", content: "aGk=" },
+    { context: "default", name: "v", path: "/a/../../etc", fileName: "x", content: "aGk=" },
+    { context: "default", name: "v", path: "relative", fileName: "x", content: "aGk=" },
+    { context: "default", name: "../etc", path: "/", fileName: "x", content: "aGk=" },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("volumes.fileWrite", params)),
+      false,
+      `unsafe volume upload unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateVolumeFileWrite(params), TypeError);
+  }
 });

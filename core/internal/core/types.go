@@ -1261,3 +1261,23 @@ type ImagesScoutResult struct {
 	ObservedAt  string         `json:"observedAt"`
 	Limitations []string       `json:"limitations"`
 }
+
+type VolumeFileWriteParams struct {
+	Context  string `json:"context"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	FileName string `json:"fileName"`
+	Content  string `json:"content"`
+	Mode     int64  `json:"mode,omitempty"`
+	// ConfirmedInUse acknowledges writing into a volume a running container holds. Docker
+	// permits it; a live database will not survive it gracefully.
+	ConfirmedInUse bool `json:"confirmedInUse,omitempty"`
+}
+
+type VolumeFileWriteResult struct {
+	Context    string `json:"context"`
+	Volume     string `json:"volume"`
+	Path       string `json:"path"`
+	SizeBytes  int64  `json:"sizeBytes"`
+	ObservedAt string `json:"observedAt"`
+}

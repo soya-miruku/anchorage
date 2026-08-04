@@ -861,6 +861,17 @@ export interface VolumesOperations {
     path: string,
     context?: string,
   ): Promise<VolumeFileReadResult>;
+  /** Uploads one file into the volume. `confirmedInUse` acknowledges a live container. */
+  fileWrite(
+    name: string,
+    request: {
+      path: string;
+      fileName: string;
+      content: string;
+      confirmedInUse?: boolean;
+    },
+    context?: string,
+  ): Promise<VolumeFileWriteResult>;
 }
 
 export interface CliRunParams {
@@ -1240,6 +1251,14 @@ export interface HostAnchorageApi {
       name: string;
       path: string;
     }) => Promise<unknown>;
+    fileWrite?: (request: {
+      context: string;
+      name: string;
+      path: string;
+      fileName: string;
+      content: string;
+      confirmedInUse?: boolean;
+    }) => Promise<unknown>;
   };
   cli?: {
     run: (request: {
@@ -1443,4 +1462,12 @@ export interface ImagesScoutResult {
   findings: ScoutFinding[];
   observedAt: string;
   limitations: string[];
+}
+
+export interface VolumeFileWriteResult {
+  context: string;
+  volume: string;
+  path: string;
+  sizeBytes: number;
+  observedAt: string;
 }

@@ -362,6 +362,13 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       reference: "registry.example/team/api:latest",
     },
     "volumes.files": { context: "default", name: "project_data", path: "/" },
+    "volumes.fileWrite": {
+      context: "default",
+      name: "project_data",
+      path: "/config",
+      fileName: "app.json",
+      content: "aGVsbG8=",
+    },
     "volumes.fileRead": {
       context: "default",
       name: "project_data",

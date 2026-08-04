@@ -1782,6 +1782,74 @@ describe("host renderer integration", () => {
     );
   });
 
+  it("uploads into a volume and puts a live container in the operator's hands", async () => {
+    const harness = createHost();
+    const files = vi.fn(async (request: { name: string; path?: string }) => ({
+      context: "default",
+      volume: request.name,
+      source: "engine-api",
+      path: request.path ?? "/",
+      entries: [],
+      truncated: false,
+      observedAt,
+      limitations: [],
+    }));
+    // The core refuses the first attempt because a running container holds the volume.
+    const fileWrite = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "volume_in_use: That volume is attached to a running container; writing to it now can corrupt data it is using.",
+        ),
+      )
+      .mockResolvedValue({
+        context: "default",
+        volume: "cache",
+        path: "/notes.txt",
+        sizeBytes: 5,
+        observedAt,
+      });
+    if (harness.host.volumes) {
+      harness.host.volumes.files = files;
+      harness.host.volumes.fileWrite = fileWrite;
+    }
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-volumes"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Browse volume cache" }),
+    );
+    await screen.findByTestId("volume-browser");
+
+    const file = new File(["hello"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(screen.getByTestId("volume-upload"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(fileWrite).toHaveBeenCalled());
+    // The refusal is a decision to put to the operator, not an error banner.
+    const warning = await screen.findByTestId("volume-in-use-warning");
+    expect(warning).toHaveTextContent("running container");
+    await waitFor(() =>
+      expect(fileWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: "default",
+          name: "cache",
+          path: "/",
+          fileName: "notes.txt",
+        }),
+      ),
+    );
+    // The first attempt must not have claimed the acknowledgement.
+    expect(fileWrite.mock.calls[0][0].confirmedInUse).toBeUndefined();
+
+    fireEvent.click(within(warning).getByTestId("volume-in-use-confirm"));
+    await waitFor(() => expect(fileWrite).toHaveBeenCalledTimes(2));
+    // Only the deliberate retry carries it.
+    expect(fileWrite.mock.calls[1][0].confirmedInUse).toBe(true);
+  });
+
   it("analyses an image for vulnerabilities only when asked", async () => {
     const target = image(51, "registry.test/scannable");
     const harness = createHost({

@@ -30,6 +30,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "images.scout",
   "volumes.files",
   "volumes.fileRead",
+  "volumes.fileWrite",
   "compose.list",
   "compose.ps",
   "compose.action",
@@ -88,6 +89,7 @@ export const IPC_CHANNELS = Object.freeze({
   imagesScout: "anchorage:images.scout",
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
+  volumesFileWrite: "anchorage:volumes.fileWrite",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeAction: "anchorage:compose.action",
@@ -849,6 +851,43 @@ function validateVolumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+export function validateVolumeFileWrite(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "name", "path", "fileName", "content", "mode", "confirmedInUse"]),
+    "request",
+  );
+  const target = boundedString(value.path, "request.path", 4_096);
+  if (!VOLUME_BROWSE_PATH.test(target) || target.split("/").includes("..")) {
+    fail("request.path must be an absolute path inside the volume");
+  }
+  // The name becomes a tar entry, so a separator or traversal segment would let the upload
+  // escape the directory the operator chose.
+  const fileName = boundedString(value.fileName, "request.fileName", 255);
+  if (
+    fileName === "." ||
+    fileName === ".." ||
+    /[/\\\u0000\r\n]/u.test(fileName)
+  ) {
+    fail("request.fileName must be a single path segment");
+  }
+  const normalized = {
+    context: validateContext(value.context),
+    name: validateVolumeName(value.name),
+    path: target,
+    fileName,
+    content: boundedString(value.content, "request.content", 8_388_608, true),
+  };
+  assignDefined(normalized, "mode", optionalInteger(value.mode, "request.mode", 1, 511));
+  assignDefined(
+    normalized,
+    "confirmedInUse",
+    optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
+  );
+  return normalized;
+}
 
 export function validateImagesScout(value) {
   assertPlainObject(value, "request");

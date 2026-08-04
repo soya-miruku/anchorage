@@ -792,6 +792,7 @@ export type RPCRequest =
   | VolumeFilesRequest
   | VolumeFileReadRequest
   | ImagesScoutRequest
+  | VolumeFileWriteRequest
   | ImagesListRequest
   | ImagesActionRequest
   | ImagesInspectRequest
@@ -1686,4 +1687,33 @@ export interface ImagesScoutResult {
   findings: ScoutFinding[];
   observedAt: string;
   limitations: string[];
+}
+
+/**
+ * Uploading into a volume mounts the helper writable — the only path that does. Writing into
+ * a volume a running container holds can corrupt data it is using, so that case must be
+ * acknowledged explicitly; the count comes from the daemon, not the caller.
+ */
+export interface VolumeFileWriteRequest {
+  id: RequestId;
+  method: "volumes.fileWrite";
+  params: {
+    context: string;
+    name: string;
+    path: string;
+    /** A single path segment; separators and traversal are rejected. */
+    fileName: string;
+    /** Base64-encoded contents. */
+    content: string;
+    mode?: number;
+    confirmedInUse?: boolean;
+  };
+}
+
+export interface VolumeFileWriteResult {
+  context: string;
+  volume: string;
+  path: string;
+  sizeBytes: number;
+  observedAt: string;
 }
