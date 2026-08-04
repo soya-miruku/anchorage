@@ -994,20 +994,33 @@ try {
     await evaluate(client, clickSelector('[data-testid="nav-builds"]'));
     await waitForSelector(client, '[data-testid="builds-screen"]');
   });
-  await capture("host-unsupported-builds", [
+  // This gate required Builds to declare itself unsupported, which was honest before buildx
+  // history backed it. The screen now renders real records, so the assertion moved to what
+  // still matters: whatever appears came from buildx, and none of the design fixtures leak
+  // into a live engine. An absent plugin is a legitimate outcome too, so both settle states
+  // are accepted — what is never acceptable is fixture data.
+  await capture("host-builds-live", [
     {
-      id: "host-builds-unsupported-visible",
-      name: "unsupported Builds state is explicit",
+      id: "host-builds-live-settled",
+      name: "Builds shows live records, an empty history, or an absent-plugin state",
       expression:
-        `document.querySelector('[data-testid="builds-screen"]')
-          ?.textContent?.includes("Builds is unavailable in this build")`,
+        `(() => {
+          const screen = document.querySelector('[data-testid="builds-screen"]');
+          if (!screen) return false;
+          return Boolean(
+            screen.querySelector('[data-testid^="build-"]')
+              || screen.querySelector('[data-testid="builds-unavailable"]')
+              || screen.querySelector('.empty-state'),
+          );
+        })()`,
     },
     {
-      id: "host-builds-fixture-disclaimer-visible",
-      name: "host mode disclaims fixture data",
+      id: "host-builds-no-fixture-data",
+      name: "no fixture build data is shown against a live engine",
+      // The design fixture's own build identities and step commands.
       expression:
-        `document.querySelector('[data-testid="builds-screen"]')
-          ?.textContent?.includes("No fixture or simulated data is shown")`,
+        `!["acme/worker:2.4", "acme/api:edge", "worker-2.4-8f2c1ab"]
+          .some((value) => document.body.textContent?.includes(value))`,
     },
   ]);
 

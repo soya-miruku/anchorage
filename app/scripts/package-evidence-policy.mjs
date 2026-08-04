@@ -132,7 +132,7 @@ export const HOST_CANDIDATE_SCREEN_IDS = Object.freeze([
   "host-volumes",
   "host-command-center-pinned",
   "host-command-center-literal",
-  "host-unsupported-builds",
+  "host-builds-live",
 ]);
 
 export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
@@ -173,9 +173,11 @@ export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
     "host-command-target-literal",
     "host-command-literal-disclosure-visible",
   ]),
-  "host-unsupported-builds": Object.freeze([
-    "host-builds-unsupported-visible",
-    "host-builds-fixture-disclaimer-visible",
+  // Renamed when buildx-backed history replaced the declared gap. The property that
+  // survives the rename is the one that matters: no fixture data on a live engine.
+  "host-builds-live": Object.freeze([
+    "host-builds-live-settled",
+    "host-builds-no-fixture-data",
   ]),
 });
 
