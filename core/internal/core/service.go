@@ -217,6 +217,24 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.volumeFiles(ctx, params)
+	case "builds.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params BuildsListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.buildsList(ctx, params)
+	case "builds.inspect":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params BuildsInspectParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.buildsInspect(ctx, params)
 	case "volumes.backup":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

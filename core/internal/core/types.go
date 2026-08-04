@@ -1313,3 +1313,70 @@ type VolumeRestoreResult struct {
 	ArchivePath string `json:"archivePath"`
 	ObservedAt  string `json:"observedAt"`
 }
+
+type BuildsListParams struct {
+	Context string `json:"context"`
+}
+
+type BuildBuilderNode struct {
+	Name      string   `json:"name"`
+	Status    string   `json:"status"`
+	Version   string   `json:"version,omitempty"`
+	Platforms []string `json:"platforms"`
+}
+
+type BuildBuilder struct {
+	Name    string `json:"name"`
+	Driver  string `json:"driver"`
+	Current bool   `json:"current"`
+	// Error is buildx's own note about a builder it could not reach.
+	Error string             `json:"error,omitempty"`
+	Nodes []BuildBuilderNode `json:"nodes"`
+}
+
+type BuildRecord struct {
+	ID   string `json:"id"`
+	Ref  string `json:"ref"`
+	Name string `json:"name"`
+	// success | failed | cancelled | running | unknown
+	Status         string `json:"status"`
+	CreatedAt      string `json:"createdAt"`
+	CompletedAt    string `json:"completedAt,omitempty"`
+	DurationMs     int64  `json:"durationMs,omitempty"`
+	TotalSteps     int    `json:"totalSteps"`
+	CompletedSteps int    `json:"completedSteps"`
+	CachedSteps    int    `json:"cachedSteps"`
+}
+
+type BuildsListResult struct {
+	Context     string         `json:"context"`
+	Source      string         `json:"source"`
+	Builders    []BuildBuilder `json:"builders"`
+	Records     []BuildRecord  `json:"records"`
+	ObservedAt  string         `json:"observedAt"`
+	Limitations []string       `json:"limitations"`
+}
+
+type BuildsInspectParams struct {
+	Context string `json:"context"`
+	Ref     string `json:"ref"`
+}
+
+type BuildsInspectResult struct {
+	Context        string   `json:"context"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	BuildContext   string   `json:"buildContext,omitempty"`
+	Dockerfile     string   `json:"dockerfile,omitempty"`
+	VCSRepository  string   `json:"vcsRepository,omitempty"`
+	VCSRevision    string   `json:"vcsRevision,omitempty"`
+	StartedAt      string   `json:"startedAt,omitempty"`
+	CompletedAt    string   `json:"completedAt,omitempty"`
+	DurationMs     int64    `json:"durationMs,omitempty"`
+	Status         string   `json:"status"`
+	TotalSteps     int      `json:"totalSteps"`
+	CachedSteps    int      `json:"cachedSteps"`
+	CompletedSteps int      `json:"completedSteps"`
+	Materials      []string `json:"materials"`
+	ObservedAt     string   `json:"observedAt"`
+}
