@@ -133,6 +133,7 @@ export const HOST_CANDIDATE_SCREEN_IDS = Object.freeze([
   "host-command-center-pinned",
   "host-command-center-literal",
   "host-builds-live",
+  "host-settings-engine",
 ]);
 
 export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
@@ -178,6 +179,16 @@ export const HOST_CANDIDATE_SCREEN_SEMANTIC_IDS = Object.freeze({
   "host-builds-live": Object.freeze([
     "host-builds-live-settled",
     "host-builds-no-fixture-data",
+  ]),
+  // Settings shipped a hardcoded daemon.json against live engines: registry mirrors and
+  // insecure registries belonging to the design fixture, presented as the operator's own
+  // configuration. Nothing in this gate covered Settings, so nothing caught it. This is that
+  // cover — the same no-fixture-data property Files and Builds are held to, plus the
+  // property that no pane offers a control which cannot reach the engine.
+  "host-settings-engine": Object.freeze([
+    "host-settings-engine-live-facts",
+    "host-settings-no-fixture-daemon-json",
+    "host-settings-no-inert-controls",
   ]),
 });
 
@@ -237,6 +248,7 @@ export const HOST_UI_INTERACTION_IDS = Object.freeze([
   "navigate-images",
   "navigate-volumes",
   "navigate-builds",
+  "navigate-settings-engine",
   "open-command-center",
   "select-literal-target",
 ]);
@@ -591,6 +603,17 @@ function validHostSemanticObservation(id, actual, evidence) {
       return actual === "pinned";
     case "host-command-target-literal":
       return actual === "literal";
+    // Records which tabs were walked rather than only that something passed: a check that
+    // reported a bare `true` could not distinguish "every tab was clean" from "the walk
+    // never ran". The named tabs are the ones that used to carry inert controls.
+    case "host-settings-no-inert-controls":
+      return (
+        typeof actual === "string" &&
+        /^visited .+; no inert control$/u.test(actual) &&
+        ["Resources", "Docker Engine", "Kubernetes", "Software updates", "Advanced"].every(
+          (label) => actual.includes(label),
+        )
+      );
     default:
       return actual === true;
   }

@@ -29,6 +29,20 @@ route to the universal command surface where a relevant installed command
 exists. A missing bespoke workflow must never make an installed Docker command
 unreachable.
 
+Settings follows the same rule, and is where it is easiest to break. Docker
+Desktop's Settings screen configures a virtual machine: CPU and memory
+allocation, a bundled Kubernetes cluster, an in-app updater. None of that exists
+for a daemon running natively on the host, so in host mode those panes report
+the host's own facts and state plainly what does not apply, rather than offering
+a control that changes local state and reports success. Appearance is the one
+pane that is genuinely a preference, and it stays interactive. The Docker Engine
+pane reports what the connected daemon reports - version, storage driver, root
+directory, live restore, warnings - and Anchorage does not write `daemon.json`;
+editing it is a daemon configuration change and a restart, not an application
+setting. The fixture panes remain for the design mock, which is now the only
+place they are reachable, and the host-candidate gate asserts that no settings
+tab in host mode offers a control that cannot reach the engine.
+
 ## Runtime topology
 
 ```mermaid

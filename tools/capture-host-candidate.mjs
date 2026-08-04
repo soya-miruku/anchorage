@@ -1024,6 +1024,105 @@ try {
     },
   ]);
 
+  // Settings is the surface where a fixture is hardest to spot: configuration looks
+  // plausible whatever it says, and an operator has no reason to doubt a pane that claims to
+  // be their daemon's. The Engine tab must show what this daemon reports, and no pane may
+  // offer a control that cannot reach it.
+  const settingsTabButton = (label) =>
+    `(() => {
+      const target = [
+        ...document.querySelectorAll('.settings-navigation button'),
+      ].find((button) => button.textContent?.trim() === ${quoted(label)});
+      if (!target) throw new Error("Settings tab not found: " + ${quoted(label)});
+      target.click();
+      return true;
+    })()`;
+
+  await measureInteraction("navigate-settings-engine", async () => {
+    await evaluate(client, clickSelector('[data-testid="nav-settings"]'));
+    await waitForSelector(client, '[data-testid="settings-screen"]');
+    await evaluate(client, settingsTabButton("Docker Engine"));
+    await waitForSelector(client, '[data-testid="engine-facts"]');
+  });
+
+  // Each tab is visited with a settle between, rather than clicked in a loop inside one
+  // expression: a check that reads the DOM before React has re-rendered would find no
+  // controls and pass without having looked at anything.
+  const inertControlTabs = [];
+  const settingsTabs = await evaluate(
+    client,
+    `[...document.querySelectorAll('.settings-navigation button')]
+      .map((button) => button.textContent?.trim())
+      .filter(Boolean)`,
+  );
+  requireCondition(
+    Array.isArray(settingsTabs) && settingsTabs.length >= 5,
+    `Settings exposed ${JSON.stringify(settingsTabs)} rather than its tab set`,
+  );
+  for (const label of settingsTabs) {
+    await evaluate(client, settingsTabButton(label));
+    await settle(client);
+    const offending = await evaluate(
+      client,
+      `(() => {
+        const screen = document.querySelector('[data-testid="settings-screen"]');
+        if (!screen) return "settings screen missing";
+        if (screen.querySelector('input[type="range"]')) return "resource slider";
+        if (screen.querySelector('[role="switch"]')) return "feature switch";
+        return "";
+      })()`,
+    );
+    if (offending) inertControlTabs.push(`${label}: ${offending}`);
+  }
+  await evaluate(client, settingsTabButton("Docker Engine"));
+  await waitForSelector(client, '[data-testid="engine-facts"]');
+
+  await capture("host-settings-engine", [
+    {
+      id: "host-settings-engine-live-facts",
+      name: "Engine settings agree with the engine this window is connected to",
+      // Cross-checked against the status bar's own version rather than a fixed string: the
+      // property is that the pane reports this daemon, whichever daemon it is.
+      expression:
+        `(() => {
+          const facts = document.querySelector('[data-testid="engine-facts"]');
+          if (!facts) return false;
+          const text = facts.textContent ?? "";
+          if (!text.includes("Storage driver") || !text.includes("Docker root")) {
+            return false;
+          }
+          const status = document.querySelector('.statusbar__engine')?.textContent ?? "";
+          const version = status.replace(/^\s*engine\s*/u, "").trim();
+          if (!version || version === "connected") return false;
+          return text.includes(version);
+        })()`,
+    },
+    {
+      id: "host-settings-no-fixture-daemon-json",
+      name: "no fixture daemon.json is shown against a live engine",
+      // The design fixture's own daemon.json values.
+      expression:
+        `!document.querySelector('[data-testid="daemon-json"]') &&
+          !["mirror.internal.acme.dev", "registry.local:5000", "defaultKeepStorage"]
+            .some((value) => document.body.textContent?.includes(value))`,
+    },
+    {
+      id: "host-settings-no-inert-controls",
+      name: "no settings tab offers a control that cannot reach the engine",
+      // Resolved by the walk above; the expression reports its result so the evidence records
+      // which tabs were visited rather than only that something passed.
+      expression: quoted(
+        inertControlTabs.length === 0
+          ? `visited ${settingsTabs.join(", ")}; no inert control`
+          : `INERT: ${inertControlTabs.join("; ")}`,
+      ),
+    },
+  ]);
+  requireCondition(
+    inertControlTabs.length === 0,
+    `Settings offered controls that cannot reach the engine: ${inertControlTabs.join("; ")}`,
+  );
+
   await measureInteraction("open-command-center", async () => {
     await evaluate(
       client,

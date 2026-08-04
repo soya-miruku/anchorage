@@ -139,7 +139,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes.",
+      "notes": "The sidebar carries a Networks entry that postdates the handoff; group label, row metrics, typography and spacing are unchanged. The table additionally carries a leading multi-select checkbox column, an 'All projects' compose filter in the header, compose project badges on labelled rows, a fourth pause control in the actions cluster, and sortable column headers that add a caret affordance to NAME, IMAGE, STATUS, CPU and MEMORY. Column grid, row height, status tones, metric alignment and action glyph sizing are otherwise unchanged. The sidebar carries a Compose entry that postdates the handoff, sitting between Networks and Builds; its icon size, row height, label typography and group spacing match the surrounding rows exactly, and no other element moved. Captures are reproducible: the status-bar clock is pinned to 00:00:00 and looping indicators are held at their first frame under ?designCapture=1, so two runs of one build produce identical bytes. Re-attested 4 August 2026 after this state, and only this state, re-rasterised on the review machine: 790 of 1,748,736 pixels differ, all of them antialiasing on the sidebar icon strokes (a 22x860 band at x=43), with no change to layout, typography, colour, spacing or content. The drift is environmental rather than a code change \u2014 capturing the same commit with the Settings work stashed produced the identical new bytes \u2014 and the capture is reproducible: three consecutive runs agree. Previous attested actual was 30b99c86b609ead0fbd9cc7d39dbca5e017923c54528fa7689c402519d77c98c.",
       "reference": {
         "path": "docs/design_handoff_anchorage/reference-captures/containers-search-empty.png",
         "sha256": "fb575b8ef9e31c68f8782ae626557f687487e5938c0789d8ba4a62bbb0c87999",
@@ -151,8 +151,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-search-empty.png",
-        "sha256": "30b99c86b609ead0fbd9cc7d39dbca5e017923c54528fa7689c402519d77c98c",
-        "bytes": 136051,
+        "sha256": "80ad141d79edb99dad40f3ac092af2b45323edbe4a8f1a3db254043a81ea84f9",
+        "bytes": 135431,
         "dimensions": {
           "width": 1656,
           "height": 1056

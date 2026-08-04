@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { DAEMON_JSON_FIXTURE } from "../data/fixtures";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -122,6 +123,34 @@ const resourceDefinitions: Array<{
     maxLabel: "512 GB",
   },
 ];
+
+/**
+ * The OCI architectures a host executes without a binfmt handler.
+ *
+ * `docker info` gives the kernel's name (`x86_64`), image and build platforms use the Go name
+ * (`amd64`); the two never match on a string compare. The companion entries are the second
+ * architecture a CPU runs directly: an x86-64 core executes 32-bit x86, and an AArch64 core
+ * that implements AArch32 executes 32-bit ARM — buildx only lists the latter when the CPU
+ * actually does, so trusting it here does not overstate the machine.
+ */
+const NATIVE_ARCHITECTURES: Record<string, string[]> = {
+  x86_64: ["amd64", "386"],
+  amd64: ["amd64", "386"],
+  i686: ["386"],
+  i386: ["386"],
+  aarch64: ["arm64", "arm"],
+  arm64: ["arm64", "arm"],
+  armv7l: ["arm"],
+  armv6l: ["arm"],
+  ppc64le: ["ppc64le"],
+  s390x: ["s390x"],
+  riscv64: ["riscv64"],
+};
+
+function nativeArchitecturesFor(reported?: string): Set<string> {
+  if (!reported) return new Set();
+  return new Set(NATIVE_ARCHITECTURES[reported] ?? [reported]);
+}
 
 interface ToggleDefinition {
   key: keyof FeatureFlags;
@@ -311,7 +340,53 @@ function AppearanceSettings({ store }: { store: AnchorageStore }) {
   );
 }
 
+/**
+ * Engine resource allocation.
+ *
+ * On a live Linux engine these sliders had no effect: "Apply & restart" set local state and
+ * reported "engine restart queued" when nothing was queued and nothing reached Docker. A
+ * control that reports success without acting is worse than an absent one, because the
+ * operator believes the limit is in force.
+ *
+ * The sliders are not wired up instead of being removed-and-reimplemented, because there is
+ * nothing to wire them to. CPU and memory allocation is a Docker Desktop concept: Desktop
+ * runs the daemon inside a VM whose size it controls. A native Linux daemon runs on the host
+ * directly and uses whatever the host has — there is no allocation to change, and per-container
+ * limits belong on the container, which the Resources dialog in container detail already sets.
+ */
 function ResourcesSettings({ store }: { store: AnchorageStore }) {
+  if (store.isHost) {
+    const engine = store.systemSnapshot?.engine;
+    return (
+      <div className="settings-pane settings-pane--resources">
+        <h2>Resources</h2>
+        <p>
+          This engine runs natively on the host, so it has no separate CPU or
+          memory allocation to adjust — it uses what the host has.
+        </p>
+        <dl className="engine-facts" data-testid="resource-facts">
+          <dt>Host CPUs</dt>
+          <dd>{engine ? engine.cpus : "—"}</dd>
+          <dt>Host memory</dt>
+          <dd>
+            {engine ? `${(engine.memoryBytes / 1024 ** 3).toFixed(1)} GB` : "—"}
+          </dd>
+          <dt>Docker root</dt>
+          <dd className="resource-mono">{engine?.dockerRootDir ?? "—"}</dd>
+        </dl>
+        <p className="resource-dim" data-testid="resources-native-note">
+          Allocation sliders exist in Docker Desktop because it sizes a virtual
+          machine around the daemon. To bound a single workload here, set CPU and
+          memory on the container itself — the Resources action in container
+          detail does that, and Docker enforces it.
+        </p>
+      </div>
+    );
+  }
+  return <FixtureResourcesSettings store={store} />;
+}
+
+function FixtureResourcesSettings({ store }: { store: AnchorageStore }) {
   return (
     <div className="settings-pane settings-pane--resources">
       <h2>Resources</h2>
@@ -379,12 +454,74 @@ function ResourcesSettings({ store }: { store: AnchorageStore }) {
   );
 }
 
-function EngineSettings() {
+function EngineSettings({ store }: { store: AnchorageStore }) {
+  // The fixture pane rendered a hardcoded daemon.json. Against a live engine that is
+  // fabricated configuration presented as the operator's own — the same thing the host
+  // candidate gate forbids for the file browser and build history. What the daemon actually
+  // reports is available and authoritative, so that is shown instead.
+  const snapshot = store.systemSnapshot;
+  if (!store.isHost) {
+    return (
+      <div className="settings-pane settings-pane--engine">
+        <h2>Engine</h2>
+        <p>Raw daemon configuration (daemon.json).</p>
+        <pre data-testid="daemon-json">{DAEMON_JSON_FIXTURE}</pre>
+      </div>
+    );
+  }
+  if (!snapshot) {
+    return (
+      <div className="settings-pane settings-pane--engine">
+        <h2>Engine</h2>
+        <p className="resource-dim" role="status">
+          Reading engine configuration…
+        </p>
+      </div>
+    );
+  }
+  const engine = snapshot.engine;
   return (
     <div className="settings-pane settings-pane--engine">
       <h2>Engine</h2>
-      <p>Raw daemon configuration (daemon.json).</p>
-      <pre data-testid="daemon-json">{DAEMON_JSON_FIXTURE}</pre>
+      <p>
+        Reported by the daemon on <strong>{snapshot.context}</strong>. Anchorage
+        does not edit <code>daemon.json</code>; changing these is a daemon
+        configuration and restart, not an application setting.
+      </p>
+      <dl className="engine-facts" data-testid="engine-facts">
+        <dt>Server version</dt>
+        <dd>{engine.serverVersion ?? "Unknown"}</dd>
+        <dt>API version</dt>
+        <dd>{snapshot.apiVersion}</dd>
+        <dt>Storage driver</dt>
+        <dd>{engine.driver ?? "Unknown"}</dd>
+        <dt>Docker root</dt>
+        <dd className="resource-mono">{engine.dockerRootDir ?? "Unknown"}</dd>
+        <dt>Platform</dt>
+        <dd>
+          {engine.operatingSystem ?? engine.osType ?? "Unknown"} ·{" "}
+          {engine.architecture ?? "unknown"}
+        </dd>
+        <dt>Host resources</dt>
+        <dd>
+          {engine.cpus} CPUs ·{" "}
+          {(engine.memoryBytes / 1024 ** 3).toFixed(1)} GB
+        </dd>
+        <dt>Live restore</dt>
+        <dd>{engine.liveRestoreEnabled ? "Enabled" : "Disabled"}</dd>
+        <dt>Experimental</dt>
+        <dd>{engine.experimental ? "Enabled" : "Disabled"}</dd>
+      </dl>
+      {engine.warnings.length > 0 && (
+        <div className="engine-warnings" data-testid="engine-warnings">
+          <h3>Daemon warnings</h3>
+          <ul>
+            {engine.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -430,29 +567,136 @@ function ToggleSettings({
   );
 }
 
-function HostSettingsUnavailable({
-  store,
-  tab,
-}: {
-  store: AnchorageStore;
-  tab: Exclude<SettingsTab, "appearance">;
-}) {
-  const label =
-    settingsNavigation.find((item) => item.id === tab)?.label ?? "Settings";
+/**
+ * Kubernetes.
+ *
+ * Docker Desktop can start a single-node cluster because it already runs a VM and can put one
+ * inside it. A native Linux engine has no VM, and Anchorage does not install software on the
+ * host, so there is nothing here for a toggle to switch. The previous switch changed a local
+ * boolean and nothing else.
+ */
+function HostKubernetesSettings() {
   return (
-    <div className="settings-pane settings-pane--unavailable" role="status">
-      <h2>{label} is unavailable in this build</h2>
+    <div className="settings-pane settings-pane--unavailable" data-testid="kubernetes-native-note">
+      <h2>Kubernetes</h2>
       <p>
-        Engine settings are read-only through the current host protocol.
-        Appearance remains available because it is stored locally by Anchorage.
+        Anchorage does not bundle a Kubernetes distribution. Docker Desktop can
+        offer one because it manages a virtual machine; this engine runs directly
+        on the host, so a cluster is a separate installation rather than a
+        setting.
       </p>
-      <button
-        className="primary-button"
-        type="button"
-        onClick={() => store.openCommandCenter("system")}
-      >
-        Open Command Center
-      </button>
+      <p className="resource-dim">
+        <code>k3s</code>, <code>kind</code> and <code>minikube</code> all run
+        against this machine. Containers a local cluster starts appear on the
+        Containers screen like any other, so Anchorage stays useful alongside
+        one.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Software updates.
+ *
+ * The toggles here promised background installation and a beta channel. Anchorage ships no
+ * updater at all, so both were inert. What an operator actually needs is how to move to a new
+ * build safely, which is the signature check — so that is what this describes.
+ */
+function HostUpdatesSettings() {
+  return (
+    <div className="settings-pane settings-pane--unavailable" data-testid="updates-native-note">
+      <h2>Software updates</h2>
+      <p>
+        Anchorage does not update itself. Nothing here contacts a server, checks
+        for a release, or installs anything in the background.
+      </p>
+      <p>
+        Releases are published as a single AppImage with a detached OpenPGP
+        signature over <code>SHA256SUMS</code>. To move to a new build, verify it
+        before replacing the copy you run:
+      </p>
+      <pre className="settings-verify-snippet">
+        {"gpg --verify SHA256SUMS.asc SHA256SUMS\nsha256sum -c SHA256SUMS"}
+      </pre>
+      <p className="resource-dim">
+        Both commands are stock tools. A signature that does not verify means the
+        download is not the release that was published, whatever the file is
+        named.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Advanced.
+ *
+ * Every switch on this pane was local state: turning BuildKit "off" left BuildKit on, and
+ * turning emulation "on" installed nothing. All three are properties of the host rather than
+ * application preferences, so they are reported rather than offered.
+ */
+function HostAdvancedSettings({ store }: { store: AnchorageStore }) {
+  const refreshBuilds = store.refreshBuilds;
+  useEffect(() => {
+    void refreshBuilds();
+  }, [refreshBuilds]);
+
+  const current =
+    store.buildBuilders.find((builder) => builder.current) ??
+    store.buildBuilders[0];
+  const platforms = [
+    ...new Set(current?.nodes.flatMap((node) => node.platforms) ?? []),
+  ].sort();
+  // `docker info` reports the kernel's name for the architecture (x86_64) while buildx names
+  // platforms the OCI way (linux/amd64), so comparing them directly marks the host's own
+  // architecture as emulated. They are translated before being compared.
+  const nativeArchitectures = nativeArchitecturesFor(
+    store.systemSnapshot?.engine.architecture,
+  );
+  const foreign = platforms.filter((platform) => {
+    const architecture = platform.split("/")[1];
+    return architecture !== undefined && !nativeArchitectures.has(architecture);
+  });
+  const buildxMissing = store.buildsStatus === "unavailable";
+
+  return (
+    <div className="settings-pane settings-pane--advanced">
+      <h2>Advanced</h2>
+      <p>
+        These are properties of the engine and the host, not Anchorage
+        preferences, so they are reported here rather than switched.
+      </p>
+      <dl className="engine-facts" data-testid="advanced-facts">
+        <dt>BuildKit</dt>
+        <dd>
+          {buildxMissing
+            ? "buildx plugin not installed — builds fall back to the legacy builder"
+            : current
+              ? `Active · builder ${current.name} (${current.driver})`
+              : "No builder reported by buildx"}
+        </dd>
+        <dt>Build platforms</dt>
+        <dd className="resource-mono">
+          {platforms.length > 0 ? platforms.join(", ") : "—"}
+        </dd>
+        <dt>Foreign architectures</dt>
+        <dd data-testid="advanced-emulation">
+          {platforms.length === 0
+            ? "Unknown until buildx reports a builder"
+            : foreign.length > 0
+              ? `Emulated: ${foreign.join(", ")}`
+              : "None registered. Install qemu-user-static, or run tonistiigi/binfmt --install all, to build for other architectures."}
+        </dd>
+        <dt>Usage statistics</dt>
+        <dd data-testid="advanced-telemetry">
+          None. Anchorage has no telemetry, no analytics and no crash reporting;
+          it talks to the Docker socket you selected and nothing else.
+        </dd>
+      </dl>
+      {store.buildsError && (
+        <p className="resource-dim" role="status">
+          {store.buildsError}
+        </p>
+      )}
     </div>
   );
 }
@@ -466,14 +710,16 @@ export function SettingsScreen({ store }: { store: AnchorageStore }) {
   let content;
   if (store.settingsTab === "appearance") {
     content = <AppearanceSettings store={store} />;
-  } else if (store.isHost) {
-    content = (
-      <HostSettingsUnavailable store={store} tab={store.settingsTab} />
-    );
+  } else if (store.isHost && store.settingsTab === "kubernetes") {
+    content = <HostKubernetesSettings />;
+  } else if (store.isHost && store.settingsTab === "updates") {
+    content = <HostUpdatesSettings />;
+  } else if (store.isHost && store.settingsTab === "advanced") {
+    content = <HostAdvancedSettings store={store} />;
   } else if (store.settingsTab === "resources") {
     content = <ResourcesSettings store={store} />;
   } else if (store.settingsTab === "engine") {
-    content = <EngineSettings />;
+    content = <EngineSettings store={store} />;
   } else {
     content = <ToggleSettings store={store} tab={store.settingsTab} />;
   }

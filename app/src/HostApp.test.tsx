@@ -544,15 +544,23 @@ describe("host renderer integration", () => {
       within(settings).getByText(/Using GitHub · Dark/u),
     ).toBeInTheDocument();
 
+    // Resources no longer offers allocation sliders here: a native engine has no allocation
+    // to change, and the sliders reported "engine restart queued" while doing nothing.
     fireEvent.click(
       within(settings).getByRole("button", { name: "Resources" }),
     );
     expect(
-      within(settings).getByText("Resources is unavailable in this build"),
-    ).toBeInTheDocument();
+      within(settings).getByTestId("resources-native-note"),
+    ).toHaveTextContent("Docker Desktop");
+    expect(within(settings).getByTestId("resource-facts")).toHaveTextContent(
+      "16",
+    );
     expect(
-      within(settings).getByRole("button", { name: "Open Command Center" }),
-    ).toBeInTheDocument();
+      within(settings).queryByRole("slider", { name: "Memory limit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(settings).queryByRole("button", { name: /Apply/u }),
+    ).not.toBeInTheDocument();
 
     expect(screen.queryByText("acme/worker:2.3")).not.toBeInTheDocument();
     expect(screen.queryByText("Trivy Scanner")).not.toBeInTheDocument();
@@ -575,8 +583,93 @@ describe("host renderer integration", () => {
       within(settings).queryByRole("button", { name: "Appearance" }),
     ).not.toBeInTheDocument();
     expect(
-      within(settings).getByText("Resources is unavailable in this build"),
+      within(settings).getByTestId("resources-native-note"),
     ).toBeInTheDocument();
+  });
+
+  it("reports real engine settings and refuses to offer controls that do nothing", async () => {
+    const harness = createHost();
+    harness.host.builds = {
+      list: vi.fn(async () => ({
+        context: "default",
+        source: "cli-json" as const,
+        builders: [
+          {
+            name: "default",
+            driver: "docker-container",
+            current: true,
+            nodes: [
+              {
+                name: "default0",
+                status: "running",
+                platforms: ["linux/amd64", "linux/arm64", "linux/arm/v7"],
+              },
+            ],
+          },
+        ],
+        records: [],
+        observedAt,
+        limitations: [],
+      })),
+      inspect: vi.fn(),
+    };
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-settings"));
+    const settings = screen.getByTestId("settings-screen");
+
+    // Engine reports what the daemon says. The fixture pane printed a canned daemon.json,
+    // which against a live engine is configuration the operator does not have.
+    fireEvent.click(
+      within(settings).getByRole("button", { name: "Docker Engine" }),
+    );
+    expect(screen.queryByTestId("daemon-json")).not.toBeInTheDocument();
+    const facts = await within(settings).findByTestId("engine-facts");
+    expect(facts).toHaveTextContent("28.0.0");
+    expect(facts).toHaveTextContent("1.55");
+    expect(facts).toHaveTextContent("Linux");
+
+    fireEvent.click(
+      within(settings).getByRole("button", { name: "Kubernetes" }),
+    );
+    expect(
+      within(settings).getByTestId("kubernetes-native-note"),
+    ).toHaveTextContent("does not bundle");
+    expect(
+      within(settings).queryByRole("switch", { name: "Enable Kubernetes" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(settings).getByRole("button", { name: "Software updates" }),
+    );
+    expect(
+      within(settings).getByTestId("updates-native-note"),
+    ).toHaveTextContent("gpg --verify");
+    expect(
+      within(settings).queryByRole("switch", { name: "Automatic updates" }),
+    ).not.toBeInTheDocument();
+
+    // Advanced reports the builder buildx actually reports, and the platforms beyond the
+    // host's own architecture are the ones emulation covers.
+    fireEvent.click(within(settings).getByRole("button", { name: "Advanced" }));
+    const advanced = await within(settings).findByTestId("advanced-facts");
+    await waitFor(() => expect(advanced).toHaveTextContent("docker-container"));
+    // x86_64 from `docker info` and linux/amd64 from buildx are the same architecture; only
+    // arm is genuinely emulated here, and linux/386 runs on this CPU without a handler.
+    expect(advanced).toHaveTextContent("linux/arm64");
+    expect(
+      within(settings).getByTestId("advanced-emulation"),
+    ).toHaveTextContent("Emulated: linux/arm/v7, linux/arm64");
+    expect(
+      within(settings).getByTestId("advanced-emulation"),
+    ).not.toHaveTextContent("linux/amd64");
+    expect(
+      within(settings).getByTestId("advanced-telemetry"),
+    ).toHaveTextContent("no telemetry");
+    expect(
+      within(settings).queryByRole("switch", { name: "Use BuildKit" }),
+    ).not.toBeInTheDocument();
   });
 
   it("confirms structured image/volume mutations and owns an early-event pull session", async () => {

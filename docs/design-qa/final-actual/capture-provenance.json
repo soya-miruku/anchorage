@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-04T02:05:45.336Z",
+  "capturedAt": "2026-08-04T10:51:21.760Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "d63a8cbd890ed53367a2f47cd667de45b64b2a6c6a6a45999eb52d5708a01349",
+    "sha256": "745a0a5db9054cc1edc84e49699fe0fb74bab0f400b0c1274d2ef67132bcf4fc",
     "files": 19,
-    "bytes": 1261963
+    "bytes": 1269127
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",
@@ -59,8 +59,8 @@
     {
       "state": "containers-search-empty",
       "path": "final-actual/containers-search-empty.png",
-      "sha256": "30b99c86b609ead0fbd9cc7d39dbca5e017923c54528fa7689c402519d77c98c",
-      "bytes": 136051,
+      "sha256": "80ad141d79edb99dad40f3ac092af2b45323edbe4a8f1a3db254043a81ea84f9",
+      "bytes": 135431,
       "dimensions": {
         "width": 1656,
         "height": 1056

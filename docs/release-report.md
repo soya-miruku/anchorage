@@ -1,19 +1,19 @@
 # Anchorage 0.1.0 release verification
 
-Status: **passed** on 2026-08-03 for the Linux x86_64 AppImage.
+Status: **passed** on 2026-08-04 for the Linux x86_64 AppImage.
 
 ## Certified artifact
 
 | Item | Value |
 | --- | --- |
 | AppImage | `app/release/Anchorage-0.1.0-x86_64.AppImage` |
-| Size | 93,329,326 bytes |
-| SHA-256 | `2ba863ddb4b09a2caff337d2f2dacbf6c43e7cb79acde8be91a2cc31178ca3d6` |
+| Size | 93,501,673 bytes |
+| SHA-256 | `af1cc20ce49c5ee12dc5edccbe97aad202bd7f6ea1d2c8a2cc6129adc232bea4` |
 | Release receipt | `app/release/release-verification.json` |
-| Receipt SHA-256 | `fd28ac94b6c13451c6dad33149da8946009ff2bd9b95be5402b2f6e4a4734b21` |
-| Core SHA-256 | `f39a914f33765d7a554f0109653d75810be61927651d35d555e8fd2f42c6dc5f` |
-| Renderer SHA-256 | `48e7bf02a8a56dc4abd422ded94f6acef5c2cd12772b357a48e960d4bbb7afde` |
-| Electron runtime closure | 13 files, 140,285 bytes, SHA-256 `18972d5b44dc48f7c36833000d3d2281e5568258676e2172c943e9ae325f00fb` |
+| Receipt SHA-256 | `29f91a5a3ec10282c0ad2151553f0dd49494b2014e9abd1f6520805b12eefd27` |
+| Core SHA-256 | `f3cbf8bf28bc229038957a0e40dbc1645f05b4d027d82f7c4d040158f6e83a4d` |
+| Renderer SHA-256 | `745a0a5db9054cc1edc84e49699fe0fb74bab0f400b0c1274d2ef67132bcf4fc` |
+| Electron runtime closure | 13 files, 216,313 bytes, SHA-256 `4f3aca683ae2e15124a77dd5ac9b53b2d172b4b655f7bc755e7f60c7a5935173` |
 | Signing | Unsigned |
 
 The release pipeline rebuilt the core and renderer, built the AppImage,
@@ -65,20 +65,24 @@ only then wrote the passing receipt.
 
 ## Correctness evidence
 
-- Aggregate JavaScript tests: **223/223 passed**:
-  136 renderer, 1 protocol, 3 security-evidence, 10 package-policy,
-  69 Electron, and 4 Sites handoff tests.
+- Aggregate JavaScript tests: **287/287 passed**:
+  189 renderer, 1 protocol, 3 security-evidence, 11 package-policy,
+  79 Electron, and 4 Sites handoff tests.
 - Strict renderer typecheck: passed with zero diagnostics.
 - Go core race tests and Go vet: passed.
-- Read-only host acceptance: **8/8 passed**, with cleanup passed.
+- Read-only host acceptance: **11/11 passed**, with cleanup passed.
 - Disposable behavioral conformance: **18/18 passed**, covering image
   pull/removal/pruning, container lifecycle, PTY and pipes sessions, pinned and
   literal Docker targets, snapshot/list behavior, and exact volume cleanup
   semantics. Owned DinD resources were verified absent afterward.
-- Production HostBridge candidate: **12/12 checks passed** across nine live host
-  screens. It covered containers, images, volumes, container detail, pinned and
-  literal Command Center modes, outside-home Compose working-directory
-  execution, unsupported host states, and clean shutdown.
+- Production HostBridge candidate: **12/12 checks passed** across ten live host
+  screens. It covered containers, images, volumes, container detail, builds,
+  settings, pinned and literal Command Center modes, outside-home Compose
+  working-directory execution, unsupported host states, and clean shutdown.
+- The settings screen is covered because it was where a fixture survived longest:
+  the Docker Engine tab printed a canned `daemon.json` against live daemons. The
+  gate now requires that pane to agree with the connected engine, and requires that
+  no settings tab offer a control which cannot reach it.
 - Production build: passed with 6,383 modules transformed.
 - Unpacked Electron application smoke: passed.
 - Extracted AppImage Electron smoke: passed.
@@ -87,13 +91,13 @@ only then wrote the passing receipt.
 
 - All **24/24 canonical handoff states** were captured at 1656 x 1056 and
   passed the normalized mean absolute pixel-error review threshold of 0.02.
-- The worst measured state was `container-detail-logs` at `0.0153812`.
+- The worst measured state was `container-detail-logs` at `0.01623`.
 - Every reference and implementation was reviewed in the same combined
   source-left/implementation-right input for geometry, typography, colour,
   borders, radii, spacing, iconography, layering, clipping, scrolling, and
   state-specific content.
 - Renderer evidence is bound to SHA-256
-  `48e7bf02a8a56dc4abd422ded94f6acef5c2cd12772b357a48e960d4bbb7afde`.
+  `745a0a5db9054cc1edc84e49699fe0fb74bab0f400b0c1274d2ef67132bcf4fc`.
 - The claim is complete canonical-state coverage with reviewed visual
   conformance; it is not a claim of zero differing pixels.
 

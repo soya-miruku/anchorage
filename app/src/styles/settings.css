@@ -444,6 +444,78 @@
   margin-top: 18px;
 }
 
+/* Reported host and engine facts.
+   These panes replaced controls that changed nothing on a native Linux engine, so they read
+   as a description rather than a form: label/value pairs, no affordance that invites a
+   click. */
+.engine-facts {
+  display: grid;
+  grid-template-columns: minmax(120px, 168px) minmax(0, 1fr);
+  gap: 9px 18px;
+  margin-top: 18px;
+  font-size: 12.5px;
+}
+
+.engine-facts dt {
+  color: var(--anc-text-muted);
+}
+
+.engine-facts dd {
+  margin: 0;
+  color: var(--anc-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.settings-pane--engine .engine-facts + .engine-warnings,
+.settings-pane--advanced .engine-facts + p {
+  margin-top: 20px;
+}
+
+.engine-warnings {
+  margin-top: 20px;
+  padding: 11px 13px;
+  border: 1px solid rgb(var(--anc-warning-rgb) / 40%);
+  border-radius: 10px;
+  background: rgb(var(--anc-warning-rgb) / 8%);
+}
+
+.engine-warnings h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.engine-warnings ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--anc-text-secondary);
+}
+
+/* The verification commands are meant to be copied verbatim, so they keep the shape they are
+   typed in rather than being reflowed as prose. */
+.settings-verify-snippet {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-code);
+  color: var(--anc-text-mono);
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+  user-select: text;
+}
+
+.settings-pane--unavailable code,
+.settings-pane--advanced code {
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+}
+
 @media (max-width: 1180px) {
   .appearance-theme-grid {
     grid-template-columns: 1fr;

@@ -920,6 +920,12 @@ function hostCandidateFixture() {
     if (id === "host-container-detail-identity") return "fixture-container";
     if (id === "host-command-target-pinned") return "pinned";
     if (id === "host-command-target-literal") return "literal";
+    if (id === "host-settings-no-inert-controls") {
+      return (
+        "visited Appearance, Resources, Docker Engine, Kubernetes, " +
+        "Software updates, Advanced; no inert control"
+      );
+    }
     return true;
   };
   const screens = HOST_CANDIDATE_SCREEN_IDS.map((id, index) => ({

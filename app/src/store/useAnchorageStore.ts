@@ -3449,11 +3449,25 @@ export function useAnchorageStore() {
     setResourceNotice(null);
   }, []);
 
+  /**
+   * Fixture-only. Reachable only when there is no host bridge — the design mock and the
+   * parity captures.
+   *
+   * Against a real engine this reported "engine restart queued" while queueing nothing: a
+   * native Linux daemon has no CPU or memory allocation to change, so there was no request to
+   * send. The Settings screen now routes a host to a pane that says so, and these remain to
+   * keep the mock's behaviour intact rather than to be wired up later.
+   */
   const applyResources = useCallback(() => {
     setAppliedResources({ ...resources });
     setResourceNotice("Resources applied · engine restart queued");
   }, [resources]);
 
+  /**
+   * Fixture-only, for the same reason: no flag here corresponds to something the host can
+   * switch. Kubernetes and in-app updates do not exist on this build, and BuildKit and
+   * emulation are properties of the host that the Advanced pane reports instead.
+   */
   const toggleFeatureFlag = useCallback((key: keyof FeatureFlags) => {
     setFeatureFlags((current) => ({ ...current, [key]: !current[key] }));
   }, []);
