@@ -65,48 +65,16 @@ func (s *Service) capabilities(ctx context.Context, params CapabilitiesParams) (
 	binary := s.docker.binary
 	result.Binary = &binary
 
-	contextShowResult, contextShowErr := s.runDiscovery(ctx, nil, "context", "show")
-	result.Evidence.ContextShow = commandEvidence(binary.RealPath, []string{"context", "show"}, contextShowResult)
-	if contextShowErr != nil {
-		result.Warnings = append(result.Warnings, "Current Docker context could not be queried: "+contextShowErr.Error())
-	} else if contextShowResult.exitCode == 0 && !contextShowResult.timedOut {
-		result.CurrentContext = strings.TrimSpace(string(contextShowResult.stdout))
-	} else {
-		result.Warnings = append(result.Warnings, evidenceFailure("docker context show", contextShowResult))
+	resolved := s.resolveContexts(ctx, binary, params.Context)
+	result.Evidence.ContextShow = resolved.showEvidence
+	result.Evidence.ContextList = resolved.listEvidence
+	result.Contexts = resolved.contexts
+	result.CurrentContext = resolved.current
+	result.Warnings = append(result.Warnings, resolved.warnings...)
+	if resolved.err != nil {
+		return CapabilitiesResult{}, resolved.err
 	}
-
-	contextListArgs := []string{"context", "ls", "--format", "{{json .}}"}
-	contextListResult, contextListErr := s.runDiscovery(ctx, nil, contextListArgs...)
-	result.Evidence.ContextList = commandEvidence(binary.RealPath, contextListArgs, contextListResult)
-	if contextListErr != nil {
-		result.Warnings = append(result.Warnings, "Docker contexts could not be queried: "+contextListErr.Error())
-	} else if contextListResult.exitCode == 0 && !contextListResult.timedOut {
-		contexts, warnings := parseContextList(contextListResult.stdout)
-		result.Contexts = contexts
-		result.Warnings = append(result.Warnings, warnings...)
-		if result.CurrentContext == "" {
-			for _, item := range contexts {
-				if item.Current {
-					result.CurrentContext = item.Name
-					break
-				}
-			}
-		}
-	} else {
-		result.Warnings = append(result.Warnings, evidenceFailure("docker context ls", contextListResult))
-	}
-
-	selected := strings.TrimSpace(params.Context)
-	if selected == "" {
-		selected = result.CurrentContext
-	}
-	if selected == "" {
-		selected = "default"
-		result.Warnings = append(result.Warnings, "No current context was reported; discovery used the explicit fallback context \"default\".")
-	}
-	if err := validateContextName(selected); err != nil {
-		return CapabilitiesResult{}, err
-	}
+	selected := resolved.selected
 	result.SelectedContext = selected
 
 	versionArgs := withContext(selected, "version", "--format", "{{json .}}")
@@ -126,7 +94,7 @@ func (s *Service) capabilities(ctx context.Context, params CapabilitiesParams) (
 	}()
 	go func() {
 		defer wait.Done()
-		inventory = s.cachedCommandInventory(ctx, binary, selected)
+		inventory = s.commandInventory(ctx, binary, selected)
 	}()
 	wait.Wait()
 
@@ -170,50 +138,116 @@ func (s *Service) capabilities(ctx context.Context, params CapabilitiesParams) (
 	return result, nil
 }
 
+// resolvedContexts is what both context-aware discovery verbs need: the installed contexts,
+// which one Docker considers current, and which one this call will act on.
+type resolvedContexts struct {
+	contexts     []DockerContext
+	current      string
+	selected     string
+	warnings     []string
+	showEvidence CommandEvidence
+	listEvidence CommandEvidence
+	err          error
+}
+
+// resolveContexts runs the two cheap context queries.
+//
+// Extracted from capabilities so system.contexts can answer the launch question — which
+// contexts exist and which is current — without the recursive help walk and plugin probes that
+// make capabilities a multi-second call. Both verbs resolve the selected context identically,
+// which is what lets them agree on the inventory cache key.
+func (s *Service) resolveContexts(
+	ctx context.Context,
+	binary BinaryFingerprint,
+	requested string,
+) resolvedContexts {
+	resolved := resolvedContexts{contexts: []DockerContext{}, warnings: []string{}}
+
+	showResult, showErr := s.runDiscovery(ctx, nil, "context", "show")
+	resolved.showEvidence = commandEvidence(binary.RealPath, []string{"context", "show"}, showResult)
+	if showErr != nil {
+		resolved.warnings = append(resolved.warnings, "Current Docker context could not be queried: "+showErr.Error())
+	} else if showResult.exitCode == 0 && !showResult.timedOut {
+		resolved.current = strings.TrimSpace(string(showResult.stdout))
+	} else {
+		resolved.warnings = append(resolved.warnings, evidenceFailure("docker context show", showResult))
+	}
+
+	listArgs := []string{"context", "ls", "--format", "{{json .}}"}
+	listResult, listErr := s.runDiscovery(ctx, nil, listArgs...)
+	resolved.listEvidence = commandEvidence(binary.RealPath, listArgs, listResult)
+	if listErr != nil {
+		resolved.warnings = append(resolved.warnings, "Docker contexts could not be queried: "+listErr.Error())
+	} else if listResult.exitCode == 0 && !listResult.timedOut {
+		contexts, warnings := parseContextList(listResult.stdout)
+		resolved.contexts = contexts
+		resolved.warnings = append(resolved.warnings, warnings...)
+		if resolved.current == "" {
+			for _, item := range contexts {
+				if item.Current {
+					resolved.current = item.Name
+					break
+				}
+			}
+		}
+	} else {
+		resolved.warnings = append(resolved.warnings, evidenceFailure("docker context ls", listResult))
+	}
+
+	selected := strings.TrimSpace(requested)
+	if selected == "" {
+		selected = resolved.current
+	}
+	if selected == "" {
+		selected = "default"
+		resolved.warnings = append(resolved.warnings, "No current context was reported; discovery used the explicit fallback context \"default\".")
+	}
+	if err := validateContextName(selected); err != nil {
+		resolved.err = err
+		return resolved
+	}
+	resolved.selected = selected
+	return resolved
+}
+
+// contexts answers only what a launch needs.
+//
+// The renderer cannot show anything until it knows which context to read, and that is two
+// sub-100ms Docker calls. It used to get there through system.capabilities, which also walks
+// every advertised command and probes every plugin - work that belongs to the Command Center
+// and is measured in seconds. Splitting them means a slow help surface can no longer delay the
+// window coming alive. This deliberately reports no capability or inventory data rather than
+// reporting it as unknown: it did not look.
+func (s *Service) contexts(ctx context.Context, params ContextsParams) (ContextsResult, error) {
+	result := ContextsResult{
+		ProtocolVersion: ProtocolVersion,
+		Contexts:        []DockerContext{},
+		Warnings:        []string{},
+		ObservedAt:      nowUTC(),
+	}
+	if s.docker == nil {
+		result.BinaryError = AsOpError(s.dockerErr)
+		return result, nil
+	}
+	binary := s.docker.binary
+	result.Binary = &binary
+
+	resolved := s.resolveContexts(ctx, binary, params.Context)
+	if resolved.err != nil {
+		return ContextsResult{}, resolved.err
+	}
+	result.Contexts = resolved.contexts
+	result.CurrentContext = resolved.current
+	result.SelectedContext = resolved.selected
+	result.Warnings = append(result.Warnings, resolved.warnings...)
+	sort.Slice(result.Contexts, func(i, j int) bool { return result.Contexts[i].Name < result.Contexts[j].Name })
+	return result, nil
+}
+
 func (s *Service) runDiscovery(parent context.Context, env map[string]string, args ...string) (commandResult, error) {
 	ctx, cancel := context.WithTimeout(parent, discoveryCommandTimeout)
 	defer cancel()
 	return s.docker.run(ctx, args, s.defaultCWD, env, discoveryOutputLimit)
-}
-
-// cachedCommandInventory memoizes the recursive help walk.
-//
-// Discovery spawns roughly one `docker ... --help` subprocess per advertised command node --
-// measured at 244 processes and ~2.7s against Docker 29.6. That ran on every
-// system.capabilities call, which sits on the first-paint path and is re-issued on every core
-// restart and every Command Center open. The result is a pure function of the exact docker
-// binary and the selected context, so it is keyed by the binary's SHA-256: a Docker upgrade
-// changes the hash and therefore invalidates the entry.
-func (s *Service) cachedCommandInventory(
-	ctx context.Context,
-	binary BinaryFingerprint,
-	selectedContext string,
-) CommandInventory {
-	if binary.SHA256 == "" {
-		return s.discoverCommandInventory(ctx, selectedContext)
-	}
-	key := binary.SHA256 + "\x00" + selectedContext
-
-	s.inventoryMu.Lock()
-	cached, ok := s.inventoryCache[key]
-	s.inventoryMu.Unlock()
-	if ok {
-		return cached
-	}
-
-	inventory := s.discoverCommandInventory(ctx, selectedContext)
-	// Never cache a partial walk: a cancelled or truncated discovery would otherwise be
-	// served forever.
-	if !inventory.Complete || inventory.LimitReached {
-		return inventory
-	}
-	s.inventoryMu.Lock()
-	if s.inventoryCache == nil {
-		s.inventoryCache = map[string]CommandInventory{}
-	}
-	s.inventoryCache[key] = inventory
-	s.inventoryMu.Unlock()
-	return inventory
 }
 
 func (s *Service) discoverCommandInventory(ctx context.Context, selectedContext string) CommandInventory {

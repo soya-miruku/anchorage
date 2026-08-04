@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 const CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
+  systemContexts: "anchorage:system.contexts",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -244,6 +245,16 @@ function context(value, required = true) {
 }
 
 function systemCapabilities(value) {
+  if (value === undefined) {
+    return {};
+  }
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  const selectedContext = context(value.context, false);
+  return selectedContext === undefined ? {} : { context: selectedContext };
+}
+
+function systemContexts(value) {
   if (value === undefined) {
     return {};
   }
@@ -1871,6 +1882,8 @@ function invoke(method, payload) {
   switch (method) {
     case "system.capabilities":
       return call(CHANNELS.systemCapabilities, systemCapabilities(payload));
+    case "system.contexts":
+      return call(CHANNELS.systemContexts, systemContexts(payload));
     case "system.snapshot":
       return call(CHANNELS.systemSnapshot, systemSnapshot(payload));
     case "system.action":
@@ -1963,6 +1976,7 @@ const api = Object.freeze({
   system: Object.freeze({
     capabilities: (request) =>
       call(CHANNELS.systemCapabilities, systemCapabilities(request)),
+    contexts: (request) => call(CHANNELS.systemContexts, systemContexts(request)),
     snapshot: (request) => call(CHANNELS.systemSnapshot, systemSnapshot(request)),
     action: (request) => call(CHANNELS.systemAction, systemAction(request)),
   }),

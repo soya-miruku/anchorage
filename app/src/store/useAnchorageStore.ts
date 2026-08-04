@@ -776,7 +776,11 @@ export function useAnchorageStore() {
     setEngineStatusMessage(null);
     try {
       let context = dockerContextRef.current;
-      const capabilities = await bridge.system.capabilities();
+      // Deliberately system.contexts rather than system.capabilities. Both report the context
+      // list; only capabilities also walks every advertised Docker command and probes every
+      // plugin, which measured ~3.1s on the reference machine and held the first paint for all
+      // of it. Nothing on this path reads a capability or an inventory.
+      const capabilities = await bridge.system.contexts();
       setAvailableContexts(
         capabilities.contexts.map((candidate) => ({
           name: candidate.name,

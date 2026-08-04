@@ -13,6 +13,7 @@ const CONTAINER_SIGNAL = /^[A-Z0-9]{1,20}$/u;
 
 export const RENDERER_RPC_METHODS = Object.freeze([
   "system.capabilities",
+  "system.contexts",
   "system.snapshot",
   "system.action",
   "containers.list",
@@ -76,6 +77,7 @@ export const RENDERER_EVENTS = Object.freeze([
 
 export const IPC_CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
+  systemContexts: "anchorage:system.contexts",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -333,6 +335,22 @@ function validateContext(value, { required = true } = {}) {
 }
 
 export function validateSystemCapabilities(value) {
+  if (value === undefined) {
+    return {};
+  }
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  const context = validateContext(value.context, { required: false });
+  return context === undefined ? {} : { context };
+}
+
+/**
+ * Same shape as system.capabilities, validated separately rather than shared.
+ *
+ * The two verbs answer different questions and are free to diverge; a shared validator would
+ * quietly widen one of them the day the other gained a parameter.
+ */
+export function validateSystemContexts(value) {
   if (value === undefined) {
     return {};
   }

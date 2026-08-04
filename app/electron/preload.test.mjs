@@ -325,6 +325,7 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
   const { api, invocations } = loadPreload();
   const samples = {
     "system.capabilities": { context: "default" },
+    "system.contexts": { context: "default" },
     "system.snapshot": { context: "default" },
     "system.action": {
       context: "default",

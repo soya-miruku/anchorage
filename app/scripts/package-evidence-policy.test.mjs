@@ -957,6 +957,8 @@ function hostCandidateFixture() {
       "scriptedInteractionSettleMaxMs",
     "bounded-dom-nodes": "domNodeCount",
     "bounded-visible-container-rows": "visibleContainerRows",
+    "launch-path-contexts": "bridgeContextsMs",
+    "warmed-command-inventory": "bridgeCapabilitiesMs",
   };
   const uiObservations = {
     spawnToHostReadyMs: 5_000,
@@ -966,6 +968,9 @@ function hostCandidateFixture() {
     domNodeCount: 1_000,
     visibleContainerRows: 14,
     liveContainerCount: 57,
+    bridgeContextsMs: 60,
+    bridgeCapabilitiesMs: 300,
+    commandInventoryNodeCount: 304,
   };
   const evidence = {
       schemaVersion: 1,
@@ -1018,6 +1023,7 @@ function hostCandidateFixture() {
           "session.start",
           "subscribe",
           "system.capabilities",
+          "system.contexts",
           "system.snapshot",
           "volumes.list",
           "window.close",

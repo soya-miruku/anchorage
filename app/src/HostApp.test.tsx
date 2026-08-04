@@ -180,6 +180,21 @@ function createHost({
   const imageListMock = vi.mocked(listImages);
   const volumeListMock = vi.mocked(listVolumes);
   const snapshotMock = vi.mocked(readSnapshot);
+  // Boot reads contexts, not capabilities: capabilities also walks every advertised Docker
+  // command, which is seconds of subprocesses that the first paint must not wait for. Both are
+  // spies so a test can assert which one the launch used.
+  const capabilitiesMock = vi.fn(async () => createFixtureCapabilities("default"));
+  const contextsMock = vi.fn(async () => {
+    const capabilities = createFixtureCapabilities("default");
+    return {
+      protocolVersion: "1" as const,
+      selectedContext: capabilities.selectedContext,
+      currentContext: capabilities.currentContext,
+      contexts: capabilities.contexts,
+      warnings: capabilities.warnings,
+      observedAt: capabilities.observedAt,
+    };
+  });
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   const subscribe = vi.fn(
     (event: string, listener: (payload: unknown) => void) => {
@@ -191,7 +206,8 @@ function createHost({
   );
   const host: HostAnchorageApi = {
     system: {
-      capabilities: async () => createFixtureCapabilities("default"),
+      capabilities: capabilitiesMock,
+      contexts: contextsMock,
       snapshot: snapshotMock,
     },
     containers: {
@@ -281,6 +297,8 @@ function createHost({
     listeners.get(event)?.forEach((listener) => listener(payload));
   };
   return {
+    capabilitiesMock,
+    contextsMock,
     host,
     list: listMock,
     listImages: imageListMock,
@@ -585,6 +603,26 @@ describe("host renderer integration", () => {
     expect(
       within(settings).getByTestId("resources-native-note"),
     ).toBeInTheDocument();
+  });
+
+  it("boots from the context list and never waits for the command walk", async () => {
+    const harness = createHost();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    await waitFor(() => expect(harness.list).toHaveBeenCalled());
+
+    // The launch path asks the cheap verb. system.capabilities also walks every advertised
+    // Docker command — measured at ~3.1s on the reference machine — and holding first paint
+    // for that is the whole reason this split exists.
+    expect(harness.contextsMock).toHaveBeenCalled();
+    expect(harness.capabilitiesMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("containers-screen")).toBeInTheDocument();
+
+    // The Command Center is where the inventory is genuinely needed, so it may pay for it.
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true, shiftKey: true });
+    await screen.findByTestId("command-center");
+    await waitFor(() => expect(harness.capabilitiesMock).toHaveBeenCalled());
   });
 
   it("reports real engine settings and refuses to offer controls that do nothing", async () => {

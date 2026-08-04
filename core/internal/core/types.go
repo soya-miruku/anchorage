@@ -130,6 +130,24 @@ type CapabilitiesParams struct {
 	Context string `json:"context,omitempty"`
 }
 
+type ContextsParams struct {
+	Context string `json:"context,omitempty"`
+}
+
+// ContextsResult is deliberately a subset of CapabilitiesResult rather than a version of it
+// with fields left empty: a caller can tell from the shape that no capability or command
+// discovery was attempted, instead of having to know that empty means "not asked".
+type ContextsResult struct {
+	ProtocolVersion string             `json:"protocolVersion"`
+	Binary          *BinaryFingerprint `json:"binary,omitempty"`
+	BinaryError     *OpError           `json:"binaryError,omitempty"`
+	SelectedContext string             `json:"selectedContext,omitempty"`
+	CurrentContext  string             `json:"currentContext,omitempty"`
+	Contexts        []DockerContext    `json:"contexts"`
+	Warnings        []string           `json:"warnings"`
+	ObservedAt      string             `json:"observedAt"`
+}
+
 type CapabilitiesResult struct {
 	ProtocolVersion    string                      `json:"protocolVersion"`
 	Binary             *BinaryFingerprint          `json:"binary,omitempty"`

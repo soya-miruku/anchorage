@@ -28,6 +28,7 @@
       "oneOf": [
         { "$ref": "#/$defs/healthRequest" },
         { "$ref": "#/$defs/capabilitiesRequest" },
+        { "$ref": "#/$defs/contextsRequest" },
         { "$ref": "#/$defs/systemSnapshotRequest" },
         { "$ref": "#/$defs/systemActionRequest" },
         { "$ref": "#/$defs/listRequest" },
@@ -91,6 +92,22 @@
       "properties": {
         "id": { "$ref": "#/$defs/id" },
         "method": { "const": "system.capabilities" },
+        "params": {
+          "type": "object",
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextsRequest": {
+      "type": "object",
+      "required": ["id", "method"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.contexts" },
         "params": {
           "type": "object",
           "properties": {

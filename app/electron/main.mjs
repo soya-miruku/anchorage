@@ -20,6 +20,7 @@ import {
   validateSessionSignal,
   validateSessionStart,
   validateSystemCapabilities,
+  validateSystemContexts,
   validateContainersCreate,
   validateContainersExport,
   validateImagesScout,
@@ -625,6 +626,14 @@ function activeWindow() {
 function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.systemCapabilities, (request) =>
     core.request("system.capabilities", validateSystemCapabilities(request), { timeoutMs: 120_000 }),
+  );
+  // Short timeout on purpose: this is two sub-100ms Docker calls on the launch path. If it
+  // cannot answer quickly the window should report that, not wait two minutes the way the
+  // capability walk legitimately might.
+  registerHandler(IPC_CHANNELS.systemContexts, (request) =>
+    core.request("system.contexts", validateSystemContexts(request), {
+      timeoutMs: 20_000,
+    }),
   );
   registerHandler(IPC_CHANNELS.systemSnapshot, (request) =>
     core.request("system.snapshot", validateSystemSnapshot(request), {

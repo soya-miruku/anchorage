@@ -41,6 +41,9 @@ type Service struct {
 	volumeSlots    chan struct{}
 	inventoryMu    sync.Mutex
 	inventoryCache map[string]CommandInventory
+	// One walk per key, shared by everyone waiting on it: the warm start and the renderer's
+	// first request would otherwise run the whole subprocess storm twice.
+	inventoryFlights map[string]*inventoryFlight
 }
 
 func NewService(config Config) (*Service, error) {
@@ -100,6 +103,12 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.capabilities(ctx, params)
+	case "system.contexts":
+		var params ContextsParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.contexts(ctx, params)
 	case "system.snapshot":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

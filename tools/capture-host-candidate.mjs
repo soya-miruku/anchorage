@@ -67,6 +67,7 @@ const bridgeFunctions = Object.freeze([
   "session.start",
   "subscribe",
   "system.capabilities",
+  "system.contexts",
   "system.snapshot",
   "volumes.list",
   "window.close",
@@ -655,6 +656,35 @@ try {
     `Host UI performance entries were incomplete: ` +
       `${JSON.stringify(initialUiPerformance)}`,
   );
+  // Timed through the preload bridge rather than against the core directly, because that is
+  // the path a launch actually takes: renderer → IPC → core → Docker.
+  const discoveryTimings = await evaluate(
+    client,
+    `(async () => {
+      const api = window.anchorage;
+      const contextsStartedAt = performance.now();
+      const contexts = await api.system.contexts();
+      const bridgeContextsMs = performance.now() - contextsStartedAt;
+      const capabilitiesStartedAt = performance.now();
+      const capabilities = await api.system.capabilities();
+      const bridgeCapabilitiesMs = performance.now() - capabilitiesStartedAt;
+      return {
+        bridgeContextsMs,
+        bridgeCapabilitiesMs,
+        contextCount: Array.isArray(contexts?.contexts) ? contexts.contexts.length : 0,
+        // Reported so the evidence shows the walk was complete rather than fast because it
+        // gave up: a truncated inventory would also return quickly.
+        inventoryNodeCount: capabilities?.commandInventory?.nodeCount ?? 0,
+        inventoryComplete: Boolean(capabilities?.commandInventory?.complete),
+      };
+    })()`,
+  );
+  requireCondition(
+    discoveryTimings.contextCount > 0 &&
+      discoveryTimings.inventoryNodeCount > 1 &&
+      discoveryTimings.inventoryComplete,
+    `Discovery verbs did not return a usable result: ${JSON.stringify(discoveryTimings)}`,
+  );
   const spawnToHostReadyMs =
     Math.round((performance.now() - spawnStartedAtMs) * 100) / 100;
   const interactionTimings = [];
@@ -1226,6 +1256,8 @@ try {
       "scriptedInteractionSettleMaxMs",
     "bounded-dom-nodes": "domNodeCount",
     "bounded-visible-container-rows": "visibleContainerRows",
+    "launch-path-contexts": "bridgeContextsMs",
+    "warmed-command-inventory": "bridgeCapabilitiesMs",
   };
   const uiPerformanceObservations = {
     spawnToHostReadyMs,
@@ -1239,6 +1271,10 @@ try {
     domNodeCount: initialUiPerformance.domNodeCount,
     visibleContainerRows: initialUiPerformance.visibleContainerRows,
     liveContainerCount: hostAttestation.containerCount,
+    bridgeContextsMs: Math.round(discoveryTimings.bridgeContextsMs * 100) / 100,
+    bridgeCapabilitiesMs:
+      Math.round(discoveryTimings.bridgeCapabilitiesMs * 100) / 100,
+    commandInventoryNodeCount: discoveryTimings.inventoryNodeCount,
   };
   const uiPerformanceChecks = HOST_UI_PERFORMANCE_CHECK_IDS.map((id) => {
     const metric = uiMetricById[id];

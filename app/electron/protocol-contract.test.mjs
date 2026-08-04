@@ -19,6 +19,7 @@ import {
   validateSessionSignal,
   validateSessionStart,
   validateSystemCapabilities,
+  validateSystemContexts,
   validateContainersCreate,
   validateContainersExport,
   validateImagesScout,
@@ -247,6 +248,7 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
   const sessionId = "01234567-89ab-cdef-0123-456789abcdef";
   const requests = [
     request("system.capabilities", validateSystemCapabilities({ context: "default" })),
+    request("system.contexts", validateSystemContexts({ context: "default" })),
     request("system.snapshot", validateSystemSnapshot({ context: "default" })),
     request(
       "containers.create",

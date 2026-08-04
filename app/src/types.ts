@@ -983,6 +983,21 @@ export interface SystemCapabilities {
   observedAt: string;
 }
 
+/**
+ * What a launch needs to know before it can read anything.
+ *
+ * Carries no command inventory and no plugin capabilities, because the verb behind it does not
+ * look for them. Anything that needs those asks `capabilities` and waits for the walk.
+ */
+export interface SystemContexts {
+  protocolVersion: "1";
+  selectedContext?: string;
+  currentContext?: string;
+  contexts: DockerContext[];
+  warnings: string[];
+  observedAt: string;
+}
+
 export type SessionMode = "pipes" | "pty";
 export type SessionTargetMode = "pinned" | "literal";
 export type SessionSignal =
@@ -1121,6 +1136,7 @@ export interface AnchorageBridge {
   readonly containers: ContainerOperations;
   readonly system: {
     capabilities(context?: string): Promise<SystemCapabilities>;
+    contexts(context?: string): Promise<SystemContexts>;
     snapshot(context: string, includeDiskUsage?: boolean): Promise<SystemSnapshot>;
     prune(
       context: string,
@@ -1218,6 +1234,7 @@ export interface HostAnchorageApi {
   invoke?: (method: string, payload?: unknown) => Promise<unknown>;
   system?: {
     capabilities: (request?: { context?: string }) => Promise<unknown>;
+    contexts?: (request?: { context?: string }) => Promise<unknown>;
     snapshot?: (request: {
       context: string;
       includeDiskUsage?: boolean;

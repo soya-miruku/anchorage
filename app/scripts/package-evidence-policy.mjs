@@ -201,6 +201,18 @@ export const HOST_UI_PERFORMANCE_PROFILE = Object.freeze({
     scriptedInteractionSettleMaxMs: 30_000,
     domNodeCount: 5_000,
     visibleContainerRows: 200,
+    // The two discovery verbs, measured through the real bridge.
+    //
+    // system.contexts is what a launch waits for, and it is two sub-100ms Docker calls; a
+    // second of headroom catches it regressing back onto the recursive help walk (~3.1s on
+    // the reference machine) without failing on a loaded machine.
+    //
+    // system.capabilities legitimately walks that tree, but by the time this runs the walk
+    // was started at core spawn and has had the whole harness to finish. Holding it to the
+    // same limit is what fails if the walk stops being warmed or stops being cached — the
+    // launch would still look fine here, and the operator would still be waiting.
+    bridgeContextsMs: 1_500,
+    bridgeCapabilitiesMs: 1_500,
   }),
 });
 
@@ -235,6 +247,16 @@ const HOST_UI_PERFORMANCE_DEFINITIONS = Object.freeze([
     metric: "visibleContainerRows",
     threshold: "visibleContainerRows",
   }),
+  Object.freeze({
+    id: "launch-path-contexts",
+    metric: "bridgeContextsMs",
+    threshold: "bridgeContextsMs",
+  }),
+  Object.freeze({
+    id: "warmed-command-inventory",
+    metric: "bridgeCapabilitiesMs",
+    threshold: "bridgeCapabilitiesMs",
+  }),
 ]);
 
 export const HOST_UI_PERFORMANCE_CHECK_IDS = Object.freeze(
@@ -262,6 +284,7 @@ const HOST_BRIDGE_FUNCTIONS = Object.freeze([
   "session.start",
   "subscribe",
   "system.capabilities",
+  "system.contexts",
   "system.snapshot",
   "volumes.list",
   "window.close",

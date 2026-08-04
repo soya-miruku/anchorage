@@ -531,6 +531,11 @@ func TestExtractVersionStringSkipsPluginBanner(t *testing.T) {
 
 func newTestService(t *testing.T, fakeDocker string) *Service {
 	t.Helper()
+	// Isolated per test. Without this the disk-backed command inventory would read and write
+	// the developer's own cache, and one test could serve another a stale walk.
+	if os.Getenv("ANCHORAGE_CACHE_DIR") == "" {
+		t.Setenv("ANCHORAGE_CACHE_DIR", t.TempDir())
+	}
 	service, err := NewService(Config{
 		DockerExecutable: fakeDocker,
 		AllowedCWDRoots:  []string{filepath.Dir(fakeDocker)},
@@ -601,6 +606,12 @@ func startFakeEngine(t *testing.T) (string, func(), *[]string) {
 	return socketPath, closeServer, &requests
 }
 
+// The plugin set the fake client advertises. Written beside the fake binary so a test can
+// replace it — installing or removing a CLI plugin changes the help tree without touching the
+// docker binary, and the inventory cache has to notice.
+const fakeDockerPlugins = `[{"SchemaVersion":"0.1.0","Vendor":"Docker Inc.","Version":"5.3.1","Name":"compose","Path":"/fixture/docker-compose"},` +
+	`{"SchemaVersion":"0.1.0","Vendor":"Docker Inc.","Version":"v1.18.3","Name":"scout","Path":"/fixture/docker-scout"}]`
+
 func writeFakeDocker(t *testing.T, socketPath string) (string, string) {
 	t.Helper()
 	directory := t.TempDir()
@@ -624,6 +635,9 @@ case "$*" in
     ;;
   "--context default version --format {{json .}}")
     printf '%s\n' '{"Client":{"Version":"29.6.2","ApiVersion":"1.55","GoVersion":"go1.26","GitCommit":"client","Os":"linux","Arch":"amd64"},"Server":{"Version":"29.6.2","ApiVersion":"1.55","MinAPIVersion":"1.40","GoVersion":"go1.26","GitCommit":"server","Os":"linux","Arch":"amd64"}}'
+    ;;
+  "--context default info --format {{json .ClientInfo.Plugins}}")
+    cat "$(dirname "$0")/plugins.json"
     ;;
   "--context default info --format {{json .}}")
     printf '%s\n' '{"ExperimentalBuild":false,"ClientInfo":{"Plugins":[{"SchemaVersion":"0.1.0","Vendor":"Docker Inc.","Version":"5.3.1","ShortDescription":"Docker Compose","Name":"compose","Path":"/fixture/docker-compose"},{"SchemaVersion":"0.1.0","Vendor":"Docker Inc.","Version":"v1.18.3","ShortDescription":"Docker Scout","Name":"scout","Path":"/fixture/docker-scout"}]}}'
@@ -700,6 +714,10 @@ case "$*" in
     ;;
 esac
 `
+	pluginsPath := filepath.Join(directory, "plugins.json")
+	if err := os.WriteFile(pluginsPath, []byte(fakeDockerPlugins), 0o600); err != nil {
+		t.Fatalf("write fake plugin set: %v", err)
+	}
 	endpointJSON := strconv.Quote("unix://" + socketPath)
 	script := strings.ReplaceAll(template, "__ENDPOINT__", endpointJSON)
 	script = strings.ReplaceAll(script, "__LOG__", shellQuote(logPath))

@@ -35,6 +35,20 @@ export interface SystemCapabilitiesRequest {
   params?: { context?: string };
 }
 
+/**
+ * The contexts a launch needs, without the discovery a launch does not.
+ *
+ * `system.capabilities` answers the same question, but only after walking every advertised
+ * command and probing every plugin — seconds of subprocesses that the first paint had to wait
+ * for. This carries the context list alone so the window can come alive independently of how
+ * large the installed command surface is.
+ */
+export interface SystemContextsRequest {
+  id: RequestId;
+  method: "system.contexts";
+  params?: { context?: string };
+}
+
 export interface SystemSnapshotRequest {
   id: RequestId;
   method: "system.snapshot";
@@ -772,6 +786,7 @@ export interface SessionAckRequest {
 export type RPCRequest =
   | HealthRequest
   | SystemCapabilitiesRequest
+  | SystemContextsRequest
   | SystemSnapshotRequest
   | SystemActionRequest
   | ContainersListRequest

@@ -53,6 +53,13 @@ func main() {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+
+	// Started here rather than on first use. The recursive `docker --help` walk is the single
+	// largest cost on the launch path, and the seconds it takes are seconds Electron and the
+	// renderer are already spending on their own startup. Warming it concurrently means the
+	// renderer's first system.capabilities usually finds it done. It is a pre-computation: a
+	// failure costs nothing, because every caller can still derive it.
+	service.WarmCommandInventory(ctx)
 	go func() {
 		<-ctx.Done()
 		_ = os.Stdin.Close()

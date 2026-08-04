@@ -9,6 +9,7 @@ import type {
   AnchorageContainer,
   CommandEvidence,
   CommandInventory,
+  SystemContexts,
   CommandNode,
   ContainerInspectResult,
   ContainerHealth,
@@ -404,6 +405,30 @@ function normalizeCapabilities(value: unknown): SystemCapabilities {
   };
 }
 
+function normalizeContexts(value: unknown): SystemContexts {
+  const raw = asRecord(value);
+  const protocolVersion = String(raw.protocolVersion ?? "");
+  if (protocolVersion !== "1") {
+    throw new Error(
+      `Unsupported Anchorage protocol version: ${protocolVersion || "missing"}`,
+    );
+  }
+  return {
+    protocolVersion: "1",
+    selectedContext:
+      typeof raw.selectedContext === "string"
+        ? raw.selectedContext
+        : undefined,
+    currentContext:
+      typeof raw.currentContext === "string" ? raw.currentContext : undefined,
+    contexts: Array.isArray(raw.contexts)
+      ? raw.contexts.map(normalizeContext).filter((context) => context.name)
+      : [],
+    warnings: stringArray(raw.warnings),
+    observedAt: String(raw.observedAt ?? ""),
+  };
+}
+
 function normalizeSessionStart(value: unknown): SessionStartResult {
   const raw = asRecord(value);
   const sessionId = String(raw.sessionId ?? "");
@@ -776,6 +801,17 @@ class FixtureBridge implements AnchorageBridge {
   readonly system = {
     capabilities: async (context?: string) =>
       createFixtureCapabilities(context),
+    contexts: async (context?: string) => {
+      const capabilities = createFixtureCapabilities(context);
+      return {
+        protocolVersion: "1" as const,
+        selectedContext: capabilities.selectedContext,
+        currentContext: capabilities.currentContext,
+        contexts: capabilities.contexts,
+        warnings: capabilities.warnings,
+        observedAt: capabilities.observedAt,
+      };
+    },
     snapshot: async () => fixtureUnsupported("system.snapshot"),
     prune: async () => fixtureUnsupported("system.action"),
   };
@@ -1061,6 +1097,26 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
             new Error("Docker capability discovery is unavailable"),
           );
     return normalizeCapabilities(result);
+  };
+  // Falls back to capabilities when the host predates this verb, so a renderer served by an
+  // older core still starts — slowly, but it starts.
+  const systemContexts = async (context?: string) => {
+    const request = context ? { context } : undefined;
+    if (host.system?.contexts) {
+      return normalizeContexts(await host.system.contexts(request));
+    }
+    if (host.invoke) {
+      return normalizeContexts(await host.invoke("system.contexts", request));
+    }
+    const capabilities = await systemCapabilities(context);
+    return {
+      protocolVersion: "1" as const,
+      selectedContext: capabilities.selectedContext,
+      currentContext: capabilities.currentContext,
+      contexts: capabilities.contexts,
+      warnings: capabilities.warnings,
+      observedAt: capabilities.observedAt,
+    };
   };
   const systemSnapshot = async (context: string, includeDiskUsage = false) => {
     // /system/df is a full daemon-side disk walk; only the dashboard shows it, so every other
@@ -1619,6 +1675,7 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     system: {
       capabilities: systemCapabilities,
+      contexts: systemContexts,
       snapshot: systemSnapshot,
       prune: systemPrune,
     },
