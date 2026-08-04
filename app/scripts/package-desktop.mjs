@@ -1832,6 +1832,68 @@ async function main() {
     `Wrote exact release verification report: ` +
       `${normalizedRelative(REPOSITORY_DIRECTORY, RELEASE_VERIFICATION_REPORT)}`,
   );
+  // A build is not a release. Signing happens after packaging, because it needs the
+  // operator's passphrase and cannot be automated here, so this reports the state plainly
+  // rather than pretending the artifact is publishable.
+  //
+  // Deliberately not a hard failure: an unsigned local build is a legitimate and common
+  // thing to want. What must never happen is an unsigned artifact being mistaken for a
+  // signed one, so the distinction is stated at the end of every build, and
+  // ANCHORAGE_REQUIRE_SIGNATURE=1 turns it into a gate for a publishing pipeline.
+  const signatureReceiptPath = join(RELEASE_DIRECTORY, "release-signature.json");
+  let signatureState = "unsigned";
+  try {
+    const receipt = JSON.parse(await readFile(signatureReceiptPath, "utf8"));
+    const appImageEntry = receipt.artifacts?.find((entry) =>
+      entry.name?.endsWith(".AppImage"),
+    );
+    // The receipt has to describe the artifact that was just built, not an earlier one.
+    if (receipt.status === "signed" && appImageEntry?.digest !== appImageVerification.sha256) {
+      signatureState = "STALE SIGNATURE — the receipt describes a different AppImage";
+    } else if (receipt.status === "signed") {
+      // The receipt's own claim is not evidence: it is a JSON file that anyone could write.
+      // The signature itself is re-verified here, so a hand-written receipt cannot make an
+      // unsigned build look signed to a publishing pipeline.
+      // gpg exits non-zero on a bad signature, which is a verdict rather than a crash.
+      let output = "";
+      try {
+        const verification = await run(
+          "gpg",
+          [
+            "--verify",
+            join(RELEASE_DIRECTORY, "SHA256SUMS.asc"),
+            join(RELEASE_DIRECTORY, "SHA256SUMS"),
+          ],
+          { capture: true, timeoutMs: 60_000 },
+        );
+        output = `${verification.stdout ?? ""}${verification.stderr ?? ""}`;
+      } catch (error) {
+        output = String(error?.stderr ?? error?.message ?? error);
+      }
+      if (
+        /Good signature/u.test(output) &&
+        output.includes(receipt.signingKeyFingerprint)
+      ) {
+        signatureState = `signed by ${receipt.signingKeyFingerprint}`;
+      } else {
+        signatureState = "SIGNATURE DID NOT VERIFY";
+      }
+    }
+  } catch {
+    signatureState = "unsigned";
+  }
+  // Reported, never gated here. Packaging clears the release directory before it builds, so
+  // a signature can only ever be applied afterwards — a "require signature" flag on this
+  // step could never be satisfied by definition. Enforcement belongs to the publish step,
+  // which is `node tools/sign-release.mjs --verify-only`: that re-verifies the signature and
+  // every digest against the artifacts actually present.
+  log(`Release signature: ${signatureState}`);
+  if (!signatureState.startsWith("signed by")) {
+    log(
+      "  A build is not a release. Sign before publishing: " +
+        "node tools/sign-release.mjs --key <fingerprint>",
+    );
+  }
   log("Linux package verification passed");
 }
 
