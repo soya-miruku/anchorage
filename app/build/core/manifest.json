@@ -27,9 +27,9 @@
   "evidence": {
     "designConformance": {
       "path": "artifacts/design/design-ledger.json",
-      "sha256": "0617f0b3206cdc3f7544f6501c7191c5f619c95f7ee8125b7dc9e656aee27616",
+      "sha256": "499d746f7872de52d659f5214adeb2fcddc080acf1cac434464d008d39c7ddf8",
       "bytes": 123582,
-      "generatedAt": "2026-08-04T02:05:57.818Z",
+      "generatedAt": "2026-08-04T10:25:17.811Z",
       "reviewedStates": 24,
       "generatorSha256": "51e9f5096eb99f0ca3181f6276f395f60639c60874e3e2a92f60e4e946bb0608",
       "handoffSource": {
@@ -147,9 +147,9 @@
     },
     "hostCandidate": {
       "path": "artifacts/host-candidate/host-candidate.json",
-      "sha256": "9f01fcdcd35a913d63f2bfe6aa8412502e0f9009b532ef6f10bc0d80eaf5f3b1",
-      "bytes": 21427,
-      "completedAt": "2026-08-04T08:20:55.791Z",
+      "sha256": "73e8b19b5c78b2cb3bf15f8cf1e809a8e7feb4018bca111a8d683adff6021050",
+      "bytes": 21423,
+      "completedAt": "2026-08-04T10:25:55.537Z",
       "scope": "host-integration-smoke-not-pixel-parity",
       "bridgeMode": "host",
       "checks": 12,
@@ -171,8 +171,8 @@
         {
           "id": "host-dashboard",
           "path": "screens/host-dashboard.png",
-          "sha256": "31a77af25e27a550f43254f0dfae9582d1a5cc3d424b2744e3fa63b9d104b80a",
-          "bytes": 103913,
+          "sha256": "133e4aaf652681fb368f34edc48ca28c54366e221c1fa896e7f79561951e083e",
+          "bytes": 103894,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -181,8 +181,8 @@
         {
           "id": "host-containers",
           "path": "screens/host-containers.png",
-          "sha256": "ad4d764cc2d728a6fb9ffba3fe5f4400ad99447debd2cce8c64ec0519361cb1b",
-          "bytes": 227704,
+          "sha256": "7705322dd1de6d030c80512eb4112d3e57f2cbd16f22176be9f6e3cbdaab37ba",
+          "bytes": 225278,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -191,8 +191,8 @@
         {
           "id": "host-container-detail",
           "path": "screens/host-container-detail.png",
-          "sha256": "4be6890adb440ccba95d8d8c635bfa8dbd29099eb0f164fa38ad3287b2e4e639",
-          "bytes": 497521,
+          "sha256": "71441d6ae735bbd8aec8b60480bf7aae45f3063fd43fad576f7340c64a5da0f3",
+          "bytes": 497228,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -201,8 +201,8 @@
         {
           "id": "host-files-live",
           "path": "screens/host-files-live.png",
-          "sha256": "c89e04b26c277d82d06904f29e83dd910126cb6d660b73d92a7691c39a0d686b",
-          "bytes": 69048,
+          "sha256": "24155a315dbe600159cf70eb0f65b7f272a1543e2afce48ec429d510a9141846",
+          "bytes": 68761,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -211,8 +211,8 @@
         {
           "id": "host-images",
           "path": "screens/host-images.png",
-          "sha256": "67fd2e892c2f0a3043d259d05a7414e402299c1c384cdcb1286f4e95f7d111b3",
-          "bytes": 217233,
+          "sha256": "0ecc7e6ac5f41f2b65696b987501820a224638d702c9a0d5bcafc55ad80aad00",
+          "bytes": 215909,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -221,8 +221,8 @@
         {
           "id": "host-volumes",
           "path": "screens/host-volumes.png",
-          "sha256": "f9f6b7a661948ee550101fb47ac6f4041a63dc0b50ca66a3fa8d65b3b055662a",
-          "bytes": 229399,
+          "sha256": "bfddc7204daf36e7baa9a8107d1bd7c7d1fcd4dd996dbe3ac233082b2f59070f",
+          "bytes": 229184,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -231,8 +231,8 @@
         {
           "id": "host-command-center-pinned",
           "path": "screens/host-command-center-pinned.png",
-          "sha256": "e4dd080f525a1d65feb75d564054d54c929e10ca3e62e6daeda9c5a4a06fcbd1",
-          "bytes": 134870,
+          "sha256": "1c218a0deaa94b26959a5806409fbf765fe6eab288512680190789f081f485df",
+          "bytes": 134952,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -241,8 +241,8 @@
         {
           "id": "host-command-center-literal",
           "path": "screens/host-command-center-literal.png",
-          "sha256": "26500d162ec4ac7c6aad055dec463799e1f4f8c889339a7d3b0864f040be01fc",
-          "bytes": 145568,
+          "sha256": "b72bdeb9e480dd09750623fdc982e6b05e101a80325d1749a93500ca6e288903",
+          "bytes": 145510,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -251,8 +251,8 @@
         {
           "id": "host-builds-live",
           "path": "screens/host-builds-live.png",
-          "sha256": "85010d30d54233e9c77cd3c7ed87ca21b48ef1b9dd516b1e7fa55805260e4c1a",
-          "bytes": 108696,
+          "sha256": "5fa69cde934f793c63e494dabe74d08935617d9ad5ebb455bbcf611a000fc4b4",
+          "bytes": 117942,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -280,10 +280,10 @@
     },
     "coreAcceptance": {
       "path": "artifacts/docker/read-only-acceptance.json",
-      "sha256": "5bfff554dd0165be37997bf79677c18c4a169deb35149c905ce48344f55f9dc3",
-      "bytes": 11563,
+      "sha256": "50d373a7e5bc81ac2e376d97c12f3c01d6558df895e137686baad34708222cd0",
+      "bytes": 11565,
       "coreSha256": "f3cbf8bf28bc229038957a0e40dbc1645f05b4d027d82f7c4d040158f6e83a4d",
-      "completedAt": "2026-08-04T08:21:17.370Z",
+      "completedAt": "2026-08-04T10:26:17.938Z",
       "schemaVersion": 3,
       "matrixVersion": 2,
       "mutationsEnabled": false,
@@ -304,16 +304,16 @@
     },
     "electronSecurity": {
       "path": "artifacts/security/electron-config.json",
-      "sha256": "e8cbe9687819a802bbad035e5ab8f04b6f7191493d4b167c19ea4015178dd223",
+      "sha256": "67c993a605a461936ed15627279f6c8cab6c2889646b5dfaa010524dd5a11424",
       "bytes": 3958,
-      "generatedAt": "2026-08-04T08:21:18.074Z",
+      "generatedAt": "2026-08-04T10:26:18.655Z",
       "policyVersion": 1
     },
     "dependencyAudit": {
       "path": "artifacts/security/dependency-audit.json",
-      "sha256": "9e595f00531aa4f21aa095f9e3c0d742422dc9ea94502d8f7296bdd876efebaf",
+      "sha256": "8dac44fb00076813f4d149043b84454c1f251afc8aac7b1ca636f126e733688b",
       "bytes": 527,
-      "generatedAt": "2026-08-04T08:21:18.074Z",
+      "generatedAt": "2026-08-04T10:26:18.655Z",
       "vulnerabilities": 0
     }
   },
