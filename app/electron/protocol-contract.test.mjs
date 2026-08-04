@@ -25,6 +25,8 @@ import {
   validateVolumeFiles,
   validateVolumeFileRead,
   validateVolumeFileWrite,
+  validateVolumeBackup,
+  validateVolumeRestore,
   validateComposeList,
   validateComposePs,
   validateComposeAction,
@@ -442,6 +444,25 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
     request(
       "volumes.files",
       validateVolumeFiles({ context: "default", name: "project_data", path: "/config" }),
+    ),
+    request(
+      "volumes.backup",
+      validateVolumeBackup({
+        context: "default",
+        name: "project_data",
+        archivePath: "/srv/backups/project_data.tar",
+        overwrite: true,
+      }),
+    ),
+    request(
+      "volumes.restore",
+      validateVolumeRestore({
+        context: "default",
+        name: "project_data",
+        archivePath: "/srv/backups/project_data.tar",
+        confirmed: true,
+        confirmedInUse: true,
+      }),
     ),
     request(
       "volumes.fileWrite",
@@ -1386,5 +1407,36 @@ test("protocol v1 keeps a volume upload inside the directory it names", () => {
       `unsafe volume upload unexpectedly matched: ${JSON.stringify(params)}`,
     );
     assert.throws(() => validateVolumeFileWrite(params), TypeError);
+  }
+});
+
+test("protocol v1 gates a volume restore and keeps backup paths argv-safe", () => {
+  // A restore writes over whatever the volume already holds, so it is confirmed like any
+  // other irreversible verb — and the archive path is argv-adjacent on both sides.
+  for (const params of [
+    { context: "default", name: "v", archivePath: "/srv/b.tar" },
+    { context: "default", name: "v", archivePath: "/srv/b.tar", confirmed: false },
+    { context: "default", name: "v", archivePath: "-rf", confirmed: true },
+    { context: "default", name: "v", archivePath: "relative.tar", confirmed: true },
+    { context: "default", name: "../etc", archivePath: "/srv/b.tar", confirmed: true },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("volumes.restore", params)),
+      false,
+      `unsafe restore unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateVolumeRestore(params), TypeError);
+  }
+  for (const params of [
+    { context: "default", name: "v", archivePath: "-o/tmp/x.tar" },
+    { context: "default", name: "v", archivePath: "relative.tar" },
+    { context: "default", name: "v" },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("volumes.backup", params)),
+      false,
+      `unsafe backup unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateVolumeBackup(params), TypeError);
   }
 });

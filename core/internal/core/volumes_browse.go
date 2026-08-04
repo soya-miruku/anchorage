@@ -1,12 +1,15 @@
 package core
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -461,4 +464,200 @@ func (s *Service) volumeReferenceCount(ctx context.Context, client *engineClient
 		}
 	}
 	return running, nil
+}
+
+// volumeBackup writes a volume's entire contents to a host tar.
+//
+// This is what volumes are actually for: the data outlives the container, so there has to be
+// a way to get it out. Docker offers no endpoint for it — the archive stream is read through
+// the same never-started helper the browser uses, and copied straight to disk so a volume
+// larger than memory is still backupable.
+//
+// The helper's mount point is stripped as the stream is rewritten, so the archive holds the
+// volume's contents at its root. That makes it an ordinary tar the operator can inspect with
+// `tar -tf` or hand to any other tool, rather than one carrying an Anchorage-shaped prefix.
+func (s *Service) volumeBackup(parent context.Context, params VolumeBackupParams) (VolumeBackupResult, error) {
+	contextName := strings.TrimSpace(params.Context)
+	if err := validateRequiredContext(contextName); err != nil {
+		return VolumeBackupResult{}, err
+	}
+	if err := validateVolumeName(params.Name); err != nil {
+		return VolumeBackupResult{}, err
+	}
+	archivePath, err := s.validateArchivePath(params.ArchivePath, false, params.Overwrite)
+	if err != nil {
+		return VolumeBackupResult{}, err
+	}
+
+	release, err := acquireSlot(parent, s.volumeSlots, "volume_browse_busy",
+		"Too many volume reads are already in flight.")
+	if err != nil {
+		return VolumeBackupResult{}, err
+	}
+	defer release()
+
+	ctx, cancel := context.WithTimeout(parent, volumeBackupTimeout)
+	defer cancel()
+	client, _, err := s.containerArchiveClient(ctx, contextName, "volumes.backup")
+	if err != nil {
+		return VolumeBackupResult{}, err
+	}
+
+	var entries int
+	var written int64
+	if err := s.withVolumeHelper(ctx, client, params.Name, false, func(containerID string) error {
+		values := url.Values{}
+		values.Set("path", volumeHelperMount)
+		body, status, streamErr := client.stream(ctx, http.MethodGet,
+			"/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+
+				"/archive?"+values.Encode())
+		if streamErr != nil {
+			return streamErr
+		}
+		defer body.Close()
+		if status < 200 || status >= 300 {
+			payload, _ := io.ReadAll(io.LimitReader(body, 8*1024))
+			return engineHTTPError("volume_backup_failed",
+				"Docker Engine rejected the volume read.", status, payload)
+		}
+		file, createErr := os.OpenFile(archivePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		if createErr != nil {
+			return opError("volume_backup_failed",
+				"The backup file could not be created.", createErr,
+				map[string]any{"path": archivePath})
+		}
+		// Closed before the helper is removed so a partial file is never left looking whole.
+		defer file.Close()
+		entries, written, err = rewriteVolumeArchive(body, file)
+		return err
+	}); err != nil {
+		// A failed backup must not leave a truncated tar behind that looks like a real one.
+		_ = os.Remove(archivePath)
+		return VolumeBackupResult{}, err
+	}
+	return VolumeBackupResult{
+		Context: contextName, Volume: params.Name, ArchivePath: archivePath,
+		Entries: entries, SizeBytes: written, ObservedAt: nowUTC(),
+	}, nil
+}
+
+// rewriteVolumeArchive copies a tar stream, stripping the helper's mount prefix so the result
+// is rooted at the volume's own contents. Entry by entry, so a volume larger than memory is
+// still handled.
+func rewriteVolumeArchive(source io.Reader, destination io.Writer) (int, int64, error) {
+	prefix := strings.TrimPrefix(volumeHelperMount, "/") + "/"
+	reader := tar.NewReader(source)
+	writer := tar.NewWriter(destination)
+	entries := 0
+	var written int64
+	for {
+		header, readErr := reader.Next()
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		if readErr != nil {
+			return 0, 0, opError("volume_backup_invalid",
+				"Docker Engine returned an unreadable archive stream.", readErr, nil)
+		}
+		name := strings.TrimPrefix(path.Clean(header.Name), "./")
+		name = strings.TrimPrefix(name, prefix)
+		if name == "" || name == strings.TrimSuffix(prefix, "/") {
+			// The mount point itself; its children are what the backup is for.
+			continue
+		}
+		rewritten := *header
+		rewritten.Name = name
+		if err := writer.WriteHeader(&rewritten); err != nil {
+			return 0, 0, opError("volume_backup_failed",
+				"The backup archive could not be written.", err, nil)
+		}
+		if header.Typeflag == tar.TypeReg {
+			copied, copyErr := io.Copy(writer, reader)
+			if copyErr != nil {
+				return 0, 0, opError("volume_backup_failed",
+					"The backup archive could not be written.", copyErr, nil)
+			}
+			written += copied
+		}
+		entries++
+	}
+	if err := writer.Close(); err != nil {
+		return 0, 0, opError("volume_backup_failed",
+			"The backup archive could not be finalized.", err, nil)
+	}
+	return entries, written, nil
+}
+
+// volumeRestore extracts a backup tar back into a volume.
+//
+// The inverse of volumeBackup, and destructive in a way backup is not: it writes into a
+// volume that may already hold data, and Docker will let it happen under a running container.
+// Both hazards are acknowledged separately — one for overwriting existing contents, one for
+// doing it while something is using them.
+func (s *Service) volumeRestore(parent context.Context, params VolumeRestoreParams) (VolumeRestoreResult, error) {
+	contextName := strings.TrimSpace(params.Context)
+	if err := validateRequiredContext(contextName); err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	if err := validateVolumeName(params.Name); err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	archivePath, err := s.validateArchivePath(params.ArchivePath, true, false)
+	if err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	if !params.Confirmed {
+		return VolumeRestoreResult{}, confirmationRequired("volume", params.Name, "restore")
+	}
+
+	release, err := acquireSlot(parent, s.volumeSlots, "volume_browse_busy",
+		"Too many volume reads are already in flight.")
+	if err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	defer release()
+
+	ctx, cancel := context.WithTimeout(parent, volumeBackupTimeout)
+	defer cancel()
+	client, _, err := s.containerArchiveClient(ctx, contextName, "volumes.restore")
+	if err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	inUse, err := s.volumeReferenceCount(ctx, client, params.Name)
+	if err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	if inUse > 0 && !params.ConfirmedInUse {
+		return VolumeRestoreResult{}, opError("volume_in_use",
+			"That volume is attached to a running container; restoring over it can corrupt data it is using.",
+			nil, map[string]any{"volume": params.Name, "containers": inUse})
+	}
+
+	if err := s.withVolumeHelper(ctx, client, params.Name, true, func(containerID string) error {
+		file, openErr := os.Open(archivePath)
+		if openErr != nil {
+			return opError("invalid_archive_path", "The backup file could not be read.",
+				openErr, map[string]any{"path": archivePath})
+		}
+		defer file.Close()
+		values := url.Values{}
+		values.Set("path", volumeHelperMount)
+		status, body, requestErr := client.request(ctx, http.MethodPut,
+			"/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+
+				"/archive?"+values.Encode(), file)
+		if requestErr != nil {
+			return requestErr
+		}
+		if status < 200 || status >= 300 {
+			return engineHTTPError("volume_restore_failed",
+				"Docker Engine rejected the volume restore.", status, body)
+		}
+		return nil
+	}); err != nil {
+		return VolumeRestoreResult{}, err
+	}
+	return VolumeRestoreResult{
+		Context: contextName, Volume: params.Name, ArchivePath: archivePath,
+		ObservedAt: nowUTC(),
+	}, nil
 }

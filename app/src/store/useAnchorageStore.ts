@@ -488,6 +488,17 @@ export function useAnchorageStore() {
     file: File;
     message: string;
   } | null>(null);
+  const [volumeTransfer, setVolumeTransfer] = useState<{
+    kind: "backup" | "restore";
+    volume: string;
+    status: "running" | "done";
+    detail?: string;
+  } | null>(null);
+  const [volumeInUseRestore, setVolumeInUseRestore] = useState<{
+    archivePath: string;
+    volume: string;
+    message: string;
+  } | null>(null);
   const [selectedBuildId, setSelectedBuildId] = useState(
     BUILD_FIXTURES[0]?.id ?? "",
   );
@@ -2867,6 +2878,76 @@ export function useAnchorageStore() {
     [],
   );
 
+  /**
+   * Backs a volume up to a host tar, or restores one from it.
+   *
+   * A volume's whole point is that its data outlives the container, so this is the operation
+   * that makes the rest of the volume surface worth having. Both report through the shared
+   * transfer panel because a large volume takes real time, and a restore carries the same
+   * in-use question as an upload: Docker will let it happen under a running container.
+   */
+  const backupVolume = useCallback(
+    async (name: string, archivePath: string, overwrite = false) => {
+      if (!isHost) return;
+      setVolumeBrowseError(null);
+      setVolumeTransfer({ kind: "backup", volume: name, status: "running" });
+      try {
+        const result = await bridge.volumes.backup(
+          name,
+          archivePath,
+          { overwrite },
+          dockerContextRef.current,
+        );
+        setVolumeTransfer({
+          kind: "backup",
+          volume: name,
+          status: "done",
+          detail: `${result.entries} entries · ${result.archivePath}`,
+        });
+      } catch (reason) {
+        setVolumeTransfer(null);
+        setVolumeBrowseError(
+          reason instanceof Error ? reason.message : "Volume backup failed",
+        );
+      }
+    },
+    [bridge, isHost],
+  );
+
+  const restoreVolume = useCallback(
+    async (name: string, archivePath: string, confirmedInUse = false) => {
+      if (!isHost) return;
+      setVolumeBrowseError(null);
+      setVolumeTransfer({ kind: "restore", volume: name, status: "running" });
+      try {
+        await bridge.volumes.restore(
+          name,
+          archivePath,
+          { confirmedInUse },
+          dockerContextRef.current,
+        );
+        setVolumeTransfer({ kind: "restore", volume: name, status: "done" });
+        if (browsedVolume === name) await browseVolume(name, "/");
+        await refreshVolumes();
+      } catch (reason) {
+        setVolumeTransfer(null);
+        const message =
+          reason instanceof Error ? reason.message : "Volume restore failed";
+        if (/volume_in_use|attached to a running container/iu.test(message)) {
+          setVolumeInUseRestore({ archivePath, volume: name, message });
+          return;
+        }
+        setVolumeBrowseError(message);
+      }
+    },
+    [bridge, browseVolume, browsedVolume, isHost, refreshVolumes],
+  );
+
+  const dismissVolumeTransfer = useCallback(() => {
+    setVolumeTransfer(null);
+    setVolumeInUseRestore(null);
+  }, []);
+
   const closeVolumeBrowser = useCallback(() => {
     setBrowsedVolume(null);
     setVolumeListing(null);
@@ -3497,6 +3578,11 @@ export function useAnchorageStore() {
     volumeBrowseError,
     browseVolume,
     uploadVolumeFile,
+    backupVolume,
+    restoreVolume,
+    volumeTransfer,
+    volumeInUseRestore,
+    dismissVolumeTransfer,
     volumeInUseUpload,
     dismissVolumeInUseUpload,
     previewVolumeFile,

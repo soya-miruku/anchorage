@@ -31,6 +31,8 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.files",
   "volumes.fileRead",
   "volumes.fileWrite",
+  "volumes.backup",
+  "volumes.restore",
   "compose.list",
   "compose.ps",
   "compose.action",
@@ -90,6 +92,8 @@ export const IPC_CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  volumesBackup: "anchorage:volumes.backup",
+  volumesRestore: "anchorage:volumes.restore",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeAction: "anchorage:compose.action",
@@ -851,6 +855,43 @@ function validateVolumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+export function validateVolumeBackup(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "name", "archivePath", "overwrite"]), "request");
+  const normalized = {
+    context: validateContext(value.context),
+    name: validateVolumeName(value.name),
+    archivePath: validateArchivePath(value.archivePath),
+  };
+  assignDefined(normalized, "overwrite", optionalBoolean(value.overwrite, "request.overwrite"));
+  return normalized;
+}
+
+export function validateVolumeRestore(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "name", "archivePath", "confirmed", "confirmedInUse"]),
+    "request",
+  );
+  const normalized = {
+    context: validateContext(value.context),
+    name: validateVolumeName(value.name),
+    archivePath: validateArchivePath(value.archivePath),
+  };
+  // Restoring writes over whatever the volume already holds.
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true for a volume restore");
+  }
+  normalized.confirmed = true;
+  assignDefined(
+    normalized,
+    "confirmedInUse",
+    optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
+  );
+  return normalized;
+}
 
 export function validateVolumeFileWrite(value) {
   assertPlainObject(value, "request");

@@ -26,6 +26,8 @@ import {
   validateVolumeFiles,
   validateVolumeFileRead,
   validateVolumeFileWrite,
+  validateVolumeBackup,
+  validateVolumeRestore,
   validateComposeList,
   validateComposePs,
   validateComposeAction,
@@ -739,6 +741,20 @@ function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.volumesFiles, (request) =>
     core.request("volumes.files", validateVolumeFiles(request), { timeoutMs: 120_000 }),
   );
+  // A backup copies the whole volume to disk; a restore writes over it. Both are bounded by
+  // volume size rather than latency, so they get the core's own long timeout plus headroom.
+  registerHandler(IPC_CHANNELS.volumesBackup, (request) => {
+    assertMutationsEnabled();
+    return core.request("volumes.backup", validateVolumeBackup(request), {
+      timeoutMs: 1_860_000,
+    });
+  });
+  registerHandler(IPC_CHANNELS.volumesRestore, (request) => {
+    assertMutationsEnabled();
+    return core.request("volumes.restore", validateVolumeRestore(request), {
+      timeoutMs: 1_860_000,
+    });
+  });
   // Writing mounts the helper rw, so it is a mutation even though the volume's own
   // containers are untouched.
   registerHandler(IPC_CHANNELS.volumesFileWrite, (request) => {

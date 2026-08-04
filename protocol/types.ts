@@ -793,6 +793,8 @@ export type RPCRequest =
   | VolumeFileReadRequest
   | ImagesScoutRequest
   | VolumeFileWriteRequest
+  | VolumeBackupRequest
+  | VolumeRestoreRequest
   | ImagesListRequest
   | ImagesActionRequest
   | ImagesInspectRequest
@@ -1715,5 +1717,52 @@ export interface VolumeFileWriteResult {
   volume: string;
   path: string;
   sizeBytes: number;
+  observedAt: string;
+}
+
+/**
+ * A volume outlives its containers, so there has to be a way to get its data out and back.
+ * Docker offers no endpoint for it: the contents are streamed through the same never-started
+ * helper the browser uses, and the helper's mount point is stripped so the archive is an
+ * ordinary tar rooted at the volume's own contents.
+ */
+export interface VolumeBackupRequest {
+  id: RequestId;
+  method: "volumes.backup";
+  params: {
+    context: string;
+    name: string;
+    archivePath: string;
+    overwrite?: boolean;
+  };
+}
+
+export interface VolumeBackupResult {
+  context: string;
+  volume: string;
+  archivePath: string;
+  entries: number;
+  sizeBytes: number;
+  observedAt: string;
+}
+
+export interface VolumeRestoreRequest {
+  id: RequestId;
+  method: "volumes.restore";
+  params: {
+    context: string;
+    name: string;
+    archivePath: string;
+    /** Restoring writes over whatever the volume already holds. */
+    confirmed: true;
+    /** Separately acknowledges doing so while a container is using it. */
+    confirmedInUse?: boolean;
+  };
+}
+
+export interface VolumeRestoreResult {
+  context: string;
+  volume: string;
+  archivePath: string;
   observedAt: string;
 }

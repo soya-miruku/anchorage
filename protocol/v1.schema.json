@@ -48,6 +48,8 @@
         { "$ref": "#/$defs/volumeFilesRequest" },
         { "$ref": "#/$defs/volumeFileReadRequest" },
         { "$ref": "#/$defs/volumeFileWriteRequest" },
+        { "$ref": "#/$defs/volumeBackupRequest" },
+        { "$ref": "#/$defs/volumeRestoreRequest" },
         { "$ref": "#/$defs/imagesScoutRequest" },
         { "$ref": "#/$defs/imagesListRequest" },
         { "$ref": "#/$defs/imagesActionRequest" },
@@ -197,6 +199,47 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "volumeBackupRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.backup" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name", "archivePath"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "archivePath": { "$ref": "#/$defs/archivePath" },
+            "overwrite": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "volumeRestoreRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "volumes.restore" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name", "archivePath", "confirmed"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "archivePath": { "$ref": "#/$defs/archivePath" },
+            "confirmed": { "const": true },
+            "confirmedInUse": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "volumeFileWriteRequest": {
       "type": "object",

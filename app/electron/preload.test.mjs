@@ -362,6 +362,17 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       reference: "registry.example/team/api:latest",
     },
     "volumes.files": { context: "default", name: "project_data", path: "/" },
+    "volumes.backup": {
+      context: "default",
+      name: "project_data",
+      archivePath: "/home/operator/project_data.tar",
+    },
+    "volumes.restore": {
+      context: "default",
+      name: "project_data",
+      archivePath: "/home/operator/project_data.tar",
+      confirmed: true,
+    },
     "volumes.fileWrite": {
       context: "default",
       name: "project_data",

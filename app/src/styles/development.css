@@ -1845,3 +1845,38 @@ select option {
   gap: 8px;
   margin-top: 10px;
 }
+
+/* A backup can run for minutes on a large volume, so it reports as a persistent toast rather
+   than a spinner that blocks the list behind it. */
+.volume-transfer-toast {
+  position: absolute;
+  z-index: 18;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  padding: 11px 14px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 10px;
+  background: var(--anc-surface-elevated);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+}
+
+.volume-transfer-toast strong {
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+}
+
+.volume-transfer-toast button {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid rgb(var(--anc-overlay-rgb) / 12%);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anc-text-body);
+  font-size: 11px;
+}

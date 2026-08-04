@@ -1281,3 +1281,35 @@ type VolumeFileWriteResult struct {
 	SizeBytes  int64  `json:"sizeBytes"`
 	ObservedAt string `json:"observedAt"`
 }
+
+type VolumeBackupParams struct {
+	Context     string `json:"context"`
+	Name        string `json:"name"`
+	ArchivePath string `json:"archivePath"`
+	Overwrite   bool   `json:"overwrite,omitempty"`
+}
+
+type VolumeBackupResult struct {
+	Context     string `json:"context"`
+	Volume      string `json:"volume"`
+	ArchivePath string `json:"archivePath"`
+	Entries     int    `json:"entries"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	ObservedAt  string `json:"observedAt"`
+}
+
+type VolumeRestoreParams struct {
+	Context     string `json:"context"`
+	Name        string `json:"name"`
+	ArchivePath string `json:"archivePath"`
+	// Restoring writes over whatever the volume already holds.
+	Confirmed      bool `json:"confirmed,omitempty"`
+	ConfirmedInUse bool `json:"confirmedInUse,omitempty"`
+}
+
+type VolumeRestoreResult struct {
+	Context     string `json:"context"`
+	Volume      string `json:"volume"`
+	ArchivePath string `json:"archivePath"`
+	ObservedAt  string `json:"observedAt"`
+}

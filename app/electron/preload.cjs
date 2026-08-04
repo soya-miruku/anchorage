@@ -22,6 +22,8 @@ const CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  volumesBackup: "anchorage:volumes.backup",
+  volumesRestore: "anchorage:volumes.restore",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeAction: "anchorage:compose.action",
@@ -892,6 +894,43 @@ function volumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+function volumeBackup(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "name", "archivePath", "overwrite"]), "request");
+  const normalized = {
+    context: context(value.context),
+    name: volumeName(value.name),
+    archivePath: archivePath(value.archivePath),
+  };
+  copyDefined(normalized, "overwrite", optionalBoolean(value.overwrite, "request.overwrite"));
+  return normalized;
+}
+
+function volumeRestore(value) {
+  plainObject(value, "request");
+  onlyKeys(
+    value,
+    new Set(["context", "name", "archivePath", "confirmed", "confirmedInUse"]),
+    "request",
+  );
+  const normalized = {
+    context: context(value.context),
+    name: volumeName(value.name),
+    archivePath: archivePath(value.archivePath),
+  };
+  // Restoring writes over whatever the volume already holds.
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true for a volume restore");
+  }
+  normalized.confirmed = true;
+  copyDefined(
+    normalized,
+    "confirmedInUse",
+    optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
+  );
+  return normalized;
+}
 
 function volumeFileWrite(value) {
   plainObject(value, "request");
@@ -1846,6 +1885,10 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesFileRead, volumeFileRead(payload));
     case "volumes.fileWrite":
       return call(CHANNELS.volumesFileWrite, volumeFileWrite(payload));
+    case "volumes.backup":
+      return call(CHANNELS.volumesBackup, volumeBackup(payload));
+    case "volumes.restore":
+      return call(CHANNELS.volumesRestore, volumeRestore(payload));
     case "compose.list":
       return call(CHANNELS.composeList, composeList(payload));
     case "compose.ps":
@@ -1935,6 +1978,8 @@ const api = Object.freeze({
     files: (request) => call(CHANNELS.volumesFiles, volumeFiles(request)),
     fileRead: (request) => call(CHANNELS.volumesFileRead, volumeFileRead(request)),
     fileWrite: (request) => call(CHANNELS.volumesFileWrite, volumeFileWrite(request)),
+    backup: (request) => call(CHANNELS.volumesBackup, volumeBackup(request)),
+    restore: (request) => call(CHANNELS.volumesRestore, volumeRestore(request)),
   }),
   networks: Object.freeze({
     list: (request) => call(CHANNELS.networksList, networksList(request)),

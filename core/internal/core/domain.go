@@ -3028,6 +3028,8 @@ const (
 
 	// Browsing creates and removes a helper container, so it is slower than a plain read.
 	volumeBrowseTimeout = 90 * time.Second
+	// A backup copies the whole volume to disk, which is bounded by size rather than latency.
+	volumeBackupTimeout = 30 * time.Minute
 )
 
 // normalizeContainerPath rejects anything that is not a clean absolute path. The value

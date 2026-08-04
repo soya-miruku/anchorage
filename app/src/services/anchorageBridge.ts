@@ -63,6 +63,8 @@ import type {
   VolumeFilesResult,
   VolumeFileReadResult,
   VolumeFileWriteResult,
+  VolumeBackupResult,
+  VolumeRestoreResult,
   WindowAction,
 } from "../types";
 
@@ -801,6 +803,8 @@ class FixtureBridge implements AnchorageBridge {
     files: async () => fixtureUnsupported("volumes.files"),
     fileRead: async () => fixtureUnsupported("volumes.fileRead"),
     fileWrite: async () => fixtureUnsupported("volumes.fileWrite"),
+    backup: async () => fixtureUnsupported("volumes.backup"),
+    restore: async () => fixtureUnsupported("volumes.restore"),
   };
 
   readonly cli = {
@@ -1271,6 +1275,53 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as VolumeFileWriteResult;
   };
+  const volumeBackup = async (
+    name: string,
+    archivePath: string,
+    options: { overwrite?: boolean },
+    context: string,
+  ) => {
+    const payload = {
+      context,
+      name,
+      archivePath,
+      ...(options.overwrite ? { overwrite: true } : {}),
+    };
+    const result = host.volumes?.backup
+      ? await host.volumes.backup(payload)
+      : host.invoke
+        ? await host.invoke("volumes.backup", payload)
+        : await Promise.reject(new Error("Volume backup is unavailable"));
+    const raw = requireObjectResult(result, "volumes.backup");
+    if (typeof raw.archivePath !== "string") {
+      throw new Error("volumes.backup returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as VolumeBackupResult;
+  };
+  const volumeRestore = async (
+    name: string,
+    archivePath: string,
+    options: { confirmedInUse?: boolean },
+    context: string,
+  ) => {
+    const payload = {
+      context,
+      name,
+      archivePath,
+      confirmed: true as const,
+      ...(options.confirmedInUse ? { confirmedInUse: true } : {}),
+    };
+    const result = host.volumes?.restore
+      ? await host.volumes.restore(payload)
+      : host.invoke
+        ? await host.invoke("volumes.restore", payload)
+        : await Promise.reject(new Error("Volume restore is unavailable"));
+    const raw = requireObjectResult(result, "volumes.restore");
+    if (typeof raw.volume !== "string") {
+      throw new Error("volumes.restore returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as VolumeRestoreResult;
+  };
   const composeList = async (context: string, all = true) => {
     const request = { context, all };
     const result = host.compose
@@ -1585,6 +1636,18 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
         },
         context = "default",
       ) => volumeFileWrite(name, request, context),
+      backup: (
+        name: string,
+        archivePath: string,
+        options: { overwrite?: boolean } = {},
+        context = "default",
+      ) => volumeBackup(name, archivePath, options, context),
+      restore: (
+        name: string,
+        archivePath: string,
+        options: { confirmedInUse?: boolean } = {},
+        context = "default",
+      ) => volumeRestore(name, archivePath, options, context),
       action: mutateVolumes,
     },
     cli: {

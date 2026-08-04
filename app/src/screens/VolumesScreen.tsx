@@ -2,6 +2,7 @@ import { XIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
 import { AnchorageIcon } from "../components/AnchorageIcon";
+import { ArchivePathDialog } from "../components/ArchivePathDialog";
 import { VolumeFilesPanel } from "../components/VolumeFilesPanel";
 import { SortableHeader } from "../components/SortableHeader";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -27,6 +28,8 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
   const [createDriver, setCreateDriver] = useState("local");
   const [pruneOpen, setPruneOpen] = useState(false);
   const [pruneIncludeNamed, setPruneIncludeNamed] = useState(false);
+  const [backupTarget, setBackupTarget] = useState<AnchorageVolume | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<AnchorageVolume | null>(null);
 
   const reclaimable = useMemo(
     () =>
@@ -145,6 +148,28 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                 <button
                   className="volume-row__browse"
                   type="button"
+                  aria-label={`Back up volume ${volume.name}`}
+                  title="Write this volume's contents to a tar archive"
+                  onClick={() => setBackupTarget(volume)}
+                >
+                  Back up
+                </button>
+              )}
+              {store.isHost && (
+                <button
+                  className="volume-row__browse"
+                  type="button"
+                  aria-label={`Restore volume ${volume.name}`}
+                  title="Replace this volume's contents from a backup archive"
+                  onClick={() => setRestoreTarget(volume)}
+                >
+                  Restore
+                </button>
+              )}
+              {store.isHost && (
+                <button
+                  className="volume-row__browse"
+                  type="button"
                   aria-label={`Browse volume ${volume.name}`}
                   title="Browse this volume's contents"
                   onClick={() => void store.browseVolume(volume.name)}
@@ -171,6 +196,111 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
           </div>
         ))}
       </div>
+
+      {backupTarget && (
+        <ArchivePathDialog
+          testId="volume-backup-dialog"
+          title={`Back up ${backupTarget.name}`}
+          description="Writes the volume's contents to a tar archive rooted at its own files, so any tool can read it."
+          placeholder="/home/you/backups/project_data.tar"
+          confirmLabel="Back up"
+          allowOverwrite
+          onCancel={() => setBackupTarget(null)}
+          onConfirm={(archivePath, overwrite) => {
+            const target = backupTarget;
+            setBackupTarget(null);
+            void store.backupVolume(target.name, archivePath, overwrite);
+          }}
+        />
+      )}
+
+      {restoreTarget && (
+        <ArchivePathDialog
+          testId="volume-restore-dialog"
+          title={`Restore ${restoreTarget.name}`}
+          description="Extracts a backup archive into the volume. Files already there with the same names are replaced."
+          placeholder="/home/you/backups/project_data.tar"
+          confirmLabel="Restore"
+          onCancel={() => setRestoreTarget(null)}
+          onConfirm={(archivePath) => {
+            const target = restoreTarget;
+            setRestoreTarget(null);
+            void store.restoreVolume(target.name, archivePath);
+          }}
+        />
+      )}
+
+      {store.volumeInUseRestore && (
+        <div className="dialog-backdrop" role="presentation">
+          <div
+            className="create-environment-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="volume-restore-inuse-title"
+            data-testid="volume-restore-in-use"
+          >
+            <div className="create-environment-dialog__heading">
+              <div>
+                <h2 id="volume-restore-inuse-title">
+                  {store.volumeInUseRestore.volume} is in use
+                </h2>
+                <p>
+                  A running container has this volume mounted. Restoring over it
+                  can corrupt data that container is using right now.
+                </p>
+              </div>
+            </div>
+            <div className="create-environment-dialog__actions">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={store.dismissVolumeTransfer}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                data-testid="volume-restore-in-use-confirm"
+                onClick={() => {
+                  const pending = store.volumeInUseRestore;
+                  if (pending) {
+                    void store.restoreVolume(
+                      pending.volume,
+                      pending.archivePath,
+                      true,
+                    );
+                  }
+                }}
+              >
+                Restore anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {store.volumeTransfer && (
+        <div
+          className="volume-transfer-toast"
+          role="status"
+          data-testid="volume-transfer"
+        >
+          <span>
+            {store.volumeTransfer.kind === "backup" ? "Backing up" : "Restoring"}{" "}
+            <strong>{store.volumeTransfer.volume}</strong>
+            {store.volumeTransfer.status === "done" ? " · done" : "…"}
+          </span>
+          {store.volumeTransfer.detail && (
+            <span className="resource-dim">{store.volumeTransfer.detail}</span>
+          )}
+          {store.volumeTransfer.status === "done" && (
+            <button type="button" onClick={store.dismissVolumeTransfer}>
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
 
       {store.browsedVolume && <VolumeFilesPanel store={store} />}
 

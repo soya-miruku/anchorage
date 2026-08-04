@@ -217,6 +217,24 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.volumeFiles(ctx, params)
+	case "volumes.backup":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params VolumeBackupParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.volumeBackup(ctx, params)
+	case "volumes.restore":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params VolumeRestoreParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.volumeRestore(ctx, params)
 	case "volumes.fileWrite":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

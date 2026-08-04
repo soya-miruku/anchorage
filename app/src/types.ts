@@ -872,6 +872,20 @@ export interface VolumesOperations {
     },
     context?: string,
   ): Promise<VolumeFileWriteResult>;
+  /** Streams the whole volume to a host tar rooted at its own contents. */
+  backup(
+    name: string,
+    archivePath: string,
+    options?: { overwrite?: boolean },
+    context?: string,
+  ): Promise<VolumeBackupResult>;
+  /** Extracts a backup tar back into the volume, overwriting what is there. */
+  restore(
+    name: string,
+    archivePath: string,
+    options?: { confirmedInUse?: boolean },
+    context?: string,
+  ): Promise<VolumeRestoreResult>;
 }
 
 export interface CliRunParams {
@@ -1259,6 +1273,19 @@ export interface HostAnchorageApi {
       content: string;
       confirmedInUse?: boolean;
     }) => Promise<unknown>;
+    backup?: (request: {
+      context: string;
+      name: string;
+      archivePath: string;
+      overwrite?: boolean;
+    }) => Promise<unknown>;
+    restore?: (request: {
+      context: string;
+      name: string;
+      archivePath: string;
+      confirmed: true;
+      confirmedInUse?: boolean;
+    }) => Promise<unknown>;
   };
   cli?: {
     run: (request: {
@@ -1469,5 +1496,21 @@ export interface VolumeFileWriteResult {
   volume: string;
   path: string;
   sizeBytes: number;
+  observedAt: string;
+}
+
+export interface VolumeBackupResult {
+  context: string;
+  volume: string;
+  archivePath: string;
+  entries: number;
+  sizeBytes: number;
+  observedAt: string;
+}
+
+export interface VolumeRestoreResult {
+  context: string;
+  volume: string;
+  archivePath: string;
   observedAt: string;
 }

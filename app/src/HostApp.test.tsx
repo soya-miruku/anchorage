@@ -1782,6 +1782,76 @@ describe("host renderer integration", () => {
     );
   });
 
+  it("backs a volume up and gates a restore on both overwrite and live use", async () => {
+    const harness = createHost();
+    const backup = vi.fn(async () => ({
+      context: "default",
+      volume: "cache",
+      archivePath: "/home/operator/cache.tar",
+      entries: 4,
+      sizeBytes: 65_547,
+      observedAt,
+    }));
+    // The first restore is refused because a running container holds the volume.
+    const restore = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "volume_in_use: That volume is attached to a running container; restoring over it can corrupt data it is using.",
+        ),
+      )
+      .mockResolvedValue({
+        context: "default",
+        volume: "cache",
+        archivePath: "/home/operator/cache.tar",
+        observedAt,
+      });
+    if (harness.host.volumes) {
+      harness.host.volumes.backup = backup;
+      harness.host.volumes.restore = restore;
+    }
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-volumes"));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back up volume cache" }));
+    const backupDialog = await screen.findByTestId("volume-backup-dialog");
+    fireEvent.change(
+      within(backupDialog).getByTestId("volume-backup-dialog-path"),
+      { target: { value: "/home/operator/cache.tar" } },
+    );
+    fireEvent.click(within(backupDialog).getByTestId("volume-backup-dialog-confirm"));
+    await waitFor(() =>
+      expect(backup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: "default",
+          name: "cache",
+          archivePath: "/home/operator/cache.tar",
+        }),
+      ),
+    );
+    expect(await screen.findByTestId("volume-transfer")).toHaveTextContent("4 entries");
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore volume cache" }));
+    const restoreDialog = await screen.findByTestId("volume-restore-dialog");
+    fireEvent.change(
+      within(restoreDialog).getByTestId("volume-restore-dialog-path"),
+      { target: { value: "/home/operator/cache.tar" } },
+    );
+    fireEvent.click(within(restoreDialog).getByTestId("volume-restore-dialog-confirm"));
+
+    // Refused for live use: the operator is asked, not shown a failure.
+    const warning = await screen.findByTestId("volume-restore-in-use");
+    expect(restore.mock.calls[0][0].confirmedInUse).toBeUndefined();
+    fireEvent.click(within(warning).getByTestId("volume-restore-in-use-confirm"));
+    await waitFor(() => expect(restore).toHaveBeenCalledTimes(2));
+    // Only the deliberate retry carries the acknowledgement, and confirmed is always set
+    // because a restore overwrites whatever is already there.
+    expect(restore.mock.calls[1][0].confirmedInUse).toBe(true);
+    expect(restore.mock.calls[1][0].confirmed).toBe(true);
+  });
+
   it("uploads into a volume and puts a live container in the operator's hands", async () => {
     const harness = createHost();
     const files = vi.fn(async (request: { name: string; path?: string }) => ({
