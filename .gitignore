@@ -27,3 +27,16 @@ artifacts/design/
 .env
 .env.*
 !.env.example
+
+# Key material must never be committed. No private key lives in this repository — signing
+# reads the operator's own keyring through gpg-agent — and these patterns exist so one
+# cannot land here by accident.
+*.gpg
+*.key
+*.pem
+secring.*
+private-key*.asc
+!anchorage-signing-key.asc
+
+# Signed release output. The AppImage and its signature are published, not versioned.
+app/release/

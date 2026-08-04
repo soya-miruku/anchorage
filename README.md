@@ -174,8 +174,58 @@ incomplete command/design matrices, failed cleanup, or stale source inputs.
 ## Packaging
 
 `npm run package:linux` creates the AppImage and an unpacked Linux directory,
-bundling a freshly built, stripped, hash-verified Go core. The AppImage is an
-unsigned local build; release signing requires a project-owned signing key.
+bundling a freshly built, stripped, hash-verified Go core. A local build is
+unsigned; a published one must be signed.
 
 A `.deb` is intentionally not emitted until the project has a canonical
 homepage for package metadata.
+
+### Signing a release
+
+Signing uses a detached OpenPGP signature over a `SHA256SUMS` file rather than
+the AppImage's embedded signature sections. Verifying an embedded signature
+requires the downloader to have `appimagetool` and to know about `--validate`;
+a detached signature is checked with the `gpg` and `sha256sum` already present
+on any Linux system, which is the difference between a signature that can be
+verified and one that is.
+
+Generate a signing key once. Keep it separate from a personal identity, so it
+can be rotated or revoked without affecting anything else:
+
+```
+gpg --quick-generate-key "Anchorage Release Signing <you@example.com>" ed25519 sign 3y
+gpg --armor --export "Anchorage Release Signing" > anchorage-signing-key.asc
+```
+
+Then, after building:
+
+```
+npm --prefix app run release:sign -- --key "Anchorage Release Signing"
+```
+
+That writes `SHA256SUMS`, signs it, and then **verifies its own output** —
+confirming the signature is good, that it was made by the intended key, and
+that every recorded digest still matches the file beside it. A signature that
+does not verify is worse than none, because it looks like protection and is
+not. The result is recorded in `release-signature.json`.
+
+The private key is never read by this project. `gpg` is invoked so that
+`gpg-agent` prompts for the passphrase directly, and no key material ever
+enters the repository or the evidence bundle.
+
+### Verifying a download
+
+Publish `anchorage-signing-key.asc` alongside the release. A downloader then
+runs:
+
+```
+gpg --import anchorage-signing-key.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
+sha256sum -c SHA256SUMS
+```
+
+The first command establishes which key they are trusting, the second proves
+the checksum file came from that key, and the third proves the artifacts match
+the checksums. Importing a key that arrived with the download only proves
+internal consistency, so confirm the fingerprint through a channel that did
+not come from the same place as the file.

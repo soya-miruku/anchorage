@@ -17,6 +17,8 @@
     "desktop": "electron .",
     "capture:host-candidate": "node ../tools/capture-host-candidate.mjs",
     "package:preflight": "node scripts/package-desktop.mjs --preflight",
+    "release:sign": "node ../tools/sign-release.mjs",
+    "release:verify": "node ../tools/sign-release.mjs --verify-only",
     "package:linux:dir": "node scripts/package-desktop.mjs --dir",
     "package:linux": "node scripts/package-desktop.mjs --linux",
     "preview": "vite preview",
