@@ -21,6 +21,7 @@ import {
   RELEASE_PERFORMANCE_CHECK_IDS,
   RELEASE_PERFORMANCE_PROFILE,
   canonicalPackagedPackageJson,
+  manifestEvidenceWithoutWallClock,
   validateCapabilityEvidence,
   validateDesignLedger,
   validateHostCandidateEvidence,
@@ -54,6 +55,44 @@ test("release-critical build and icon dependencies must remain exactly pinned", 
       new RegExp(`${dependency} must remain exactly pinned`, "u"),
     );
   }
+});
+
+test("the shipped manifest carries evidence digests but no wall clock", () => {
+  // Two builds of one commit produced different AppImages purely because the evidence block
+  // recorded when each ran. The digests are what bind the evidence; the times are what broke
+  // reproducibility.
+  const evidence = {
+    hostCandidate: { path: "artifacts/host-candidate/host-candidate.json", sha256: SHA, bytes: 10, completedAt: ISO },
+    designConformance: {
+      generatedAt: ISO,
+      ledger: { sha256: SHA, bytes: 20 },
+      captureProvenance: { sha256: SHA, bytes: 30, capturedAt: ISO },
+      states: [{ state: "containers", sha256: SHA, observedAt: ISO }],
+    },
+    performance: { results: { sha256: SHA, completedAt: ISO, startedAt: ISO }, checks: 26 },
+  };
+  const stripped = manifestEvidenceWithoutWallClock(evidence);
+
+  assert.deepEqual(stripped, {
+    hostCandidate: { path: "artifacts/host-candidate/host-candidate.json", sha256: SHA, bytes: 10 },
+    designConformance: {
+      ledger: { sha256: SHA, bytes: 20 },
+      captureProvenance: { sha256: SHA, bytes: 30 },
+      states: [{ state: "containers", sha256: SHA }],
+    },
+    performance: { results: { sha256: SHA }, checks: 26 },
+  });
+
+  // A field this does not know about must break the build rather than quietly reintroduce the
+  // nondeterminism, because the symptom is only visible to whoever thinks to hash two builds.
+  assert.throws(
+    () => manifestEvidenceWithoutWallClock({ soak: { finishedAt: ISO } }),
+    /would make the packaged manifest irreproducible/u,
+  );
+  // A digest is not a timestamp, and neither is a version string that happens to have digits.
+  assert.doesNotThrow(() =>
+    manifestEvidenceWithoutWallClock({ core: { sha256: SHA, version: "1.55", note: "2026 builds" } }),
+  );
 });
 
 test("canonical packaged package metadata matches electron-builder's runtime subset", () => {

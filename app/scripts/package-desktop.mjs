@@ -27,6 +27,7 @@ import {
   validateMutationConformance,
   validatePackagedElectronRuntimeClosure,
   validatePerformanceEvidence,
+  manifestEvidenceWithoutWallClock,
   validatePinnedDevDependencies,
   validateReadOnlyAcceptance,
   validateStagedCoreEvidenceHashes,
@@ -1404,7 +1405,9 @@ async function buildAndStage(sourceCounts, packageMetadata) {
       path: "app.asar/dist/client",
       ...renderer,
     },
-    evidence,
+    // Stripped of wall-clock fields so two builds of one commit produce one AppImage. The
+    // evidence documents themselves keep their timestamps; the manifest binds each by digest.
+    evidence: manifestEvidenceWithoutWallClock(evidence),
     tests: sourceCounts,
   };
   await writeFile(CORE_MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`, {

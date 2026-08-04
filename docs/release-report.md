@@ -1,8 +1,23 @@
 # Anchorage 0.1.0 release verification
 
-Status: **passed** on 2026-08-04 for the Linux x86_64 AppImage.
+Status: **superseded — there is no currently certified artifact.**
 
-## Certified artifact
+This is the record of the last build that passed the full pipeline, on 2026-08-04. It is kept
+because it documents a run that genuinely happened, not because it describes the build you can
+download today. Two things make it historical rather than current:
+
+- The AppImage it certifies no longer exists. `app/release/` was emptied by a
+  `package:preflight` run — preflight rebuilds the staging inputs and clears the release
+  directory, so it must be run *before* packaging, never after — and every build attempt since
+  has stopped at the design-parity gate.
+- The build it describes predates both the settings-honesty work and the launch-path work, so
+  its core and renderer digests below identify neither of the current binaries.
+
+Figures in the sections that follow were measured against that build. Where a later change is
+known to have moved one, it is marked inline. The document is rewritten from the pipeline's own
+output the next time a release completes; nothing here should be quoted as a current claim.
+
+## Artifact of the superseded run
 
 | Item | Value |
 | --- | --- |
@@ -23,8 +38,10 @@ only then wrote the passing receipt.
 
 ## Theme and native-window result
 
-- Appearance now offers Default, Docker, and GitHub themes in Dark and Light
-  modes through one 72-token semantic contract.
+- Appearance offered Default, Docker, and GitHub themes in Dark and Light modes
+  through one 72-token semantic contract. The families have since changed: the
+  v2 parity remediation replaced Default with Nous — the handoff's own default
+  theme — and added Monochrome.
 - The versioned selection persists with strict validation and safe fallback.
   The canonical capture route remains immutable Default Dark.
 - Docker uses the current Ocean Blue, Light Blue, and Deep Blue family; GitHub
@@ -65,9 +82,13 @@ only then wrote the passing receipt.
 
 ## Correctness evidence
 
-- Aggregate JavaScript tests: **287/287 passed**:
-  189 renderer, 1 protocol, 3 security-evidence, 11 package-policy,
-  79 Electron, and 4 Sites handoff tests.
+- Aggregate JavaScript tests: the figure previously recorded here — "287/287, of which 189
+  renderer" — was wrong when it was written. The 189 came from reading a truncated vitest run;
+  the renderer suite was 247 at that moment, and the 43-check theme-contrast suite was omitted
+  from the total altogether. The suites in the aggregate are renderer, protocol,
+  security-evidence, package-policy, theme-contrast, Electron and Sites; the count moves with
+  every landed change, so it is recorded from the pipeline's own output at release time rather
+  than restated here.
 - Strict renderer typecheck: passed with zero diagnostics.
 - Go core race tests and Go vet: passed.
 - Read-only host acceptance: **11/11 passed**, with cleanup passed.
@@ -134,7 +155,10 @@ the certified core. All **26/26** SLO checks passed.
 | Cancel-to-exit | 4.362 ms |
 | Core exit | 0 |
 
-The current HostBridge candidate also passed all six UI-performance checks:
+The HostBridge candidate of that run passed all six UI-performance checks. There are now
+eight: `launch-path-contexts` and `warmed-command-inventory` were added with the launch-path
+work, holding `system.contexts` and a warmed `system.capabilities` to 1,500 ms each through the
+real bridge. Measured at that time:
 first contentful paint was 820 ms, navigation DOM content loaded was 172.7 ms,
 the slowest scripted interaction settled in 2,960.15 ms, and the live
 102-container screen remained within the DOM/row bounds.
@@ -159,7 +183,10 @@ Docker Desktop-private surfaces are not falsely presented as Docker Engine
 features. Live build history, Dev Environments, Extensions, Docker resource
 settings, and container Files show explicit unsupported/unavailable states in
 host mode unless an applicable installed CLI command is available through
-Command Center. This checkout had no buildx plugin, so buildx-only data was not
+Command Center. Settings changed after this run: the Docker Engine pane no longer
+prints a fixture `daemon.json` but reports what the connected daemon reports, and
+Resources, Kubernetes, Software updates and Advanced no longer offer controls that
+change local state without reaching the engine. This checkout had no buildx plugin, so buildx-only data was not
 discovered.
 
 This release is an unsigned Linux x86_64 AppImage. It does not include a `.deb`,

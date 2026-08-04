@@ -15,6 +15,61 @@ export const REQUIRED_EXACT_DEV_DEPENDENCIES = Object.freeze({
   "lucide-react": "1.28.0",
 });
 
+/**
+ * Wall-clock fields carried by the evidence block, which the shipped manifest must not have.
+ *
+ * The manifest goes inside the AppImage, so anything in it that changes between two runs of
+ * the same source changes the AppImage's digest. These fields do exactly that: two builds of
+ * one commit produced `d23d88c7…` and `af1cc20c…` purely because the evidence block recorded
+ * when each ran.
+ *
+ * Nothing is lost by removing them. Every entry binds its evidence document by `sha256` and
+ * `bytes`, and that document — which stays in `artifacts/` and is not shipped — keeps its own
+ * timestamps. "When did this evidence run" is still answerable; it is just answered by the
+ * evidence rather than by the artifact that has to be reproducible.
+ */
+export const MANIFEST_WALL_CLOCK_FIELDS = Object.freeze([
+  "capturedAt",
+  "completedAt",
+  "generatedAt",
+  "observedAt",
+  "recordedAt",
+  "reviewedAt",
+  "startedAt",
+]);
+
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u;
+
+/**
+ * Returns the evidence block with its wall-clock fields removed, and fails if a timestamp
+ * survives under a name this does not know.
+ *
+ * Failing closed is the point: a later evidence source that adds `finishedAt` would otherwise
+ * silently reintroduce the nondeterminism, and the symptom — two builds of one commit
+ * disagreeing — is only visible to whoever thinks to check.
+ */
+export function manifestEvidenceWithoutWallClock(evidence, path = "evidence") {
+  if (Array.isArray(evidence)) {
+    return evidence.map((entry, index) =>
+      manifestEvidenceWithoutWallClock(entry, `${path}[${index}]`),
+    );
+  }
+  if (evidence === null || typeof evidence !== "object") {
+    requireCondition(
+      typeof evidence !== "string" || !ISO_TIMESTAMP.test(evidence),
+      `${path} carries a timestamp that would make the packaged manifest ` +
+        `irreproducible; add its field name to MANIFEST_WALL_CLOCK_FIELDS`,
+    );
+    return evidence;
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(evidence)) {
+    if (MANIFEST_WALL_CLOCK_FIELDS.includes(key)) continue;
+    result[key] = manifestEvidenceWithoutWallClock(value, `${path}.${key}`);
+  }
+  return result;
+}
+
 export function validatePinnedDevDependencies(packageMetadata) {
   const devDependencies = packageMetadata?.devDependencies;
   for (const [name, version] of Object.entries(
