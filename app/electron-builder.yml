@@ -55,10 +55,20 @@ linux:
       Keywords: Docker;Container;Image;Volume;Build;Compose;
       StartupWMClass: anchorage
       X-GNOME-UsesNotifications: "false"
-      # electron-builder's AppImage template defaults this to `AppRun --no-sandbox %U`, which
-      # disables the Chromium OS sandbox (seccomp-bpf + namespaces) for every desktop-integrated
-      # launch. That is a different control from webPreferences.sandbox and must stay enabled.
-      # main.mjs asserts at startup that the flag is absent.
-      Exec: AppRun %U
+
+appImage:
+  # Keeps the Chromium OS sandbox on for desktop-integrated launches.
+  #
+  # AppImageTarget computes the desktop Exec as `AppRun <executableArgs> %U`, and when no
+  # appimage toolset is configured its default executableArgs is ["--no-sandbox"] — which
+  # disables the seccomp-bpf/namespace sandbox. That is a different control from
+  # webPreferences.sandbox and must stay enabled; main.mjs asserts at startup that the flag
+  # is absent, so a regression here fails the app rather than silently weakening it.
+  #
+  # An empty list is not the same as omitting this key: the default is applied with `??`,
+  # which falls back only on null/undefined, so [] is what actually suppresses the flag.
+  # This replaced a `linux.desktop.entry.Exec` override, which current electron-builder
+  # rejects outright in favour of executableArgs.
+  executableArgs: []
 
 artifactName: Anchorage-${version}-${arch}.${ext}

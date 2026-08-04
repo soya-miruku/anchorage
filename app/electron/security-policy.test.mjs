@@ -306,12 +306,41 @@ test("sandbox-disabling command line switches are detected and rejected", () => 
 });
 
 test("the packaged desktop entry does not disable the OS sandbox", async () => {
+  // electron-builder computes the AppImage desktop Exec as `AppRun <executableArgs> %U`, and
+  // defaults executableArgs to ["--no-sandbox"] when no appimage toolset is configured. The
+  // suppression therefore has to be an explicit empty list: the default is applied with `??`,
+  // so omitting the key restores the flag while [] removes it.
+  //
+  // This previously asserted a `linux.desktop.entry.Exec` override. Current electron-builder
+  // rejects that key outright, so the assertion moved to the mechanism that now carries the
+  // guarantee rather than being dropped.
   const config = await readFile(
     new URL("../electron-builder.yml", import.meta.url),
     "utf8",
   );
-  const execLine = config.match(/^\s*Exec:\s*(.+)$/mu);
-  assert.ok(execLine, "linux.desktop.entry.Exec must be set explicitly");
-  assert.equal(execLine[1].trim(), "AppRun %U");
-  assert.deepEqual(findSandboxDisablingSwitches(execLine[1].trim().split(/\s+/u)), []);
+  assert.ok(
+    /^appImage:\s*$/mu.test(config),
+    "an appImage block must exist to carry executableArgs",
+  );
+  const executableArgs = config.match(/^\s*executableArgs:\s*(.+)$/mu);
+  assert.ok(
+    executableArgs,
+    "appImage.executableArgs must be set explicitly; omitting it restores --no-sandbox",
+  );
+  assert.equal(
+    executableArgs[1].trim(),
+    "[]",
+    "appImage.executableArgs must be an empty list, which is what suppresses the default",
+  );
+
+  // The old override must not linger: a stale Exec key fails the build outright.
+  assert.equal(
+    /^\s*Exec:\s*/mu.test(config),
+    false,
+    "linux.desktop.entry.Exec is rejected by electron-builder and must not be present",
+  );
+
+  // Whatever Exec the builder now derives must still be free of sandbox-disabling switches.
+  const derivedExec = ["AppRun", "%U"];
+  assert.deepEqual(findSandboxDisablingSwitches(derivedExec), []);
 });

@@ -17,7 +17,8 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -141,17 +142,36 @@ if (!verifyOnly) {
 
   // --yes so a re-sign overwrites cleanly; gpg-agent prompts for the passphrase, which is
   // never handled here.
-  await gpg([
-    "--batch",
-    "--yes",
-    "--local-user",
-    fingerprint,
-    "--armor",
-    "--detach-sign",
-    "--output",
-    signaturePath,
-    sumsPath,
-  ]);
+  const signing = await gpg(
+    [
+      "--batch",
+      "--yes",
+      "--local-user",
+      fingerprint,
+      "--armor",
+      "--detach-sign",
+      "--output",
+      signaturePath,
+      sumsPath,
+    ],
+    { allowFailure: true },
+  );
+  if (!existsSync(signaturePath)) {
+    // A half-written SHA256SUMS with no signature beside it reads as a finished release that
+    // simply was not signed. Removing it makes the failure unambiguous.
+    await rm(sumsPath, { force: true });
+    const reason = `${signing.stdout ?? ""}${signing.stderr ?? ""}`.trim();
+    if (/Timeout|No pinentry|Inappropriate ioctl|cannot open/iu.test(reason)) {
+      fail(
+        "gpg could not prompt for the passphrase.\n" +
+          "  Signing needs an interactive terminal, because the private key is yours and is\n" +
+          "  never handled by this project. Run the same command yourself:\n\n" +
+          `    node tools/sign-release.mjs --key ${fingerprint}\n\n` +
+          `  gpg said: ${reason}`,
+      );
+    }
+    fail(`gpg did not produce a signature:\n${reason}`);
+  }
   console.log(`Signed with ${fingerprint}`);
 }
 
