@@ -51,6 +51,9 @@ import type {
   LogLine,
   SessionEvent,
   SessionStartResult,
+  BuildRecord,
+  BuildBuilder,
+  BuildsInspectResult,
   ComposeProject,
   ComposeService,
   ComposeActionInput,
@@ -453,6 +456,14 @@ export function useAnchorageStore() {
   // Distinct from `composeProjects` below, which is only the set of project *names* found
   // on container labels and drives the Containers filter. This is the plugin's own project
   // list, which also covers projects whose containers are all stopped.
+  const [buildRecords, setBuildRecords] = useState<BuildRecord[]>([]);
+  const [buildBuilders, setBuildBuilders] = useState<BuildBuilder[]>([]);
+  const [buildsStatus, setBuildsStatus] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
+  const [buildsError, setBuildsError] = useState<string | null>(null);
+  const [buildDetail, setBuildDetail] = useState<BuildsInspectResult | null>(null);
+  const [selectedBuildRef, setSelectedBuildRef] = useState<string | null>(null);
   const [composeProjectList, setComposeProjectList] = useState<ComposeProject[]>([]);
   const [composeStatus, setComposeStatus] = useState<
     "idle" | "loading" | "ready" | "unavailable" | "error"
@@ -2708,6 +2719,55 @@ export function useAnchorageStore() {
    * cannot run without. A missing plugin is a reportable state rather than an error, because
    * Compose is optional and the operator's fix is to install it.
    */
+  /**
+   * Loads buildx's build history and builder inventory.
+   *
+   * Buildx is optional, so an absent plugin is a described state rather than an error. A
+   * builder the plugin cannot reach is reported with its own message instead of dropped:
+   * "no builders" and "three builders, two unreachable" are very different situations.
+   */
+  const refreshBuilds = useCallback(async () => {
+    if (!isHost) return;
+    setBuildsStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.builds.list(dockerContextRef.current);
+      setBuildRecords(result.records);
+      setBuildBuilders(result.builders);
+      setBuildsStatus("ready");
+      setBuildsError(result.limitations[0] ?? null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "Build history unavailable";
+      setBuildRecords([]);
+      setBuildBuilders([]);
+      setBuildsStatus(
+        /buildx_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
+      );
+      setBuildsError(message);
+    }
+  }, [bridge, isHost]);
+
+  /** Loads one record's detail. The list gives builder/node/id; the core reduces it. */
+  const selectBuildRecord = useCallback(
+    async (record: BuildRecord) => {
+      setSelectedBuildRef(record.ref);
+      setBuildDetail(null);
+      if (!isHost) return;
+      try {
+        const detail = await bridge.builds.inspect(
+          record.ref,
+          dockerContextRef.current,
+        );
+        setBuildDetail(detail);
+      } catch (reason) {
+        setBuildsError(
+          reason instanceof Error ? reason.message : "Build detail unavailable",
+        );
+      }
+    },
+    [bridge, isHost],
+  );
+
   const refreshCompose = useCallback(async () => {
     if (!isHost) return;
     setComposeStatus((current) => (current === "ready" ? "ready" : "loading"));
@@ -3588,6 +3648,14 @@ export function useAnchorageStore() {
     previewVolumeFile,
     closeVolumeBrowser,
     closeVolumePreview,
+    buildRecords,
+    buildBuilders,
+    buildsStatus,
+    buildsError,
+    buildDetail,
+    selectedBuildRef,
+    refreshBuilds,
+    selectBuildRecord,
     composeProjectList,
     composeStatus,
     composeError,

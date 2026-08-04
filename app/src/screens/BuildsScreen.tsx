@@ -1,18 +1,209 @@
+import { useEffect } from "react";
+
 import { BUILD_STEP_FIXTURES } from "../data/fixtures";
-import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import type { AnchorageStore } from "../store/useAnchorageStore";
+
+const formatDuration = (milliseconds?: number) => {
+  if (!milliseconds || milliseconds <= 0) return "—";
+  const seconds = Math.round(milliseconds / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
+};
+
+const cacheRatio = (cached: number, total: number) =>
+  total > 0 ? `${Math.round((cached / total) * 100)}%` : "—";
+
+/**
+ * Live build history, backed by buildx.
+ *
+ * Buildx records what it built but not how: `history ls` and `history inspect` give the
+ * record, its source and its step counts, with no per-step breakdown. The fixture screen
+ * shows a step list; reproducing that here against a real engine would mean inventing it, so
+ * this states plainly that the plugin does not report it.
+ */
+function HostBuilds({ store }: { store: AnchorageStore }) {
+  useEffect(() => {
+    void store.refreshBuilds();
+  }, [store.refreshBuilds]);
+
+  const records = store.buildRecords;
+  const detail = store.buildDetail;
+  const selectedRef = store.selectedBuildRef;
+
+  if (store.buildsStatus === "unavailable") {
+    return (
+      <section className="resource-screen screen" data-testid="builds-screen">
+        <header className="resource-header">
+          <div>
+            <h1>Builds</h1>
+            <p>Image builds recorded by BuildKit.</p>
+          </div>
+        </header>
+        <div className="empty-state" data-testid="builds-unavailable">
+          <strong>The Docker Buildx plugin is not installed</strong>
+          <p>
+            Build history comes from BuildKit through <code>docker buildx</code>.
+            Without the plugin the legacy builder is used, which keeps no history.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="builds-screen screen" data-testid="builds-screen">
+      <aside className="builds-master">
+        <div className="builds-master__heading">
+          <h1>Builds</h1>
+          <p>
+            {store.buildsStatus === "loading"
+              ? "Reading build history…"
+              : `${records.length} record${records.length === 1 ? "" : "s"}`}
+          </p>
+        </div>
+
+        {store.buildBuilders.length > 0 && (
+          <div className="builders-strip" data-testid="builders-strip">
+            {store.buildBuilders.map((builder) => (
+              <span
+                key={builder.name}
+                className={`builder-chip${
+                  builder.error ? " builder-chip--error" : ""
+                }${builder.current ? " builder-chip--current" : ""}`}
+                // A builder buildx cannot reach is reported with its own reason rather
+                // than hidden, because "no builders" and "unreachable builders" are
+                // different problems with different fixes.
+                title={builder.error || `${builder.driver} · ready`}
+              >
+                {builder.name}
+                {builder.current && <b>·</b>}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="build-list" aria-label="Build history">
+          {records.length === 0 && store.buildsStatus === "ready" && (
+            <div className="empty-state">
+              <strong>No builds recorded</strong>
+              <p>BuildKit records a build the first time you run one.</p>
+            </div>
+          )}
+          {records.map((record) => (
+            <button
+              key={record.ref}
+              type="button"
+              className={`build-list-item${
+                record.ref === selectedRef ? " build-list-item--active" : ""
+              }`}
+              data-testid={`build-${record.id}`}
+              onClick={() => void store.selectBuildRecord(record)}
+            >
+              <span
+                className={`build-status-dot build-status-dot--${
+                  record.status === "success" ? "success" : "failed"
+                }`}
+                aria-hidden="true"
+              />
+              <span className="build-list-item__name">{record.name}</span>
+              <span className="build-list-item__duration">
+                {formatDuration(record.durationMs)}
+              </span>
+              <span className="build-list-item__meta">
+                {record.createdAt.slice(0, 10)} · cache{" "}
+                {cacheRatio(record.cachedSteps, record.totalSteps)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <div className="build-detail">
+        {!selectedRef ? (
+          <div className="empty-state">
+            <strong>Select a build</strong>
+            <p>Its source, timing and base images appear here.</p>
+          </div>
+        ) : !detail ? (
+          <p className="resource-dim" role="status">
+            Reading build record…
+          </p>
+        ) : (
+          <>
+            <header className="build-detail__header">
+              <div className="build-detail__title">
+                <h2>{detail.name}</h2>
+                <span
+                  className={`build-status-pill build-status-pill--${
+                    detail.status === "success" ? "success" : "failed"
+                  }`}
+                >
+                  {detail.status}
+                </span>
+              </div>
+              <p>
+                {formatDuration(detail.durationMs)} · {detail.completedSteps}/
+                {detail.totalSteps} steps · cache{" "}
+                {cacheRatio(detail.cachedSteps, detail.totalSteps)}
+              </p>
+            </header>
+
+            <div className="build-stat-grid">
+              <article>
+                <span>Build context</span>
+                <strong>{detail.buildContext || "—"}</strong>
+              </article>
+              <article>
+                <span>Dockerfile</span>
+                <strong>{detail.dockerfile || "—"}</strong>
+              </article>
+              <article className="build-stat--output">
+                <span>Cached steps</span>
+                <strong>{detail.cachedSteps}</strong>
+              </article>
+            </div>
+
+            {detail.vcsRepository && (
+              <div className="build-vcs" data-testid="build-vcs">
+                <span className="resource-dim">Source</span>
+                <strong className="resource-mono">{detail.vcsRepository}</strong>
+                {detail.vcsRevision && (
+                  <code>{detail.vcsRevision.slice(0, 12)}</code>
+                )}
+              </div>
+            )}
+
+            <h3>Base images</h3>
+            {detail.materials.length === 0 ? (
+              <p className="resource-dim">
+                BuildKit recorded no base images for this build.
+              </p>
+            ) : (
+              <ul className="build-materials" data-testid="build-materials">
+                {detail.materials.map((material) => (
+                  <li key={material} className="resource-mono">
+                    {material}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {/* The fixture screen lists individual steps. buildx history does not report
+                them, and inventing them against a live engine would be worse than saying so. */}
+            <p className="resource-dim build-steps-note">
+              Buildx records step counts but not the individual steps, so there is no
+              per-step breakdown to show.
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 
 export function BuildsScreen({ store }: { store: AnchorageStore }) {
   if (store.isHost) {
-    return (
-      <UnsupportedSurface
-        testId="builds-screen"
-        title="Builds"
-        description="The current renderer protocol does not expose live build history. Build commands remain available through Docker Command Center."
-        commandQuery="build"
-        onOpenCommand={store.openCommandCenter}
-      />
-    );
+    return <HostBuilds store={store} />;
   }
   const selected = store.selectedBuild;
   if (!selected) return null;

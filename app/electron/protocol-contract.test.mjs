@@ -25,6 +25,8 @@ import {
   validateVolumeFiles,
   validateVolumeFileRead,
   validateVolumeFileWrite,
+  validateBuildsList,
+  validateBuildsInspect,
   validateVolumeBackup,
   validateVolumeRestore,
   validateComposeList,
@@ -444,6 +446,14 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
     request(
       "volumes.files",
       validateVolumeFiles({ context: "default", name: "project_data", path: "/config" }),
+    ),
+    request("builds.list", validateBuildsList({ context: "default" })),
+    request(
+      "builds.inspect",
+      validateBuildsInspect({
+        context: "default",
+        ref: "desktop-linux/node_1/00b5zi7celyy89egnd8922ps1",
+      }),
     ),
     request(
       "volumes.backup",
@@ -1438,5 +1448,27 @@ test("protocol v1 gates a volume restore and keeps backup paths argv-safe", () =
       `unsafe backup unexpectedly matched: ${JSON.stringify(params)}`,
     );
     assert.throws(() => validateVolumeBackup(params), TypeError);
+  }
+});
+
+test("protocol v1 keeps a build reference from becoming a flag", () => {
+  // Separators appear inside builder names, so they are allowed within a segment — but a
+  // leading one is exactly what turns the value into a Docker option.
+  for (const params of [
+    { context: "default", ref: "--format" },
+    { context: "default", ref: "-o" },
+    { context: "default", ref: "../../etc" },
+    { context: "default", ref: "" },
+    { context: "default", ref: "has space" },
+    { context: "default", ref: "a//b" },
+    { context: "default", ref: "/leading" },
+    { context: "default" },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("builds.inspect", params)),
+      false,
+      `unsafe build reference unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateBuildsInspect(params), TypeError);
   }
 });

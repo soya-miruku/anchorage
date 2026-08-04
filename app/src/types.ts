@@ -1129,6 +1129,7 @@ export interface AnchorageBridge {
   };
   readonly images: ImagesOperations;
   readonly compose: ComposeOperations;
+  readonly builds: BuildsOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
   readonly cli: {
@@ -1228,6 +1229,10 @@ export interface HostAnchorageApi {
       volumes?: boolean;
       confirmed: true;
     }) => Promise<unknown>;
+  };
+  builds?: {
+    list: (request: { context: string }) => Promise<unknown>;
+    inspect: (request: { context: string; ref: string }) => Promise<unknown>;
   };
   compose?: {
     list: (request: { context: string; all?: boolean }) => Promise<unknown>;
@@ -1513,4 +1518,71 @@ export interface VolumeRestoreResult {
   volume: string;
   archivePath: string;
   observedAt: string;
+}
+
+/**
+ * Buildx is an optional CLI plugin with no Engine API. `history ls` reports a reference as
+ * `builder/node/id` while `history inspect` accepts only the bare id, so a record carries
+ * both and the core resolves between them.
+ */
+export interface BuildBuilderNode {
+  name: string;
+  status: string;
+  version?: string;
+  platforms: string[];
+}
+
+export interface BuildBuilder {
+  name: string;
+  driver: string;
+  current: boolean;
+  /** Buildx's own note about a builder it could not reach. */
+  error?: string;
+  nodes: BuildBuilderNode[];
+}
+
+export interface BuildRecord {
+  id: string;
+  ref: string;
+  name: string;
+  status: "success" | "failed" | "cancelled" | "running" | "unknown";
+  createdAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  totalSteps: number;
+  completedSteps: number;
+  cachedSteps: number;
+}
+
+export interface BuildsListResult {
+  context: string;
+  source: "cli-json";
+  builders: BuildBuilder[];
+  records: BuildRecord[];
+  observedAt: string;
+  limitations: string[];
+}
+
+export interface BuildsInspectResult {
+  context: string;
+  id: string;
+  name: string;
+  buildContext?: string;
+  dockerfile?: string;
+  vcsRepository?: string;
+  vcsRevision?: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  status: BuildRecord["status"];
+  totalSteps: number;
+  cachedSteps: number;
+  completedSteps: number;
+  materials: string[];
+  observedAt: string;
+}
+
+export interface BuildsOperations {
+  list(context?: string): Promise<BuildsListResult>;
+  inspect(ref: string, context?: string): Promise<BuildsInspectResult>;
 }

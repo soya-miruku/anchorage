@@ -50,6 +50,8 @@
         { "$ref": "#/$defs/volumeFileWriteRequest" },
         { "$ref": "#/$defs/volumeBackupRequest" },
         { "$ref": "#/$defs/volumeRestoreRequest" },
+        { "$ref": "#/$defs/buildsListRequest" },
+        { "$ref": "#/$defs/buildsInspectRequest" },
         { "$ref": "#/$defs/imagesScoutRequest" },
         { "$ref": "#/$defs/imagesListRequest" },
         { "$ref": "#/$defs/imagesActionRequest" },
@@ -199,6 +201,47 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "buildsListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "builds.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "buildsInspectRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "builds.inspect" },
+        "params": {
+          "type": "object",
+          "required": ["context", "ref"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "ref": {
+              "description": "builder/node/id or a bare record id. Separators may appear inside a segment but never first, since a leading '-' would read as a flag.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "volumeBackupRequest": {
       "type": "object",

@@ -31,6 +31,8 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.files",
   "volumes.fileRead",
   "volumes.fileWrite",
+  "builds.list",
+  "builds.inspect",
   "volumes.backup",
   "volumes.restore",
   "compose.list",
@@ -92,6 +94,8 @@ export const IPC_CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  buildsList: "anchorage:builds.list",
+  buildsInspect: "anchorage:builds.inspect",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
   composeList: "anchorage:compose.list",
@@ -855,6 +859,26 @@ function validateVolumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+const BUILD_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/u;
+
+export function validateBuildsList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
+
+export function validateBuildsInspect(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "ref"]), "request");
+  const ref = boundedString(value.ref, "request.ref", 256);
+  // Separators are allowed inside a segment because builder names use them, but never
+  // first: a leading '-' is what turns the value into a flag.
+  if (!BUILD_REF.test(ref)) {
+    fail("request.ref must be a build record reference");
+  }
+  return { context: validateContext(value.context), ref };
+}
 
 export function validateVolumeBackup(value) {
   assertPlainObject(value, "request");

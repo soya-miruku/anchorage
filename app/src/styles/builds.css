@@ -224,3 +224,89 @@
 .build-step > .build-step__cached {
   color: var(--anc-accent);
 }
+
+/* Live build history additions. The builders strip exists so an unreachable builder is
+   visible at a glance: "no builds" and "three builders, two unreachable" need different
+   actions and must not look the same. */
+.builders-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 18px 12px;
+}
+
+.builder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  color: var(--anc-text-secondary);
+  font-size: 10.5px;
+}
+
+.builder-chip--current {
+  background: rgb(var(--anc-accent-rgb) / 14%);
+  color: var(--anc-accent);
+}
+
+.builder-chip--error {
+  background: rgb(var(--anc-danger-rgb) / 14%);
+  color: var(--anc-danger);
+}
+
+.builder-chip b {
+  font-weight: 700;
+}
+
+.builds-master__heading {
+  padding: 18px 18px 12px;
+}
+
+.builds-master__heading h1 {
+  color: var(--anc-text-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.builds-master__heading p {
+  margin-top: 3px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+}
+
+.build-vcs {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 18px;
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.build-vcs code {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+}
+
+.build-materials {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.build-materials li {
+  padding: 6px 0;
+  border-top: 1px solid var(--anc-line-hairline);
+  color: var(--anc-text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.build-steps-note {
+  font-size: 11.5px;
+}

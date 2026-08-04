@@ -24,6 +24,8 @@ import type {
   ComposeActionParams,
   ComposeActionResult,
   ComposeListResult,
+  BuildsListResult,
+  BuildsInspectResult,
   ComposePsResult,
   ContainerRemoveOptions,
   ContainerStatsResult,
@@ -786,6 +788,11 @@ class FixtureBridge implements AnchorageBridge {
     scout: async () => fixtureUnsupported("images.scout"),
   };
 
+  readonly builds = {
+    list: async () => fixtureUnsupported("builds.list"),
+    inspect: async () => fixtureUnsupported("builds.inspect"),
+  };
+
   readonly compose = {
     list: async () => fixtureUnsupported("compose.list"),
     ps: async () => fixtureUnsupported("compose.ps"),
@@ -1322,6 +1329,32 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as VolumeRestoreResult;
   };
+  const buildsList = async (context: string) => {
+    const request = { context };
+    const result = host.builds
+      ? await host.builds.list(request)
+      : host.invoke
+        ? await host.invoke("builds.list", request)
+        : await Promise.reject(new Error("Build history is unavailable"));
+    const raw = requireObjectResult(result, "builds.list");
+    if (!Array.isArray(raw.records) || !Array.isArray(raw.builders)) {
+      throw new Error("builds.list returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as BuildsListResult;
+  };
+  const buildsInspect = async (ref: string, context: string) => {
+    const request = { context, ref };
+    const result = host.builds
+      ? await host.builds.inspect(request)
+      : host.invoke
+        ? await host.invoke("builds.inspect", request)
+        : await Promise.reject(new Error("Build detail is unavailable"));
+    const raw = requireObjectResult(result, "builds.inspect");
+    if (typeof raw.id !== "string" || !Array.isArray(raw.materials)) {
+      throw new Error("builds.inspect returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as BuildsInspectResult;
+  };
   const composeList = async (context: string, all = true) => {
     const request = { context, all };
     const result = host.compose
@@ -1588,6 +1621,10 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       capabilities: systemCapabilities,
       snapshot: systemSnapshot,
       prune: systemPrune,
+    },
+    builds: {
+      list: (context = "default") => buildsList(context),
+      inspect: (ref: string, context = "default") => buildsInspect(ref, context),
     },
     compose: {
       list: (context = "default", all = true) => composeList(context, all),

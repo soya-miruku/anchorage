@@ -795,6 +795,8 @@ export type RPCRequest =
   | VolumeFileWriteRequest
   | VolumeBackupRequest
   | VolumeRestoreRequest
+  | BuildsListRequest
+  | BuildsInspectRequest
   | ImagesListRequest
   | ImagesActionRequest
   | ImagesInspectRequest
@@ -1764,5 +1766,79 @@ export interface VolumeRestoreResult {
   context: string;
   volume: string;
   archivePath: string;
+  observedAt: string;
+}
+
+/**
+ * Buildx is an optional CLI plugin with no Engine API. Note that `history ls` reports a
+ * reference as `builder/node/id` while `history inspect` accepts only the bare id, so the
+ * core carries both and resolves between them.
+ */
+export interface BuildsListRequest {
+  id: RequestId;
+  method: "builds.list";
+  params: { context: string };
+}
+
+export interface BuildsInspectRequest {
+  id: RequestId;
+  method: "builds.inspect";
+  params: { context: string; ref: string };
+}
+
+export interface BuildBuilderNode {
+  name: string;
+  status: string;
+  version?: string;
+  platforms: string[];
+}
+
+export interface BuildBuilder {
+  name: string;
+  driver: string;
+  current: boolean;
+  /** Buildx's own note about a builder it could not reach. */
+  error?: string;
+  nodes: BuildBuilderNode[];
+}
+
+export interface BuildRecord {
+  id: string;
+  ref: string;
+  name: string;
+  status: "success" | "failed" | "cancelled" | "running" | "unknown";
+  createdAt: string;
+  completedAt?: string;
+  durationMs?: number;
+  totalSteps: number;
+  completedSteps: number;
+  cachedSteps: number;
+}
+
+export interface BuildsListResult {
+  context: string;
+  source: "cli-json";
+  builders: BuildBuilder[];
+  records: BuildRecord[];
+  observedAt: string;
+  limitations: string[];
+}
+
+export interface BuildsInspectResult {
+  context: string;
+  id: string;
+  name: string;
+  buildContext?: string;
+  dockerfile?: string;
+  vcsRepository?: string;
+  vcsRevision?: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  status: BuildRecord["status"];
+  totalSteps: number;
+  cachedSteps: number;
+  completedSteps: number;
+  materials: string[];
   observedAt: string;
 }

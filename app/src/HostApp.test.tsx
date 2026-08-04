@@ -513,7 +513,9 @@ describe("host renderer integration", () => {
     render(<App />);
     await screen.findByTestId("containers-screen");
 
-    for (const view of ["builds", "devenv", "extensions"]) {
+    // Builds left this list when buildx-backed history landed: it now renders real records
+    // rather than declaring itself unsupported, and is covered by its own tests below.
+    for (const view of ["devenv", "extensions"]) {
       fireEvent.click(screen.getByTestId(`nav-${view}`));
       const surface = screen.getByTestId(`${view}-screen`);
       expect(
@@ -1779,6 +1781,101 @@ describe("host renderer integration", () => {
         id: target.id,
         reference: "registry.test/taggable:v2",
       }),
+    );
+  });
+
+  it("shows live build history and reports unreachable builders", async () => {
+    const harness = createHost();
+    const list = vi.fn(async () => ({
+      context: "default",
+      source: "cli-json",
+      builders: [
+        { name: "default", driver: "docker", current: true, nodes: [] },
+        // buildx reports builders it cannot reach; they must not be silently dropped.
+        {
+          name: "podman",
+          driver: "",
+          current: false,
+          error: "failed to connect to the docker API",
+          nodes: [],
+        },
+      ],
+      records: [
+        {
+          id: "00b5zi7celyy89egnd8922ps1",
+          ref: "default/default/00b5zi7celyy89egnd8922ps1",
+          name: "ui",
+          status: "success" as const,
+          createdAt: "2026-08-01T10:00:00Z",
+          completedAt: "2026-08-01T10:02:05Z",
+          durationMs: 125_872,
+          totalSteps: 19,
+          completedSteps: 19,
+          cachedSteps: 4,
+        },
+      ],
+      observedAt,
+      limitations: [],
+    }));
+    const inspect = vi.fn(async () => ({
+      context: "default",
+      id: "00b5zi7celyy89egnd8922ps1",
+      name: "ui",
+      buildContext: "/home/operator/ui",
+      dockerfile: "Dockerfile",
+      vcsRepository: "git@github.com:example/ui.git",
+      vcsRevision: "15e450b4d2591c7439a3d9ef7e0e10be0ff8b128",
+      durationMs: 125_872,
+      status: "success" as const,
+      totalSteps: 19,
+      cachedSteps: 4,
+      completedSteps: 19,
+      materials: ["pkg:docker/oven/bun@latest"],
+      observedAt,
+    }));
+    harness.host.builds = { list, inspect };
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-builds"));
+
+    await screen.findByTestId("builds-screen");
+    await waitFor(() => expect(list).toHaveBeenCalled());
+    const builders = await screen.findByTestId("builders-strip");
+    expect(builders).toHaveTextContent("podman");
+
+    // The list carries builder/node/id; the core reduces it, so the renderer passes it whole.
+    fireEvent.click(await screen.findByTestId("build-00b5zi7celyy89egnd8922ps1"));
+    await waitFor(() =>
+      expect(inspect).toHaveBeenCalledWith({
+        context: "default",
+        ref: "default/default/00b5zi7celyy89egnd8922ps1",
+      }),
+    );
+    expect(await screen.findByTestId("build-vcs")).toHaveTextContent("example/ui.git");
+    expect(await screen.findByTestId("build-materials")).toHaveTextContent("oven/bun");
+    // buildx records step counts but not steps; inventing them would be worse than saying so.
+    expect(screen.getByTestId("builds-screen")).toHaveTextContent(
+      "not the individual steps",
+    );
+  });
+
+  it("reports an absent buildx plugin as a state rather than an error", async () => {
+    const harness = createHost();
+    harness.host.builds = {
+      list: vi.fn(async () => {
+        throw new Error(
+          "buildx_unavailable: The Docker Buildx plugin is not installed for this Docker CLI.",
+        );
+      }),
+      inspect: vi.fn(),
+    };
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId("containers-screen");
+    fireEvent.click(screen.getByTestId("nav-builds"));
+    expect(await screen.findByTestId("builds-unavailable")).toHaveTextContent(
+      "not installed",
     );
   });
 

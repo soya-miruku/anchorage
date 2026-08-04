@@ -26,6 +26,8 @@ import {
   validateVolumeFiles,
   validateVolumeFileRead,
   validateVolumeFileWrite,
+  validateBuildsList,
+  validateBuildsInspect,
   validateVolumeBackup,
   validateVolumeRestore,
   validateComposeList,
@@ -740,6 +742,12 @@ function registerIpcHandlers() {
   // Browsing creates and removes a helper container, so it is slower than a plain read.
   registerHandler(IPC_CHANNELS.volumesFiles, (request) =>
     core.request("volumes.files", validateVolumeFiles(request), { timeoutMs: 120_000 }),
+  );
+  registerHandler(IPC_CHANNELS.buildsList, (request) =>
+    core.request("builds.list", validateBuildsList(request), { timeoutMs: 90_000 }),
+  );
+  registerHandler(IPC_CHANNELS.buildsInspect, (request) =>
+    core.request("builds.inspect", validateBuildsInspect(request), { timeoutMs: 90_000 }),
   );
   // A backup copies the whole volume to disk; a restore writes over it. Both are bounded by
   // volume size rather than latency, so they get the core's own long timeout plus headroom.

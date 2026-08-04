@@ -22,6 +22,8 @@ const CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  buildsList: "anchorage:builds.list",
+  buildsInspect: "anchorage:builds.inspect",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
   composeList: "anchorage:compose.list",
@@ -894,6 +896,26 @@ function volumeName(value) {
 }
 
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
+
+const BUILD_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/u;
+
+function buildsList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
+
+function buildsInspect(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "ref"]), "request");
+  const ref = text(value.ref, "request.ref", 256);
+  // Separators are allowed inside a segment because builder names use them, but never
+  // first: a leading '-' is what turns the value into a flag.
+  if (!BUILD_REF.test(ref)) {
+    fail("request.ref must be a build record reference");
+  }
+  return { context: context(value.context), ref };
+}
 
 function volumeBackup(value) {
   plainObject(value, "request");
@@ -1885,6 +1907,10 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesFileRead, volumeFileRead(payload));
     case "volumes.fileWrite":
       return call(CHANNELS.volumesFileWrite, volumeFileWrite(payload));
+    case "builds.list":
+      return call(CHANNELS.buildsList, buildsList(payload));
+    case "builds.inspect":
+      return call(CHANNELS.buildsInspect, buildsInspect(payload));
     case "volumes.backup":
       return call(CHANNELS.volumesBackup, volumeBackup(payload));
     case "volumes.restore":
@@ -1959,6 +1985,10 @@ const api = Object.freeze({
     create: (request) => call(CHANNELS.containersCreate, containersCreate(request)),
     export: (request) => call(CHANNELS.containersExport, containersExport(request)),
     commit: (request) => call(CHANNELS.containersCommit, containersCommit(request)),
+  }),
+  builds: Object.freeze({
+    list: (request) => call(CHANNELS.buildsList, buildsList(request)),
+    inspect: (request) => call(CHANNELS.buildsInspect, buildsInspect(request)),
   }),
   compose: Object.freeze({
     list: (request) => call(CHANNELS.composeList, composeList(request)),
