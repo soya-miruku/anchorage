@@ -1360,6 +1360,29 @@ async function buildAndStage(sourceCounts, packageMetadata) {
   await access(CORE_STAGE_BINARY, constants.X_OK);
   const coreSha256 = await sha256File(CORE_STAGE_BINARY);
 
+  // Proves the determinism the release report claims, rather than asserting it.
+  //
+  // The AppImage is NOT byte-reproducible — it carries digests of evidence that photographs a
+  // live daemon — so the core binary is the thing a reader can actually compare across two
+  // builds of one commit. That is only worth stating if it is true, and the build flags that
+  // make it true (-trimpath, -buildvcs=false, -buildid=, CGO_ENABLED=0) are easy to weaken by
+  // accident. A second build costs well under a second because the Go build cache is warm.
+  const coreReplayPath = `${CORE_STAGE_BINARY}.replay`;
+  await run("go", [...goBuildFlags.slice(0, -2), coreReplayPath, "./cmd/anchorage-core"], {
+    cwd: CORE_DIRECTORY,
+    env: { ...process.env, CGO_ENABLED: "0" },
+  });
+  const coreReplaySha256 = await sha256File(coreReplayPath);
+  await rm(coreReplayPath, { force: true });
+  if (coreReplaySha256 !== coreSha256) {
+    fail(
+      "The Go core is not reproducible: rebuilding the same source produced " +
+        `${coreReplaySha256} after ${coreSha256}. The release report claims core determinism, ` +
+        "so either the build flags regressed or a source of nondeterminism entered the core.",
+    );
+  }
+  log(`Core rebuild reproduced ${coreSha256.slice(0, 12)} exactly`);
+
   const { stdout: versionOutput } = await run(
     CORE_STAGE_BINARY,
     ["--version"],
@@ -1411,8 +1434,19 @@ async function buildAndStage(sourceCounts, packageMetadata) {
       path: "app.asar/dist/client",
       ...renderer,
     },
-    // Stripped of wall-clock fields so two builds of one commit produce one AppImage. The
-    // evidence documents themselves keep their timestamps; the manifest binds each by digest.
+    // Stripped of wall-clock fields, which removes the timestamps but does NOT make the
+    // AppImage reproducible, and this used to claim it did.
+    //
+    // The manifest binds each evidence document by digest, and some of that evidence
+    // photographs a live system — host-candidate screenshots of a running daemon, measured
+    // timings. Its content differs every run whatever we do to the timestamps, so the digests
+    // differ, so the manifest differs, so the asar and the AppImage differ. Two builds of one
+    // commit measured 119202907 and 119202913 bytes.
+    //
+    // What IS reproducible is the product: the core binary and the renderer bundle are
+    // byte-identical across builds of one commit, which is the property worth having and the
+    // one `reproducibility` in release-verification.json states. Do not compare AppImage
+    // digests to decide whether two builds carry the same software — compare those two.
     evidence: manifestEvidenceWithoutWallClock(evidence),
     tests: sourceCounts,
   };
@@ -1924,6 +1958,49 @@ async function main() {
       manifest.evidence.hostCandidate.electronBinary,
     unpackedPayload,
     appImage: appImageVerification,
+    // Says which digests survive a rebuild of the same commit, because the answer is not "all
+    // of them" and a reader comparing the wrong one would conclude two identical builds carry
+    // different software.
+    reproducibility: {
+      // Verified by building this commit twice: both digests were identical, while the
+      // AppImage differed by six bytes.
+      deterministic: [
+        {
+          what: "core",
+          sha256: manifest.core.sha256,
+          // The strongest of the two claims, and the only one re-derived here.
+          verified: "rebuilt-this-run",
+          why:
+            "Built with -trimpath -buildvcs=false -ldflags=-s -w -buildid= and CGO_ENABLED=0, " +
+            "then rebuilt during this run and confirmed byte-identical.",
+        },
+        {
+          what: "renderer",
+          sha256: manifest.renderer.sha256,
+          // Weaker on purpose. Vite output over pinned inputs has been identical across
+          // builds of one commit, but this run does not re-derive it, so say so rather than
+          // let it borrow the core's confidence.
+          verified: "observed-stable",
+          why:
+            "Vite output over pinned sources, observed identical across builds of one commit " +
+            "but not independently rebuilt during this run.",
+        },
+      ],
+      nonDeterministic: [
+        {
+          what: "evidence",
+          why:
+            "Some evidence photographs a live system — host-candidate screenshots of a " +
+            "running daemon, measured timings — so its bytes differ every run.",
+        },
+        {
+          what: "appImage",
+          why:
+            "The manifest binds evidence by digest, so varying evidence varies the manifest, " +
+            "the asar and the AppImage. Compare core and renderer instead.",
+        },
+      ],
+    },
   };
   await writeFile(
     RELEASE_VERIFICATION_REPORT,
