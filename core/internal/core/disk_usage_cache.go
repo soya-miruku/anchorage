@@ -159,7 +159,6 @@ func fetchVolumeUsage(ctx context.Context, client *engineClient) (map[string]vol
 	return samples, nil
 }
 
-
 // The dashboard's full walk.
 //
 // `/system/df` (all types, not just volumes) measured 1791-7176 ms against this daemon, and

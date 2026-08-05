@@ -19,6 +19,7 @@ const CHANNELS = Object.freeze({
   containersDiff: "anchorage:containers.diff",
   containersAction: "anchorage:containers.action",
   containersCreate: "anchorage:containers.create",
+  containersRebindPorts: "anchorage:containers.rebindPorts",
   containersExport: "anchorage:containers.export",
   imagesScout: "anchorage:images.scout",
   desktopRevealPath: "anchorage:desktop.revealPath",
@@ -582,6 +583,40 @@ const RESTART_POLICIES = new Set(["no", "always", "unless-stopped", "on-failure"
 const NUMERIC_PORT = /^[0-9]{1,5}$/u;
 const CONTAINER_PORT = /^[0-9]{1,5}(\/(tcp|udp|sctp))?$/u;
 const DOCKER_OBJECT_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/u;
+
+/**
+ * Republishing ports. Validated again in the main process; this stops a malformed call at the
+ * boundary rather than letting it cross.
+ */
+function containersRebindPorts(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "id", "ports", "confirmed"]), "request");
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true; replacing a container is not an implicit action");
+  }
+  plainObject(value.ports, "request.ports");
+  const entries = Object.entries(value.ports);
+  if (entries.length > 128) {
+    fail("request.ports must contain at most 128 entries");
+  }
+  const ports = {};
+  for (const [host, target] of entries) {
+    if (!NUMERIC_PORT.test(host)) {
+      fail("request.ports keys must be numeric host ports");
+    }
+    const container = text(target, `request.ports.${host}`, 16);
+    if (!CONTAINER_PORT.test(container)) {
+      fail("request.ports values must be a port with an optional tcp/udp/sctp protocol");
+    }
+    ports[host] = container;
+  }
+  return {
+    context: context(value.context),
+    id: text(value.id, "request.id", 128),
+    ports,
+    confirmed: true,
+  };
+}
 
 function containersCreate(value) {
   plainObject(value, "request");
@@ -2004,6 +2039,8 @@ function invoke(method, payload) {
       return call(CHANNELS.containersAction, containerAction(payload));
     case "containers.create":
       return call(CHANNELS.containersCreate, containersCreate(payload));
+    case "containers.rebindPorts":
+      return call(CHANNELS.containersRebindPorts, containersRebindPorts(payload));
     case "containers.export":
       return call(CHANNELS.containersExport, containersExport(payload));
     case "images.scout":
@@ -2102,6 +2139,8 @@ const api = Object.freeze({
     diff: (request) => call(CHANNELS.containersDiff, containerIdentity(request)),
     action: (request) => call(CHANNELS.containersAction, containerAction(request)),
     create: (request) => call(CHANNELS.containersCreate, containersCreate(request)),
+    rebindPorts: (request) =>
+      call(CHANNELS.containersRebindPorts, containersRebindPorts(request)),
     export: (request) => call(CHANNELS.containersExport, containersExport(request)),
     commit: (request) => call(CHANNELS.containersCommit, containersCommit(request)),
   }),

@@ -3548,6 +3548,59 @@ export function useAnchorageStore() {
     [bridge, isHost, recordActivity],
   );
 
+  /**
+   * Republishes a container's ports by replacing it.
+   *
+   * The result is recorded in the activity log rather than returned to a screen, because the
+   * container the caller was looking at stops existing: its id changes, so the detail view it
+   * came from is pointing at something that is gone. The new one is selected instead.
+   */
+  const rebindPorts = useCallback(
+    async (id: string, ports: Record<string, string>) => {
+      if (!isHost || !id) return;
+      const activityId = `job:rebind:${id}:${Date.now()}`;
+      recordActivity({
+        id: activityId,
+        kind: "job",
+        state: "running",
+        title: "Republish ports",
+        subject: id.slice(0, 12),
+        detail: "Docker fixes bindings at creation, so the container is being replaced.",
+        startedAt: new Date().toISOString(),
+        read: false,
+      });
+      try {
+        const result = await bridge.containers.rebindPorts(
+          id,
+          ports,
+          dockerContextRef.current,
+        );
+        patchActivity(activityId, {
+          state: "succeeded",
+          subject: result.name,
+          detail: [`Replaced ${result.previousId.slice(0, 12)} with ${result.id.slice(0, 12)}`]
+            .concat(result.warnings ?? [])
+            .join(" · "),
+          endedAt: new Date().toISOString(),
+        });
+        await refreshContainers();
+        // The old id no longer resolves, so follow the replacement rather than leaving the
+        // detail view pointed at a container that has been removed.
+        await selectContainer(result.id);
+      } catch (reason) {
+        patchActivity(activityId, {
+          state: "failed",
+          detail:
+            reason instanceof Error
+              ? reason.message
+              : "Republishing ports failed; the container was left as it was",
+          endedAt: new Date().toISOString(),
+        });
+      }
+    },
+    [bridge, isHost, patchActivity, recordActivity, refreshContainers, selectContainer],
+  );
+
   const analyzeImage = useCallback(
     async (reference: string) => {
       if (!isHost || !reference) return;
@@ -4091,6 +4144,7 @@ export function useAnchorageStore() {
     dockerContext,
     systemSnapshot,
     activities,
+    rebindPorts,
     revealPath,
     unreadActivityCount,
     markActivitiesRead,

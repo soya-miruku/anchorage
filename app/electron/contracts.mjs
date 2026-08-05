@@ -97,6 +97,7 @@ export const IPC_CHANNELS = Object.freeze({
   containersDiff: "anchorage:containers.diff",
   containersAction: "anchorage:containers.action",
   containersCreate: "anchorage:containers.create",
+  containersRebindPorts: "anchorage:containers.rebindPorts",
   containersExport: "anchorage:containers.export",
   imagesScout: "anchorage:images.scout",
   // Reveals a path in the operator's file manager. Never opens it; see electron/reveal-path.mjs.
@@ -2782,4 +2783,43 @@ export function normalizeRpcError(value) {
   }
 
   return details === undefined ? { code, message } : { code, message, details };
+}
+
+/**
+ * Republishing a container's ports.
+ *
+ * Docker fixes bindings at creation, so this replaces the container rather than editing it. The
+ * shape is deliberately tiny — an id, the bindings, and an explicit confirmation — because every
+ * other field of the replacement comes from the container's own definition in the core, not from
+ * anything the renderer can influence.
+ */
+export function validateContainersRebindPorts(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "id", "ports", "confirmed"]), "request");
+  const normalized = {
+    context: validateContext(value.context),
+    id: boundedString(value.id, "request.id", 128),
+  };
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true; replacing a container is not an implicit action");
+  }
+  normalized.confirmed = true;
+  assertPlainObject(value.ports, "request.ports");
+  const entries = Object.entries(value.ports);
+  if (entries.length > 128) {
+    fail("request.ports must contain at most 128 entries");
+  }
+  const ports = {};
+  for (const [host, target] of entries) {
+    if (!NUMERIC_PORT.test(host)) {
+      fail("request.ports keys must be numeric host ports");
+    }
+    const container = boundedString(target, `request.ports.${host}`, 16);
+    if (!CONTAINER_PORT.test(container)) {
+      fail("request.ports values must be a port with an optional tcp/udp/sctp protocol");
+    }
+    ports[host] = container;
+  }
+  normalized.ports = ports;
+  return normalized;
 }

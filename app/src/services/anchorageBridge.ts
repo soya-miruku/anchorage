@@ -5,6 +5,7 @@ import {
 } from "../data/fixtures";
 import { createFixtureCapabilities } from "../data/commandFixtures";
 import type {
+  ContainerRebindPortsResult,
   AnchorageBridge,
   AnchorageContainer,
   CommandEvidence,
@@ -829,6 +830,13 @@ class FixtureBridge implements AnchorageBridge {
         rawState: "running",
         status: "Running",
       })),
+    // The preview has no daemon to recreate anything against, and pretending otherwise would
+    // show an operation succeeding that never happened.
+    rebindPorts: async (): Promise<ContainerRebindPortsResult> => {
+      throw new Error(
+        "Republishing ports needs a Docker engine: it replaces the container, which the browser preview cannot do.",
+      );
+    },
     kill: async (id: string) =>
       this.update(id, (container) => ({
         ...container,
@@ -1711,6 +1719,19 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
         else throw new Error("Container update capability is unavailable");
       },
       unpause: (id, context) => runContainerAction("unpause", id, context),
+      rebindPorts: async (id, ports, context = "default") => {
+        if (!host.invoke) {
+          throw new Error("Republishing ports is unavailable on this bridge");
+        }
+        // `confirmed` is asserted at three boundaries — here, the preload, and the core — because
+        // this replaces the container rather than editing it.
+        return (await host.invoke("containers.rebindPorts", {
+          context,
+          id,
+          ports,
+          confirmed: true,
+        })) as ContainerRebindPortsResult;
+      },
       kill: async (id, context, signal) => {
         await action(id, "kill", context, {}, signal);
       },

@@ -706,6 +706,19 @@ export interface ContainerOperations {
     context?: string,
   ): Promise<void>;
   unpause(id: string, context?: string): Promise<AnchorageContainer | void>;
+  /**
+   * Republishes ports by replacing the container.
+   *
+   * Docker fixes bindings at creation and `docker update` cannot change them, so this is not an
+   * edit: the container is recreated from its own definition with new bindings, and the result
+   * says what that could not carry over. The core refuses unless the container is stopped or
+   * paused.
+   */
+  rebindPorts(
+    id: string,
+    ports: Record<string, string>,
+    context?: string,
+  ): Promise<ContainerRebindPortsResult>;
   kill(
     id: string,
     context?: string,
@@ -1849,4 +1862,17 @@ export interface BuildsInspectResult {
 export interface BuildsOperations {
   list(context?: string): Promise<BuildsListResult>;
   inspect(ref: string, context?: string): Promise<BuildsInspectResult>;
+}
+
+
+export interface ContainerRebindPortsResult {
+  context: string;
+  /** The container that was replaced. It no longer exists. */
+  previousId: string;
+  id: string;
+  name: string;
+  warnings: string[];
+  /** What recreating could not carry over, in the operator's terms. */
+  discarded: string[];
+  observedAt: string;
 }

@@ -1,3 +1,4 @@
+import { RebindPortsDialog } from "../components/RebindPortsDialog";
 import {
   useEffect,
   useRef,
@@ -157,8 +158,24 @@ function DetailHeader({
   const primaryAction = primaryContainerAction(container);
   const isRunning = primaryAction === "stop";
   const isPending = store.pendingIds.has(container.id);
+  // "Serving" rather than "running": a paused container is running by Docker's own reckoning,
+  // but its processes are frozen and it answers nothing, so replacing it interrupts no traffic.
+  const isServing = isRunning && container.rawState !== "paused";
+  const [rebindOpen, setRebindOpen] = useState(false);
 
   return (
+    <>
+    {rebindOpen && (
+      <RebindPortsDialog
+        container={container}
+        pending={isPending}
+        onCancel={() => setRebindOpen(false)}
+        onConfirm={(ports) => {
+          setRebindOpen(false);
+          void store.rebindPorts(container.id, ports);
+        }}
+      />
+    )}
     <header className="detail-header">
       <button
         className="detail-header__back"
@@ -215,6 +232,22 @@ function DetailHeader({
           {statusLabel(container)}
         </span>
         <div className="detail-header__actions">
+          {/* Only offered when the container is not serving. Docker fixes bindings at creation,
+              so this replaces the container — doing that to something still answering requests
+              would drop traffic without warning. Paused counts as not serving: its processes are
+              frozen. The core refuses a running container regardless of what this shows. */}
+          {store.isHost && !isServing && (
+            <button
+              className="detail-action"
+              type="button"
+              data-testid="detail-rebind-ports"
+              disabled={isPending}
+              title="Republish this container's ports by replacing it"
+              onClick={() => setRebindOpen(true)}
+            >
+              Ports
+            </button>
+          )}
           <button
             className={`detail-action detail-action--toggle${
               isRunning ? " detail-action--stop" : ""
@@ -493,6 +526,7 @@ function DetailHeader({
         ))}
       </nav>
     </header>
+    </>
   );
 }
 

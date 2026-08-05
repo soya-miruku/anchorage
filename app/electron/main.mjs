@@ -56,6 +56,7 @@ import {
   validateVolumesAction,
   validateVolumesList,
   validateRendererEventEnvelope,
+  validateContainersRebindPorts,
 } from "./contracts.mjs";
 import { resolveCoreBinaryPath } from "./core-path.mjs";
 import { resolveCoreLaunchPolicy } from "./core-launch-policy.mjs";
@@ -742,6 +743,17 @@ function registerIpcHandlers() {
       timeoutMs: 45_000,
     }),
   );
+  // Replaces the container rather than editing it; the core refuses unless it is stopped or
+  // paused, and refuses without an explicit confirmation.
+  registerHandler(IPC_CHANNELS.containersRebindPorts, (request) => {
+    assertMutationsEnabled();
+    return core.request(
+      "containers.rebindPorts",
+      validateContainersRebindPorts(request),
+      { timeoutMs: 300_000 },
+    );
+  });
+
   registerHandler(IPC_CHANNELS.containersCreate, (request) => {
     assertMutationsEnabled();
     return core.request("containers.create", validateContainersCreate(request), {

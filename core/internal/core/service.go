@@ -89,8 +89,8 @@ func NewService(config Config) (*Service, error) {
 		allowedCWDs: allowed,
 		// One at a time. Both operations are expensive and neither benefits from overlap;
 		// a second concurrent scan of the same image would duplicate the indexing work.
-		scoutSlots:  make(chan struct{}, 1),
-		volumeSlots: make(chan struct{}, 2),
+		scoutSlots:      make(chan struct{}, 1),
+		volumeSlots:     make(chan struct{}, 2),
 		volumeUsage:     newVolumeUsageCache(),
 		systemDiskUsage: newSystemDiskUsageCache(),
 	}
@@ -190,6 +190,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.imagesInspect(ctx, params)
+	case "containers.rebindPorts":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ContainersRebindPortsParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.containersRebindPorts(ctx, params, emit)
 	case "containers.export":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

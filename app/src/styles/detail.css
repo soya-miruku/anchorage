@@ -937,3 +937,65 @@
   font-size: 11.5px;
   line-height: 1.65;
 }
+
+/* Republish ports. Presented as a replacement because that is what Docker does — bindings are
+   fixed at creation, so there is no edit to offer. */
+.rebind-dialog {
+  max-width: 520px;
+}
+
+.rebind-dialog__lede {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--anc-text-soft);
+}
+
+.rebind-dialog__losses {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--anc-warning-fg);
+}
+
+.rebind-dialog__bindings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rebind-dialog__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rebind-dialog__row label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.rebind-dialog__row input {
+  padding: 5px 8px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 5px;
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.rebind-dialog__row input:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 70%);
+  outline-offset: 1px;
+}
