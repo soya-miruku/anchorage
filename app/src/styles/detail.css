@@ -999,3 +999,17 @@
   outline: 2px solid rgb(var(--anc-accent-rgb) / 70%);
   outline-offset: 1px;
 }
+
+/* The held-back-history row. Stating the count matters: silently dropping history from a log
+   view is worse than a slow log view. */
+.logs-earlier {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--anc-line);
+  background: rgb(var(--anc-accent-rgb) / 5%);
+  font-size: 11px;
+  color: var(--anc-text-muted);
+}

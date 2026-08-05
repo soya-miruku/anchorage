@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, useState} from "react";
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import type { AnchorageStore } from "../store/useAnchorageStore";
 
@@ -7,6 +7,15 @@ import type { AnchorageStore } from "../store/useAnchorageStore";
  * meant reading host-only state above the browser-preview early return — a component that
  * touched the live stream before deciding whether there was one.
  */
+/**
+ * How many lines are in the DOM at once before the earliest are held back.
+ *
+ * Deep enough to cover the scrollback a reader following output actually uses, shallow enough
+ * that layout on each arriving chunk stays cheap. The buffer itself is unchanged at
+ * MERGED_LOG_LINE_LIMIT; this only governs how much of it is rendered.
+ */
+const LOG_RENDER_WINDOW = 400;
+
 function LogStream({
   lines,
   children,
@@ -15,18 +24,33 @@ function LogStream({
   children: ReactNode;
 }) {
   const streamRef = useRef<HTMLDivElement>(null);
+  // Whether the reader is still at the bottom. This used to scroll to the end on every change,
+  // which meant scrolling up to read something was undone by the next line to arrive — a live
+  // log that could not be read while it was live.
+  const pinnedRef = useRef(true);
 
   useEffect(() => {
     const node = streamRef.current;
-    if (!node) return;
+    if (!node || !pinnedRef.current) return;
     node.scrollTop = node.scrollHeight;
   }, [lines]);
+
+  const handleScroll = () => {
+    const node = streamRef.current;
+    if (!node) return;
+    // A few pixels of slack: browsers report fractional scroll positions, and demanding an
+    // exact match would unpin the view for a reader who never moved.
+    const distanceFromBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight;
+    pinnedRef.current = distanceFromBottom <= 4;
+  };
 
   return (
     <div
       className="logs-stream"
       data-testid="logs-stream"
       ref={streamRef}
+      onScroll={handleScroll}
       role="log"
       aria-label="Merged container output"
     >
@@ -62,6 +86,18 @@ export function LogsScreen({ store }: { store: AnchorageStore }) {
   }
 
   const lineCount = store.filteredLogLines.length;
+  const [showAll, setShowAll] = useState(false);
+  // Every buffered line used to be in the DOM, so a chunk arriving forced layout over the whole
+  // 2000-line buffer — about 36 ms a frame while output was flowing. Fixed-row virtualisation is
+  // not available here: `.logs-line__message` is `pre-wrap` with `overflow-wrap: anywhere`, so
+  // rows have no fixed height and a windowed list would mispositon every row after the first
+  // wrapped one. A tail window fits what a log actually is — the end is what is being read — and
+  // the rest is one click away rather than dropped.
+  const visible =
+    showAll || lineCount <= LOG_RENDER_WINDOW
+      ? store.filteredLogLines
+      : store.filteredLogLines.slice(-LOG_RENDER_WINDOW);
+  const held = lineCount - visible.length;
   const running = store.containers.filter(
     (container) => container.state === "running",
   );
@@ -159,6 +195,21 @@ export function LogsScreen({ store }: { store: AnchorageStore }) {
               ))}
             </ul>
           )}
+          {held > 0 && (
+            <div className="logs-earlier" data-testid="logs-earlier">
+              <span>
+                {held.toLocaleString()} earlier line{held === 1 ? "" : "s"} held back
+              </span>
+              <button
+                type="button"
+                className="ghost-button"
+                data-testid="logs-show-earlier"
+                onClick={() => setShowAll(true)}
+              >
+                Show all
+              </button>
+            </div>
+          )}
           <LogStream lines={lineCount}>
             {selected.length === 0 ? (
               <p className="logs-stream__empty">
@@ -171,7 +222,7 @@ export function LogsScreen({ store }: { store: AnchorageStore }) {
                   : `No held line matches “${store.mergedLogFilter}”.`}
               </p>
             ) : (
-              store.filteredLogLines.map((line) => (
+              visible.map((line) => (
                 <div className="logs-line" key={line.id}>
                   <span className="logs-line__time">{line.timestamp}</span>
                   <span className="logs-line__source">{line.source}</span>
