@@ -30,6 +30,7 @@
         { "$ref": "#/$defs/capabilitiesRequest" },
         { "$ref": "#/$defs/contextsRequest" },
         { "$ref": "#/$defs/pluginsRequest" },
+        { "$ref": "#/$defs/pluginActionRequest" },
         { "$ref": "#/$defs/systemSnapshotRequest" },
         { "$ref": "#/$defs/systemActionRequest" },
         { "$ref": "#/$defs/listRequest" },
@@ -57,6 +58,7 @@
         { "$ref": "#/$defs/volumeEmptyRequest" },
         { "$ref": "#/$defs/buildsListRequest" },
         { "$ref": "#/$defs/buildsInspectRequest" },
+        { "$ref": "#/$defs/buildsBuilderActionRequest" },
         { "$ref": "#/$defs/imagesScoutRequest" },
         { "$ref": "#/$defs/imagesListRequest" },
         { "$ref": "#/$defs/imagesActionRequest" },
@@ -138,6 +140,54 @@
         }
       },
       "additionalProperties": false
+    },
+    "pluginActionRequest": {
+      "description": "Repairs one faulty entry in a Docker CLI plugin directory. Neither action installs anything: the core has no HTTP client and cannot execute anything but the fingerprinted Docker binary. 'remove' unlinks the entry, which is the only remedy for a symlink whose target a package manager deleted; 'enable' adds the execute bit the CLI requires. The core re-derives the entry's faulty classification itself and refuses a path outside the CLI's own plugin directories.",
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.pluginAction" },
+        "params": {
+          "type": "object",
+          "required": ["name", "path", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": {
+              "description": "The plugin command name, without the 'docker-' file prefix.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+            },
+            "path": { "$ref": "#/$defs/pluginPath" },
+            "action": { "enum": ["remove", "enable"] },
+            "confirmed": { "type": "boolean" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": { "confirmed": { "const": true } }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "enable" } } },
+              "then": { "properties": { "confirmed": false } }
+            }
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "pluginPath": {
+      "description": "Absolute path of the plugin entry being repaired. The core additionally requires the parent directory to be one the Docker CLI searches and the file name to begin with 'docker-'; this pattern only keeps the value off the shapes that would read as a flag or carry a control character.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^/[^\\u0000\\r\\n]*$"
     },
     "systemSnapshotRequest": {
       "type": "object",
@@ -276,6 +326,46 @@
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$"
             }
           },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "buildsBuilderActionRequest": {
+      "description": "Runs one of buildx's own builder verbs. 'bootstrap' is `buildx inspect --bootstrap`, the repair for a builder buildx reports as unreachable; 'remove' is `buildx rm`, which discards the builder and its cache. `buildx use` is deliberately absent: it rewrites the CLI configuration every tool on the machine reads.",
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "builds.builderAction" },
+        "params": {
+          "type": "object",
+          "required": ["context", "name", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "name": {
+              "description": "Builder name. Separators may appear inside it, as in Docker's own `desktop-linux`, but never first, since a leading '-' would read as a flag.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+            },
+            "action": { "enum": ["remove", "bootstrap"] },
+            "confirmed": { "type": "boolean" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": { "confirmed": { "const": true } }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "bootstrap" } } },
+              "then": { "properties": { "confirmed": false } }
+            }
+          ],
           "additionalProperties": false
         }
       },

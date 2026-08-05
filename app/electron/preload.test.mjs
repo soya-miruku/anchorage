@@ -327,6 +327,13 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
     "system.capabilities": { context: "default" },
     "system.contexts": { context: "default" },
     "system.plugins": { context: "default" },
+    "system.pluginAction": {
+      context: "default",
+      name: "mcp",
+      path: "/home/operator/.docker/cli-plugins/docker-mcp",
+      action: "remove",
+      confirmed: true,
+    },
     "system.snapshot": { context: "default" },
     "system.action": {
       context: "default",
@@ -368,6 +375,11 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
     "builds.inspect": {
       context: "default",
       ref: "default/default/00b5zi7celyy89egnd8922ps1",
+    },
+    "builds.builderAction": {
+      context: "default",
+      name: "desktop-linux",
+      action: "bootstrap",
     },
     "volumes.backup": {
       context: "default",

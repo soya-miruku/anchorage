@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 import type { AnchorageStore } from "../store/useAnchorageStore";
 import type { SystemPlugins } from "../types";
 
@@ -62,34 +60,18 @@ export function describePluginPresence(
 /**
  * Reads the plugin report for one plugin.
  *
- * Fetched per screen rather than held in the store: these destinations are visited rarely, the
- * report is small, and a screen that asks when it is opened cannot show a stale answer from
- * whenever the store last looked.
+ * This used to fetch per screen, on the reasoning that a rarely-visited destination should not
+ * show a stale answer. The report now lives in the store instead, for two reasons the per-screen
+ * fetch could not serve: the sidebar decides which rows exist from it, so it must be readable
+ * during any render; and a repair carried out on one surface has to be reflected on all of them
+ * at once — clearing a dangling `docker-mcp` in Settings must make the Tools row disappear
+ * without a reload. Staleness is handled by making the re-read explicit and cheap instead: every
+ * capability surface offers it, and `store.refreshPlugins` is a directory scan and one
+ * `docker info`.
  */
 export function usePluginPresence(
   store: AnchorageStore,
   pluginName: string,
 ): PluginPresence {
-  const [report, setReport] = useState<SystemPlugins | null>(null);
-  const context = store.dockerContext;
-
-  useEffect(() => {
-    if (!store.isHost) return;
-    let disposed = false;
-    void store.bridge.system
-      .plugins(context)
-      .then((next) => {
-        if (!disposed) setReport(next);
-      })
-      .catch(() => {
-        // A failed lookup is not evidence of absence, so the surface keeps saying what the
-        // capability needs rather than asserting it is missing.
-        if (!disposed) setReport(null);
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [store.bridge, store.isHost, context]);
-
-  return describePluginPresence(report, pluginName);
+  return describePluginPresence(store.pluginReport, pluginName);
 }

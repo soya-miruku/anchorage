@@ -27,6 +27,7 @@ import {
   validateSystemCapabilities,
   validateSystemContexts,
   validateSystemPlugins,
+  validateSystemPluginAction,
   validateContainersCreate,
   validateContainersExport,
   validateImagesScout,
@@ -35,6 +36,7 @@ import {
   validateVolumeFileWrite,
   validateBuildsList,
   validateBuildsInspect,
+  validateBuildsBuilderAction,
   validateVolumeBackup,
   validateVolumeRestore,
   validateVolumeClone,
@@ -655,6 +657,17 @@ function registerIpcHandlers() {
       timeoutMs: 20_000,
     }),
   );
+  // Unlinks a plugin entry or adds its execute bit — a mutation of the host filesystem, so it
+  // is gated like every other. The core re-derives that the target is actually faulty; this
+  // only carries the request. Nothing here installs a plugin: downloads stay blocked.
+  registerHandler(IPC_CHANNELS.systemPluginAction, (request) => {
+    assertMutationsEnabled();
+    return core.request(
+      "system.pluginAction",
+      validateSystemPluginAction(request),
+      { timeoutMs: 30_000 },
+    );
+  });
   registerHandler(IPC_CHANNELS.systemSnapshot, (request) =>
     core.request("system.snapshot", validateSystemSnapshot(request), {
       timeoutMs: 45_000,
@@ -798,6 +811,16 @@ function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.buildsInspect, (request) =>
     core.request("builds.inspect", validateBuildsInspect(request), { timeoutMs: 90_000 }),
   );
+  // `buildx inspect --bootstrap` on a cold machine pulls and starts a BuildKit container, so
+  // this is budgeted like a build rather than a read.
+  registerHandler(IPC_CHANNELS.buildsBuilderAction, (request) => {
+    assertMutationsEnabled();
+    return core.request(
+      "builds.builderAction",
+      validateBuildsBuilderAction(request),
+      { timeoutMs: 300_000 },
+    );
+  });
   // A backup copies the whole volume to disk; a restore writes over it. Both are bounded by
   // volume size rather than latency, so they get the core's own long timeout plus headroom.
   registerHandler(IPC_CHANNELS.volumesBackup, (request) => {

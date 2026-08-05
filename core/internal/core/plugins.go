@@ -110,7 +110,7 @@ func inspectPluginInstallation(dirs []string, loaded []Plugin) []Plugin {
 			}
 			seen[key] = true
 
-			status, note := classifyPluginEntry(path, command, working[command])
+			status, fault, note := classifyPluginEntry(path, command, working[command])
 			if status == "" {
 				continue
 			}
@@ -118,6 +118,7 @@ func inspectPluginInstallation(dirs []string, loaded []Plugin) []Plugin {
 				Name:             command,
 				Path:             path,
 				Status:           status,
+				Fault:            fault,
 				DiscoverySource:  "cli-plugins-dir",
 				AvailabilityNote: note,
 			})
@@ -140,9 +141,14 @@ func resolvedPath(path string) string {
 	return path
 }
 
-// classifyPluginEntry names why the CLI skipped this file. An empty status means the entry is
-// fine and simply lost a shadowing contest, which is not worth reporting.
-func classifyPluginEntry(path, command string, nameAlreadyWorks bool) (string, string) {
+// classifyPluginEntry names why the CLI skipped this file, as (status, fault, note). An empty
+// status means the entry is fine and simply lost a shadowing contest, which is not worth
+// reporting.
+//
+// The fault is returned alongside the note because they serve different readers. The note is for
+// the operator and is free to be reworded; the fault decides which repair a surface may offer,
+// and matching that decision against English prose would break the moment the wording improved.
+func classifyPluginEntry(path, command string, nameAlreadyWorks bool) (string, string, string) {
 	target, linkErr := os.Readlink(path)
 	info, statErr := os.Stat(path)
 
@@ -150,28 +156,28 @@ func classifyPluginEntry(path, command string, nameAlreadyWorks bool) (string, s
 		if linkErr == nil {
 			// A symlink whose target is gone. `ls` lists it, `docker info` ignores it,
 			// and `docker <name>` falls through to the root help with no explanation.
-			return "broken", "A symbolic link pointing at " + target + ", which does not exist. Usually left behind when Docker Desktop was removed. Deleting the link is safe; the plugin is already gone."
+			return "broken", "dangling-link", "A symbolic link pointing at " + target + ", which does not exist. Usually left behind when Docker Desktop was removed. Deleting the link is safe; the plugin is already gone."
 		}
-		return "broken", "Present in the plugin directory but cannot be read: " + statErr.Error()
+		return "broken", "unreadable", "Present in the plugin directory but cannot be read: " + statErr.Error()
 	}
 
 	if info.IsDir() {
-		return "", ""
+		return "", "", ""
 	}
 
 	if info.Mode().Perm()&0o111 == 0 {
-		return "broken", "Present but not executable, so the Docker CLI does not load it. `chmod +x` makes it available."
+		return "broken", "not-executable", "Present but not executable, so the Docker CLI does not load it. `chmod +x` makes it available."
 	}
 
 	if nameAlreadyWorks {
 		// Another copy of the same plugin won; the CLI reports the winner's path under
 		// ShadowedPaths, so this is documented behaviour rather than a fault.
-		return "", ""
+		return "", "", ""
 	}
 
 	// Executable, resolvable, unshadowed, and still absent from `docker info`: the CLI
 	// loaded it and rejected it, which its metadata handshake does on a version mismatch.
-	return "degraded", "Executable but not loaded by the Docker CLI. It is usually a plugin built against a different CLI version, so its metadata handshake fails."
+	return "degraded", "handshake", "Executable but not loaded by the Docker CLI. It is usually a plugin built against a different CLI version, so its metadata handshake fails."
 }
 
 // pluginInstallation answers the health question on its own, without the recursive help walk
@@ -200,19 +206,222 @@ func (s *Service) pluginInstallation(ctx context.Context, params PluginsParams) 
 // loadedPlugins asks the CLI what it actually loaded. That answer is authoritative: a plugin
 // the CLI reports here works, and anything in the directories it does not report is what the
 // directory scan then has to explain.
+//
+// The read path degrades to a warning because a report missing the loaded half is still worth
+// showing — the faulty entries are the part the CLI never mentions. A mutation cannot degrade
+// the same way; see loadedPluginsStrict.
 func (s *Service) loadedPlugins(ctx context.Context, selectedContext string) ([]Plugin, []string) {
-	warnings := []string{}
+	loaded, err := s.loadedPluginsStrict(ctx, selectedContext)
+	if err != nil {
+		return nil, []string{AsOpError(err).Message}
+	}
+	return loaded, []string{}
+}
+
+// loadedPluginsStrict is the same read with the failure surfaced as an error.
+//
+// A repair verb may not treat "the CLI could not be asked" as "the CLI loaded nothing": the
+// classification below marks an executable, unshadowed plugin absent from `docker info` as
+// degraded, so an unanswered query would render every working plugin on the machine removable.
+func (s *Service) loadedPluginsStrict(ctx context.Context, selectedContext string) ([]Plugin, error) {
 	args := withContext(selectedContext, "info", "--format", "{{json .}}")
 	result, err := s.runDiscovery(ctx, nil, args...)
 	if err != nil {
-		return nil, append(warnings, "Docker info failed to start: "+err.Error())
+		return nil, opError("plugin_state_unknown",
+			"Docker info failed to start: "+err.Error(), err, nil)
 	}
 	if result.exitCode != 0 || result.timedOut {
-		return nil, append(warnings, evidenceFailure("docker info", result))
+		return nil, opError("plugin_state_unknown", evidenceFailure("docker info", result), nil,
+			map[string]any{"exitCode": result.exitCode, "timedOut": result.timedOut})
 	}
 	var info dockerInfo
 	if err := json.Unmarshal(result.stdout, &info); err != nil {
-		return nil, append(warnings, "Docker info output was not valid JSON: "+err.Error())
+		return nil, opError("plugin_state_unknown",
+			"Docker info output was not valid JSON: "+err.Error(), err, nil)
 	}
-	return convertPlugins(info.ClientInfo.Plugins), warnings
+	return convertPlugins(info.ClientInfo.Plugins), nil
+}
+
+// The repairs this verb performs on a faulty plugin entry. Neither installs anything.
+var pluginActions = map[string]bool{"remove": true, "enable": true}
+
+/*
+Repairing a faulty plugin entry.
+
+`classifyPluginEntry` above already names the remedy for each fault it reports — "Deleting the
+link is safe; the plugin is already gone", "`chmod +x` makes it available" — and until now the
+operator had to leave the application to carry it out. These two verbs do exactly what those
+notes say and nothing more.
+
+The guardrail that matters is not the path shape, it is *which* paths are eligible. The desktop
+launches the core with `--allow-cwd /`, so `resolveAllowedCWD` would accept any path the user
+can already write; it adds nothing here. What constrains this verb is that the parent directory
+must be one the Docker CLI itself searches, the file name must be one the CLI would load, and
+the entry must still be classified faulty by a scan this call performs itself. A caller cannot
+nominate a target by asserting it is broken.
+*/
+func validatePluginPath(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" || len(value) > 4096 {
+		return "", opError("invalid_plugin_path",
+			"Plugin path must contain between 1 and 4096 characters.", nil, nil)
+	}
+	// The value becomes an argument to a filesystem call beside no flags at all, but the same
+	// rule as validateArchivePath is kept: a leading '-' is what turns a path into an option.
+	if strings.HasPrefix(value, "-") {
+		return "", opError("invalid_plugin_path",
+			"Plugin path must not begin with '-'.", nil, nil)
+	}
+	if !filepath.IsAbs(value) {
+		return "", opError("invalid_plugin_path", "Plugin path must be absolute.", nil, nil)
+	}
+	for _, char := range value {
+		if char == 0 || char == '\n' || char == '\r' {
+			return "", opError("invalid_plugin_path",
+				"Plugin path must not contain control characters.", nil, nil)
+		}
+	}
+	cleaned := filepath.Clean(value)
+	// The CLI loads `docker-*` and ignores everything else, so anything else in these
+	// directories is not a plugin and is not this verb's business.
+	if !strings.HasPrefix(filepath.Base(cleaned), "docker-") {
+		return "", opError("invalid_plugin_path",
+			"Plugin file names begin with 'docker-'.", nil, map[string]any{"path": raw})
+	}
+	parent := filepath.Dir(cleaned)
+	for _, dir := range pluginSearchDirs() {
+		if sameDirectory(parent, dir) {
+			return cleaned, nil
+		}
+	}
+	return "", opError("plugin_path_outside_search_path",
+		"Plugin path is not in a directory the Docker CLI searches for plugins.", nil,
+		map[string]any{"path": raw, "searchPath": pluginSearchDirs()})
+}
+
+// sameDirectory compares directories by canonical form where both resolve and literally where
+// they do not. A plugin directory is frequently a symlink itself, and matching only the literal
+// string would refuse a legitimate path; resolving only one side would compare unlike things.
+func sameDirectory(left, right string) bool {
+	if filepath.Clean(left) == filepath.Clean(right) {
+		return true
+	}
+	leftReal, leftErr := filepath.EvalSymlinks(left)
+	rightReal, rightErr := filepath.EvalSymlinks(right)
+	return leftErr == nil && rightErr == nil && leftReal == rightReal
+}
+
+// findFaultyPlugin locates the entry a repair names within a scan this call performed. Matching
+// on both name and path: a name alone is ambiguous across directories, and a path alone would
+// let a caller repair one entry while naming another in the audit trail.
+func findFaultyPlugin(entries []Plugin, name, path string) *Plugin {
+	for index := range entries {
+		if entries[index].Name == name && entries[index].Path == path {
+			return &entries[index]
+		}
+	}
+	return nil
+}
+
+func (s *Service) pluginAction(ctx context.Context, params PluginActionParams) (PluginActionResult, error) {
+	action := strings.TrimSpace(params.Action)
+	if !pluginActions[action] {
+		return PluginActionResult{}, opError("unsupported_plugin_action",
+			"Plugin action is not in the mutation allowlist.", nil,
+			map[string]any{"action": params.Action})
+	}
+	name := strings.TrimSpace(params.Name)
+	if name == "" || len(name) > 128 {
+		return PluginActionResult{}, opError("invalid_plugin_name",
+			"Plugin name must contain between 1 and 128 characters.", nil, nil)
+	}
+	path, err := validatePluginPath(params.Path)
+	if err != nil {
+		return PluginActionResult{}, err
+	}
+	// Removing is deleting a file on the operator's machine. Enabling is not gated: it adds a
+	// permission bit to a file that is already there and is reversible with the same verb's
+	// counterpart on disk.
+	if action == "remove" && !params.Confirmed {
+		return PluginActionResult{}, confirmationRequired("plugin", name, "remove")
+	}
+
+	loaded, err := s.loadedPluginsStrict(ctx, params.Context)
+	if err != nil {
+		return PluginActionResult{}, err
+	}
+	target := findFaultyPlugin(inspectPluginInstallation(pluginSearchDirs(), loaded), name, path)
+	if target == nil {
+		return PluginActionResult{}, opError("plugin_not_faulty",
+			"That entry is not reported as broken or unloaded, so there is nothing to repair.", nil,
+			map[string]any{"name": name, "path": path})
+	}
+
+	outcome := ""
+	switch action {
+	case "remove":
+		// Lstat, never Stat: the entry being removed is usually a symlink whose target is
+		// gone, and following it would report the wrong thing about what is being deleted.
+		info, lstatErr := os.Lstat(path)
+		if lstatErr != nil {
+			return PluginActionResult{}, opError("plugin_remove_failed",
+				"The plugin entry could not be read: "+lstatErr.Error(), lstatErr,
+				map[string]any{"path": path})
+		}
+		if info.IsDir() {
+			return PluginActionResult{}, opError("plugin_remove_failed",
+				"That path is a directory, not a plugin entry.", nil, map[string]any{"path": path})
+		}
+		// Remove, not RemoveAll: a directory that slipped past the check above must fail
+		// rather than take a tree with it.
+		if err := os.Remove(path); err != nil {
+			return PluginActionResult{}, opError("plugin_remove_failed",
+				"The plugin entry could not be removed: "+err.Error(), err,
+				map[string]any{"path": path})
+		}
+		outcome = "removed"
+	case "enable":
+		// Stat, following the link: the execute bit the CLI checks belongs to the file it
+		// ends up running, and a dangling link has no target to make executable.
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			return PluginActionResult{}, opError("plugin_enable_failed",
+				"The plugin file cannot be read, so it cannot be made executable. A link with no target has to be removed instead.",
+				statErr, map[string]any{"path": path})
+		}
+		if info.IsDir() {
+			return PluginActionResult{}, opError("plugin_enable_failed",
+				"That path is a directory, not a plugin entry.", nil, map[string]any{"path": path})
+		}
+		permissions := info.Mode().Perm()
+		if permissions&0o111 != 0 {
+			return PluginActionResult{}, opError("plugin_already_executable",
+				"That plugin is already executable, so the missing execute bit is not why the CLI skipped it.",
+				nil, map[string]any{"path": path})
+		}
+		// x wherever r is already set, which is what `chmod +x` amounts to for a normally
+		// permissioned file. Granting 0o111 outright would make a private file group- and
+		// world-executable, which is a wider change than the fault being repaired.
+		if err := os.Chmod(path, permissions|(permissions&0o444)>>2); err != nil {
+			return PluginActionResult{}, opError("plugin_enable_failed",
+				"The execute bit could not be set: "+err.Error(), err, map[string]any{"path": path})
+		}
+		outcome = "enabled"
+	}
+
+	// Re-read rather than patch the previous report: `enable` can make a plugin load, which
+	// changes entries this call never touched, and a client-side edit would not know that.
+	after, err := s.pluginInstallation(ctx, PluginsParams{Context: params.Context})
+	if err != nil {
+		return PluginActionResult{}, err
+	}
+	return PluginActionResult{
+		ProtocolVersion: ProtocolVersion,
+		Name:            name,
+		Path:            path,
+		Action:          action,
+		Outcome:         outcome,
+		Plugins:         after,
+		ObservedAt:      nowUTC(),
+	}, nil
 }

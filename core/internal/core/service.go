@@ -127,6 +127,17 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.pluginInstallation(ctx, params)
+	case "system.pluginAction":
+		// Requires Docker: the repair is only permitted against an entry a scan classified as
+		// faulty, and that classification depends on what the CLI reports it loaded.
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params PluginActionParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.pluginAction(ctx, params)
 	case "system.snapshot":
 		if err := s.requireDocker(); err != nil {
 			return nil, err
@@ -271,6 +282,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.buildsInspect(ctx, params)
+	case "builds.builderAction":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params BuilderActionParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.builderAction(ctx, params)
 	case "volumes.backup":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

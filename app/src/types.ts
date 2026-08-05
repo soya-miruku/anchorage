@@ -1124,6 +1124,20 @@ export type DockerCliPluginStatus =
   | "unknown"
   | "broken";
 
+/**
+ * Why the CLI skipped an entry, as a value rather than as prose.
+ *
+ * `availabilityNote` says the same thing in the operator's words and is free to be reworded.
+ * This decides which repair a surface may offer, and that decision must not be made by matching
+ * on English: `dangling-link` can only be removed, `not-executable` is the one fault a `chmod`
+ * fixes, and `handshake` is a version mismatch that needs a reinstall rather than anything local.
+ */
+export type PluginFault =
+  | "dangling-link"
+  | "unreadable"
+  | "not-executable"
+  | "handshake";
+
 export interface DockerCliPlugin {
   name: string;
   version?: string;
@@ -1131,8 +1145,40 @@ export interface DockerCliPlugin {
   description?: string;
   path?: string;
   status: DockerCliPluginStatus;
+  fault?: PluginFault;
   discoverySource: string;
   availabilityNote?: string;
+}
+
+/**
+ * Repairing a faulty plugin entry.
+ *
+ * There is no install action here, and its absence is structural rather than unfinished work:
+ * the core has no HTTP client, Electron blocks every download, and nothing in the protocol can
+ * execute a binary other than the fingerprinted Docker CLI. Installing a capability is therefore
+ * something the operator does, which the surface makes as easy as it can — the exact command,
+ * the directory, and a re-check — while these two verbs clear up what a previous install left
+ * behind.
+ */
+export interface PluginRepair {
+  context?: string;
+  /** Plugin command name, without the `docker-` file prefix. */
+  name: string;
+  path: string;
+  /** `remove` unlinks the entry; `enable` adds the execute bit the CLI requires. */
+  action: "remove" | "enable";
+  /** Required for remove, which deletes a file on this machine. */
+  confirmed?: true;
+}
+
+export interface PluginRepairResult {
+  name: string;
+  path: string;
+  action: "remove" | "enable";
+  outcome: "removed" | "enabled";
+  /** The re-read installation: enabling one plugin can change what the CLI loads elsewhere. */
+  plugins: SystemPlugins;
+  observedAt: string;
 }
 
 export type SessionMode = "pipes" | "pty";
@@ -1275,6 +1321,11 @@ export interface AnchorageBridge {
     capabilities(context?: string): Promise<SystemCapabilities>;
     contexts(context?: string): Promise<SystemContexts>;
     plugins(context?: string): Promise<SystemPlugins>;
+    /**
+     * Repairs one faulty plugin entry. Installs nothing — see PluginRepair for why that is a
+     * property of the architecture rather than a gap.
+     */
+    pluginAction(request: PluginRepair): Promise<PluginRepairResult>;
     snapshot(context: string, includeDiskUsage?: boolean): Promise<SystemSnapshot>;
     prune(
       context: string,
@@ -1382,6 +1433,7 @@ export interface HostAnchorageApi {
     capabilities: (request?: { context?: string }) => Promise<unknown>;
     contexts?: (request?: { context?: string }) => Promise<unknown>;
     plugins?: (request?: { context?: string }) => Promise<unknown>;
+    pluginAction?: (request: PluginRepair) => Promise<unknown>;
     snapshot?: (request: {
       context: string;
       includeDiskUsage?: boolean;
@@ -1397,6 +1449,7 @@ export interface HostAnchorageApi {
   builds?: {
     list: (request: { context: string }) => Promise<unknown>;
     inspect: (request: { context: string; ref: string }) => Promise<unknown>;
+    builderAction?: (request: BuilderAction) => Promise<unknown>;
   };
   compose?: {
     list: (request: { context: string; all?: boolean }) => Promise<unknown>;
@@ -1865,6 +1918,37 @@ export interface BuildsInspectResult {
 export interface BuildsOperations {
   list(context?: string): Promise<BuildsListResult>;
   inspect(ref: string, context?: string): Promise<BuildsInspectResult>;
+  builderAction(request: BuilderAction): Promise<BuilderActionResult>;
+}
+
+/**
+ * One of buildx's own builder verbs.
+ *
+ * `bootstrap` starts the builder's node, which is the repair for the unreachable builder the
+ * table used to report and do nothing about. `remove` deletes the entry and its cache, which is
+ * the only remedy when the driver behind it is gone for good.
+ *
+ * Switching the active builder is deliberately not here: `docker buildx use` rewrites the CLI
+ * configuration every tool on the machine reads, which the builders pane says out loud.
+ */
+export interface BuilderAction {
+  context: string;
+  name: string;
+  action: "remove" | "bootstrap";
+  /** Required for remove: the builder's cache does not survive it. */
+  confirmed?: true;
+}
+
+export interface BuilderActionResult {
+  context: string;
+  name: string;
+  action: "remove" | "bootstrap";
+  outcome: "removed" | "bootstrapped";
+  /** What buildx printed. A failure is only explicable in its own terms. */
+  output?: string;
+  /** The builders that remain: removing the current one promotes another. */
+  builders: BuildBuilder[];
+  observedAt: string;
 }
 
 

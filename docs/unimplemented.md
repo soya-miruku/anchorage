@@ -99,18 +99,39 @@ five were broken symlinks left by a removed Docker Desktop and made that distinc
 load-bearing. It holds for two of them. Checked against the plugin names the screens actually
 gate on:
 
-| Screen | Plugin | State on this host |
-|---|---|---|
-| Tools | `mcp` | dangling symlink — a faulty install |
-| Bosun | `ai` | dangling symlink — a faulty install |
-| Models | `model` | absent; no entry at all |
-| Sandboxes | `sbx` | absent; no entry at all |
-| Agents | `agent` | absent; no entry at all |
+| Screen | Plugin | State on this host | What the screen now offers |
+|---|---|---|---|
+| Tools | `mcp` | dangling symlink — a faulty install | row kept; **Remove this entry** |
+| Bosun | `ai` | dangling symlink — a faulty install | row kept; **Remove this entry** |
+| Models | `model` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
+| Sandboxes | `sbx` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
+| Agents | `agent` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
 
-The distinction still matters — "install the plugin" is the wrong instruction for a dangling
-symlink, which is what `usePluginPresence` exists to express — but it applies to Tools and Bosun,
-not to all five. There are nine dangling symlinks on this host; only two of them are gated on by
-these screens. Also here: secrets create/remove, which Docker does expose and we read only.
+The distinction still matters and is now what decides the sidebar: an absent plugin removes the
+row, a faulty one keeps it, because that row is the route to the repair. `data/capabilities.ts`
+holds the rule and the per-capability install guidance.
+
+**No longer unimplemented, and this list is what changed:**
+
+- Removing a faulty entry. `system.pluginAction` unlinks it, or adds a missing execute bit, and
+  refuses anything the core does not itself re-derive as faulty. The nine dangling symlinks on
+  this host are removable from Settings → Engine → CLI plugins, one row each.
+- Re-checking. The plugin installation lives in the store and every capability surface can
+  re-read it, so a plugin installed in a terminal no longer needs a navigation to be noticed.
+- Repairing a builder. `builds.builderAction` runs `buildx inspect --bootstrap` or `buildx rm`,
+  which is what the two unreachable Desktop/podman entries in the Builders pane needed.
+
+**Still not ours, and structurally so: installing a capability.** The core has no HTTP client,
+Electron blocks every download as signed release evidence, and no request in the protocol can
+execute a binary other than the fingerprinted Docker CLI. Every capability screen therefore gives
+the install command where Docker publishes a package, the plugin-directory mechanics where it does
+not, and a re-check — but Anchorage does not fetch or run an installer. Changing that means adding
+an HTTP client, a host allowlist, signature verification, an allowlisted `willDownload` path, and a
+new signed security check.
+
+Also here: secrets create/remove, which Docker does expose and we read only. And switching the
+active builder, which stays absent by decision — `docker buildx use` rewrites the CLI
+configuration every tool on the machine reads.
 
 **Docker (4).** Governance is administered in a web console with no local surface. Hardened
 Images is a Hub catalogue with no enumerating verb. Most of Kubernetes has no Docker API at all —

@@ -20,6 +20,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "system.capabilities",
   "system.contexts",
   "system.plugins",
+  "system.pluginAction",
   "system.snapshot",
   "system.action",
   "containers.list",
@@ -40,6 +41,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.fileWrite",
   "builds.list",
   "builds.inspect",
+  "builds.builderAction",
   "volumes.backup",
   "volumes.restore",
   "volumes.clone",
@@ -89,6 +91,8 @@ export const IPC_CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
   systemContexts: "anchorage:system.contexts",
   systemPlugins: "anchorage:system.plugins",
+  // Repairs a faulty plugin entry: unlinks it, or adds the execute bit. Installs nothing.
+  systemPluginAction: "anchorage:system.pluginAction",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -112,6 +116,7 @@ export const IPC_CHANNELS = Object.freeze({
   volumesFileWrite: "anchorage:volumes.fileWrite",
   buildsList: "anchorage:builds.list",
   buildsInspect: "anchorage:builds.inspect",
+  buildsBuilderAction: "anchorage:builds.builderAction",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
@@ -390,6 +395,56 @@ export function validateSystemPlugins(value) {
   assertOnlyKeys(value, new Set(["context"]), "request");
   const context = validateContext(value.context, { required: false });
   return context === undefined ? {} : { context };
+}
+
+const PLUGIN_ACTIONS = new Set(["remove", "enable"]);
+const PLUGIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+
+/**
+ * Repairing a faulty plugin entry.
+ *
+ * This is the first request that deletes a file on the operator's machine, so the boundary is
+ * worth stating: nothing validated here decides *which* files are eligible. The path shape is
+ * checked so the value cannot read as a flag or smuggle a control character, and `remove` is
+ * refused without an explicit agreement — but the guarantee that the target is a plugin entry
+ * the CLI actually skipped is the core's, re-derived from its own directory walk. A renderer
+ * cannot nominate a path by asserting it is broken.
+ */
+export function validateSystemPluginAction(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "name", "path", "action", "confirmed"]),
+    "request",
+  );
+  const action = validateEnum(value.action, "request.action", PLUGIN_ACTIONS);
+  const name = boundedString(value.name, "request.name", 128);
+  if (!PLUGIN_NAME.test(name)) {
+    fail("request.name must be a Docker CLI plugin command name");
+  }
+  const path = boundedString(value.path, "request.path", 4_096);
+  if (!path.startsWith("/")) {
+    fail("request.path must be an absolute path");
+  }
+  if (path.includes("\r") || path.includes("\n")) {
+    fail("request.path must not contain line breaks");
+  }
+  const normalized = { name, path, action };
+  const context = validateContext(value.context, { required: false });
+  assignDefined(normalized, "context", context);
+  const confirmed = optionalBoolean(value.confirmed, "request.confirmed");
+
+  if (action === "remove") {
+    if (confirmed !== true) {
+      fail("request.confirmed must be true to remove a plugin entry");
+    }
+    normalized.confirmed = true;
+  } else if (confirmed !== undefined) {
+    // `enable` adds a permission bit to a file that is already present. Accepting an agreement
+    // it does not need would let a caller believe they had consented to a deletion.
+    fail("request.confirmed is only valid for plugin remove");
+  }
+  return normalized;
 }
 
 export function validateContainersList(value) {
@@ -948,6 +1003,43 @@ export function validateBuildsInspect(value) {
     fail("request.ref must be a build record reference");
   }
   return { context: validateContext(value.context), ref };
+}
+
+const BUILDER_ACTIONS = new Set(["remove", "bootstrap"]);
+const BUILDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+
+/**
+ * Acting on one builder.
+ *
+ * `remove` runs `buildx rm`, which discards the builder's cache, so it is confirmed. `bootstrap`
+ * starts a node and destroys nothing, so it refuses a confirmation rather than accepting one it
+ * has no use for. `use` is not in the action set at all: changing the active builder rewrites
+ * configuration shared with every other Docker tool on the machine.
+ */
+export function validateBuildsBuilderAction(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "name", "action", "confirmed"]),
+    "request",
+  );
+  const action = validateEnum(value.action, "request.action", BUILDER_ACTIONS);
+  const name = boundedString(value.name, "request.name", 256);
+  // Same rule as a build reference: separators belong inside the name, never first.
+  if (!BUILDER_NAME.test(name)) {
+    fail("request.name must be a buildx builder name");
+  }
+  const normalized = { context: validateContext(value.context), name, action };
+  const confirmed = optionalBoolean(value.confirmed, "request.confirmed");
+  if (action === "remove") {
+    if (confirmed !== true) {
+      fail("request.confirmed must be true to remove a builder");
+    }
+    normalized.confirmed = true;
+  } else if (confirmed !== undefined) {
+    fail("request.confirmed is only valid for builder remove");
+  }
+  return normalized;
 }
 
 export function validateVolumeBackup(value) {

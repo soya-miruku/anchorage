@@ -268,6 +268,125 @@ func (s *Service) buildxBuilders(ctx context.Context, contextName string) ([]Bui
 	return builders, nil
 }
 
+// The builder verbs this exposes. `use` is absent on purpose: it rewrites the CLI's own
+// configuration for every tool on the machine, which the builders pane says out loud rather
+// than offering. These two only reach what an operator needs for a builder buildx reports as
+// unreachable — start it, or delete it.
+var builderActions = map[string]bool{"remove": true, "bootstrap": true}
+
+// validateBuilderName constrains the name before it becomes an argv element. Deliberately the
+// same shape as validateBuildRef, minus the slash segments a builder name never has.
+func validateBuilderName(raw string) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" || len(value) > 256 {
+		return "", opError("invalid_builder_name",
+			"Builder name must contain between 1 and 256 characters.", nil, nil)
+	}
+	for index, char := range value {
+		alphanumeric := char >= 'a' && char <= 'z' ||
+			char >= 'A' && char <= 'Z' || char >= '0' && char <= '9'
+		// Separators belong inside a builder name — `desktop-linux` is Docker's own — but
+		// never first: a leading '-' is what turns the value into a flag.
+		separator := index > 0 && (char == '-' || char == '_' || char == '.')
+		if !alphanumeric && !separator {
+			return "", opError("invalid_builder_name",
+				"Builder name contains unsupported characters.", nil, map[string]any{"name": raw})
+		}
+	}
+	return value, nil
+}
+
+/*
+Acting on one builder.
+
+The builders table could report an unreachable builder and do nothing about it, which left the
+operator reading buildx's own error message beside a note telling them to go and run buildx by
+hand. Both verbs here are that same buildx command, run through the fingerprinted binary.
+
+`bootstrap` is `inspect --bootstrap`, which is how buildx starts a builder's node; it is the
+repair for the ordinary "cannot reach" case, where the builder's container was removed or the
+machine rebooted. `remove` is `buildx rm`, which is the only way to clear an entry pointing at
+a driver that is gone for good — the case a removed Docker Desktop leaves behind.
+
+Neither is given the operation-receipt machinery: they change buildx's own state rather than a
+Docker resource the reconciler tracks, and the fresh inventory in the result is what the surface
+needs to redraw.
+*/
+func (s *Service) builderAction(parent context.Context, params BuilderActionParams) (BuilderActionResult, error) {
+	contextName := strings.TrimSpace(params.Context)
+	if err := validateRequiredContext(contextName); err != nil {
+		return BuilderActionResult{}, err
+	}
+	action := strings.TrimSpace(params.Action)
+	if !builderActions[action] {
+		return BuilderActionResult{}, opError("unsupported_builder_action",
+			"Builder action is not in the mutation allowlist.", nil,
+			map[string]any{"action": params.Action})
+	}
+	name, err := validateBuilderName(params.Name)
+	if err != nil {
+		return BuilderActionResult{}, err
+	}
+	// Removing a builder discards its build cache, which nothing restores.
+	if action == "remove" && !params.Confirmed {
+		return BuilderActionResult{}, confirmationRequired("builder", name, "remove")
+	}
+	// Confirmation belongs to remove; accepting it for bootstrap would let a caller believe
+	// they had agreed to something about a verb that destroys nothing.
+	if action != "remove" && params.Confirmed {
+		return BuilderActionResult{}, opError("invalid_action_options",
+			"Confirmation is only valid for builder remove.", nil,
+			map[string]any{"action": action})
+	}
+
+	argv := []string{"buildx", "rm", name}
+	outcome := "removed"
+	if action == "bootstrap" {
+		// `--bootstrap` before the name: buildx takes the builder as a positional argument.
+		argv = []string{"buildx", "inspect", "--bootstrap", name}
+		outcome = "bootstrapped"
+	}
+
+	// Bootstrapping pulls and starts a BuildKit container on a cold machine, so this shares
+	// the mutation budget rather than the read one.
+	ctx, cancel := context.WithTimeout(parent, domainMutationTimeout)
+	defer cancel()
+	result, err := s.runDockerValidated(ctx, contextName, argv, domainCLIOutputLimit)
+	if err != nil {
+		return BuilderActionResult{}, err
+	}
+	// Buildx explains itself better than any wording here could — "cannot remove the default
+	// builder", "failed to find driver" — so its own output is carried rather than replaced.
+	output := strings.TrimSpace(string(result.stdout))
+	stderr := strings.TrimSpace(string(result.stderr))
+	if result.exitCode != 0 {
+		return BuilderActionResult{}, opError("builder_action_failed",
+			"Docker Buildx could not "+action+" that builder.", nil,
+			map[string]any{"builder": name, "action": action,
+				"exitCode": result.exitCode, "stderr": stderr})
+	}
+	if output == "" {
+		output = stderr
+	}
+
+	// The inventory is re-read even when the action succeeded: removing the current builder
+	// promotes another one, which the caller has no way to derive.
+	builders, listErr := s.buildxBuilders(ctx, contextName)
+	if listErr != nil {
+		builders = []BuildBuilder{}
+	}
+	return BuilderActionResult{
+		ProtocolVersion: ProtocolVersion,
+		Context:         contextName,
+		Name:            name,
+		Action:          action,
+		Outcome:         outcome,
+		Output:          output,
+		Builders:        builders,
+		ObservedAt:      nowUTC(),
+	}, nil
+}
+
 type buildInspectJSON struct {
 	Name              string `json:"Name"`
 	Ref               string `json:"Ref"`

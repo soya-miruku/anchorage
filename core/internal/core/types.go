@@ -61,13 +61,17 @@ type DockerContext struct {
 }
 
 type Plugin struct {
-	Name             string `json:"name"`
-	Version          string `json:"version,omitempty"`
-	Vendor           string `json:"vendor,omitempty"`
-	Description      string `json:"description,omitempty"`
-	Path             string `json:"path,omitempty"`
-	SchemaVersion    string `json:"schemaVersion,omitempty"`
-	Status           string `json:"status"`
+	Name          string `json:"name"`
+	Version       string `json:"version,omitempty"`
+	Vendor        string `json:"vendor,omitempty"`
+	Description   string `json:"description,omitempty"`
+	Path          string `json:"path,omitempty"`
+	SchemaVersion string `json:"schemaVersion,omitempty"`
+	Status        string `json:"status"`
+	// Fault names why the CLI skipped this entry, as a value rather than as prose. The note
+	// below says the same thing in words for the operator; a surface deciding which repair to
+	// offer must not have to match on that wording.
+	Fault            string `json:"fault,omitempty"`
 	DiscoverySource  string `json:"discoverySource"`
 	AvailabilityNote string `json:"availabilityNote,omitempty"`
 }
@@ -1472,6 +1476,40 @@ type BuildBuilder struct {
 	Nodes []BuildBuilderNode `json:"nodes"`
 }
 
+// BuilderActionParams operates on one buildx builder.
+//
+// Two actions, both of which buildx itself performs — this adds no capability Docker does not
+// already expose, it only reaches the two verbs an operator needs when a builder is listed as
+// unreachable and the table could previously do nothing about it:
+//
+//   - bootstrap: `buildx inspect --bootstrap`, which starts the builder's node and is the
+//     repair for the common "cannot reach" case.
+//   - remove: `buildx rm`, which deletes the builder and its cache.
+//
+// Switching the active builder is deliberately still absent. `buildx use` rewrites the CLI's
+// own configuration for every tool on the machine, which is not this application's to change.
+type BuilderActionParams struct {
+	Context string `json:"context"`
+	Name    string `json:"name"`
+	Action  string `json:"action"`
+	// Confirmed must be set for remove: the builder's cache does not survive it.
+	Confirmed bool `json:"confirmed,omitempty"`
+}
+
+// BuilderActionResult reports buildx's own words and the re-read inventory.
+type BuilderActionResult struct {
+	ProtocolVersion string `json:"protocolVersion"`
+	Context         string `json:"context"`
+	Name            string `json:"name"`
+	Action          string `json:"action"`
+	Outcome         string `json:"outcome"`
+	// Output is what buildx printed. A bootstrap that succeeds still has something to say
+	// about the node it started, and a failure is only explicable in buildx's own terms.
+	Output     string         `json:"output,omitempty"`
+	Builders   []BuildBuilder `json:"builders"`
+	ObservedAt string         `json:"observedAt"`
+}
+
 type BuildRecord struct {
 	ID   string `json:"id"`
 	Ref  string `json:"ref"`
@@ -1588,4 +1626,38 @@ type PluginsResult struct {
 	SearchPath      []string           `json:"searchPath"`
 	Warnings        []string           `json:"warnings"`
 	ObservedAt      string             `json:"observedAt"`
+}
+
+// PluginActionParams repairs one faulty entry in a Docker CLI plugin directory.
+//
+// Both actions are local repairs of something already on disk. Nothing here installs a plugin:
+// the core has no HTTP client and cannot execute anything but the fingerprinted Docker binary,
+// so "install" is guidance the surface gives the operator, never work this verb does.
+//
+//   - remove: unlink the entry. The common case is a symlink whose target a package manager
+//     deleted, which the CLI silently ignores and which no Docker command can clear.
+//   - enable: add the execute bit the CLI requires. Only valid for an entry that is faulty
+//     precisely because it lacks one.
+//
+// Path is required alongside Name because the same plugin name can appear in several
+// directories, and the entry being repaired is one file rather than a name.
+type PluginActionParams struct {
+	Context string `json:"context,omitempty"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Action  string `json:"action"`
+	// Confirmed must be set for remove: it deletes a host file.
+	Confirmed bool `json:"confirmed,omitempty"`
+}
+
+// PluginActionResult carries the re-read installation rather than only an acknowledgement, so
+// the surface cannot render a report that disagrees with the change it just made.
+type PluginActionResult struct {
+	ProtocolVersion string        `json:"protocolVersion"`
+	Name            string        `json:"name"`
+	Path            string        `json:"path"`
+	Action          string        `json:"action"`
+	Outcome         string        `json:"outcome"`
+	Plugins         PluginsResult `json:"plugins"`
+	ObservedAt      string        `json:"observedAt"`
 }

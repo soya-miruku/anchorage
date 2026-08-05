@@ -40,6 +40,10 @@ import {
   withFamily,
   type CornerStyle,
 } from "../theme/appearance";
+import {
+  persistCapabilityPreference,
+  readCapabilityPreference,
+} from "../data/capabilities";
 import type {
   ComposeConfigResult,
   AnchorageContainer,
@@ -80,6 +84,9 @@ import type {
   SystemPruneOptions,
   SystemSnapshot,
   ViewId,
+  SystemPlugins,
+  PluginRepair,
+  BuilderAction,
   ImageProjection,
   ImagesInspectResult,
   VolumeProjection,
@@ -567,6 +574,34 @@ export function useAnchorageStore() {
   const [expandedComposeProject, setExpandedComposeProject] = useState<
     string | null
   >(null);
+  /*
+   * The CLI plugin installation, held in the store rather than fetched per screen.
+   *
+   * It used to be a per-screen fetch, on the reasoning that a rarely-visited destination should
+   * not read a stale answer. Two things changed that. The sidebar now decides which rows exist
+   * from this report, so it has to be somewhere every render can see it. And a repair performed
+   * on one surface has to be reflected on all of them at once — removing a dangling `docker-mcp`
+   * from Settings must make the Tools row disappear without a reload.
+   *
+   * `null` means "not answered", never "nothing installed". Every consumer treats the two
+   * differently, because hiding a row on a failed read would be a lie about the machine.
+   */
+  const [pluginReport, setPluginReport] = useState<SystemPlugins | null>(null);
+  const [pluginReportStatus, setPluginReportStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [pluginReportError, setPluginReportError] = useState<string | null>(null);
+  const [pluginRepairPending, setPluginRepairPending] = useState<string | null>(null);
+  const [builderActionPending, setBuilderActionPending] = useState<string | null>(
+    null,
+  );
+  const [builderActionError, setBuilderActionError] = useState<string | null>(null);
+  // Destinations the operator chose to keep in the sidebar despite an absent plugin, so they can
+  // reach the setup screen that explains how to install it. Read once: it is a preference, and
+  // re-reading storage on every render would not make it more correct.
+  const [revealedCapabilities, setRevealedCapabilities] = useState<ViewId[]>(
+    () => readCapabilityPreference().revealed,
+  );
   const [volumes, setVolumes] = useState<AnchorageVolume[]>(() =>
     isHost ? [] : VOLUME_FIXTURES.map((volume) => ({ ...volume })),
   );
@@ -875,6 +910,37 @@ export function useAnchorageStore() {
     return request;
   }, [bridge]);
 
+  /**
+   * Re-read the plugin installation.
+   *
+   * This is the "Re-check now" every capability screen offers, and the reason it is worth
+   * offering: a plugin installed in a terminal while Anchorage is open was previously invisible
+   * until the screen was navigated away from and back. It is a directory scan and one
+   * `docker info`, so it is cheap enough to be a button.
+   */
+  const refreshPlugins = useCallback(async () => {
+    if (!isHost) {
+      // No CLI to ask. Left as `idle` with a null report so every consumer reads "unknown"
+      // rather than "absent" — the browser preview knows nothing about this machine.
+      return;
+    }
+    setPluginReportStatus("loading");
+    try {
+      const report = await bridge.system.plugins(dockerContextRef.current);
+      setPluginReport(report);
+      setPluginReportStatus("ready");
+      setPluginReportError(null);
+    } catch (reason) {
+      // The report is cleared rather than kept: a stale answer would keep gating the sidebar on
+      // facts nobody can vouch for. Cleared means unknown, which hides nothing.
+      setPluginReport(null);
+      setPluginReportStatus("error");
+      setPluginReportError(
+        reason instanceof Error ? reason.message : "Plugin inspection failed",
+      );
+    }
+  }, [bridge, isHost]);
+
   const retryEngine = useCallback(async () => {
     const request = ++engineRequestRef.current;
     setEngineStatus("loading");
@@ -917,6 +983,10 @@ export function useAnchorageStore() {
           refreshSnapshot(context),
           refreshImages(context),
           refreshVolumes(context),
+          // On the launch path because the sidebar's own contents depend on it: a row gated on
+          // an absent plugin must not appear and then vanish once something got round to asking.
+          // It is a directory scan and one `docker info`, not the capability walk.
+          refreshPlugins(),
         ]);
       }
     } catch (reason) {
@@ -925,7 +995,7 @@ export function useAnchorageStore() {
       setEngineStatus(failure.status);
       setEngineStatusMessage(failure.message);
     }
-  }, [bridge, isHost, refreshImages, refreshSnapshot, refreshVolumes]);
+  }, [bridge, isHost, refreshImages, refreshPlugins, refreshSnapshot, refreshVolumes]);
 
   useEffect(() => {
     void retryEngine();
@@ -3174,6 +3244,52 @@ export function useAnchorageStore() {
     }
   }, [bridge, isHost]);
 
+  /**
+   * Start or delete one builder.
+   *
+   * The builders table reported an unreachable builder and offered nothing to do about it, which
+   * left buildx's own error message on screen beside a note telling the operator to go and run
+   * buildx themselves. `bootstrap` starts the node; `remove` clears an entry whose driver is gone.
+   *
+   * The result carries the builders that remain, so removing the current one — which promotes
+   * another — redraws correctly without a second read.
+   */
+  const runBuilderAction = useCallback(
+    async (request: Omit<BuilderAction, "context">) => {
+      if (!isHost) return false;
+      setBuilderActionPending(request.name);
+      setBuilderActionError(null);
+      try {
+        const result = await bridge.builds.builderAction({
+          ...request,
+          context: dockerContextRef.current,
+        });
+        setBuildBuilders(result.builders);
+        setBuildsStatus("ready");
+        recordActivity({
+          id: `builder:${result.action}:${result.name}:${Date.now()}`,
+          kind: "event",
+          state: "succeeded",
+          title: result.outcome === "removed" ? "Builder removed" : "Builder started",
+          subject: result.name,
+          // Buildx explains what it did better than a restatement would.
+          detail: result.output?.split("\n").slice(0, 4).join("\n") || undefined,
+          startedAt: new Date().toISOString(),
+          read: false,
+        });
+        return true;
+      } catch (reason) {
+        setBuilderActionError(
+          reason instanceof Error ? reason.message : "The builder action failed",
+        );
+        return false;
+      } finally {
+        setBuilderActionPending(null);
+      }
+    },
+    [bridge, isHost, recordActivity],
+  );
+
   /** Loads one record's detail. The list gives builder/node/id; the core reduces it. */
   const selectBuildRecord = useCallback(
     async (record: BuildRecord) => {
@@ -3231,6 +3347,64 @@ export function useAnchorageStore() {
       );
     }
   }, [bridge, isHost]);
+
+
+  /**
+   * Repair one faulty plugin entry.
+   *
+   * The core hands back the re-read installation, so the surfaces update from the action's own
+   * result rather than a follow-up read that could disagree with it.
+   */
+  const repairPlugin = useCallback(
+    async (request: PluginRepair) => {
+      if (!isHost) return false;
+      setPluginRepairPending(request.path);
+      setPluginReportError(null);
+      try {
+        const result = await bridge.system.pluginAction({
+          ...request,
+          context: request.context ?? dockerContextRef.current,
+        });
+        setPluginReport(result.plugins);
+        setPluginReportStatus("ready");
+        // Recorded because it changed the machine outside Docker: a file was unlinked or its
+        // permissions altered, and the operator should be able to find that afterwards.
+        recordActivity({
+          id: `plugin:${result.action}:${result.path}:${Date.now()}`,
+          kind: "event",
+          state: "succeeded",
+          title:
+            result.outcome === "removed" ? "Plugin entry removed" : "Plugin made executable",
+          subject: `docker ${result.name}`,
+          detail: result.path,
+          startedAt: new Date().toISOString(),
+          read: false,
+        });
+        return true;
+      } catch (reason) {
+        setPluginReportError(
+          reason instanceof Error ? reason.message : "The plugin could not be repaired",
+        );
+        return false;
+      } finally {
+        setPluginRepairPending(null);
+      }
+    },
+    [bridge, isHost, recordActivity],
+  );
+
+  const setCapabilityRevealed = useCallback(
+    (view: ViewId, revealed: boolean) => {
+      setRevealedCapabilities((current) => {
+        const next = revealed
+          ? [...new Set([...current, view])]
+          : current.filter((entry) => entry !== view);
+        persistCapabilityPreference({ revealed: next });
+        return next;
+      });
+    },
+    [],
+  );
 
   const refreshCompose = useCallback(async () => {
     if (!isHost) return;
@@ -4406,6 +4580,19 @@ export function useAnchorageStore() {
     selectedBuildRef,
     refreshBuilds,
     selectBuildRecord,
+    runBuilderAction,
+    builderActionPending,
+    builderActionError,
+    // The plugin installation, which the sidebar reads to decide which rows exist and every
+    // capability screen reads to decide what it can offer.
+    pluginReport,
+    pluginReportStatus,
+    pluginReportError,
+    pluginRepairPending,
+    refreshPlugins,
+    repairPlugin,
+    revealedCapabilities,
+    setCapabilityRevealed,
     secrets,
     secretsSwarm,
     secretsStatus,

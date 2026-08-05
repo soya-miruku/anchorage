@@ -28,6 +28,8 @@ import {
   validateVolumeFileWrite,
   validateBuildsList,
   validateBuildsInspect,
+  validateBuildsBuilderAction,
+  validateSystemPluginAction,
   validateVolumeBackup,
   validateVolumeRestore,
   validateComposeList,
@@ -1474,5 +1476,99 @@ test("protocol v1 keeps a build reference from becoming a flag", () => {
       `unsafe build reference unexpectedly matched: ${JSON.stringify(params)}`,
     );
     assert.throws(() => validateBuildsInspect(params), TypeError);
+  }
+});
+
+test("protocol v1 gates a plugin repair and keeps its path off the shapes that read as a flag", () => {
+  // The first request that deletes a file on the operator's machine. The schema and the
+  // boundary validator must agree on all of it: what the path may look like, that a removal is
+  // agreed to explicitly, and that `enable` cannot carry an agreement it has no use for.
+  const base = {
+    context: "default",
+    name: "mcp",
+    path: "/home/operator/.docker/cli-plugins/docker-mcp",
+  };
+  for (const params of [
+    // A removal without the agreement.
+    { ...base, action: "remove" },
+    { ...base, action: "remove", confirmed: false },
+    // `enable` borrowing remove's confirmation.
+    { ...base, action: "enable", confirmed: true },
+    // Verbs that are not repairs. `install` in particular: nothing here installs anything.
+    { ...base, action: "install", confirmed: true },
+    { ...base, action: "chmod", confirmed: true },
+    // Paths that are not absolute, or that could be re-read as an option or a second argument.
+    { ...base, path: "docker-mcp", action: "enable" },
+    { ...base, path: "--force", action: "enable" },
+    { ...base, path: "", action: "enable" },
+    { ...base, path: "/plugins/docker-mcp\nrm -rf /", action: "enable" },
+    // A name that is not a plugin command name.
+    { ...base, name: "-mcp", action: "enable" },
+    { ...base, name: "", action: "enable" },
+    { ...base, action: "enable", extra: true },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("system.pluginAction", params)),
+      false,
+      `unsafe plugin repair unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateSystemPluginAction(params), TypeError);
+  }
+  // Both repairs, correctly formed, are accepted by the schema as the validator emits them.
+  for (const params of [
+    { ...base, action: "remove", confirmed: true },
+    { ...base, action: "enable" },
+  ]) {
+    assert.equal(
+      schemaMatches(
+        protocol,
+        request("system.pluginAction", validateSystemPluginAction(params)),
+      ),
+      true,
+      `a well-formed repair was refused: ${JSON.stringify(params)}`,
+    );
+  }
+});
+
+test("protocol v1 keeps builder actions to buildx's two safe verbs and gates removal", () => {
+  const base = { context: "default", name: "desktop-linux" };
+  for (const params of [
+    // Switching the active builder is not offered at all: it rewrites configuration shared
+    // with every other Docker tool on the machine.
+    { ...base, action: "use" },
+    { ...base, action: "create" },
+    { ...base, action: "prune", confirmed: true },
+    // Removal discards the builder's cache, so it is agreed to explicitly.
+    { ...base, action: "remove" },
+    { ...base, action: "remove", confirmed: false },
+    // Bootstrap destroys nothing and must not accept an agreement.
+    { ...base, action: "bootstrap", confirmed: true },
+    // Names that would read as a flag or carry a second argument.
+    { ...base, name: "--all-inactive", action: "bootstrap" },
+    { ...base, name: "-f", action: "bootstrap" },
+    { ...base, name: "a b", action: "bootstrap" },
+    { ...base, name: "a/b", action: "bootstrap" },
+    { ...base, name: "", action: "bootstrap" },
+    { context: "default", action: "bootstrap" },
+  ]) {
+    assert.equal(
+      schemaMatches(protocol, request("builds.builderAction", params)),
+      false,
+      `unsafe builder action unexpectedly matched: ${JSON.stringify(params)}`,
+    );
+    assert.throws(() => validateBuildsBuilderAction(params), TypeError);
+  }
+  for (const params of [
+    { ...base, action: "remove", confirmed: true },
+    { ...base, action: "bootstrap" },
+  ]) {
+    assert.equal(
+      schemaMatches(
+        protocol,
+        request("builds.builderAction", validateBuildsBuilderAction(params)),
+      ),
+      true,
+      `a well-formed builder action was refused: ${JSON.stringify(params)}`,
+    );
   }
 });

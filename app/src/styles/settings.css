@@ -811,3 +811,194 @@
   font-size: 10.5px;
   line-height: 1.8;
 }
+
+/* ── Capabilities and repairs ─────────────────────────────────────────────────────────────
+   Optional plugins, what depends on them, and the two faults that can be repaired from here.
+   Every state is spelled out in words; the tone only sorts them faster, because the greyscale
+   theme family has no hue to read. */
+
+.plugin-health__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plugin-health__heading h3 {
+  margin-bottom: 0;
+}
+
+.plugin-health__actions,
+.plugin-health__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.plugin-health__confirm {
+  padding-top: 10px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.plugin-health__confirm p {
+  flex: 1 1 260px;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.capabilities-settings {
+  margin-top: 26px;
+}
+
+.capabilities-settings h3 {
+  margin-bottom: 6px;
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.capabilities-list {
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+
+.capabilities-row {
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-input);
+}
+
+.capabilities-row__identity {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.capabilities-row__name {
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.capabilities-row__identity code {
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+}
+
+.capabilities-row__summary {
+  margin-top: 5px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.capabilities-row__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 9px;
+  font-size: 11px;
+}
+
+.capabilities-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 11px;
+}
+
+.capabilities-row__actions .resource-dim {
+  flex: 1 1 220px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+/* Pressed rather than a switch: a role="switch" in any settings pane fails the host-candidate
+   gate, and the Appearance pane already expresses real preferences this way. */
+.capabilities-row__actions .ghost-button[aria-pressed="true"] {
+  border-color: rgb(var(--anc-accent-rgb) / 45%);
+  background: rgb(var(--anc-accent-rgb) / 12%);
+  color: var(--anc-accent-fg);
+}
+
+.capability-chip {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.capability-chip--success {
+  background: rgb(var(--anc-success-rgb) / 16%);
+  color: var(--anc-success-fg);
+}
+
+.capability-chip--danger {
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger-fg);
+}
+
+.capability-chip--warning {
+  background: rgb(var(--anc-warning-rgb) / 16%);
+  color: var(--anc-warning-fg);
+}
+
+.capability-chip--neutral {
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  color: var(--anc-text-muted);
+}
+
+/* The builders table gained an actions column, so the name column gives up some of its slack.
+   ACTIVE and ACTIONS are fixed gutters; the two buttons never wrap. */
+.builders-table thead th:nth-child(6) {
+  width: 178px;
+  text-align: right;
+}
+
+.builders-table__actions {
+  text-align: right;
+}
+
+.builders-table__actions-label {
+  /* The column is obvious from its contents and the heading only adds noise at this width,
+     but a header cell with no accessible name is a worse trade. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.builders-row__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.builders-row__actions .ghost-button,
+.builders-row__actions .primary-button {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 11px;
+}

@@ -61,6 +61,49 @@ export interface SystemPluginsRequest {
   params?: { context?: string };
 }
 
+/**
+ * Repairs one faulty entry in a plugin directory.
+ *
+ * `Plugin.status` above distinguishes a capability that is absent from an installation that is
+ * faulty, and says the remedy for each. This is that remedy — and only that. Neither action
+ * installs a plugin: the core has no HTTP client, Electron blocks every download, and nothing
+ * in the protocol can execute a binary other than the fingerprinted Docker CLI. An absent
+ * capability is guidance the surface gives the operator, never work this verb performs.
+ *
+ * `path` accompanies `name` because one plugin name can appear in several directories, and the
+ * entry being repaired is a file rather than a name. The core does not trust either value on its
+ * own: it re-walks the directories, re-derives the classification, and refuses anything it does
+ * not itself report as broken or unloaded.
+ */
+export interface SystemPluginActionRequest {
+  id: RequestId;
+  method: "system.pluginAction";
+  params: {
+    context?: string;
+    /** Plugin command name, without the `docker-` file prefix. */
+    name: string;
+    path: string;
+    /** `remove` unlinks the entry; `enable` adds the execute bit the CLI requires. */
+    action: "remove" | "enable";
+    /** Required for `remove`, which deletes a file on the operator's machine. */
+    confirmed?: true;
+  };
+}
+
+export interface SystemPluginActionResult {
+  protocolVersion: "1";
+  name: string;
+  path: string;
+  action: "remove" | "enable";
+  outcome: "removed" | "enabled";
+  /**
+   * The re-read installation. Carried rather than left to the caller because `enable` can make
+   * a plugin load, which changes entries the action never touched.
+   */
+  plugins: SystemPluginsResult;
+  observedAt: string;
+}
+
 export interface SystemSnapshotRequest {
   id: RequestId;
   method: "system.snapshot";
@@ -800,6 +843,7 @@ export type RPCRequest =
   | SystemCapabilitiesRequest
   | SystemContextsRequest
   | SystemPluginsRequest
+  | SystemPluginActionRequest
   | SystemSnapshotRequest
   | SystemActionRequest
   | ContainersListRequest
@@ -828,6 +872,7 @@ export type RPCRequest =
   | VolumeEmptyRequest
   | BuildsListRequest
   | BuildsInspectRequest
+  | BuildsBuilderActionRequest
   | ImagesListRequest
   | ImagesActionRequest
   | ImagesInspectRequest
@@ -933,6 +978,20 @@ export interface CommandInventory {
  */
 export type PluginStatus = Availability | "broken";
 
+/**
+ * Why the CLI skipped an entry, as a value rather than as prose.
+ *
+ * `availabilityNote` says the same thing in the operator's words and is free to be reworded.
+ * This decides which repair a surface may offer, and that decision must not be made by matching
+ * on English: `dangling-link` can only be removed, `not-executable` is the one fault a `chmod`
+ * fixes, and `handshake` is a version mismatch that needs a reinstall rather than anything local.
+ */
+export type PluginFault =
+  | "dangling-link"
+  | "unreadable"
+  | "not-executable"
+  | "handshake";
+
 export interface Plugin {
   name: string;
   version?: string;
@@ -941,6 +1000,7 @@ export interface Plugin {
   path?: string;
   schemaVersion?: string;
   status: PluginStatus;
+  fault?: PluginFault;
   discoverySource: "docker-info" | "docker-help" | "cli-plugins-dir" | string;
   availabilityNote?: string;
 }
@@ -1967,6 +2027,43 @@ export interface BuildsInspectRequest {
   id: RequestId;
   method: "builds.inspect";
   params: { context: string; ref: string };
+}
+
+/**
+ * Acting on one builder, using buildx's own verbs.
+ *
+ * `BuildBuilder.error` carries buildx's note about a builder it could not reach, and reporting
+ * it without offering anything to do about it left the operator to run buildx by hand. These are
+ * the two verbs that case needs: start the node, or delete the entry.
+ *
+ * `use` is absent by decision rather than omission. Choosing the active builder rewrites the
+ * CLI's own configuration, which every tool on the machine reads — not this application's to
+ * change on the operator's behalf.
+ */
+export interface BuildsBuilderActionRequest {
+  id: RequestId;
+  method: "builds.builderAction";
+  params: {
+    context: string;
+    name: string;
+    /** `bootstrap` is `buildx inspect --bootstrap`; `remove` is `buildx rm`. */
+    action: "remove" | "bootstrap";
+    /** Required for `remove`: the builder's cache does not survive it. */
+    confirmed?: true;
+  };
+}
+
+export interface BuildsBuilderActionResult {
+  protocolVersion: "1";
+  context: string;
+  name: string;
+  action: "remove" | "bootstrap";
+  outcome: "removed" | "bootstrapped";
+  /** What buildx printed. A failure is only explicable in its own terms. */
+  output?: string;
+  /** The re-read inventory: removing the current builder promotes another one. */
+  builders: BuildBuilder[];
+  observedAt: string;
 }
 
 export interface BuildBuilderNode {

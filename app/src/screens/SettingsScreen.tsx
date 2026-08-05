@@ -1,6 +1,12 @@
 import { describeEngineHosting } from "./engineHosting";
-import { Fragment, useEffect } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { CliPluginHealth } from "../components/CliPluginHealth";
+import { CapabilityStatusChip } from "../components/CapabilitySetup";
+import {
+  capabilityCatalogue,
+  capabilityEntry,
+  capabilityState,
+} from "../data/capabilities";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { DAEMON_JSON_FIXTURE } from "../data/fixtures";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -738,6 +744,89 @@ function EnterpriseSettings() {
   );
 }
 
+/**
+ * Which optional capabilities this installation has, and which it does not.
+ *
+ * Five destinations are nothing but a Docker CLI plugin, and with no plugin installed their
+ * sidebar rows are left out — so this is where they live instead. Without it, hiding a row would
+ * simply lose the destination; with it, every gated capability is named whether or not it is
+ * installed, and the operator decides which absent ones they still want in reach.
+ *
+ * The visibility control is a button rather than a switch on purpose. A `role="switch"` in any
+ * settings pane fails the host-candidate gate, which exists because this application once shipped
+ * fixture switches that could not reach the engine. That reasoning does not apply to a renderer
+ * preference — but the gate is mechanical, and the Appearance pane already expresses real
+ * preferences as pressed buttons, so this follows it rather than carving out an exception.
+ */
+function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
+  return (
+    <section className="capabilities-settings" data-testid="settings-capabilities">
+      <div className="plugin-health__heading">
+        <h3>Capabilities</h3>
+      </div>
+      <p className="plugin-health__note">
+        Optional Docker plugins, and what depends on them. Anchorage does not install these —
+        nothing in it downloads or runs an installer — so each one links to what it needs and
+        where it goes.
+      </p>
+      <ul className="capabilities-list">
+        {capabilityCatalogue.map((capability) => {
+          const state = capabilityState(store.pluginReport, capability.plugin);
+          const entry = capabilityEntry(store.pluginReport, capability.plugin);
+          const revealed = store.revealedCapabilities.includes(capability.view);
+          // Only a row that would actually be hidden gets the control. Offering it for Compose,
+          // whose row never disappears, would be a switch with nothing on the other end.
+          const hideable = capability.gatesSidebar && state === "absent";
+          return (
+            <li
+              className="capabilities-row"
+              key={capability.plugin}
+              data-testid={`capability-row-${capability.plugin}`}
+            >
+              <div className="capabilities-row__identity">
+                <span className="capabilities-row__name">{capability.label}</span>
+                <code className="resource-mono">docker {capability.plugin}</code>
+              </div>
+              <p className="capabilities-row__summary">{capability.summary}</p>
+              <div className="capabilities-row__state">
+                <CapabilityStatusChip state={state} />
+                {entry?.version && (
+                  <span className="resource-mono resource-dim">{entry.version}</span>
+                )}
+                {!capability.gatesSidebar && state === "absent" && (
+                  <span className="resource-dim">
+                    Its screen stays in the sidebar and explains the absence itself.
+                  </span>
+                )}
+              </div>
+              {hideable && (
+                <div className="capabilities-row__actions">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    aria-pressed={revealed}
+                    data-testid={`capability-reveal-toggle-${capability.plugin}`}
+                    onClick={() =>
+                      store.setCapabilityRevealed(capability.view, !revealed)
+                    }
+                  >
+                    {revealed ? "Shown in sidebar" : "Show in sidebar"}
+                  </button>
+                  <span className="resource-dim">
+                    {revealed
+                      ? "Its row is in the sidebar, where it explains how to install the plugin."
+                      : "Not installed, so its row is hidden. Show it to reach the setup screen."}
+                  </span>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function EngineSettings({ store }: { store: AnchorageStore }) {
   // The fixture pane rendered a hardcoded daemon.json. Against a live engine that is
   // fabricated configuration presented as the operator's own — the same thing the host
@@ -804,6 +893,7 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
           <span className="engine-facts__source">daemon.json · experimental</span>
         </dd>
       </dl>
+      <CapabilitiesSettings store={store} />
       <CliPluginHealth store={store} />
       {engine.warnings.length > 0 && (
         <div className="engine-warnings" data-testid="engine-warnings">
@@ -891,7 +981,96 @@ function FixtureBuildersSettings() {
   );
 }
 
+/**
+ * The two things that can be done to one builder.
+ *
+ * This pane used to report an unreachable builder, print buildx's own error beside it, and then
+ * tell the operator to go and run `docker buildx rm` themselves. Both verbs here are that same
+ * buildx command; neither invents anything Docker does not already do.
+ *
+ * Starting is only offered where it could help — a builder buildx already reports as running has
+ * nothing to bootstrap. The confirmation for removal is a second click rather than a dialog: it
+ * is one row, and a modal would be heavier than the act. Its question lives in a spill row
+ * beneath, because the actions column is a fixed gutter that truncates, and the thing being
+ * agreed to — that the build cache goes too — is the part that must not be cut off.
+ */
+function BuilderActions({
+  store,
+  builder,
+  confirming,
+  onConfirm,
+}: {
+  store: AnchorageStore;
+  builder: BuildBuilder;
+  confirming: boolean;
+  onConfirm: (name: string | null) => void;
+}) {
+  const busy = store.builderActionPending === builder.name;
+  const running = builder.nodes.some((node) => node.status === "running");
+
+  if (confirming) {
+    return (
+      <div className="builders-row__actions">
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => onConfirm(null)}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="primary-button primary-button--danger"
+          disabled={busy}
+          data-testid={`builder-remove-confirm-${builder.name}`}
+          onClick={() => {
+            onConfirm(null);
+            void store.runBuilderAction({
+              name: builder.name,
+              action: "remove",
+              confirmed: true,
+            });
+          }}
+        >
+          {busy ? "Removing…" : "Remove"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="builders-row__actions">
+      {!running && (
+        <button
+          type="button"
+          className="ghost-button"
+          disabled={busy}
+          data-testid={`builder-bootstrap-${builder.name}`}
+          title="Runs docker buildx inspect --bootstrap, which starts this builder's node"
+          onClick={() => {
+            void store.runBuilderAction({ name: builder.name, action: "bootstrap" });
+          }}
+        >
+          {busy ? "Starting…" : "Try to start"}
+        </button>
+      )}
+      <button
+        type="button"
+        className="ghost-button ghost-button--danger"
+        disabled={busy}
+        data-testid={`builder-remove-${builder.name}`}
+        onClick={() => onConfirm(builder.name)}
+      >
+        Remove
+      </button>
+    </div>
+  );
+}
+
 function HostBuildersSettings({ store }: { store: AnchorageStore }) {
+  // One at a time: the question appears in a row of its own, and two open at once would read
+  // as one question about both builders.
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const refreshBuilds = store.refreshBuilds;
   useEffect(() => {
     void refreshBuilds();
@@ -943,6 +1122,9 @@ function HostBuildersSettings({ store }: { store: AnchorageStore }) {
               <th scope="col" className="builders-table__active">
                 Active
               </th>
+              <th scope="col" className="builders-table__actions">
+                <span className="builders-table__actions-label">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -978,13 +1160,32 @@ function HostBuildersSettings({ store }: { store: AnchorageStore }) {
                         <span className="builders-chip">Active</span>
                       )}
                     </td>
+                    <td className="builders-table__actions">
+                      <BuilderActions
+                        store={store}
+                        builder={builder}
+                        confirming={confirmingRemove === builder.name}
+                        onConfirm={setConfirmingRemove}
+                      />
+                    </td>
                   </tr>
+                  {confirmingRemove === builder.name && (
+                    <tr className="builders-row builders-row--reason">
+                      <td colSpan={6} data-testid={`builder-remove-question-${builder.name}`}>
+                        Remove <strong>{builder.name}</strong>? Its build cache goes with it and
+                        nothing restores it.
+                        {builder.current
+                          ? " It is the active builder, so buildx will fall back to another one."
+                          : ""}
+                      </td>
+                    </tr>
+                  )}
                   {/* Buildx's own note, in the row it belongs to. The Builds screen
                       carries it in a `title`, which is invisible until hovered — here
                       it is the reason the operator came to this pane. */}
                   {builder.error && (
                     <tr className="builders-row builders-row--reason">
-                      <td colSpan={5} data-testid={`builder-error-${builder.name}`}>
+                      <td colSpan={6} data-testid={`builder-error-${builder.name}`}>
                         {builder.error}
                       </td>
                     </tr>
@@ -1003,19 +1204,28 @@ function HostBuildersSettings({ store }: { store: AnchorageStore }) {
             : `${unreachable.length} builders are configured but unreachable`}
           . A build that names one fails rather than falling back to the active
           builder, so they are listed with buildx's reason instead of hidden.
-          Leftover entries from an uninstalled Docker Desktop are the usual cause;{" "}
-          <code>docker buildx rm &lt;name&gt;</code> removes one.
+          <strong> Try to start</strong> runs{" "}
+          <code>docker buildx inspect --bootstrap</code>, which is enough when the
+          builder&rsquo;s container was simply stopped. Leftover entries from an
+          uninstalled Docker Desktop cannot be started at all and want removing.
         </p>
       )}
 
       <p className="builders-note" data-testid="builders-read-only">
         Anchorage does not switch builders. Choosing one is{" "}
         <code>docker buildx use &lt;name&gt;</code>, which rewrites the CLI's own
-        configuration for every tool on this machine, and this build has no verb
-        for it — so the active builder is reported here rather than offered as a
-        choice.
+        configuration for every tool on this machine — so the active builder is
+        reported here rather than offered as a choice. Starting and removing a
+        builder change only that builder, which is why those two are offered.
       </p>
 
+      {/* Buildx's own refusal — "cannot remove the default builder" is the common one — rather
+          than a restatement of it. Above buildsError because it is about the act just attempted. */}
+      {store.builderActionError && (
+        <p className="capability-error" role="status" data-testid="builder-action-error">
+          {store.builderActionError}
+        </p>
+      )}
       {store.buildsError && (
         <p className="resource-dim" role="status">
           {store.buildsError}

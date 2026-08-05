@@ -6,6 +6,7 @@ const CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
   systemContexts: "anchorage:system.contexts",
   systemPlugins: "anchorage:system.plugins",
+  systemPluginAction: "anchorage:system.pluginAction",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -28,6 +29,7 @@ const CHANNELS = Object.freeze({
   volumesFileWrite: "anchorage:volumes.fileWrite",
   buildsList: "anchorage:builds.list",
   buildsInspect: "anchorage:builds.inspect",
+  buildsBuilderAction: "anchorage:builds.builderAction",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
@@ -283,6 +285,42 @@ function systemPlugins(value) {
   onlyKeys(value, new Set(["context"]), "request");
   const selectedContext = context(value.context, false);
   return selectedContext === undefined ? {} : { context: selectedContext };
+}
+
+const PLUGIN_ACTIONS = new Set(["remove", "enable"]);
+const PLUGIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+
+function systemPluginAction(value) {
+  plainObject(value, "request");
+  onlyKeys(
+    value,
+    new Set(["context", "name", "path", "action", "confirmed"]),
+    "request",
+  );
+  const action = enumValue(value.action, "request.action", PLUGIN_ACTIONS);
+  const name = text(value.name, "request.name", 128);
+  if (!PLUGIN_NAME.test(name)) {
+    fail("request.name must be a Docker CLI plugin command name");
+  }
+  const path = text(value.path, "request.path", 4096);
+  if (!path.startsWith("/")) {
+    fail("request.path must be an absolute path");
+  }
+  if (path.includes("\r") || path.includes("\n")) {
+    fail("request.path must not contain line breaks");
+  }
+  const normalized = { name, path, action };
+  copyDefined(normalized, "context", context(value.context, false));
+  const agreed = optionalBoolean(value.confirmed, "request.confirmed");
+  if (action === "remove") {
+    if (agreed !== true) {
+      fail("request.confirmed must be true to remove a plugin entry");
+    }
+    normalized.confirmed = true;
+  } else if (agreed !== undefined) {
+    fail("request.confirmed is only valid for plugin remove");
+  }
+  return normalized;
 }
 
 function containersList(value) {
@@ -1006,6 +1044,31 @@ function buildsInspect(value) {
     fail("request.ref must be a build record reference");
   }
   return { context: context(value.context), ref };
+}
+
+const BUILDER_ACTIONS = new Set(["remove", "bootstrap"]);
+const BUILDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
+
+function buildsBuilderAction(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "name", "action", "confirmed"]), "request");
+  const action = enumValue(value.action, "request.action", BUILDER_ACTIONS);
+  const name = text(value.name, "request.name", 256);
+  // Same rule as a build reference: separators belong inside the name, never first.
+  if (!BUILDER_NAME.test(name)) {
+    fail("request.name must be a buildx builder name");
+  }
+  const normalized = { context: context(value.context), name, action };
+  const agreed = optionalBoolean(value.confirmed, "request.confirmed");
+  if (action === "remove") {
+    if (agreed !== true) {
+      fail("request.confirmed must be true to remove a builder");
+    }
+    normalized.confirmed = true;
+  } else if (agreed !== undefined) {
+    fail("request.confirmed is only valid for builder remove");
+  }
+  return normalized;
 }
 
 function volumeBackup(value) {
@@ -2035,6 +2098,8 @@ function invoke(method, payload) {
       return call(CHANNELS.systemContexts, systemContexts(payload));
     case "system.plugins":
       return call(CHANNELS.systemPlugins, systemPlugins(payload));
+    case "system.pluginAction":
+      return call(CHANNELS.systemPluginAction, systemPluginAction(payload));
     case "system.snapshot":
       return call(CHANNELS.systemSnapshot, systemSnapshot(payload));
     case "system.action":
@@ -2079,6 +2144,8 @@ function invoke(method, payload) {
       return call(CHANNELS.buildsList, buildsList(payload));
     case "builds.inspect":
       return call(CHANNELS.buildsInspect, buildsInspect(payload));
+    case "builds.builderAction":
+      return call(CHANNELS.buildsBuilderAction, buildsBuilderAction(payload));
     case "volumes.backup":
       return call(CHANNELS.volumesBackup, volumeBackup(payload));
     case "volumes.restore":
@@ -2141,6 +2208,8 @@ const api = Object.freeze({
       call(CHANNELS.systemCapabilities, systemCapabilities(request)),
     contexts: (request) => call(CHANNELS.systemContexts, systemContexts(request)),
     plugins: (request) => call(CHANNELS.systemPlugins, systemPlugins(request)),
+    pluginAction: (request) =>
+      call(CHANNELS.systemPluginAction, systemPluginAction(request)),
     snapshot: (request) => call(CHANNELS.systemSnapshot, systemSnapshot(request)),
     action: (request) => call(CHANNELS.systemAction, systemAction(request)),
   }),
@@ -2169,6 +2238,8 @@ const api = Object.freeze({
   builds: Object.freeze({
     list: (request) => call(CHANNELS.buildsList, buildsList(request)),
     inspect: (request) => call(CHANNELS.buildsInspect, buildsInspect(request)),
+    builderAction: (request) =>
+      call(CHANNELS.buildsBuilderAction, buildsBuilderAction(request)),
   }),
   compose: Object.freeze({
     list: (request) => call(CHANNELS.composeList, composeList(request)),

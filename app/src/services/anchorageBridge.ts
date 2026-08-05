@@ -12,6 +12,9 @@ import type {
   CommandInventory,
   SystemContexts,
   SystemPlugins,
+  PluginFault,
+  PluginRepair,
+  PluginRepairResult,
   DockerCliPluginStatus,
   CommandNode,
   ContainerInspectResult,
@@ -29,6 +32,8 @@ import type {
   ComposeActionResult,
   ComposeListResult,
   BuildsListResult,
+  BuilderAction,
+  BuilderActionResult,
   BuildsInspectResult,
   SecretsListResult,
   ComposePsResult,
@@ -420,6 +425,13 @@ const PLUGIN_STATUSES = new Set([
   "broken",
 ]);
 
+const PLUGIN_FAULTS: ReadonlySet<string> = new Set([
+  "dangling-link",
+  "unreadable",
+  "not-executable",
+  "handshake",
+]);
+
 function normalizePlugins(value: unknown): SystemPlugins {
   const raw = asRecord(value);
   const protocolVersion = String(raw.protocolVersion ?? "");
@@ -448,6 +460,11 @@ function normalizePlugins(value: unknown): SystemPlugins {
           status: (PLUGIN_STATUSES.has(status)
             ? status
             : "unknown") as DockerCliPluginStatus,
+          // Dropped rather than passed through when unrecognised: a surface decides which
+          // repair to offer from this, and an unknown fault must offer none.
+          fault: PLUGIN_FAULTS.has(String(entry.fault ?? ""))
+            ? (String(entry.fault) as PluginFault)
+            : undefined,
           discoverySource: String(entry.discoverySource ?? "unknown"),
           availabilityNote:
             typeof entry.availabilityNote === "string"
@@ -880,6 +897,7 @@ class FixtureBridge implements AnchorageBridge {
       };
     },
     plugins: async () => fixtureUnsupported("system.plugins"),
+    pluginAction: async () => fixtureUnsupported("system.pluginAction"),
     snapshot: async () => fixtureUnsupported("system.snapshot"),
     prune: async () => fixtureUnsupported("system.action"),
   };
@@ -895,6 +913,7 @@ class FixtureBridge implements AnchorageBridge {
   readonly builds = {
     list: async () => fixtureUnsupported("builds.list"),
     inspect: async () => fixtureUnsupported("builds.inspect"),
+    builderAction: async () => fixtureUnsupported("builds.builderAction"),
   };
 
   readonly compose = {
@@ -1192,6 +1211,26 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       return normalizePlugins(await host.invoke("system.plugins", request));
     }
     throw new Error("Docker plugin inspection is unavailable");
+  };
+  const systemPluginAction = async (
+    request: PluginRepair,
+  ): Promise<PluginRepairResult> => {
+    const result = host.system?.pluginAction
+      ? await host.system.pluginAction(request)
+      : host.invoke
+        ? await host.invoke("system.pluginAction", request)
+        : await Promise.reject(new Error("Plugin repair is unavailable"));
+    const raw = requireObjectResult(result, "system.pluginAction");
+    // The re-read report is the point of the result, so a response without one is incomplete
+    // rather than something to paper over with the report the caller already had.
+    return {
+      name: String(raw.name ?? request.name),
+      path: String(raw.path ?? request.path),
+      action: request.action,
+      outcome: raw.outcome === "enabled" ? "enabled" : "removed",
+      plugins: normalizePlugins(raw.plugins),
+      observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
+    };
   };
   const systemContexts = async (context?: string) => {
     const request = context ? { context } : undefined;
@@ -1553,6 +1592,28 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as BuildsInspectResult;
   };
+  const buildsBuilderAction = async (
+    request: BuilderAction,
+  ): Promise<BuilderActionResult> => {
+    const result = host.builds?.builderAction
+      ? await host.builds.builderAction(request)
+      : host.invoke
+        ? await host.invoke("builds.builderAction", request)
+        : await Promise.reject(new Error("Builder actions are unavailable"));
+    const raw = requireObjectResult(result, "builds.builderAction");
+    if (!Array.isArray(raw.builders)) {
+      throw new Error("builds.builderAction returned an incomplete result");
+    }
+    return {
+      context: String(raw.context ?? request.context),
+      name: String(raw.name ?? request.name),
+      action: request.action,
+      outcome: raw.outcome === "bootstrapped" ? "bootstrapped" : "removed",
+      output: typeof raw.output === "string" ? raw.output : undefined,
+      builders: structuredClone(raw.builders) as BuilderActionResult["builders"],
+      observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
+    };
+  };
   const composeList = async (context: string, all = true) => {
     const request = { context, all };
     const result = host.compose
@@ -1851,12 +1912,14 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       capabilities: systemCapabilities,
       contexts: systemContexts,
       plugins: systemPlugins,
+      pluginAction: systemPluginAction,
       snapshot: systemSnapshot,
       prune: systemPrune,
     },
     builds: {
       list: (context = "default") => buildsList(context),
       inspect: (ref: string, context = "default") => buildsInspect(ref, context),
+      builderAction: buildsBuilderAction,
     },
     /**
      * Desktop integration. Reveal only — the main process refuses `shell.openPath`, so this can

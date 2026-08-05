@@ -17,6 +17,7 @@ import {
 } from "./AnchorageIcon";
 import { MaturityChip, MaturityDrawer } from "./MaturityDrawer";
 import { maturityFor } from "../data/maturity";
+import { isViewVisible } from "../data/capabilities";
 
 const CommandCenter = lazy(() =>
   import("./CommandCenter").then((module) => ({
@@ -31,9 +32,16 @@ interface NavItem {
 }
 
 // Group names and ordering follow the v2 handoff nav (Anchorage v2.dc.html:136-236).
-// Every destination the handoff names has a row, including the ones this build cannot
-// serve: the screen behind such a row says which capability is missing, which is the
-// product's stated posture. An absent row says nothing at all.
+//
+// Every destination the handoff names has a row here, but not every row is rendered. The five
+// plugin-backed AI destinations are gated on the plugin they are made of: with no such plugin
+// installed, the row is left out — see data/capabilities.ts for why that stopped being a lie by
+// omission and became the honest answer. The previous policy, that an absent row "says nothing at
+// all", was true while nothing else said anything; Settings → Engine → Capabilities now names
+// every gated capability, whether installed or not, and is where a hidden row is turned back on.
+//
+// A *faulty* plugin keeps its row. Something was installed on this machine and went wrong, and
+// that row is the way into the repair.
 //
 // Networks has no place in the handoff — it is kept because `docker network` is core
 // Engine surface, and filed with the other resource views.
@@ -391,11 +399,18 @@ function NavGroup({
   // rendered.
   const routed = store.engineStatus === "ready";
 
+  const visible = items.filter((item) =>
+    isViewVisible(item.id, store.pluginReport, store.revealedCapabilities),
+  );
+  // A group whose every row is gated on a plugin nobody has installed would otherwise render as
+  // a heading with nothing under it, which reads as a failure rather than as an absence.
+  if (visible.length === 0) return null;
+
   return (
     <div className="sidebar__group">
       <div className="sidebar__section-label">{label}</div>
       <nav aria-label={`${label.toLocaleLowerCase()} navigation`}>
-        {items.map((item) => {
+        {visible.map((item) => {
           const active = store.view === item.id;
           return (
             <button
