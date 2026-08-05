@@ -99,7 +99,9 @@ const states = [
   },
   {
     id: "settings-engine",
-    steps: settingsSteps("Docker Engine"),
+    // The handoff calls this pane "Engine"; the build followed suit, and this harness drives
+    // the rail by its visible label.
+    steps: settingsSteps("Engine"),
   },
   {
     id: "settings-kubernetes",

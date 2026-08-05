@@ -536,12 +536,12 @@ describe("Anchorage containers workspace", () => {
     expect(swap).toHaveValue("2");
     expect(disk).toHaveValue("96");
 
-    fireEvent.click(screen.getByRole("button", { name: "Docker Engine" }));
+    fireEvent.click(screen.getByRole("button", { name: "Engine" }));
     expect(screen.getByTestId("daemon-json")).toHaveTextContent(
       '"containerd-snapshotter": true',
     );
     expect(
-      screen.getByRole("button", { name: "Docker Engine" }),
+      screen.getByRole("button", { name: "Engine" }),
     ).toHaveAttribute("aria-current", "page");
   });
 

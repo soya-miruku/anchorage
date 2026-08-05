@@ -1,3 +1,4 @@
+import { describeEngineHosting } from "./engineHosting";
 import { Fragment, useEffect } from "react";
 import { CliPluginHealth } from "../components/CliPluginHealth";
 import type { CSSProperties, KeyboardEvent } from "react";
@@ -29,20 +30,33 @@ export type SettingsPaneId = SettingsTab | "builders";
 /** The panes that are still a list of switches over `featureFlags`. */
 type TogglePaneId = Exclude<
   SettingsPaneId,
-  "appearance" | "resources" | "engine" | "builders"
+  | "appearance"
+  | "resources"
+  | "engine"
+  | "builders"
+  // These three describe what this engine cannot be asked to change rather than listing
+  // switches, so they are panes of their own.
+  | "fileSharing"
+  | "virtualisation"
+  | "enterprise"
 >;
 
 const settingsNavigation: Array<{ id: SettingsPaneId; label: string }> = [
   { id: "appearance", label: "Appearance" },
   { id: "resources", label: "Resources" },
-  // The handoff orders Builders after Resources and before Engine; the panes between them
-  // there (File sharing, Virtualisation) are Docker Desktop VM concerns this build has no
-  // equivalent for.
+  // The handoff's own order. File sharing and Virtualisation describe a Docker Desktop VM, and
+  // against a native Linux engine there is nothing behind either — but the panes exist rather
+  // than being omitted, because an operator who goes looking for them deserves to be told which
+  // is the case on this engine instead of finding the row missing and guessing.
+  { id: "fileSharing", label: "File sharing" },
+  { id: "virtualisation", label: "Virtualisation" },
   { id: "builders", label: "Builders" },
-  { id: "engine", label: "Docker Engine" },
+  // The handoff calls this "Engine"; "Docker Engine" was ours.
+  { id: "engine", label: "Engine" },
   { id: "kubernetes", label: "Kubernetes" },
   { id: "updates", label: "Software updates" },
   { id: "advanced", label: "Advanced" },
+  { id: "enterprise", label: "Enterprise" },
 ];
 
 const themeSwatches: Record<ThemeFamily, readonly [string, string, string]> = {
@@ -588,6 +602,142 @@ function SettingsToggleRow({
   );
 }
 
+
+/**
+ * How host directories reach containers.
+ *
+ * v2.5 offers a choice here — VirtioFS and its alternatives — which exists because Docker Desktop
+ * runs containers inside a virtual machine and something has to carry the host filesystem across
+ * that boundary. A native Linux engine has no boundary: a bind mount is the host's own directory,
+ * mounted by the kernel the containers are already using. There is no sharing implementation to
+ * pick, so this pane says which case the engine is in rather than offering a control that reaches
+ * nothing.
+ */
+function FileSharingSettings({ store }: { store: AnchorageStore }) {
+  const hosting = describeEngineHosting(store.systemSnapshot?.engine);
+  return (
+    <div className="settings-pane" data-testid="settings-file-sharing">
+      <h2>File sharing</h2>
+      <p className="settings-pane__lede">
+        How host directories reach containers. On a machine where Docker runs containers inside a
+        virtual machine this is usually the largest single influence on how fast local development
+        feels.
+      </p>
+      {hosting.kind === "native-linux" && (
+        <div className="compose-notice" data-testid="file-sharing-native">
+          <strong>Nothing to configure on this engine</strong>
+          <p>
+            Docker reports this daemon as <code>{hosting.reported}</code> — a native Linux engine.
+            Containers use this host&rsquo;s own kernel, so a bind mount is the host directory
+            itself rather than a copy carried across a VM boundary. There is no sharing
+            implementation to choose between, and no cache to tune.
+          </p>
+          <p className="resource-dim">
+            What still applies: a bind mount gives the container the host&rsquo;s permissions on
+            that path. Anchorage does not narrow them.
+          </p>
+        </div>
+      )}
+      {hosting.kind === "desktop" && (
+        <div className="compose-notice" data-testid="file-sharing-desktop">
+          <strong>Docker Desktop owns this setting</strong>
+          <p>
+            Docker reports this daemon as <code>{hosting.reported}</code>, which does run
+            containers in a virtual machine — so there is a sharing implementation here. Docker
+            exposes no CLI or API for reading or changing it, so Anchorage cannot project it.
+            Docker Desktop&rsquo;s own settings are where it lives.
+          </p>
+        </div>
+      )}
+      {hosting.kind === "unknown" && (
+        <p className="resource-dim" role="status">
+          Reading the engine…
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which monitor runs the Linux kernel the containers use.
+ *
+ * The handoff's copy opens by asserting the kernel "comes from a virtual machine on this host",
+ * which is true of Docker Desktop and false of a native engine. Asserting it unconditionally
+ * would be telling the operator something about their machine that we had not checked.
+ */
+function VirtualisationSettings({ store }: { store: AnchorageStore }) {
+  const hosting = describeEngineHosting(store.systemSnapshot?.engine);
+  return (
+    <div className="settings-pane" data-testid="settings-virtualisation">
+      <h2>Virtualisation</h2>
+      <p className="settings-pane__lede">
+        Linux containers need a Linux kernel. Where that kernel comes from changes both
+        performance and compatibility.
+      </p>
+      {hosting.kind === "native-linux" && (
+        <div className="compose-notice" data-testid="virtualisation-native">
+          <strong>No virtual machine is involved</strong>
+          <p>
+            Docker reports this daemon as <code>{hosting.reported}</code>. Containers run directly
+            on this host&rsquo;s kernel, so there is no hypervisor to select and no VM resources to
+            divide. The Resources pane covers the limits that do apply here.
+          </p>
+          <p className="resource-dim">
+            Worth stating plainly: sharing the host kernel is what makes a container a process
+            boundary rather than a security boundary between tenants.
+          </p>
+        </div>
+      )}
+      {hosting.kind === "desktop" && (
+        <div className="compose-notice" data-testid="virtualisation-desktop">
+          <strong>Docker Desktop owns this setting</strong>
+          <p>
+            Docker reports this daemon as <code>{hosting.reported}</code>, so a virtual machine is
+            supplying the kernel. Which monitor runs it is chosen in Docker Desktop; no CLI or API
+            reports or changes it, so Anchorage does not project it.
+          </p>
+        </div>
+      )}
+      {hosting.kind === "unknown" && (
+        <p className="resource-dim" role="status">
+          Reading the engine…
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Organisation policy, which is administered somewhere this build cannot read.
+ *
+ * Docker Business settings are enforced by an admin console and delivered to a machine as
+ * configuration the engine applies rather than reports. There is no command that reads back what
+ * is in force, so the honest surface states that rather than showing an empty policy list, which
+ * would read as "no policies apply".
+ */
+function EnterpriseSettings() {
+  return (
+    <div className="settings-pane" data-testid="settings-enterprise">
+      <h2>Enterprise</h2>
+      <p className="settings-pane__lede">
+        Organisation-wide policy for Docker Business subscriptions.
+      </p>
+      <div className="compose-notice" data-testid="enterprise-unavailable">
+        <strong>Anchorage cannot read what is in force</strong>
+        <p>
+          These settings are administered outside the engine, in the Docker Business admin
+          console, and reach a machine as configuration rather than as something it reports.
+          Docker exposes no command that reads the applied policy back, so Anchorage has nothing
+          to show — which is different from there being no policy.
+        </p>
+        <p className="resource-dim">
+          An empty list here would claim the second. It says the first instead.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function EngineSettings({ store }: { store: AnchorageStore }) {
   // The fixture pane rendered a hardcoded daemon.json. Against a live engine that is
   // fabricated configuration presented as the operator's own — the same thing the host
@@ -1061,6 +1211,12 @@ export function SettingsScreen({ store }: { store: AnchorageStore }) {
     content = <BuildersSettings store={store} />;
   } else if (activeTab === "engine") {
     content = <EngineSettings store={store} />;
+  } else if (activeTab === "fileSharing") {
+    content = <FileSharingSettings store={store} />;
+  } else if (activeTab === "virtualisation") {
+    content = <VirtualisationSettings store={store} />;
+  } else if (activeTab === "enterprise") {
+    content = <EnterpriseSettings />;
   } else {
     content = <ToggleSettings store={store} tab={activeTab} />;
   }

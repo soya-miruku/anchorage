@@ -265,3 +265,65 @@ describe("SettingsScreen builders pane", () => {
     );
   });
 });
+
+/**
+ * Three panes that describe a machine this build is often not running on.
+ *
+ * v2.5's File sharing and Virtualisation are written for Docker Desktop: one picks a sharing
+ * implementation, the other opens by asserting the Linux kernel "comes from a virtual machine".
+ * Against a native Linux engine neither is true, and rendering either as controls would offer
+ * settings that reach nothing. The rows exist rather than being omitted, because an operator who
+ * goes looking should be told which case they are in, not find the row missing.
+ */
+describe("SettingsScreen host-shaped panes", () => {
+  const withEngine = (operatingSystem: string, tab: SettingsPaneId) =>
+    render(
+      <SettingsScreen
+        store={createStore(tab, {
+          systemSnapshot: {
+            ...SNAPSHOT,
+            engine: { ...SNAPSHOT.engine, operatingSystem, osType: "linux" },
+          },
+        } as Partial<AnchorageStore>)}
+      />,
+    );
+
+  it("says there is nothing to configure when the engine is native", () => {
+    withEngine("CachyOS", "fileSharing");
+    const pane = screen.getByTestId("file-sharing-native");
+    expect(pane).toHaveTextContent(/Nothing to configure/i);
+    expect(pane).toHaveTextContent("CachyOS");
+  });
+
+  it("does not claim a virtual machine it has not seen", () => {
+    withEngine("CachyOS", "virtualisation");
+    expect(screen.getByTestId("virtualisation-native")).toHaveTextContent(
+      /No virtual machine is involved/i,
+    );
+    expect(screen.queryByTestId("virtualisation-desktop")).toBeNull();
+  });
+
+  it("defers to Docker Desktop when Docker reports Desktop", () => {
+    // The opposite error matters too: telling someone with a VM that they do not have one.
+    withEngine("Docker Desktop 4.30.0", "virtualisation");
+    expect(screen.getByTestId("virtualisation-desktop")).toHaveTextContent(
+      /Docker Desktop owns this setting/i,
+    );
+    expect(screen.queryByTestId("virtualisation-native")).toBeNull();
+  });
+
+  it("says Enterprise policy is unreadable rather than showing an empty list", () => {
+    // An empty list would read as "no policies apply", which is a different claim.
+    render(<SettingsScreen store={createStore("enterprise")} />);
+    expect(screen.getByTestId("enterprise-unavailable")).toHaveTextContent(
+      /cannot read what is in force/i,
+    );
+  });
+
+  it("calls the engine pane what the handoff calls it", () => {
+    render(<SettingsScreen store={createStore("engine")} />);
+    const rail = screen.getByTestId("settings-navigation");
+    expect(rail).toHaveTextContent("Engine");
+    expect(rail.textContent).not.toMatch(/Docker Engine/);
+  });
+});

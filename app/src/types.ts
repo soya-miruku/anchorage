@@ -56,11 +56,14 @@ export type DevEnvironmentState = "running" | "stopped";
 export type SettingsTab =
   | "appearance"
   | "resources"
+  | "fileSharing"
+  | "virtualisation"
   | "builders"
   | "engine"
   | "kubernetes"
   | "updates"
-  | "advanced";
+  | "advanced"
+  | "enterprise";
 export type DetailTab =
   | "logs"
   | "inspect"

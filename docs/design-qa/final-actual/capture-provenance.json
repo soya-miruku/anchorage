@@ -2,20 +2,20 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-05T12:18:59.048Z",
+  "capturedAt": "2026-08-05T13:11:49.641Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "a6ae696896cb286a8bb2b71f7729bdd62f11788ef14a52950721094161fe51a7",
+    "sha256": "cf71a8126f2c7ef458a73582972bc4ce30ee05169663f52f7cb66a1c728388e6",
     "files": 19,
-    "bytes": 1394440
+    "bytes": 1401513
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",
-    "sha256": "e70984ac0377642e43bc8ed02a7ef65b8532ca482ec380c38c50deabf1569829"
+    "sha256": "ca5912ccf106f958f1f4ea1bbfab04a80b9b9716b0840b3fb2184fff738f200a"
   },
   "runtime": {
     "executable": "app/node_modules/electron/dist/electron",
@@ -219,8 +219,8 @@
     {
       "state": "settings-resources",
       "path": "final-actual/settings-resources.png",
-      "sha256": "1f6840116e2766d955a4e41686e69bcb6acbbd326cd797a87eafec02bdf29d11",
-      "bytes": 81720,
+      "sha256": "781b7dad375d82b1d790b8884bfc6f11257c7e6bd4da9afb1a37c287fe854e13",
+      "bytes": 84403,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -229,8 +229,8 @@
     {
       "state": "settings-engine",
       "path": "final-actual/settings-engine.png",
-      "sha256": "36fa5dc4429b609fa45b3d346e6807fb843471066e8e9528b1f062d9d1c1197c",
-      "bytes": 92230,
+      "sha256": "7c100869c10d57662b908de0f143c6f0d1ebea20f6e6731789a774774dd9bfc2",
+      "bytes": 94676,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -239,8 +239,8 @@
     {
       "state": "settings-kubernetes",
       "path": "final-actual/settings-kubernetes.png",
-      "sha256": "43cb4746d4460f46cab9ee1a896326b776770dcd3d482b32ef8fc680bce579f3",
-      "bytes": 67509,
+      "sha256": "50c161ad7f3fdee758604cbd87a4ece32bf4f061b068d7e3143b59fcb3bfda52",
+      "bytes": 70391,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -249,8 +249,8 @@
     {
       "state": "settings-updates",
       "path": "final-actual/settings-updates.png",
-      "sha256": "9fd4e9bab6b646a878055888dc06cf2ef4219cfba4e76450f31d942d233de777",
-      "bytes": 73726,
+      "sha256": "6fbfba6e938c698040989e5169bb7a9d7796dbe78a4f4e7801fe7e8cf71c152f",
+      "bytes": 76306,
       "dimensions": {
         "width": 1656,
         "height": 1056
@@ -259,8 +259,8 @@
     {
       "state": "settings-advanced",
       "path": "final-actual/settings-advanced.png",
-      "sha256": "eb61d50dcc6686ae8a965ce9112b7a9608fabf9defb9a734154420f44c7f481f",
-      "bytes": 76892,
+      "sha256": "88481837670eea04b981d2dc4ddab824056f2affda842164aae0e4ab719e4969",
+      "bytes": 79950,
       "dimensions": {
         "width": 1656,
         "height": 1056

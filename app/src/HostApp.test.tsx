@@ -664,7 +664,7 @@ describe("host renderer integration", () => {
     // Engine reports what the daemon says. The fixture pane printed a canned daemon.json,
     // which against a live engine is configuration the operator does not have.
     fireEvent.click(
-      within(settings).getByRole("button", { name: "Docker Engine" }),
+      within(settings).getByRole("button", { name: "Engine" }),
     );
     expect(screen.queryByTestId("daemon-json")).not.toBeInTheDocument();
     const facts = await within(settings).findByTestId("engine-facts");
