@@ -88,6 +88,27 @@ app.whenReady().then(async () => {
     webPreferences: { offscreen: true },
   });
 
+  /**
+   * Hold the appearance constant before capturing anything.
+   *
+   * The build's capture route locks Nous Dark, so the comp has to be pinned to the same thing or
+   * the comparison measures a palette rather than a layout. v2.5 made this necessary: its
+   * `pickTheme()` force-writes `anchorage.pack` and switches the stored theme to Y2K on first
+   * run — the comp promoting its new family — so an unpinned capture came back in acid green on
+   * near-black and every one of the 24 states measured ~0.21 against a build drawn in royal
+   * blue. Seeding `pack` is what stops that promotion from running again on each load.
+   */
+  await win.loadFile(COMP);
+  await sleep(1200);
+  await win.webContents.executeJavaScript(`(() => {
+    localStorage.setItem('anchorage.pack', 'y2k');
+    localStorage.setItem('anchorage.theme', 'nous');
+    localStorage.setItem('anchorage.mode', 'dark');
+    localStorage.setItem('anchorage.corners', 'rounded');
+    localStorage.setItem('anchorage.cornersSet', '1');
+    return true;
+  })()`);
+
   const report = [];
   for (const state of STATES) {
     await win.loadFile(COMP);

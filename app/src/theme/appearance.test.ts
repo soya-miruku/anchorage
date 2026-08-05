@@ -18,6 +18,10 @@ import {
   resolveAppearancePreference,
   type AppearancePreference,
   type AppearanceStorage,
+  THEME_OPTIONS,
+  isThemeFamily,
+  themeCornerDefault,
+  withFamily,
 } from "./appearance";
 
 function memoryStorage(initial: string | null = null) {
@@ -35,7 +39,12 @@ describe("appearance preferences", () => {
   it("accepts every supported family and colour-mode pair", () => {
     for (const family of THEME_FAMILIES) {
       for (const mode of COLOR_MODES) {
-        const preference = { family, mode };
+        const preference = {
+          family,
+          mode,
+          corners: themeCornerDefault(family),
+          cornersChosen: false,
+        };
         expect(isAppearancePreference(preference)).toBe(true);
         expect(
           resolveAppearancePreference(JSON.stringify(preference)),
@@ -67,7 +76,12 @@ describe("appearance preferences", () => {
     // Nous Dark from a stored Nous Light looks like the setting simply does not stick.
     expect(
       resolveAppearancePreference('{"family":"default","mode":"light"}'),
-    ).toEqual({ family: "nous", mode: "light" });
+    ).toEqual({
+      family: "nous",
+      mode: "light",
+      corners: "rounded",
+      cornersChosen: false,
+    });
   });
 
   it("still rejects a renamed family carrying an invalid mode", () => {
@@ -141,7 +155,7 @@ describe("appearance preferences", () => {
 
     expect(
       persistAppearancePreference(
-        { family: "docker", mode: "dark" },
+        { family: "docker", mode: "dark", corners: "rounded", cornersChosen: false },
         { storage, search: "?capture=settings" },
       ),
     ).toBe(false);
@@ -153,6 +167,8 @@ describe("appearance preferences", () => {
     const preference: AppearancePreference = {
       family: "docker",
       mode: "light",
+      corners: "rounded",
+      cornersChosen: false,
     };
     expect(persistAppearancePreference(preference, { storage })).toBe(true);
     expect(storage.setItem).toHaveBeenCalledWith(
@@ -176,10 +192,10 @@ describe("appearance preferences", () => {
     const root = document.documentElement;
     expect(
       applyAppearancePreference(
-        { family: "github", mode: "light" },
+        { family: "github", mode: "light", corners: "rounded", cornersChosen: false },
         root,
       ),
-    ).toEqual({ family: "github", mode: "light" });
+    ).toEqual({ family: "github", mode: "light", corners: "rounded", cornersChosen: false });
     expect(root).toHaveAttribute("data-theme", "github");
     expect(root).toHaveAttribute("data-color-mode", "light");
     expect(root.style.colorScheme).toBe("light");
@@ -195,7 +211,7 @@ describe("appearance preferences", () => {
         search: "",
         root: document.documentElement,
       }),
-    ).toEqual({ family: "docker", mode: "light" });
+    ).toEqual({ family: "docker", mode: "light", corners: "rounded", cornersChosen: false });
 
     expect(
       initializeAppearance({
@@ -211,6 +227,92 @@ describe("appearance preferences", () => {
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",
       "dark",
+    );
+  });
+});
+
+/**
+ * v2.5 adds a third appearance axis and two families.
+ *
+ * Corners is independent of the palette: a theme *suggests* a default (Magnetic and Y2K are drawn
+ * square, the others rounded) and the operator can override it. Once they have chosen explicitly,
+ * switching theme must stop moving it — otherwise picking a new palette silently undoes a
+ * decision they made.
+ *
+ * The stored preference was two keys and is now three, so an existing one has to migrate rather
+ * than fall back: dropping it would reset the appearance of everyone who had already chosen.
+ */
+describe("corner style", () => {
+  it("suggests square for the families drawn that way, rounded for the rest", () => {
+    expect(themeCornerDefault("magnetic")).toBe("square");
+    expect(themeCornerDefault("y2k")).toBe("square");
+    expect(themeCornerDefault("nous")).toBe("rounded");
+    expect(themeCornerDefault("docker")).toBe("rounded");
+    expect(themeCornerDefault("github")).toBe("rounded");
+    expect(themeCornerDefault("mono")).toBe("rounded");
+  });
+
+  it("keeps a stored two-key preference instead of discarding it", () => {
+    const stored = JSON.stringify({ family: "docker", mode: "light", corners: "rounded", cornersChosen: false });
+    const resolved = resolveAppearancePreference(stored);
+    expect(resolved.family).toBe("docker");
+    expect(resolved.mode).toBe("light");
+    // No explicit choice was recorded, so the theme's own suggestion applies.
+    expect(resolved.corners).toBe("rounded");
+    expect(resolved.cornersChosen).toBe(false);
+  });
+
+  it("restores an explicit corner choice", () => {
+    const stored = JSON.stringify({
+      family: "nous",
+      mode: "dark",
+      corners: "square",
+      cornersChosen: true,
+    });
+    const resolved = resolveAppearancePreference(stored);
+    expect(resolved.corners).toBe("square");
+    expect(resolved.cornersChosen).toBe(true);
+  });
+
+  it("moves corners with the theme only while the operator has not chosen", () => {
+    const following = withFamily(
+      { family: "nous", mode: "dark", corners: "rounded", cornersChosen: false },
+      "y2k",
+    );
+    expect(following.corners).toBe("square");
+
+    const chosen = withFamily(
+      { family: "nous", mode: "dark", corners: "rounded", cornersChosen: true },
+      "y2k",
+    );
+    expect(chosen.corners).toBe("rounded");
+  });
+
+  it("stamps the axis on the root so CSS can square everything", () => {
+    const root = document.createElement("div");
+    applyAppearancePreference(
+      { family: "y2k", mode: "dark", corners: "square", cornersChosen: true },
+      root,
+    );
+    expect(root.getAttribute("data-theme")).toBe("y2k");
+    expect(root.getAttribute("data-corners")).toBe("square");
+  });
+
+  it("rejects a corner value it does not recognise rather than stamping it", () => {
+    const stored = JSON.stringify({ family: "nous", mode: "dark", corners: "bevelled" });
+    expect(resolveAppearancePreference(stored).corners).toBe("rounded");
+  });
+});
+
+describe("the families v2.5 adds", () => {
+  it("accepts magnetic and y2k as stored preferences", () => {
+    expect(isThemeFamily("magnetic")).toBe(true);
+    expect(isThemeFamily("y2k")).toBe(true);
+  });
+
+  it("offers every family it accepts, so nothing is selectable-but-unlisted", () => {
+    expect(THEME_OPTIONS.map((option) => option.id).sort()).toEqual(
+      [...THEME_FAMILIES].sort(),
     );
   });
 });

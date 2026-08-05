@@ -44,8 +44,10 @@
   height: var(--anc-window-height);
   flex: none;
   border-radius: 13px;
+  /* v2.5 makes this a theme decision: Y2K draws a hard offset shadow rather than a blur, and
+     a family that cannot set it would be drawn with another family's depth. */
   box-shadow:
-    0 40px 90px rgba(0, 0, 0, 0.6),
+    var(--anc-frame-shadow),
     0 0 0 1px rgb(var(--anc-overlay-rgb) / 9%);
 }
 

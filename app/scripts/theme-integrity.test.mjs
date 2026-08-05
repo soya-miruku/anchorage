@@ -15,7 +15,9 @@ import test from "node:test";
  * text: Vite's CSS plugin intercepts `?raw` imports and hands back an empty string.
  */
 
-const THEMES = ["nous", "docker", "github", "mono"];
+// Every family the app can be set to. A family that ships without being measured here is a
+// family whose contrast nobody has checked.
+const THEMES = ["nous", "docker", "github", "mono", "magnetic", "y2k"];
 const STATUSES = ["success", "danger", "warning", "violet", "accent"];
 
 /** The strongest fill any chip paints, which is the worst case for text over it. */

@@ -2,6 +2,8 @@
 @import "./docker.css";
 @import "./github.css";
 @import "./mono.css";
+@import "./magnetic.css";
+@import "./y2k.css";
 
 /*
  * Theme contract
@@ -11,5 +13,21 @@
  *
  * The default/dark fallback deliberately reproduces the canonical Anchorage
  * handoff. Runtime code selects a family and mode with data-theme and
- * data-color-mode on the document element.
+ * data-color-mode on the document element, and a corner style with data-corners — v2.5
+ * separates shape from palette, so a family suggests a default that the operator can override.
  */
+
+/*
+ * Corner style, independent of the palette.
+ *
+ * v2.5 separates shape from colour: a family suggests a default — Magnetic and Y2K are drawn
+ * square — and the operator overrides it for any family. Applied as a blanket override rather
+ * than by retokenising every radius, which is what the handoff does and what keeps the two axes
+ * genuinely independent: a family does not have to know the shape it will be drawn with.
+ *
+ * Circles are exempt. A status dot, an avatar or a spinner at 50% is round because it is that
+ * shape, not because the theme rounds things, and squaring them turns dots into blocks.
+ */
+:root[data-corners="square"] *:not([style*="radius: 50%"]):not([style*="radius:50%"]):not(.activity-row__dot):not(.compose-service-row__dot) {
+  border-radius: 0 !important;
+}

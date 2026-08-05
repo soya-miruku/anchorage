@@ -172,6 +172,7 @@ function TitleBar({
   captureSurface: boolean;
   onOpenMaturity: () => void;
 }) {
+  const inSettings = store.view === "settings";
   const searchRef = useRef<HTMLInputElement>(null);
   const windowStateRevisionRef = useRef(0);
   const [maximized, setMaximized] = useState(false);
@@ -309,13 +310,21 @@ function TitleBar({
             />
           </button>
         )}
+        {/* v2.5 makes this a toggle rather than a one-way door: in Settings it shows a close
+            glyph and returns to whatever the operator was looking at. Without that, leaving
+            Settings meant picking some other destination and losing your place. */}
         <button
           className="titlebar__settings"
           type="button"
-          aria-label="Open settings"
-          onClick={() => store.navigate("settings")}
+          data-testid="settings-toggle"
+          aria-label={inSettings ? "Close settings" : "Open settings"}
+          title={inSettings ? "Close Settings" : "Settings"}
+          aria-pressed={inSettings}
+          onClick={() =>
+            store.navigate(inSettings ? (store.settingsReturnView ?? "dashboard") : "settings")
+          }
         >
-          <AnchorageIcon name="settings" size={14} />
+          <AnchorageIcon name={inSettings ? "close" : "settings"} size={14} />
         </button>
         <div className="window-controls" aria-label="Window controls">
           <button
@@ -565,6 +574,7 @@ export function Shell({
   store,
   children,
 }: PropsWithChildren<{ store: AnchorageStore }>) {
+  const inSettings = store.view === "settings";
   const captureSurface =
     typeof window !== "undefined" && isCaptureSurface(window.location.search);
   const [maturityOpen, setMaturityOpen] = useState(false);
@@ -585,7 +595,11 @@ export function Shell({
         />
         <UpdateBanner store={store} />
         <div className="anchorage-body">
-          <Sidebar store={store} />
+          {/* v2.5 gives Settings the sidebar slot: its own rail replaces the main nav rather
+              than sitting beside it, so the screen is not two navigation columns wide. The
+              titlebar control becomes a close button in that state, which is how you get back
+              — see TitleBar. */}
+          {store.view !== "settings" && <Sidebar store={store} />}
           <main className="anchorage-content" data-testid="screen">
             {children}
           </main>

@@ -609,9 +609,14 @@ describe("Anchorage containers workspace", () => {
     );
     expect(
       JSON.parse(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "{}"),
-    ).toEqual({ family: "docker", mode: "light" });
+    ).toEqual({
+      family: "docker",
+      mode: "light",
+      corners: "rounded",
+      cornersChosen: false,
+    });
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Using Docker · Light · Saved on this device",
+      "Using Docker · Light · Rounded corners · Saved on this device",
     );
   });
 
@@ -624,19 +629,22 @@ describe("Anchorage containers workspace", () => {
     const dockerTheme = screen.getByRole("radio", { name: /Docker/u });
     const githubTheme = screen.getByRole("radio", { name: /GitHub/u });
     const monoTheme = screen.getByRole("radio", { name: /Monochrome/u });
+    // v2.5 added Magnetic and Y2K, so the family list is six long and Y2K is now last.
+    const y2kTheme = screen.getByRole("radio", { name: /Y2K/u });
     expect(defaultTheme).toHaveAttribute("tabindex", "0");
     expect(dockerTheme).toHaveAttribute("tabindex", "-1");
     expect(githubTheme).toHaveAttribute("tabindex", "-1");
     expect(monoTheme).toHaveAttribute("tabindex", "-1");
+    expect(y2kTheme).toHaveAttribute("tabindex", "-1");
 
-    // Monochrome is last, so backwards from the first family wraps onto it.
+    // Backwards from the first family wraps onto the last one.
     defaultTheme.focus();
     fireEvent.keyDown(defaultTheme, { key: "ArrowLeft" });
-    expect(monoTheme).toHaveFocus();
-    expect(monoTheme).toHaveAttribute("aria-checked", "true");
-    expect(monoTheme).toHaveAttribute("tabindex", "0");
+    expect(y2kTheme).toHaveFocus();
+    expect(y2kTheme).toHaveAttribute("aria-checked", "true");
+    expect(y2kTheme).toHaveAttribute("tabindex", "0");
 
-    fireEvent.keyDown(monoTheme, { key: "Home" });
+    fireEvent.keyDown(y2kTheme, { key: "Home" });
     expect(defaultTheme).toHaveFocus();
     expect(defaultTheme).toHaveAttribute("aria-checked", "true");
 
@@ -670,7 +678,7 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByRole("radio", { name: /GitHub/u }));
     expect(document.documentElement).toHaveAttribute("data-theme", "github");
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Using GitHub · Dark · Session only",
+      "Using GitHub · Dark · Rounded corners · Session only",
     );
   });
 

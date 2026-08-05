@@ -37,6 +37,8 @@ import {
   readAppearancePreference,
   type ColorMode,
   type ThemeFamily,
+  withFamily,
+  type CornerStyle,
 } from "../theme/appearance";
 import type {
   ComposeConfigResult,
@@ -1057,8 +1059,22 @@ export function useAnchorageStore() {
   // The status-bar clock now owns its own interval inside <StatusClock/>. Keeping it here
   // meant a 1 Hz tick re-rendered the entire application tree for one <time> element.
 
+  /**
+   * Where the operator was before they opened Settings.
+   *
+   * v2.5 makes the titlebar gear a toggle, so leaving Settings has to go back rather than
+   * forward. Remembered here rather than derived from history, which would also step back
+   * through selections the operator had already dismissed.
+   */
+  const [settingsReturnView, setSettingsReturnView] = useState<ViewId | null>(null);
+
   const navigate = useCallback((nextView: ViewId) => {
-    setView(nextView);
+    setView((current) => {
+      if (nextView === "settings" && current !== "settings") {
+        setSettingsReturnView(current);
+      }
+      return nextView;
+    });
     setSelectedId(null);
   }, []);
 
@@ -4085,7 +4101,19 @@ export function useAnchorageStore() {
     (family: ThemeFamily) => {
       if (captureAppearance) return;
       setAppearancePersistenceSucceeded(null);
-      setAppearance((current) => ({ ...current, family }));
+      // `withFamily` carries the corner style to the new family's suggestion only while the
+      // operator has not chosen one themselves; see theme/appearance.ts.
+      setAppearance((current) => withFamily(current, family));
+    },
+    [captureAppearance],
+  );
+
+  const setCornerStyle = useCallback(
+    (corners: CornerStyle) => {
+      if (captureAppearance) return;
+      setAppearancePersistenceSucceeded(null);
+      // Recording the choice is what stops a later theme change from moving it back.
+      setAppearance((current) => ({ ...current, corners, cornersChosen: true }));
     },
     [captureAppearance],
   );
@@ -4193,6 +4221,9 @@ export function useAnchorageStore() {
     featureFlags,
     themeFamily: effectiveAppearance.family,
     colorMode: effectiveAppearance.mode,
+    cornerStyle: effectiveAppearance.corners,
+    settingsReturnView,
+    setCornerStyle,
     appearancePersistenceSucceeded,
     navigate,
     setSearch,

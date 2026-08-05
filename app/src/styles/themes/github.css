@@ -1,6 +1,8 @@
 :root[data-theme="github"][data-color-mode="dark"] {
   color-scheme: dark;
 
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+
   --anc-desk: #010409;
   --anc-desk-glow: #161b22;
   --anc-app: #0d1117;
@@ -99,6 +101,8 @@
 
 :root[data-theme="github"][data-color-mode="light"] {
   color-scheme: light;
+
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 
   --anc-desk: #f6f8fa;
   --anc-desk-glow: #d8dee4;

@@ -37,6 +37,7 @@ import {
   Share2,
   Search,
   Trash,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { ComponentPropsWithoutRef } from "react";
@@ -74,6 +75,7 @@ export type AnchorageIconName =
   | "search"
   | "secrets"
   | "settings"
+  | "close"
   | "tools"
   | "volumes";
 
@@ -228,6 +230,14 @@ const iconDefinitions: Record<
     family: "lucide",
     libraryName: "Search",
     strokeWidth: 2.4,
+  },
+  // v2.5 turns the titlebar gear into a toggle, so it needs a close glyph for the state where
+  // pressing it leaves Settings rather than entering them.
+  close: {
+    component: X,
+    family: "lucide",
+    libraryName: "X",
+    strokeWidth: 2,
   },
   settings: {
     component: RadioButtonIcon,

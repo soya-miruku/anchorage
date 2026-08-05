@@ -20,6 +20,8 @@
 :root[data-theme="nous"][data-color-mode="dark"] {
   color-scheme: dark;
 
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+
   --anc-desk: #061c56;
   --anc-desk-glow: #1b45a4;
   --anc-app: #0d2f86;
@@ -124,6 +126,8 @@
 
 :root[data-theme="nous"][data-color-mode="light"] {
   color-scheme: light;
+
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 
   --anc-desk: #e6edfb;
   --anc-desk-glow: #ffffff;

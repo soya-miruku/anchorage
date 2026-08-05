@@ -20,6 +20,8 @@
 :root[data-theme="mono"][data-color-mode="dark"] {
   color-scheme: dark;
 
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+
   --anc-desk: #0a0a0a;
   --anc-desk-glow: #262626;
   --anc-app: #141414;
@@ -112,6 +114,8 @@
 
 :root[data-theme="mono"][data-color-mode="light"] {
   color-scheme: light;
+
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 
   --anc-desk: #e8e8e8;
   --anc-desk-glow: #ffffff;

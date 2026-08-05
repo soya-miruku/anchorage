@@ -2581,3 +2581,18 @@ select option {
 .dashboard-reclaim-actions__note {
   font-size: 11px;
 }
+
+/* The corner-style swatch: a small square showing the radius it selects. */
+.appearance-corner-demo {
+  display: block;
+  width: 13px;
+  height: 13px;
+  margin-bottom: 5px;
+  border: 1.5px solid currentColor;
+}
+
+.appearance-hint {
+  margin: -2px 0 10px;
+  font-size: 11.5px;
+  color: var(--anc-text-soft, var(--anc-text-muted));
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "claim": "reviewed-visual-conformance-not-pixel-identity",
-  "reviewedAt": "2026-08-05T01:45:34.567Z",
+  "reviewedAt": "2026-08-05T11:28:01.568Z",
   "baseline": {
     "directory": "docs/design-qa/reference",
     "generatedFrom": "docs/design_handoff_anchorage/Anchorage v2.dc.html",
@@ -30,8 +30,8 @@
       "notes": "0.0181 — under threshold. The step table, stat cards and list geometry reproduce the comp, with CACHED and duration columns landing together and the selection treatment following v2's lavender left rule over a muted surface. The success pill measures 3.27:1; this was first logged as a regression and then verified as v2's own green-fg on green-bg pair reproduced exactly, so it is recorded as a palette question rather than corrected away from the design. Whether the build list and step panel scroll correctly is not testable from one frame.",
       "reference": {
         "path": "docs/design-qa/reference/builds.png",
-        "sha256": "f68c7e4eb84c447460872f1015cbfa7df71fe738600e6baa940e25491e511c1b",
-        "bytes": 187450,
+        "sha256": "3c3165260006fb3c0e4e58c8bdb6901c0bfa1608439020c1e1e6bc5356065e93",
+        "bytes": 187382,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -39,8 +39,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/builds.png",
-        "sha256": "90a7ae0d14616d4eb3863cc9c3660d7ecf4445c3c5b5c803a0a103684b116820",
-        "bytes": 205560,
+        "sha256": "f1e9c245967a4ad78e242403c0accf2e7231ba47f987414c1f77cfb1c10a3587",
+        "bytes": 205446,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -69,8 +69,8 @@
       "notes": "0.0168 — under threshold, and the second-closest state overall. Terminal output aligns character for character, the hint line terminates at the same x, and the panel's bottom border lands at the same y. The prompt row and its accent caret render at the comp's geometry. Interactive behaviour — focus, input echo, scrollback — is entirely out of reach from a still and is not claimed.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-exec.png",
-        "sha256": "4841bbf897a5a3593ea2fac7096dd5484e2a4a373de2394cb2bba0748d0ef013",
-        "bytes": 136616,
+        "sha256": "7cbb96222b44ee68a429ed19626dd29a2c698caba70923ef5f979e118f5a8c62",
+        "bytes": 136807,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -78,8 +78,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-exec.png",
-        "sha256": "fcf216088e633e30f2d06ad630cc8179f4036d32b311835aaf32a5cbf2dfa5f8",
-        "bytes": 150337,
+        "sha256": "647b1e36c0d0de9a9f6019f93a9cb07be94ce80a8fff39e9ef0912c56546d2e9",
+        "bytes": 150234,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -108,8 +108,8 @@
       "notes": "0.0187 — under threshold. Directory and file icon differentiation is preserved with matching 11x9px bounding boxes. The build additionally renders directory names in primary cream while files stay cool blue; that is a v2 token consequence which strengthens the distinction rather than weakening it, and it is an addition to the design rather than a departure from it. No path is clipped.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-files.png",
-        "sha256": "5b6cc5bbb66d073a1b4b11313871e0e55660fabe52e0ee2beddd87fdd9484459",
-        "bytes": 162019,
+        "sha256": "b5dfed358c5670bd5f3869e2c6438d666d6f6b973bd3db78258b8df110e4a28d",
+        "bytes": 162195,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -117,8 +117,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-files.png",
-        "sha256": "4513d54d98c9b967f4ea8e38e39a6f6be3c52d2160591a2f17ac26de9f45e611",
-        "bytes": 177796,
+        "sha256": "01d05a268c47095efa121c3fb85be25a4714593bc85ba5fd64e1c8db34f48c35",
+        "bytes": 177689,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -147,8 +147,8 @@
       "notes": "0.0197 — under threshold, and the closest of the detail tabs. The JSON document matches the comp in glyph advance, indentation and line pitch. The bottom line is bisected on both sides: each panel runs flush to the status bar with no bottom border, and the scrollbar thumb sits at the same extent, so this is the design's scroll position rather than clipping introduced by the build. No truncation anywhere.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-inspect.png",
-        "sha256": "ab8b91c3316330ceaa2c247602899d58914b05c8c363cab78bd4301986c1d46d",
-        "bytes": 170335,
+        "sha256": "d1b2b4c70d2ce00783dd1126fffa604208bd22b11e5510dd17fc064fd00557ba",
+        "bytes": 170492,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -156,8 +156,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-inspect.png",
-        "sha256": "584e037c2be56cedfb1713829651b0b45ff3d0bf6baf5cc5e5bf4bfcb5913ba3",
-        "bytes": 190331,
+        "sha256": "051a9aa31772335f530268c17adfd19c98bffac512a593bb5a19aab955710fae",
+        "bytes": 190218,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -193,8 +193,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/container-detail-logs.png",
-        "sha256": "0035b9ea02422daa53adcf6fca118f2f2d44f47c16ccd5015ef9b31505811b17",
-        "bytes": 192776,
+        "sha256": "10e27a24e2a8f29590930fc42d5d61c5ada8a4070ef110dfe481baf86e7ed1e3",
+        "bytes": 190244,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -202,8 +202,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-logs.png",
-        "sha256": "c4a30024ac670f9888f3d303f917a4ee8e85cebb50296ae7a7e4df0ec33f006a",
-        "bytes": 294805,
+        "sha256": "8901fd08b86d92377b11aeea1814f3007b6e1d41a0d4d0c22f07570b732ed1d8",
+        "bytes": 294604,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -232,8 +232,8 @@
       "notes": "0.0176 — under threshold. All five column origins agree with the comp, header and body aligned, no truncation, and volume and bind-mount types carry their own tokens. Column header text measures 2.86:1; that is v2's fg-6 on this surface reproduced faithfully, so it is a contrast question to put to the design rather than a build defect, and it is recorded here rather than quietly corrected because correcting it would be a divergence from the handoff.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-mounts.png",
-        "sha256": "37601d0a6f6843053fa7dd34782182e7f0cdace130d7316c43c767bb2ccbaac8",
-        "bytes": 141995,
+        "sha256": "795778fa6643612bdc8d2d5c5dd375c21e02780be10a7c7c1907076f88adfb08",
+        "bytes": 142161,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -241,8 +241,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-mounts.png",
-        "sha256": "c69158605a1400e5c7e663c2a94cfc4015456b085c430fad14ab8c6b0d20a1e1",
-        "bytes": 155550,
+        "sha256": "1a96a4142d487e26b37e03f41499c533d2442bc773860911511ea7f72cbf5270",
+        "bytes": 155447,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -271,8 +271,8 @@
       "notes": "0.0252 with the two history bands masked, and the residual is chart data rather than chart design: both sides animate their series, and the mask covers the sample values while deliberately leaving panel, label and chart geometry measured. Bar pitch and widths agree with the comp. Stat-card sublabels measure 2.89:1 — the same v2 ramp question raised on the mounts tab, recorded rather than corrected. Whether the panel scrolls independently is not judgeable from one frame.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-stats.png",
-        "sha256": "d6b044807aab6a8282ded6ea6b3be0557429ce261044058f3ed2f6004d72ddaf",
-        "bytes": 166387,
+        "sha256": "67a1d638c181e960d29e44d18b6dd8f249cc81657d68d2a8375c6e2b691a77b2",
+        "bytes": 167187,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -280,8 +280,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-stats.png",
-        "sha256": "406e029529e50d8cdec7a2159d8d039302d723286a891babbdc4b4dc6a088179",
-        "bytes": 172707,
+        "sha256": "024f2cff179365d20422d7e380bc86843121e10d24f3e79d0b36dd91e8690fc6",
+        "bytes": 172594,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -321,8 +321,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers.png",
-        "sha256": "73b83c3bd0af93dee3e24ff2f8171816d7afc7db3c27a31d9966e5eab8fbf111",
-        "bytes": 187405,
+        "sha256": "412238759ade649b0612a54a51d0f007e60659643e011132dcbaaab0d97d913a",
+        "bytes": 187664,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -330,8 +330,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers.png",
-        "sha256": "22183083bf7ce82de7da7bf80e10af8bb7571f7a3785cc7a371ac9ff49fbf0d7",
-        "bytes": 226455,
+        "sha256": "e63cc5ee892ae013ba66f24ef95718a6c5999329d8492e9f2ac91beeed9d8011",
+        "bytes": 226349,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -366,8 +366,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers-banner-dismissed.png",
-        "sha256": "baae47c31fc863b6a2f8fad4796e634f5c99f8969fb6dedc30c0301e2aeadb05",
-        "bytes": 155317,
+        "sha256": "a2af11d1877b011ee24fc88e6e81578474ab55e84b32126a48a009039b68e540",
+        "bytes": 155292,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -375,8 +375,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-banner-dismissed.png",
-        "sha256": "2c943a3568be148a6e26e633f6c4dc2c776e267f7cc5aa93bdc229fac15896b3",
-        "bytes": 205904,
+        "sha256": "71e0f886a2286c6b52858947b0193376ea8ffe806c9e1c0c0280acfac32721d7",
+        "bytes": 205806,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -411,8 +411,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers-current.png",
-        "sha256": "0c1e7f1a43b8ac25e93adbfa45b34a9d4a30a7c337a6bdaa2f8ff32960cb133b",
-        "bytes": 187722,
+        "sha256": "225f4e33bb6bbdf5c032c6d141347b24b6c9dae176cd42d23675a13e9667f4e6",
+        "bytes": 187564,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -420,8 +420,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-current.png",
-        "sha256": "22183083bf7ce82de7da7bf80e10af8bb7571f7a3785cc7a371ac9ff49fbf0d7",
-        "bytes": 226455,
+        "sha256": "e63cc5ee892ae013ba66f24ef95718a6c5999329d8492e9f2ac91beeed9d8011",
+        "bytes": 226349,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -456,8 +456,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers-only-running.png",
-        "sha256": "38d3c89c8c6a27c4f2f7ea3209efc902485cb0e321c3832fb6ff740fd9ef9fcb",
-        "bytes": 166048,
+        "sha256": "c15088f939294ed7fe9ca5cc506fe9fff2cc720c03740d8bd4d1c564d3192a79",
+        "bytes": 166428,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -465,8 +465,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-only-running.png",
-        "sha256": "2a2577987817b167c133e57886f93c53b8ddf5f18bd9b92d7206409efd1a6e3e",
-        "bytes": 198775,
+        "sha256": "0a8e6fcd10f335be58a9d4ce0327cf4f21c73c62bb661cf26bf9f482822b577d",
+        "bytes": 198941,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -502,8 +502,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers-row-hover.png",
-        "sha256": "052475e58a5631439aab0781b4fcc378f00627c40a9250af3888bf760a045d8f",
-        "bytes": 187718,
+        "sha256": "1e826ca91febd88df37c10ffda88d74c386508caec7f8e650ed11dcffae2c816",
+        "bytes": 187582,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -511,8 +511,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-row-hover.png",
-        "sha256": "80189fa6b818cb94c713b09279b14d391877a77e4163f6ec45cad4eb4838aa5a",
-        "bytes": 226283,
+        "sha256": "8513337caf98835d5f1674759fcf73de1c7767c45d251d758f9b77dcdd4ea487",
+        "bytes": 226591,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -547,8 +547,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/containers-search-empty.png",
-        "sha256": "dce30cf1a2354c36f57f3f38d0b5d6b52b33af98c218499f80a190bbf335e9d5",
-        "bytes": 134179,
+        "sha256": "06bbb7182916a311560356dd4834e604c72926944521a3ce0a2b4c1da3102454",
+        "bytes": 134463,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -556,8 +556,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-search-empty.png",
-        "sha256": "f15b65f692646178054de2d9a54218359a8117b8476cf0ba4cf3c747f55a67b5",
-        "bytes": 158445,
+        "sha256": "aacd9f2d302bb0ed37947d59511715e4bf020cfc298519f83111b45d194db88a",
+        "bytes": 158625,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -593,8 +593,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/dashboard.png",
-        "sha256": "0a03c860e04ca7decfe1151dc719eefc2cc9cfa1a0293a74e36aa7b7dab9c3f8",
-        "bytes": 200084,
+        "sha256": "9df74a017b6604231107542a56915c9cd65f26a608d955c1904f11e4e80b01af",
+        "bytes": 200216,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -602,8 +602,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/dashboard.png",
-        "sha256": "2e0e45b53e83e84d70048e00f5c2b72031a27a176372ecf7710d4196abc22a7d",
-        "bytes": 206038,
+        "sha256": "bb83b64d0e32e8d4a852fa00530321d5c0293b30124599faa435c10501f00362",
+        "bytes": 205549,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -632,8 +632,8 @@
       "notes": "0.0165 — under threshold. The card grid matches the comp with chips, dividers and both controls in place. The blue running dot was nearly filed as a missed green and then verified against v2, which explicitly assigns accent to dev-environment state; the build is therefore correct even though it leaves 'Running' meaning two colours across the product, which is inherited from the handoff rather than introduced here. The defect found on this screen — the active destination sat below the fold with no active nav row rendered anywhere — was fixed before this record by scrolling the active row into view and marking the list when it continues past its edge.",
       "reference": {
         "path": "docs/design-qa/reference/dev-environments.png",
-        "sha256": "30419d93979f0acf19e168ce2418556fec8f3d6bab9e1f16796aa26dd70f0e68",
-        "bytes": 139762,
+        "sha256": "a5a2be1c3532c996718c0c54888057a9ce53213285a841213e14670a9df39963",
+        "bytes": 139848,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -641,8 +641,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/dev-environments.png",
-        "sha256": "701b9c034232baaefe3d3ad7a6b6aee38574e26ce6e877daaaca54af61766b75",
-        "bytes": 152194,
+        "sha256": "d6ca03af3b95b05a197127a132eed7dfe11f2a14a6b21041665808b64f6f70a2",
+        "bytes": 152091,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -678,8 +678,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/extensions.png",
-        "sha256": "240fd6e5ac68e5d20a689e0476cd2186c99a52a84c9239bedc6323a3568dab15",
-        "bytes": 160825,
+        "sha256": "e8d8eaedd5579dbcb952adc99501376c02adb3cbb289945618ca61d63c908ea2",
+        "bytes": 160902,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -687,8 +687,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/extensions.png",
-        "sha256": "0f32c5bab3b81e2e89b1eb850db697836b24f03ab7c94d380527b07ebea61c5a",
-        "bytes": 190931,
+        "sha256": "6be372856142723c6948f215fde211cf90de88b918db71427a8868b854146383",
+        "bytes": 190832,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -717,8 +717,8 @@
       "notes": "0.0164 — second-closest of the 24. All six column origins hold the comp's positions, eight rows at matching y, header band terminating cleanly with no clipping. Chip text sits near 4.4:1, consistent with the palette-wide pattern rather than a local fault. Sort chevrons appear on five of six headers; IMAGE ID is deliberately excluded because a digest has no ordering a reader would act on, and that reasoning is now recorded in the markup rather than left to be rediscovered as an omission.",
       "reference": {
         "path": "docs/design-qa/reference/images-local.png",
-        "sha256": "f34fd38577f68dbec263922b7dec5d29bd4f3733df0935fb28d90e0ef6c1047b",
-        "bytes": 169019,
+        "sha256": "26dcce8c46d0c63c992034dd42a71249d70209bc3beb4db25e5a80191d905c4c",
+        "bytes": 169130,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -726,8 +726,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/images-local.png",
-        "sha256": "d4281f59dfd000090aa4ac29deacc56b0397507a0ff0b6c54703b3f2b2cbb891",
-        "bytes": 184779,
+        "sha256": "2452013418315cf8c67b6dae1f6fb4c9070bb310dbc7ac70d64ef2e06e44fb5b",
+        "bytes": 184680,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -756,8 +756,8 @@
       "notes": "0.0174 — under threshold. Card layout is untouched: five cards at the comp's x, y and height, with search field, badges, buttons and the three-line text block on their positions. A defect found here was fixed before this record — the retint to a single mark token paired a dark accent-deep fill with the dark on-accent ink from v2's light-hue design, leaving the initial at 1.66:1; both marks were rebuilt as the chip construction the theme layer already guarantees, and `scripts/theme-integrity.test.mjs` now measures that pair per family. Tertiary meta text at 2.85:1 is a palette-level matter, not a screen one.",
       "reference": {
         "path": "docs/design-qa/reference/images-registry.png",
-        "sha256": "73705d26bf0143b62f1aa46872443040c2c0c3bef9d3c862c9ea3f5eef127755",
-        "bytes": 175520,
+        "sha256": "14ea3e6befe84adbf13141301c4e62b923b57970a3043badad2e5471ea8aae8d",
+        "bytes": 175489,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -765,8 +765,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/images-registry.png",
-        "sha256": "53387166b3de127e92660f893a1240a0cb08f36b9e308af274be9bbb89408753",
-        "bytes": 193791,
+        "sha256": "edba7911af3a9dad871612cb2a8a2d5d337bb38c4c9509583d1cb394268300f9",
+        "bytes": 193692,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -795,8 +795,8 @@
       "notes": "0.0169 — under threshold. The three toggle rows match the comp row for row in order, state and copy, with divider and headings landing together and the rail holding a constant 35px pitch. The active pill measures 4.46:1 and clears AA, confirming the neutral-surface-with-lifted-text treatment reads correctly. It is also the pane that best demonstrates the five settings surfaces are genuinely distinct rather than sharing a template.",
       "reference": {
         "path": "docs/design-qa/reference/settings-advanced.png",
-        "sha256": "72e770778489d5ec28d85659e44ebacc46ebae7cee17464a1783fb02154c5a4b",
-        "bytes": 148763,
+        "sha256": "d6794d50bdbe13d97b3d269176b2480e01cee3eb6f6cd82f372175064f8e918c",
+        "bytes": 117843,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -804,8 +804,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-advanced.png",
-        "sha256": "27e6841f97982b98aec9401806591b468718d7488dce5de358005ee61ee4f449",
-        "bytes": 157197,
+        "sha256": "a14768835b552bd05a75d259874b400960eecf63f39f5b95d85cfe5c7c93fa14",
+        "bytes": 123924,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -834,8 +834,8 @@
       "notes": "0.0178 — under threshold. The daemon.json block occupies matching bounds, all fourteen lines agreeing in content, order and indentation, with cumulative vertical drift across the block around 2px. The Builders insertion correctly moved the active highlight to rail row three rather than slipping the index — the failure mode this state exists to catch. No long value truncates and there is no horizontal overflow; whether the code block scrolls or wraps at narrower widths cannot be judged here.",
       "reference": {
         "path": "docs/design-qa/reference/settings-engine.png",
-        "sha256": "36039ed41880b94ecbff406b8831031c85719b6244a900c0c1d70c99b41fe19e",
-        "bytes": 160118,
+        "sha256": "554cf2abe73f4d436835071991af2e00d2752557d343048a53138f65fde0a627",
+        "bytes": 129213,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -843,8 +843,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-engine.png",
-        "sha256": "4af4fe3b8dac052d0fb0a7dd078082090fe360695e69cfb5b311b72ed6732a75",
-        "bytes": 170352,
+        "sha256": "08ebcad9a2eebe088356f9943060d29bd16242e2f077fe171e3f1f143b4d7d01",
+        "bytes": 137695,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -873,8 +873,8 @@
       "notes": "0.0165 — under threshold, and effectively a pure palette re-render. The single toggle row, its description and the divider all land together, and at magnification the switch is geometrically identical: 38x21 track, 11px radius, 17px knob inset 2px. The active rail row correctly tracks to slot four after the Builders insertion. Only the off state is exercised here, so the on state and its transition remain unverified and are not claimed.",
       "reference": {
         "path": "docs/design-qa/reference/settings-kubernetes.png",
-        "sha256": "9bed5ef81224dac9af6a9b1e0e5ee79efe8bfb80c4cc6cbe9ca68ad1fd2242b0",
-        "bytes": 139052,
+        "sha256": "14e023dc6c491903b73927c6fa4d59226630b4b8096b4c5c758c9f803f2cbaa9",
+        "bytes": 108096,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -882,8 +882,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-kubernetes.png",
-        "sha256": "847d9de768d26c1939e072f656a7011942497979e6c7ec817c804a7535937f43",
-        "bytes": 146306,
+        "sha256": "1fe3904f647012c760209acc3b408a8bc017b69239d22bc1d2367de83cb78cb8",
+        "bytes": 113615,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -919,8 +919,8 @@
       },
       "reference": {
         "path": "docs/design-qa/reference/settings-resources.png",
-        "sha256": "c917e824b4a24c07772a811a97eb854d33e22ba673cac940dc63aba6b82108d2",
-        "bytes": 152365,
+        "sha256": "65837d2383638df1224824bfd6c5ab53b3759129a31b3d618f263b65913fe18a",
+        "bytes": 121641,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -928,8 +928,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-resources.png",
-        "sha256": "f8c6c5db38ab1b0221691153a4486bc4431deff7c55e9050244f78df564f31ce",
-        "bytes": 161581,
+        "sha256": "8a319eda1ffa8d94b1d473483923c950d06bc377826c08dcb47f39f97255ddae",
+        "bytes": 129465,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -958,8 +958,8 @@
       "notes": "0.0167 — under threshold. Both rows reproduce the comp at its own y positions with both toggle states rendered correctly and body copy at 4.72:1. Recorded deliberately: the on-state toggle track uses the blue accent while primary buttons use the cream primary, so v2 expresses affirmative in two hues; the theme file documents this as intentional and the knob ink is the pairing that token was designed for. Toggle animation and hover are not assessable from a still.",
       "reference": {
         "path": "docs/design-qa/reference/settings-updates.png",
-        "sha256": "aed8d64c60ee64f20f832b647cd009b582e13f4ca571c6632f7e748c91964f77",
-        "bytes": 144994,
+        "sha256": "217c0a18eefcc201354f5b228be0d39a7f31f1fd5f56ab938da3ac6e84380eaf",
+        "bytes": 114152,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -967,8 +967,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-updates.png",
-        "sha256": "4a052a793b7ad872164bdde0c9aa507ac44f61d7805b0024b68738d5a67fd4c9",
-        "bytes": 152897,
+        "sha256": "aa5557b60948af009d7b38acca0bc8683b06f081e3a7570c9bdda27fe6afe25f",
+        "bytes": 119992,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -997,8 +997,8 @@
       "notes": "0.0162 — the closest state of all 24. Every row metric is v2-conformant and header-to-body alignment holds through the column shift, all five origins landing together with a 54px row pitch. The columns sit left of the comp's because the trailing column reserves 400px for six verbs — browse, back up, restore, clone, empty, remove — which do not render in a fixture capture, so this frame cannot confirm they fit that reservation and does not claim to. Sort chevrons follow all five header labels; they appear in neither handoff and are a build addition, rendered without clipping or overlap.",
       "reference": {
         "path": "docs/design-qa/reference/volumes.png",
-        "sha256": "cee6eb4b97b07f39cb0239d582abb5afa5c58606b1c0e971a936709502fc62a1",
-        "bytes": 146290,
+        "sha256": "204bb4f06123c1885be06bbaaa29fdb301a2b89f52b45024c7f8e3da2bf34389",
+        "bytes": 146584,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -1006,8 +1006,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/volumes.png",
-        "sha256": "79651c362b726cafd5b23a54d0f14c6de850318684bb5ea9796917ccbbf1511f",
-        "bytes": 160318,
+        "sha256": "744c7c32eb90e236a4e187e745cada162d341364c02ea71eaff27c26cfd0c0c8",
+        "bytes": 160203,
         "dimensions": {
           "width": 1656,
           "height": 1056

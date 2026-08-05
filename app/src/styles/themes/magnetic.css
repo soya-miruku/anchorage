@@ -1,0 +1,212 @@
+/*
+ * Magnetic — added by the v2.5 handoff.
+ *
+ * Warm charcoal surfaces under a cream foreground, with an amber accent and a crimson primary.
+ * Accent and primary are deliberately different hues here: amber is what a link or a selected
+ * row uses, crimson is the button you are meant to press.
+ *
+ * Drawn with square corners by default (see theme/appearance.ts), which the operator can
+ * override — the corner axis is independent of the palette.
+ */
+
+:root[data-theme="magnetic"][data-color-mode="dark"] {
+  color-scheme: dark;
+
+  --anc-desk: #0b0a09;
+  --anc-desk-glow: #2a2522;
+  --anc-app: #131211;
+  --anc-panel: #1a1918;
+  --anc-input: #101010;
+  --anc-code: #101010;
+  --anc-table-head: #171615;
+  --anc-surface-elevated: #232120;
+  --anc-status-neutral: #7c776f;
+  --anc-on-accent: #131211;
+  --anc-on-danger: #ece4d6;
+
+  --anc-accent: #ecb52f;
+  --anc-accent-hover: #f6cd63;
+  --anc-accent-deep: #45403c;
+  --anc-action-primary: #d81e46;
+  --anc-action-primary-hover: #e83458;
+  --anc-success: #4e9d6b;
+  --anc-warning: #ecb52f;
+  --anc-danger: #d93b23;
+  --anc-violet: #4257c4;
+  --anc-blue: #3ba7d9;
+
+  /*
+   * Status colours used as TEXT, lifted only as far as WCAG AA requires.
+   *
+   * The handoff gives this family a palette but no foreground variants, and aliasing each to its
+   * base leaves several under 4.5:1 against the 16%% tint a chip paints behind its own label.
+   * Each percentage below is the highest — that is, the closest to the handoff's own colour —
+   * that still clears AA, solved rather than chosen. `scripts/theme-integrity.test.mjs` measures
+   * every one of them.
+   */
+  --anc-success-fg: color-mix(in srgb, var(--anc-success) 96%, white);
+  --anc-warning-fg: var(--anc-warning);
+  --anc-danger-fg: color-mix(in srgb, var(--anc-danger) 78%, white);
+  --anc-violet-fg: color-mix(in srgb, var(--anc-violet) 72%, white);
+  --anc-accent-fg: var(--anc-accent);
+
+  --anc-accent-rgb: 236 181 47;
+  --anc-action-primary-rgb: 216 30 70;
+  --anc-success-rgb: 78 157 107;
+  --anc-warning-rgb: 236 181 47;
+  --anc-danger-rgb: 217 59 35;
+  --anc-violet-rgb: 66 87 196;
+  --anc-blue-rgb: 59 167 217;
+  --anc-overlay-rgb: 255 255 255;
+  --anc-contrast-rgb: 255 255 255;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 11 10 9;
+  --anc-code-rgb: 16 16 16;
+  --anc-inset-rgb: 35 33 32;
+
+  --anc-text-primary: #ece4d6;
+  --anc-text-strong: #e4dbcb;
+  --anc-text-body: #d8cfbf;
+  --anc-text-mono: #cfc6b6;
+  --anc-text-secondary: #a8a29a;
+  --anc-text-muted: #98938b;
+  --anc-text-dim: #8a857d;
+  --anc-text-dimmer: #7c776f;
+  --anc-text-faint: #6d6861;
+  --anc-text-quiet: #5e5a54;
+  --anc-text-subdued: #7c776f;
+  --anc-text-emphasis-muted: #a8a29a;
+  --anc-update-text: #a8a29a;
+
+  --anc-line-hairline: rgba(255, 255, 255, 0.045);
+  --anc-line-border: #302d2b;
+  --anc-line-strong: #45403c;
+  --anc-line-control: #45403c;
+  --anc-control-neutral: #7c776f;
+  --anc-control-neutral-hover: #98938b;
+  --anc-control-close: #6e2029;
+
+  --anc-error-surface: #232120;
+  --anc-error-text: #d93b23;
+  --anc-scrim: rgba(0, 0, 0, 0.62);
+  --anc-scrim-soft: rgba(0, 0, 0, 0.38);
+  --anc-scrollbar: #45403c;
+  --anc-scrollbar-hover: #6d6861;
+
+  --anc-terminal-background: #0b0a09;
+  --anc-terminal-foreground: #cfc6b6;
+  --anc-terminal-cursor: #ecb52f;
+  --anc-terminal-selection: #45403c;
+  --anc-terminal-black: #0b0a09;
+  --anc-terminal-red: #d93b23;
+  --anc-terminal-green: #4e9d6b;
+  --anc-terminal-yellow: #ecb52f;
+  --anc-terminal-blue: #3ba7d9;
+  --anc-terminal-magenta: #4257c4;
+  --anc-terminal-cyan: #3ba7d9;
+  --anc-terminal-white: #ece4d6;
+
+  /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
+  --anc-frame-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09);
+}
+
+:root[data-theme="magnetic"][data-color-mode="light"] {
+  color-scheme: light;
+
+  --anc-desk: #d6d0c4;
+  --anc-desk-glow: #fffefb;
+  --anc-app: #f7f4ec;
+  --anc-panel: #fffdf8;
+  --anc-input: #f3efe4;
+  --anc-code: #f3efe4;
+  --anc-table-head: #efeade;
+  --anc-surface-elevated: #e8e2d4;
+  --anc-status-neutral: #675f54;
+  --anc-on-accent: #fffdf8;
+  --anc-on-danger: #fffdf8;
+
+  --anc-accent: #8a5f10;
+  --anc-accent-hover: #6b4708;
+  --anc-accent-deep: #bdb5a2;
+  --anc-action-primary: #c2143f;
+  --anc-action-primary-hover: #a30f33;
+  --anc-success: #1e7a4d;
+  --anc-warning: #a8541a;
+  --anc-danger: #bf3226;
+  --anc-violet: #2b3f9e;
+  --anc-blue: #17708f;
+
+  /*
+   * Status colours used as TEXT, lifted only as far as WCAG AA requires.
+   *
+   * The handoff gives this family a palette but no foreground variants, and aliasing each to its
+   * base leaves several under 4.5:1 against the 16%% tint a chip paints behind its own label.
+   * Each percentage below is the highest — that is, the closest to the handoff's own colour —
+   * that still clears AA, solved rather than chosen. `scripts/theme-integrity.test.mjs` measures
+   * every one of them.
+   */
+  --anc-success-fg: color-mix(in srgb, var(--anc-success) 95%, black);
+  --anc-warning-fg: color-mix(in srgb, var(--anc-warning) 95%, black);
+  --anc-danger-fg: color-mix(in srgb, var(--anc-danger) 98%, black);
+  --anc-violet-fg: color-mix(in srgb, var(--anc-violet) 72%, black);
+  --anc-accent-fg: color-mix(in srgb, var(--anc-accent) 99%, black);
+
+  --anc-accent-rgb: 138 95 16;
+  --anc-action-primary-rgb: 194 20 63;
+  --anc-success-rgb: 30 122 77;
+  --anc-warning-rgb: 168 84 26;
+  --anc-danger-rgb: 191 50 38;
+  --anc-violet-rgb: 43 63 158;
+  --anc-blue-rgb: 23 112 143;
+  --anc-overlay-rgb: 0 0 0;
+  --anc-contrast-rgb: 0 0 0;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 214 208 196;
+  --anc-code-rgb: 243 239 228;
+  --anc-inset-rgb: 232 226 212;
+
+  --anc-text-primary: #171614;
+  --anc-text-strong: #201e1b;
+  --anc-text-body: #2e2b26;
+  --anc-text-mono: #292622;
+  --anc-text-secondary: #4a453e;
+  --anc-text-muted: #544f46;
+  --anc-text-dim: #5d574d;
+  --anc-text-dimmer: #675f54;
+  --anc-text-faint: #6f675b;
+  --anc-text-quiet: #786f62;
+  --anc-text-subdued: #675f54;
+  --anc-text-emphasis-muted: #4a453e;
+  --anc-update-text: #4a453e;
+
+  --anc-line-hairline: rgba(0, 0, 0, 0.05);
+  --anc-line-border: #d8d1c0;
+  --anc-line-strong: #bdb5a2;
+  --anc-line-control: #bdb5a2;
+  --anc-control-neutral: #675f54;
+  --anc-control-neutral-hover: #544f46;
+  --anc-control-close: #cf5340;
+
+  --anc-error-surface: #e8e2d4;
+  --anc-error-text: color-mix(in srgb, #bf3226 70%, black);
+  --anc-scrim: rgba(0, 0, 0, 0.34);
+  --anc-scrim-soft: rgba(0, 0, 0, 0.18);
+  --anc-scrollbar: #bdb5a2;
+  --anc-scrollbar-hover: #6f675b;
+
+  --anc-terminal-background: #d6d0c4;
+  --anc-terminal-foreground: #292622;
+  --anc-terminal-cursor: #8a5f10;
+  --anc-terminal-selection: #bdb5a2;
+  --anc-terminal-black: #d6d0c4;
+  --anc-terminal-red: #bf3226;
+  --anc-terminal-green: #1e7a4d;
+  --anc-terminal-yellow: #a8541a;
+  --anc-terminal-blue: #17708f;
+  --anc-terminal-magenta: #2b3f9e;
+  --anc-terminal-cyan: #17708f;
+  --anc-terminal-white: #171614;
+
+  /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
+  --anc-frame-shadow: 0 30px 70px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.07);
+}

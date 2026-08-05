@@ -11,6 +11,8 @@
 :root[data-theme="docker"][data-color-mode="dark"] {
   color-scheme: dark;
 
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+
   --anc-desk: #061220;
   --anc-desk-glow: #123a63;
   --anc-app: #0a1929;
@@ -99,6 +101,8 @@
 
 :root[data-theme="docker"][data-color-mode="light"] {
   color-scheme: light;
+
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 
   --anc-desk: #dce8f7;
   --anc-desk-glow: #ffffff;

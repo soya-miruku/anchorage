@@ -50,6 +50,9 @@ const themeSwatches: Record<ThemeFamily, readonly [string, string, string]> = {
   docker: ["#0a1929", "#f7fafd", "#1d63ed"],
   github: ["#0d1117", "#f6f8fa", "#4493f8"],
   mono: ["#141414", "#fafafa", "#bebebe"],
+  // chrome, panel, accent — taken from the v2.5 comp's own theme table.
+  magnetic: ["#0d0c0c", "#fffdf8", "#ecb52f"],
+  y2k: ["#08080a", "#f6f1e6", "#c8ff32"],
 };
 
 const themeFamilies = THEME_OPTIONS.map((theme) => ({
@@ -58,6 +61,21 @@ const themeFamilies = THEME_OPTIONS.map((theme) => ({
 }));
 
 const colorModes = COLOR_MODE_OPTIONS;
+
+const cornerStyles = Object.freeze([
+  {
+    id: "rounded" as const,
+    label: "Rounded",
+    description: "Softened corners throughout.",
+    demoRadius: "3px",
+  },
+  {
+    id: "square" as const,
+    label: "Square",
+    description: "Hard corners; circles stay round.",
+    demoRadius: "0px",
+  },
+]);
 
 function handleRadioKeyDown<T extends string>(
   event: KeyboardEvent<HTMLButtonElement>,
@@ -245,6 +263,9 @@ function AppearanceSettings({ store }: { store: AnchorageStore }) {
   const selectedTheme =
     themeFamilies.find((theme) => theme.id === store.themeFamily) ??
     themeFamilies[0];
+  const selectedCorner =
+    cornerStyles.find((corner) => corner.id === store.cornerStyle) ??
+    cornerStyles[0];
   const selectedMode =
     colorModes.find((mode) => mode.id === store.colorMode) ?? colorModes[1];
   const persistenceDescription =
@@ -355,9 +376,57 @@ function AppearanceSettings({ store }: { store: AnchorageStore }) {
         </div>
       </fieldset>
 
+      <fieldset className="appearance-fieldset appearance-fieldset--mode">
+        <legend>Corners</legend>
+        {/* Independent of the palette: a family suggests a default — Magnetic and Y2K are drawn
+            square — and this overrides it. Once chosen, switching family stops moving it, so a
+            new palette never silently undoes a shape decision. */}
+        <p className="appearance-hint">
+          Themes suggest a default; this overrides it.
+        </p>
+        <div
+          className="appearance-mode-control"
+          role="radiogroup"
+          aria-label="Corner style"
+        >
+          {cornerStyles.map((corner, index) => (
+            <button
+              className={
+                store.cornerStyle === corner.id
+                  ? "appearance-mode-control__selected"
+                  : ""
+              }
+              type="button"
+              role="radio"
+              aria-checked={store.cornerStyle === corner.id}
+              tabIndex={store.cornerStyle === corner.id ? 0 : -1}
+              data-testid={`corner-style-${corner.id}`}
+              key={corner.id}
+              onClick={() => store.setCornerStyle(corner.id)}
+              onKeyDown={(event) =>
+                handleRadioKeyDown(
+                  event,
+                  cornerStyles,
+                  index,
+                  store.setCornerStyle,
+                )
+              }
+            >
+              <span
+                className="appearance-corner-demo"
+                style={{ borderRadius: corner.demoRadius }}
+                aria-hidden="true"
+              />
+              <strong>{corner.label}</strong>
+              <span>{corner.description}</span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
       <p className="appearance-current" role="status" aria-live="polite">
         Using {selectedTheme.label} · {selectedMode.label} ·{" "}
-        {persistenceStatus}
+        {selectedCorner.label} corners · {persistenceStatus}
       </p>
     </div>
   );

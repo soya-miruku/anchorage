@@ -333,7 +333,10 @@ describe("Sidebar navigation grouping", () => {
   it("scrolls the active destination into view when it sits below the fold", () => {
     // Twenty-two destinations do not fit the shortest supported window, so the PLATFORM
     // group is off-screen at rest. Without this the primary nav shows no active row at all
-    // on Settings, which reads as "nothing selected" rather than "scroll down".
+    // down there, which reads as "nothing selected" rather than "scroll down".
+    //
+    // Extensions rather than Settings: since v2.5 the Settings rail replaces the main nav, so
+    // there is no nav row to scroll to in that view.
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     // jsdom performs no layout, so every offset is 0 and the guard would correctly decline.
@@ -358,12 +361,12 @@ describe("Sidebar navigation grouping", () => {
     });
 
     render(
-      <Shell store={{ ...createStore(), view: "settings" }}>
+      <Shell store={{ ...createStore(), view: "extensions" }}>
         <div>Content</div>
       </Shell>,
     );
 
-    const active = screen.getByTestId("nav-settings");
+    const active = screen.getByTestId("nav-extensions");
     expect(active).toHaveClass("nav-item--active");
     expect(scrollIntoView).toHaveBeenCalled();
 
@@ -390,7 +393,7 @@ describe("Sidebar navigation grouping", () => {
     });
 
     render(
-      <Shell store={{ ...createStore(), view: "settings" }}>
+      <Shell store={{ ...createStore(), view: "extensions" }}>
         <div>Content</div>
       </Shell>,
     );

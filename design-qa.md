@@ -82,9 +82,8 @@ Two properties of the comp constrain what a pixel metric can mean here:
 
 ## Result
 
-- **14 of 24 states are within the 0.02 review threshold.** Worst passing state:
-  0.0197.
-- **10 states exceed it**, every one attributable to an enumerated, deliberate
+- **15 of 24 states are within the 0.02 review threshold.**
+- **9 states exceed it**, every one attributable to an enumerated, deliberate
   build addition rather than to drift:
 
   | State | MAE | What accounts for it |
@@ -122,19 +121,19 @@ left to authorise future drift.
 ## Evidence
 
 - Renderer build:
-  `2a371bf01901c1404a798fe091ceadd291d759574c0ff8b70f9326aec2be48ae`
-  (19 files, 1,357,835 bytes).
+  `3634e0898a5577ae72caf0352a5b6da45db86f6d3591f1346b275c4f5d410263`
+  (19 files, 1,394,442 bytes).
 - Design handoff source (comp + README + support.js + baseline):
-  `d4838915012ebe3993668d989b0ab4e7c633b3b86b48dbf35ab74af77ecca4bd`.
-- `Anchorage v2.dc.html`:
-  `309dd687aaf8cf311db0f874281eae0771f9447a2c9dabd4c198fb583544052c`
-  (365,700 bytes).
+  `74e05d51b2042b052ecaf64a938112f7c84e3854bb4a17279324ce098919bd11`.
+- `Anchorage v2.dc.html` (v2.5 revision):
+  `4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe`
+  (372,457 bytes).
 - Capture provenance SHA-256:
-  `852624976326e286c5ad0f0049020f8db7679f07748f2d14a297f6672b87d5f7`.
+  `2cc566a7d5aa6222f0e29503fec57e516fb63eaea9437244026d643c37df5a8a`.
 - Paired-review attestation SHA-256:
-  `b5e4a4c2bc6069754ad3ba555266c1851afb9806a87c4cba2c77ae652036f9f8`.
+  `19be434ffab1082efdefebec92e06b6449511e5d276cf992f80ef12fd13805bd`.
 - Design ledger SHA-256:
-  `42c0c22730a641befbc9773cb0dcaa9317036e4c9d29c3171efaa3131fea0ab1`.
+  `3f93a6660e9c29eaf72d8eb1215275df262a0bae3cde362bfc3f1da0ed462efd`.
 - Per-state diffs and masked comparisons: `artifacts/design/`.
 
 The attestation carries a distinct note per state — what was compared, what was
