@@ -170,18 +170,6 @@ func fetchVolumeUsage(ctx context.Context, client *engineClient) (map[string]vol
 // decision above and deliberate: an operator opens the Dashboard to read these numbers, so a
 // figure from within the last minute is worth far more than an empty card. Only a completely cold
 // cache waits for the walk.
-// What this cache costs, measured rather than assumed.
-//
-// The commit that introduced it attributed a 11.7 MB -> 17.6 MB step in soak RSS to this cache
-// "holding roughly 1,986 image records". Both halves were wrong: `/system/df` reports top-level
-// images only — 284 entries in 0.7 MB on the reference host — and measuring around each request
-// puts the whole step on `images.list`, which parses the full 1,986-image listing and did so
-// before this cache existed. Adding, warming and repeatedly serving this cache moves RSS by less
-// than the ~1 MB run-to-run jitter.
-//
-// The likelier reading of the soak delta is the speedup itself: volumes.list went 1078 ms to
-// 3 ms, so a fixed 1800-second soak now serves far more iterations and reaches a higher heap
-// high-water mark. Growth over that window is still exactly 0, and 17.6 MB is 14% of budget.
 const systemDiskUsageTTL = 60 * time.Second
 
 type systemDiskUsageEntry struct {

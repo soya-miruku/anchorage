@@ -278,3 +278,32 @@ func TestStatsBatchAdmitsAFullRendererBatchInOneWave(t *testing.T) {
 			rendererBatchLimit, observed)
 	}
 }
+
+/*
+What this cache actually costs, measured rather than assumed.
+
+The commit that introduced it blamed it for a 11.7 MB -> 17.6 MB step in soak RSS, "holding
+roughly 1,986 image records". Both halves were wrong. `/system/df` reports top-level images
+only — 284 entries in 0.7 MB on the reference host — while 1,986 is the `images.list` count,
+which includes intermediates and dangling layers. Two different endpoints, conflated.
+
+Measuring RSS around each request puts the whole step on `images.list`, which parses that full
+listing and did so long before this cache existed:
+
+	baseline (health only)            10.8 MB
+	+ containers.list + images.list   16.2 MB   <- the step
+	+ volumes.list, usage cached      16.5 MB
+	+ system.snapshot with disk usage 15.9 MB
+	+ five more cached snapshots      16.7 MB
+	+ stats batches of 32             16.6 MB
+
+Adding, warming and repeatedly serving this cache moves RSS by less than the ~1 MB run-to-run
+jitter, and so does the widened stats fan-out. The likelier reading of the soak delta is the
+speedup itself: volumes.list went 1078 ms to 3 ms, so a fixed 1800-second soak serves far more
+iterations and reaches a higher heap high-water mark. Growth over that window is still exactly 0.
+
+This note lives in the test file on purpose. Go embeds file positions for stack traces, so adding
+it to disk_usage_cache.go shifted every following line and changed the shipped binary's hash —
+which would have invalidated the mutation, capability and performance evidence bound to it, and
+cost a 30-minute soak to restore, for a comment.
+*/
