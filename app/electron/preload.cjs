@@ -75,6 +75,8 @@ const EVENTS = new Set([
   "window.maximized",
 ]);
 
+// `rename` and `update` were missing while the option validation below was written for them,
+// so every rename and every resource change was refused here and never reached the core.
 const ACTIONS = new Set([
   "start",
   "stop",
@@ -83,6 +85,8 @@ const ACTIONS = new Set([
   "pause",
   "unpause",
   "kill",
+  "rename",
+  "update",
 ]);
 
 // Signals become both a query parameter and an argv element, so keep the shape narrow.
@@ -470,6 +474,12 @@ function containerAction(value) {
     if (action === "remove") {
       fail("confirmed must be true for remove");
     }
+    if (action === "rename") {
+      fail("rename requires request.options.name");
+    }
+    if (action === "update") {
+      fail("update requires at least one of cpuShares, memoryBytes, or restartPolicy");
+    }
     return normalized;
   }
 
@@ -517,8 +527,10 @@ function containerAction(value) {
     }
     options.signal = signal;
   }
-  if (value.name !== undefined) {
-    const containerName = text(value.name, "request.options.name", 255);
+  // Reads `value.options`, not `value`: onlyKeys above forbids these at the top level, so
+  // the blocks were unreachable and the options were silently dropped rather than forwarded.
+  if (value.options.name !== undefined) {
+    const containerName = text(value.options.name, "request.options.name", 255);
     if (action !== "rename") {
       fail("name is only valid for rename");
     }
@@ -531,26 +543,36 @@ function containerAction(value) {
     fail("rename requires request.options.name");
   }
   for (const key of ["cpuShares", "memoryBytes"]) {
-    if (value[key] === undefined) continue;
+    if (value.options[key] === undefined) continue;
     if (action !== "update") {
       fail("resource limits are only valid for update");
     }
     options[key] = requiredInteger(
-      value[key],
+      value.options[key],
       `request.options.${key}`,
       0,
       Number.MAX_SAFE_INTEGER,
     );
   }
-  if (value.restartPolicy !== undefined) {
+  if (value.options.restartPolicy !== undefined) {
     if (action !== "update") {
       fail("restartPolicy is only valid for update");
     }
-    const policy = text(value.restartPolicy, "request.options.restartPolicy", 32);
+    const policy = text(value.options.restartPolicy, "request.options.restartPolicy", 32);
     if (!RESTART_POLICIES.has(policy)) {
       fail("request.options.restartPolicy is not supported");
     }
     options.restartPolicy = policy;
+  }
+  // `docker update` with no flags is a usage error, so an empty update is refused here rather
+  // than forwarded to fail at the daemon.
+  if (
+    action === "update" &&
+    options.cpuShares === undefined &&
+    options.memoryBytes === undefined &&
+    options.restartPolicy === undefined
+  ) {
+    fail("update requires at least one of cpuShares, memoryBytes, or restartPolicy");
   }
   if (action !== "remove" && (options.force || options.volumes)) {
     fail("force and volumes are only valid for remove");

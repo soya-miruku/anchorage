@@ -189,3 +189,59 @@ describe("openImageDetail", () => {
     });
   });
 });
+
+/**
+ * A refused `docker top` has to become a reason the screen can show.
+ *
+ * The loader used to end `.catch(() => undefined)`, so a rejection left `processes` null with no
+ * error beside it and the tab sat on "Reading container processes…" forever. The Engine answers
+ * 409 for a container that is not running and the tab strip does not gate on state, so this is
+ * an ordinary path.
+ *
+ * This asserts the store half specifically. The screen-level tests render a hand-written
+ * `selectedDetailErrors`, so all three of them pass even when the store never writes one.
+ */
+const aContainer = (id: string) => ({
+  Id: id,
+  Names: [`/api-${id.slice(0, 4)}`],
+  Image: "nginx:1.27",
+  State: "exited",
+  Status: "Exited (0) 2 minutes ago",
+  Created: 1_760_000_000,
+  Ports: [],
+  Labels: {},
+});
+
+describe("read-only detail tabs", () => {
+  for (const [tab, method, message] of [
+    ["processes", "top", "Docker Engine rejected the process list request."],
+    ["changes", "diff", "Docker Engine rejected the filesystem changes request."],
+  ]) {
+    it(`records why ${tab} could not be read`, async () => {
+      const id = "b".repeat(64);
+      const host = createHost(async () => listResult("networks", []));
+      const containers = host as unknown as { containers: Record<string, unknown> };
+      containers.containers.list = vi.fn(async () =>
+        listResult("containers", [aContainer(id)]),
+      );
+      containers.containers[method] = vi.fn(async () => {
+        throw new Error(message);
+      });
+      window.anchorage = host;
+      const { result } = renderHook(() => useAnchorageStore());
+
+      // The store loads containers itself on boot; there is no exposed refresh to drive.
+      await waitFor(() => {
+        expect(result.current.containers.length).toBe(1);
+      });
+      await act(async () => {
+        result.current.setSelectedId(id);
+        result.current.setDetailTab(tab as never);
+      });
+
+      await waitFor(() => {
+        expect(result.current.selectedDetailErrors[tab as never]).toBe(message);
+      });
+    });
+  }
+});

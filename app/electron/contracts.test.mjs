@@ -852,3 +852,111 @@ test("validates bounded session input and every session control request", () => 
     /lowercase UUID/u,
   );
 });
+
+/**
+ * `rename` and `update` have to cross this boundary, and their options have to survive it.
+ *
+ * Two faults met here. The action allowlist omitted both verbs, so the renderer's request was
+ * refused with "request.action must be one of…" and the Go core — which has always handled
+ * them — was never reached. Underneath that, the option blocks read `value.name`,
+ * `value.cpuShares`, `value.memoryBytes` and `value.restartPolicy`, which `assertOnlyKeys`
+ * forbids at the top level, so they were unreachable: had the allowlist been fixed alone, every
+ * option would have been silently dropped and `docker update` would have run with no flags.
+ *
+ * The dropping is what these assert. A test that only checked the action was accepted would
+ * have passed against the broken version.
+ */
+test("forwards rename and update options rather than dropping them", () => {
+  assert.deepEqual(
+    validateContainerAction({
+      context: "default",
+      id: CONTAINER_ID,
+      action: "update",
+      options: { restartPolicy: "no" },
+    }),
+    {
+      context: "default",
+      id: CONTAINER_ID,
+      action: "update",
+      options: { restartPolicy: "no" },
+    },
+  );
+
+  assert.deepEqual(
+    validateContainerAction({
+      context: "default",
+      id: CONTAINER_ID,
+      action: "update",
+      options: { memoryBytes: 536_870_912, cpuShares: 512 },
+    }).options,
+    { cpuShares: 512, memoryBytes: 536_870_912 },
+  );
+
+  assert.deepEqual(
+    validateContainerAction({
+      context: "default",
+      id: CONTAINER_ID,
+      action: "rename",
+      options: { name: "api-2" },
+    }).options,
+    { name: "api-2" },
+  );
+});
+
+test("refuses an update that would reach the daemon with no flags", () => {
+  for (const options of [undefined, {}]) {
+    assert.throws(
+      () =>
+        validateContainerAction({
+          context: "default",
+          id: CONTAINER_ID,
+          action: "update",
+          ...(options === undefined ? {} : { options }),
+        }),
+      /update requires at least one of/u,
+    );
+  }
+  assert.throws(
+    () =>
+      validateContainerAction({
+        context: "default",
+        id: CONTAINER_ID,
+        action: "rename",
+        options: {},
+      }),
+    /rename requires request\.options\.name/u,
+  );
+});
+
+test("keeps rename and update options scoped to their own action", () => {
+  assert.throws(
+    () =>
+      validateContainerAction({
+        context: "default",
+        id: CONTAINER_ID,
+        action: "stop",
+        options: { restartPolicy: "always" },
+      }),
+    /restartPolicy is only valid for update/u,
+  );
+  assert.throws(
+    () =>
+      validateContainerAction({
+        context: "default",
+        id: CONTAINER_ID,
+        action: "update",
+        options: { name: "api-2" },
+      }),
+    /name is only valid for rename/u,
+  );
+  assert.throws(
+    () =>
+      validateContainerAction({
+        context: "default",
+        id: CONTAINER_ID,
+        action: "update",
+        options: { restartPolicy: "sometimes" },
+      }),
+    /restartPolicy is not supported/u,
+  );
+});

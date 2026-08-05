@@ -24,15 +24,24 @@ but they have not each been independently challenged — treat them as a strong 
 
 ## Fixed in this pass
 
-Six defects where a control looked like it worked and did not. All six passed the 475-test suite
+Six defects where a control looked like it worked and did not. All six passed the test suite
 before the fix; each now has a test that fails when the fix is reverted.
+
+An adversarial review of this pass then found that two of the six were fixed only in the
+renderer. `rename` and `update` were missing from the container-action allowlists in both
+`app/electron/preload.cjs` and `app/electron/contracts.mjs`, so those requests were refused at
+the Electron trust boundary and never reached the Go core, which has always handled them.
+Underneath that, the option validation read `value.name` / `value.restartPolicy` rather than
+`value.options.*`, which `assertOnlyKeys` forbids at the top level — so even with the allowlist
+fixed, every option would have been silently dropped and `docker update` would have run with no
+flags. Both faults are fixed and covered by contract tests.
 
 | Area | What was wrong |
 |---|---|
 | Processes / Changes tabs | Both loaders ended `.catch(() => undefined)`. `docker top` returns 409 for a container that is not running and the tab strip has no state gate, so a routine refusal rendered as a spinner that never resolved. The core authors a distinct message for exactly this and it was discarded one line before display. |
 | `openImageDetail` | The stale-response guard was `current && current.imageId === image.imageId ? current : current` — identical branches, so it discarded nothing. Two quick clicks could put one image's layers, size and platform under another's name. |
 | Resources → restart policy | `"no"` was the sentinel for "unchanged" *and* Docker's own `no` policy, so the option that stops a container restarting was dropped before the patch was built. The core has always accepted the two separately. |
-| Resources → Apply | No `disabled` binding, on a form that resets to inert defaults, so pressing it untouched sent a flagless `docker update` and surfaced a raw CLI usage error. |
+| Resources → Apply | No `disabled` binding, on a form that resets to inert defaults, so pressing it untouched submitted an empty patch. The originally recorded symptom — a flagless `docker update` surfacing a CLI usage error — was wrong: in host mode the request never got that far, because the Electron boundary refused the whole `update` action. The button is now gated, and an empty update is refused at the contract layer too. |
 | Builds → record detail | A failed `buildx history inspect` was routed to `buildsError`, rendered only by Settings → Builders. Now has its own state: `buildsError` also carries buildx *limitations*, which are caveats, and collapsing the two would show a benign limitation as a broken record. |
 | Image detail in preview | The store returns before setting either a detail or an error, so every row opened a panel reading "Loading image detail…" permanently. The panel now distinguishes *waiting*, *failed* and *no daemon to ask*. |
 
