@@ -75,18 +75,29 @@ func (s *Service) systemSnapshot(parent context.Context, params SystemSnapshotPa
 		// Disk usage gets its own budget and degrades to a limitation. Previously a slow walk
 		// failed the entire snapshot, so the whole dashboard went away rather than just the
 		// disk figures.
-		diskCtx, cancelDisk := context.WithTimeout(parent, diskUsageTimeout)
-		status, diskBody, diskErr := client.request(diskCtx, http.MethodGet, "/v"+client.apiVersion+"/system/df", nil)
-		cancelDisk()
+		//
+		// It is also cached, because the walk measured 1791-7176 ms here while the dashboard
+		// asks for it every 10 s — a call slower than its own interval, which stops being a
+		// poll and becomes a daemon that never stops walking disk. A warm cache answers
+		// instantly; a stale one answers instantly and refreshes behind the caller; only a
+		// cold cache waits, because the first paint has nothing else to show.
+		cached, fresh, present := s.systemDiskUsage.lookup(endpoint.endpointHash)
 		switch {
-		case diskErr != nil:
-			limitations = append(limitations, "Disk usage is unavailable: "+AsOpError(diskErr).Message)
-		case status < 200 || status >= 300:
-			limitations = append(limitations, "Docker Engine rejected the disk usage request.")
+		case present && fresh:
+			disk = cached
+		case present:
+			disk = cached
+			s.refreshSystemDiskUsage(endpoint.endpointHash, client)
 		default:
-			if err := json.Unmarshal(diskBody, &disk); err != nil {
-				limitations = append(limitations, "Docker Engine returned invalid disk usage JSON.")
+			diskCtx, cancelDisk := context.WithTimeout(parent, diskUsageTimeout)
+			walked, diskErr := fetchSystemDiskUsage(diskCtx, client)
+			cancelDisk()
+			if diskErr != nil {
+				limitations = append(limitations, "Disk usage is unavailable: "+AsOpError(diskErr).Message)
 				disk = engineDiskUsage{}
+			} else {
+				disk = walked
+				s.systemDiskUsage.store(endpoint.endpointHash, walked)
 			}
 		}
 	} else {
@@ -674,7 +685,13 @@ func (s *Service) imagesList(parent context.Context, params ImagesListParams) (I
 	}
 	values := url.Values{}
 	values.Set("all", strconv.FormatBool(all))
-	values.Set("shared-size", "true")
+	// Deliberately not shared-size=true. Computing it makes the daemon walk the layer graph:
+	// measured against a live daemon holding 1,986 images, 703-796 ms with the flag against
+	// 283-326 ms without — about 450 ms, or 2.4x, on every call. Nothing reads what it buys on
+	// this path. The disk-usage summary that genuinely needs shared size gets it from
+	// /system/df via projectDiskUsage, which is a different request. Docker reports SharedSize
+	// as -1 when it has not computed it, and that sentinel travels through untouched: zero
+	// would assert that an image shares nothing with any other.
 	path := "/v" + client.apiVersion + "/images/json?" + values.Encode()
 	status, body, err := client.request(ctx, http.MethodGet, path, nil)
 	if err != nil {
@@ -693,7 +710,8 @@ func (s *Service) imagesList(parent context.Context, params ImagesListParams) (I
 	if !all && params.IncludeDangling {
 		danglingValues := url.Values{}
 		danglingValues.Set("all", "false")
-		danglingValues.Set("shared-size", "true")
+		// Same reasoning as the primary query above, and this is the copy that is easy to miss:
+		// leaving it would keep paying the layer walk for the dangling half of the list.
 		danglingFilters, _ := json.Marshal(map[string][]string{"dangling": {"true"}})
 		danglingValues.Set("filters", string(danglingFilters))
 		danglingPath := "/v" + client.apiVersion + "/images/json?" + danglingValues.Encode()
@@ -883,37 +901,22 @@ func (s *Service) volumesList(parent context.Context, params VolumesListParams) 
 		})
 	}
 	limitations := []string{}
-	usageStatus, usageBody, usageErr := client.request(
-		ctx,
-		http.MethodGet,
-		"/v"+client.apiVersion+"/system/df?type=volume",
-		nil,
-	)
-	if usageErr == nil && usageStatus >= 200 && usageStatus < 300 {
-		var diskUsage struct {
-			Volumes []engineVolume `json:"Volumes"`
-		}
-		if unmarshalErr := json.Unmarshal(usageBody, &diskUsage); unmarshalErr == nil {
-			usageByName := make(map[string]*struct {
-				Size     int64 `json:"Size"`
-				RefCount int64 `json:"RefCount"`
-			}, len(diskUsage.Volumes))
-			for index := range diskUsage.Volumes {
-				item := &diskUsage.Volumes[index]
-				if item.UsageData != nil {
-					usageByName[item.Name] = item.UsageData
-				}
+	// Volume sizes come from a daemon-side disk walk that measures ~1.15s against ~8ms for the
+	// list itself. It runs behind this response rather than in front of it: a fresh cache is
+	// merged in, a stale one triggers a refresh the next list will pick up, and either way the
+	// names and mountpoints an operator is looking for are not held back by it.
+	if samples, fresh := s.volumeUsage.lookup(endpoint.endpointHash); fresh {
+		for index := range raw.Volumes {
+			if sample, ok := samples[raw.Volumes[index].Name]; ok {
+				raw.Volumes[index].UsageData = &struct {
+					Size     int64 `json:"Size"`
+					RefCount int64 `json:"RefCount"`
+				}{Size: sample.SizeBytes, RefCount: sample.RefCount}
 			}
-			for index := range raw.Volumes {
-				if usage, ok := usageByName[raw.Volumes[index].Name]; ok {
-					raw.Volumes[index].UsageData = usage
-				}
-			}
-		} else {
-			limitations = append(limitations, "Volume usage is unknown because Docker returned invalid /system/df volume data.")
 		}
 	} else {
-		limitations = append(limitations, "Volume usage is unknown because Docker did not provide /system/df volume data.")
+		s.refreshVolumeUsage(endpoint.endpointHash, client)
+		limitations = append(limitations, "Volume usage is still being measured; Docker sizes volumes with a disk walk that runs behind this list.")
 	}
 	volumes := make([]VolumeProjection, 0, len(raw.Volumes))
 	for _, item := range raw.Volumes {
@@ -2784,7 +2787,12 @@ const (
 	// precpu_stats is populated (without which CPU% would be a lifetime average). The fan-out
 	// is therefore latency-bound, not CPU-bound, and a wider window is what keeps a batch
 	// inside one poll interval.
-	statsBatchConcurrency = 16
+	//
+	// This must not sit below the renderer's LIST_STATS_BATCH_LIMIT (32, in
+	// app/src/store/useAnchorageStore.ts). It was 16, so a full batch ran as two waves and took
+	// two collection cycles instead of one — roughly 4 s of every 8 s poll rather than 2 s, for
+	// no saving at all, since the samples are waiting rather than computing.
+	statsBatchConcurrency = 32
 )
 
 // containersStatsBatch samples several containers concurrently, reporting per-container
