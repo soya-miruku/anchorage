@@ -613,16 +613,16 @@ export interface ImagesActionRequest {
  * drop whatever the list forgot. Three consequences are reported rather than glossed: the ID
  * changes, the writable layer is discarded, and the log history goes with it. Hence `confirmed`.
  *
- * `id` is bounded rather than pinned to the immutable 64-character form, which is what the core
- * accepts here. Every other container verb requires the full ID, on the grounds that a shorter
- * reference can resolve to a different container between render and act; this one is the
- * exception and is recorded as such rather than quietly described as strict.
+ * `id` is the full immutable 64-character form, as for every other container verb. A shorter
+ * reference can resolve to a different container between render and act, and this is the verb
+ * that destroys one — it was briefly the lax exception, which was the wrong way round.
  */
 export interface ContainersRebindPortsRequest {
   id: RequestId;
   method: "containers.rebindPorts";
   params: {
     context: string;
+    /** Full, immutable 64-character hexadecimal ID; prefixes are rejected. */
     id: string;
     /** Host port to container port, e.g. `{"8080": "80/tcp"}`. Empty publishes nothing. */
     ports: Record<string, string>;

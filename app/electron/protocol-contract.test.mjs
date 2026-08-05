@@ -1582,3 +1582,37 @@ test("protocol v1 keeps builder actions to buildx's two safe verbs and gates rem
     );
   }
 });
+
+test("protocol v1 makes the container-replacing verb demand the immutable ID", () => {
+  // rebindPorts was the one container verb that took a prefix. It is also the one that destroys
+  // the container it resolves to, so it was the worst place for the exception: a shorter
+  // reference can name a different container between the moment a surface rendered it and the
+  // moment this acts. Schema and boundary validator now agree with the rest of the surface.
+  const full = "0123456789abcdef".repeat(4);
+  for (const id of [
+    "abc123",
+    "0123456789ab",
+    full.slice(0, 63),
+    `${full}0`,
+    "g".repeat(64),
+    `sha256:${full}`,
+  ]) {
+    const params = { context: "default", id, ports: { "8080": "80/tcp" }, confirmed: true };
+    assert.equal(
+      schemaMatches(protocol, request("containers.rebindPorts", params)),
+      false,
+      `a partial container id unexpectedly matched: ${id}`,
+    );
+    assert.throws(() => validateContainersRebindPorts(params), TypeError);
+  }
+  // And replacing a container is never implicit.
+  assert.throws(
+    () =>
+      validateContainersRebindPorts({
+        context: "default",
+        id: full,
+        ports: { "8080": "80/tcp" },
+      }),
+    TypeError,
+  );
+});

@@ -17,6 +17,11 @@ import (
  * most likely failure — into a destroyed container. The original is therefore parked under
  * another name and only removed once the replacement exists.
  */
+// A full immutable container ID. Every one of these tests used "abc" until this verb started
+// demanding the same identifier as the rest of the container surface; the shape is the point, so
+// it is named rather than repeated.
+var rebindContainerID = strings.Repeat("ab", 32)
+
 type rebindEngine struct {
 	mu       sync.Mutex
 	calls    []string
@@ -95,7 +100,7 @@ func TestRebindPortsRefusesARunningContainer(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	_, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil)
 	if err == nil {
 		t.Fatal("a container that is still serving must not be replaced underneath its traffic")
@@ -119,12 +124,12 @@ func TestRebindPortsAllowsAPausedContainer(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	result, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil)
 	if err != nil {
 		t.Fatalf("a paused container should be republishable: %v", err)
 	}
-	if result.ID != "newcontainerid" || result.PreviousID != "abc" {
+	if result.ID != "newcontainerid" || result.PreviousID != rebindContainerID {
 		t.Fatalf("the result must name both containers: %#v", result)
 	}
 }
@@ -134,7 +139,7 @@ func TestRebindPortsRequiresConfirmation(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	if _, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"},
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"},
 	}, nil); err == nil {
 		t.Fatal("replacing a container must be confirmed")
 	}
@@ -152,7 +157,7 @@ func TestRebindPortsKeepsTheOriginalWhenTheNewPortIsRejected(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	_, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil)
 	if err == nil {
 		t.Fatal("a rejected creation must surface as an error")
@@ -175,7 +180,7 @@ func TestRebindPortsRemovesTheOriginalOnlyAfterTheReplacementExists(t *testing.T
 	service := newRebindService(t, engine)
 
 	if _, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil); err != nil {
 		t.Fatalf("rebind: %v", err)
 	}
@@ -201,7 +206,7 @@ func TestRebindPortsStatesWhatRecreatingLoses(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	result, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil)
 	if err != nil {
 		t.Fatalf("rebind: %v", err)
@@ -222,7 +227,7 @@ func TestRebindPortsCarriesEverythingItDidNotChange(t *testing.T) {
 	service := newRebindService(t, engine)
 
 	if _, err := service.containersRebindPorts(context.Background(), ContainersRebindPortsParams{
-		Context: "default", ID: "abc", Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
+		Context: "default", ID: rebindContainerID, Ports: map[string]string{"9090": "80/tcp"}, Confirmed: true,
 	}, nil); err != nil {
 		t.Fatalf("rebind: %v", err)
 	}
@@ -258,5 +263,31 @@ func TestRebindPortsCarriesEverythingItDidNotChange(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), "9090") {
 		t.Fatalf("the requested binding must be present: %s", encoded)
+	}
+}
+
+// Replacing a container is the most destructive container verb, and it was the only one that
+// accepted a prefix. A short reference can resolve to a different container between the moment a
+// surface rendered it and the moment this acts — which for this verb means destroying the wrong
+// one — so it now demands the same immutable ID as `inspect`, `stop` and `remove`.
+func TestRebindPortsRequiresTheFullImmutableID(t *testing.T) {
+	service := newTestService(t, writeFakeDockerScript(t, "#!/bin/sh\nexit 0\n"))
+
+	for _, id := range []string{
+		"abc123",
+		"0123456789ab",
+		strings.Repeat("0", 63),
+		strings.Repeat("0", 65),
+		strings.Repeat("g", 64),
+	} {
+		_, err := service.containersRebindPorts(t.Context(), ContainersRebindPortsParams{
+			Context:   "default",
+			ID:        id,
+			Ports:     map[string]string{"8080": "80/tcp"},
+			Confirmed: true,
+		}, nil)
+		if code := AsOpError(err).Code; code != "invalid_container_id" {
+			t.Fatalf("id %q must be refused as a container id, got %q", id, code)
+		}
 	}
 }

@@ -2914,9 +2914,16 @@ export function normalizeRpcError(value) {
 export function validateContainersRebindPorts(value) {
   assertPlainObject(value, "request");
   assertOnlyKeys(value, new Set(["context", "id", "ports", "confirmed"]), "request");
+  const identifier = boundedString(value.id, "request.id", 128);
+  // The full immutable ID, as for every other container verb. This one was the exception, which
+  // was backwards: a prefix can resolve to a different container between render and act, and
+  // this is the verb that destroys the one it resolves to.
+  if (!CONTAINER_ID.test(identifier)) {
+    fail("request.id must be a full 64-character container ID");
+  }
   const normalized = {
     context: validateContext(value.context),
-    id: boundedString(value.id, "request.id", 128),
+    id: identifier,
   };
   if (value.confirmed !== true) {
     fail("request.confirmed must be true; replacing a container is not an implicit action");

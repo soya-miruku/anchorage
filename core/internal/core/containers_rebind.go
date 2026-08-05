@@ -76,6 +76,13 @@ func (s *Service) containersRebindPorts(
 	if id == "" {
 		return ContainersRebindPortsResult{}, invalidParams(errors.New("id is required"))
 	}
+	// The full immutable ID, as every other container verb requires. This verb accepted any
+	// non-empty string, which was the wrong way round: a prefix can resolve to a different
+	// container between the moment a surface rendered it and the moment this acts, and this is
+	// the verb that destroys the container it resolves to.
+	if err := validateContainerID(id); err != nil {
+		return ContainersRebindPortsResult{}, err
+	}
 	if !params.Confirmed {
 		return ContainersRebindPortsResult{}, opError(
 			"rebind_not_confirmed",

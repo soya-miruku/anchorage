@@ -94,14 +94,15 @@ preload invoke sample, and in the contract test that validates a validator's out
 schema. `SecretsListRequest` was declared and schema'd but missing from the `RPCRequest` union;
 it is now in it.
 
-One divergence is recorded rather than fixed, because fixing it changes behaviour: this verb
-accepts a **bounded** container id where every other container verb requires the immutable
-64-character form. The core checks only that it is non-empty (`containers_rebind.go:75`). The
-rule the others follow exists because a shorter reference can resolve to a different container
-between render and act — and this is the verb that destroys and recreates one, so it is the worst
-place to be lax. The schema and `protocol/types.ts` both say so in their descriptions instead of
-describing a strictness that is not there. Tightening it to 64 hex is a one-line change in
-`contracts.mjs` and `containers_rebind.go`, gated on whether any caller passes a short id.
+Writing the contract down surfaced a divergence, now **also closed**: this verb accepted a
+*bounded* container id where every other container verb requires the immutable 64-character form.
+The core checked only that it was non-empty. The rule the others follow exists because a shorter
+reference can resolve to a different container between render and act — and this is the verb that
+destroys and recreates one, so it was the worst place to be lax. All four layers now demand the
+full id: `containers_rebind.go` via `validateContainerID`, `contracts.mjs` via `CONTAINER_ID`, and
+both protocol files via `^[A-Fa-f0-9]{64}$`. No caller was affected; the only one passes
+`AnchorageContainer.id`, which comes from `docker ps --no-trunc`. The rebind tests had used
+`"abc"` throughout and now use a real identifier, which is what let the laxness sit unnoticed.
 
 There is no `networks.inspect` verb anywhere.
 

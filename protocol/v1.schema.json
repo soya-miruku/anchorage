@@ -703,7 +703,7 @@
       "additionalProperties": false
     },
     "containersRebindPortsRequest": {
-      "description": "Republishes a container's ports by replacing it. Docker fixes bindings at creation and `docker update` cannot change them, so the core creates a new container from the original's own Config and HostConfig with only the port fields replaced. The container ID changes, the writable layer is discarded, and the log history goes with it — which is why `confirmed` is mandatory. Note that `id` is bounded rather than pinned to a full 64-character ID, matching what the core accepts here; every other container verb requires the immutable form.",
+      "description": "Republishes a container's ports by replacing it. Docker fixes bindings at creation and `docker update` cannot change them, so the core creates a new container from the original's own Config and HostConfig with only the port fields replaced. The container ID changes, the writable layer is discarded, and the log history goes with it — which is why `confirmed` is mandatory. The full immutable ID is required, as it is for every other container verb: a shorter reference can resolve to a different container between render and act, and this is the verb that destroys one.",
       "type": "object",
       "required": ["id", "method", "params"],
       "properties": {
@@ -714,7 +714,7 @@
           "required": ["context", "id", "ports", "confirmed"],
           "properties": {
             "context": { "type": "string", "minLength": 1, "maxLength": 255 },
-            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "id": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
             "ports": {
               "description": "Host port to container port, as in containers.create. An empty map publishes nothing.",
               "type": "object",
