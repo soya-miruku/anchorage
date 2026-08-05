@@ -627,17 +627,27 @@ try {
     hostAttestation.containerCount > 0,
     "The host-candidate gate requires one existing container for detail and Files-unavailable evidence",
   );
+  // Waits for the paint entry rather than sampling once for it. `first-contentful-paint` is
+  // delivered when the compositor reports the frame, which is not ordered against this
+  // evaluate: the same build sampled a present entry on one run and `null` on the next. The
+  // assertion below is unchanged — a real, positive FCP is still required, and a window that
+  // genuinely never paints still fails, just after a bounded wait rather than immediately.
   const initialUiPerformance = await evaluate(
     client,
-    `(() => {
+    `(async () => {
+      const readPaint = () =>
+        performance.getEntriesByName("first-contentful-paint")[0]?.startTime ?? null;
+      let firstContentfulPaintMs = readPaint();
+      const deadline = Date.now() + 15000;
+      while (firstContentfulPaintMs === null && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        firstContentfulPaintMs = readPaint();
+      }
       const navigation = performance.getEntriesByType("navigation")[0];
-      const firstContentfulPaint = performance
-        .getEntriesByName("first-contentful-paint")[0];
       return {
         navigationDomContentLoadedMs:
           navigation?.domContentLoadedEventEnd ?? null,
-        firstContentfulPaintMs:
-          firstContentfulPaint?.startTime ?? null,
+        firstContentfulPaintMs,
         domNodeCount: document.querySelectorAll("*").length,
         visibleContainerRows:
           document.querySelectorAll('[data-testid^="container-row-"]').length,
@@ -1071,7 +1081,7 @@ try {
   await measureInteraction("navigate-settings-engine", async () => {
     await evaluate(client, clickSelector('[data-testid="nav-settings"]'));
     await waitForSelector(client, '[data-testid="settings-screen"]');
-    await evaluate(client, settingsTabButton("Docker Engine"));
+    await evaluate(client, settingsTabButton("Engine"));
     await waitForSelector(client, '[data-testid="engine-facts"]');
   });
 
@@ -1104,7 +1114,7 @@ try {
     );
     if (offending) inertControlTabs.push(`${label}: ${offending}`);
   }
-  await evaluate(client, settingsTabButton("Docker Engine"));
+  await evaluate(client, settingsTabButton("Engine"));
   await waitForSelector(client, '[data-testid="engine-facts"]');
 
   await capture("host-settings-engine", [

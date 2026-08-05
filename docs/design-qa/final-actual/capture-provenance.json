@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-05T13:11:49.641Z",
+  "capturedAt": "2026-08-05T16:08:21.182Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "cf71a8126f2c7ef458a73582972bc4ce30ee05169663f52f7cb66a1c728388e6",
+    "sha256": "e57ea0fd9571bb48b886a3928595ba6960d8a2fb16639791e82383880e958fbe",
     "files": 19,
-    "bytes": 1401513
+    "bytes": 1403899
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",

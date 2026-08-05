@@ -703,7 +703,9 @@ function validHostSemanticObservation(id, actual, evidence) {
       return (
         typeof actual === "string" &&
         /^visited .+; no inert control$/u.test(actual) &&
-        ["Resources", "Docker Engine", "Kubernetes", "Software updates", "Advanced"].every(
+        // "Engine" since the tab took the handoff's own name; "Docker Engine" was ours, and
+        // this list kept asserting the old one. See the note at SettingsScreen.tsx.
+        ["Resources", "Engine", "Kubernetes", "Software updates", "Advanced"].every(
           (label) => actual.includes(label),
         )
       );
