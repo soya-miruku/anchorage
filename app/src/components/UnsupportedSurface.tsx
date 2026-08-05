@@ -1,3 +1,4 @@
+import type { PluginPresence } from "./usePluginPresence";
 import { PlugsIcon } from "@phosphor-icons/react";
 
 export function UnsupportedSurface({
@@ -7,6 +8,7 @@ export function UnsupportedSurface({
   posture,
   commandQuery,
   onOpenCommand,
+  plugin,
 }: {
   testId: string;
   title: string;
@@ -26,7 +28,17 @@ export function UnsupportedSurface({
    */
   commandQuery: string;
   onOpenCommand: (query: string) => void;
+  /**
+   * What the plugin this destination is gated on is actually doing, when it is gated on one.
+   *
+   * Without it the surface asserts absence it never checked: these screens went on reporting a
+   * plugin missing after it had been installed. A faulty installation is reported as faulty
+   * rather than missing, because "install the plugin" is the wrong instruction for a dangling
+   * symlink — which is what nine of them are on the reference host.
+   */
+  plugin?: { name: string; presence: PluginPresence };
 }) {
+  const presence = plugin?.presence;
   return (
     <section className="screen unsupported-surface" data-testid={testId}>
       <header className="screen-header">
@@ -45,7 +57,47 @@ export function UnsupportedSurface({
         <span className="unsupported-surface__icon">
           <PlugsIcon aria-hidden="true" size={24} weight="light" />
         </span>
-        <h2>{title} is unavailable in this build</h2>
+        <h2>
+          {presence?.kind === "present"
+            ? `${title} is not built yet`
+            : `${title} is unavailable in this build`}
+        </h2>
+        {plugin && presence && presence.kind !== "unknown" && (
+          <p
+            className={
+              presence.kind === "broken"
+                ? "capability-error"
+                : "unsupported-surface__plugin"
+            }
+            data-testid={`${testId}-plugin-state`}
+          >
+            {presence.kind === "present" && (
+              <>
+                <strong>docker {plugin.name} is installed here</strong>
+                {presence.detail ? ` (${presence.detail}).` : "."} What is missing is the
+                screen, not the capability.
+              </>
+            )}
+            {presence.kind === "degraded" && (
+              <>
+                <strong>docker {plugin.name} is installed but Docker will not run it.</strong>{" "}
+                {presence.detail}
+              </>
+            )}
+            {presence.kind === "broken" && (
+              <>
+                <strong>docker {plugin.name} is installed and broken.</strong>{" "}
+                {presence.detail} Installing it again will not help; the existing entry has to
+                go first.
+              </>
+            )}
+            {presence.kind === "absent" && (
+              <>
+                Checked on this host: <strong>docker {plugin.name} is not installed.</strong>
+              </>
+            )}
+          </p>
+        )}
         <p>{description}</p>
         {/*
           Scoped to Anchorage rather than to the host: some of these gaps are a Docker feature

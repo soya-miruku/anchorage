@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { PluginPresence } from "./usePluginPresence";
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -69,5 +70,55 @@ describe("UnsupportedSurface", () => {
     expect(
       screen.getByRole("button", { name: "Browse installed commands" }),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * A faulty installation must not be reported as a missing one.
+ *
+ * On the reference host `docker ai` and `docker mcp` are dangling symlinks left by a removed
+ * Docker Desktop. Before this, both screens told the operator to install a plugin that was
+ * already "installed" — the one action that cannot help, since the dead link is what has to go.
+ */
+describe("UnsupportedSurface plugin state", () => {
+  const surface = (presence: PluginPresence) =>
+    render(
+      <UnsupportedSurface
+        testId="models-screen"
+        title="Models"
+        description="Needs the docker model plugin."
+        commandQuery=""
+        onOpenCommand={() => undefined}
+        plugin={{ name: "model", presence }}
+      />,
+    );
+
+  it("says a broken plugin is installed and broken, not missing", () => {
+    surface({ kind: "broken", detail: "A symbolic link pointing at a path that does not exist." });
+    const state = screen.getByTestId("models-screen-plugin-state");
+    expect(state).toHaveTextContent(/installed and broken/i);
+    expect(state).toHaveTextContent(/will not help/i);
+  });
+
+  it("says an absent plugin was actually checked", () => {
+    surface({ kind: "absent" });
+    expect(screen.getByTestId("models-screen-plugin-state")).toHaveTextContent(
+      /Checked on this host/i,
+    );
+  });
+
+  it("stops claiming the capability is unavailable once the plugin is present", () => {
+    // The screen is what is missing at that point, not the capability, and saying otherwise
+    // would send someone to reinstall something that is already working.
+    surface({ kind: "present", detail: "version 1.2.0" });
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(/not built yet/i);
+    expect(screen.getByTestId("models-screen-plugin-state")).toHaveTextContent(
+      /installed here/i,
+    );
+  });
+
+  it("asserts nothing before the report has arrived", () => {
+    surface({ kind: "unknown" });
+    expect(screen.queryByTestId("models-screen-plugin-state")).toBeNull();
   });
 });
