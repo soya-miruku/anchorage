@@ -319,10 +319,39 @@ class CDPClient {
     return new CDPClient(socket);
   }
 
+  /**
+   * Every request is bounded, because an unbounded one hangs the whole run silently.
+   *
+   * This used to return a promise that settled only when a reply arrived. When the renderer
+   * stopped answering — a page-side await that never resolves, a compositor that stops running
+   * frames — the reply never came and this promise never settled. Nothing above could recover:
+   * `waitForSelector` has a deadline, but it awaits this call before it can check the clock, so
+   * the deadline was never reached. The run stopped mid-sequence with no output, no error and no
+   * exit, and had to be killed by hand; the capture directory was left half-deleted, because the
+   * harness clears each state's file before rewriting it.
+   *
+   * A timeout here turns every one of those into a named failure.
+   */
   send(method, params = {}) {
     const id = ++this.counter;
     return new Promise((resolveResult, rejectResult) => {
-      this.pending.set(id, { method, resolve: resolveResult, reject: rejectResult });
+      const timeout = setTimeout(() => {
+        this.pending.delete(id);
+        rejectResult(
+          new Error(
+            `Chrome DevTools did not answer ${method} within ${captureTimeoutMs}ms`,
+          ),
+        );
+      }, captureTimeoutMs);
+      const settle = (outcome) => (value) => {
+        clearTimeout(timeout);
+        outcome(value);
+      };
+      this.pending.set(id, {
+        method,
+        resolve: settle(resolveResult),
+        reject: settle(rejectResult),
+      });
       this.socket.send(JSON.stringify({ id, method, params }));
     });
   }
@@ -388,7 +417,23 @@ async function settle(client) {
     client,
     `(async () => {
       await document.fonts.ready;
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      // Two frames, or 10s, whichever comes first.
+      //
+      // requestAnimationFrame only fires while the window is being composited, and this harness
+      // spawns a real visible Electron window — so when the desktop stops updating it (occluded,
+      // another workspace, an idle compositor) the callback never runs and this promise never
+      // settles. Every wait in this file is bounded except the ones inside the page, so that
+      // presented as a silent hang: the run stopped mid-sequence with no output and no error,
+      // and had to be killed.
+      //
+      // The bound is deliberately far longer than a frame. At 2s it fired on a merely slow
+      // compositor rather than a stalled one, and the captures stopped being deterministic
+      // within a single run: containers and containers-current, which are the same screen and
+      // must be byte-identical, drifted 0.00296. A healthy run must always settle on frames.
+      await Promise.race([
+        new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        new Promise((resolve) => setTimeout(resolve, 10000)),
+      ]);
     })()`,
   );
   await delay(40);
