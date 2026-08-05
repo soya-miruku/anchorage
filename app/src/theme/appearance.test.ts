@@ -220,13 +220,20 @@ describe("appearance preferences", () => {
         root: document.documentElement,
       }),
     ).toEqual(DEFAULT_APPEARANCE);
+    // Asserted against the constant rather than a literal: the capture route's whole job is to
+    // render the shipped default, so hard-coding a family here would let the two drift apart
+    // silently the next time the default moves — which is exactly what v2.5 did.
     expect(document.documentElement).toHaveAttribute(
       "data-theme",
-      "nous",
+      DEFAULT_APPEARANCE.family,
     );
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",
-      "dark",
+      DEFAULT_APPEARANCE.mode,
+    );
+    expect(document.documentElement).toHaveAttribute(
+      "data-corners",
+      DEFAULT_APPEARANCE.corners,
     );
   });
 });
@@ -314,5 +321,38 @@ describe("the families v2.5 adds", () => {
     expect(THEME_OPTIONS.map((option) => option.id).sort()).toEqual(
       [...THEME_FAMILIES].sort(),
     );
+  });
+});
+
+/**
+ * The default is a fresh-install value, not a migration.
+ *
+ * v2.5 ships Y2K as the default. The comp also force-overwrites any stored theme once, via a
+ * `pack` marker; that is not reproduced here, so a preference someone already chose survives.
+ */
+describe("the shipped default", () => {
+  it("is the family and shape v2.5 draws first", () => {
+    expect(DEFAULT_APPEARANCE.family).toBe("y2k");
+    expect(DEFAULT_APPEARANCE.mode).toBe("dark");
+  });
+
+  it("agrees with that family's own corner suggestion", () => {
+    // Two constants that must not drift apart: the default naming a shape the family does not
+    // suggest would make a fresh install disagree with itself.
+    expect(DEFAULT_APPEARANCE.corners).toBe(
+      themeCornerDefault(DEFAULT_APPEARANCE.family),
+    );
+  });
+
+  it("never overrides a preference the operator already stored", () => {
+    const stored = JSON.stringify({
+      family: "docker",
+      mode: "light",
+      corners: "rounded",
+      cornersChosen: true,
+    });
+    const resolved = resolveAppearancePreference(stored);
+    expect(resolved.family).toBe("docker");
+    expect(resolved.corners).toBe("rounded");
   });
 });

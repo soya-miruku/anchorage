@@ -19,6 +19,7 @@
 
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,6 +86,27 @@ async function fileEvidence(path) {
   };
 }
 
+/**
+ * The appearance the renderer ships by default, read from its own source.
+ *
+ * Parsed rather than duplicated: the reference must be drawn in whatever the build's capture
+ * route locks, and the capture route locks DEFAULT_APPEARANCE. Writing the family here as well
+ * would mean a default change silently comparing two different palettes.
+ */
+function shippedAppearance() {
+  const source = readFileSync(
+    resolve(workspaceRoot, "app/src/theme/appearance.ts"),
+    "utf8",
+  );
+  const block = source.slice(source.indexOf("DEFAULT_APPEARANCE"));
+  const read = (key) => {
+    const match = new RegExp(`${key}:\\s*"([a-z0-9]+)"`, "u").exec(block);
+    if (!match) throw new Error(`DEFAULT_APPEARANCE.${key} could not be read`);
+    return match[1];
+  };
+  return { family: read("family"), mode: read("mode"), corners: read("corners") };
+}
+
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 
@@ -101,7 +123,13 @@ await writeFile(
 
 const child = spawn(
   electronPath,
-  [runnerDirectory, compPath, outputDirectory, JSON.stringify(states)],
+  [
+    runnerDirectory,
+    compPath,
+    outputDirectory,
+    JSON.stringify(states),
+    JSON.stringify(shippedAppearance()),
+  ],
   { stdio: ["ignore", "pipe", "pipe"] },
 );
 
@@ -165,6 +193,9 @@ const provenance = {
     ...(await fileEvidence(resolve(dirname(compPath), "support.js"))),
   },
   canonicalViewport,
+  // Both sides are drawn in this; recorded so a baseline captured in another appearance is a
+  // detectable fact rather than a 0.21 mystery.
+  appearance: shippedAppearance(),
   harness: {
     path: relative(workspaceRoot, scriptPath),
     ...(await fileEvidence(scriptPath)),

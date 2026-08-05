@@ -1,3 +1,4 @@
+import { defaultDeskColor } from "./theme-desk.mjs";
 import { validateRevealPath } from "./reveal-path.mjs";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -96,7 +97,10 @@ const ELECTRON_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const APP_DIRECTORY = resolve(ELECTRON_DIRECTORY, "..");
 const CLIENT_DIRECTORY = resolve(APP_DIRECTORY, "dist", "client");
 const CLIENT_ENTRY = resolve(CLIENT_DIRECTORY, "index.html");
-const BACKGROUND_COLOR = "#16224a";
+// Derived from whichever family is the default, not written down again. A literal here was a
+// Nous blue, which became a blue flash in front of a near-black UI the moment the default moved
+// to Y2K. See electron/theme-desk.mjs.
+const BACKGROUND_COLOR = defaultDeskColor();
 const WINDOW_REVEAL_FALLBACK_MS = 1_500;
 const DESKTOP_SMOKE_GEOMETRY_TIMEOUT_MS = 5_000;
 const DESKTOP_SMOKE_GEOMETRY_POLL_MS = 50;

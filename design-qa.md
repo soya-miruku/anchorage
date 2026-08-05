@@ -21,8 +21,10 @@
   applied.
 - Capture runtime: deterministic FixtureBridge data rendered from the exact
   production build through Electron/Chromium. The capture-only route locks
-  Nous Dark, hides the added Appearance row, and suppresses the maturity chip so
-  the original handoff states remain structurally comparable.
+  the renderer's shipped default appearance — Y2K Dark, square — hides the added
+  Appearance row, and suppresses the maturity chip so the handoff states remain
+  structurally comparable. The reference harness reads that same default rather than
+  naming a family, so the rig always measures the configuration people actually see.
 
 ## The baseline moved, and that is the headline
 
@@ -82,8 +84,8 @@ Two properties of the comp constrain what a pixel metric can mean here:
 
 ## Result
 
-- **15 of 24 states are within the 0.02 review threshold.**
-- **9 states exceed it**, every one attributable to an enumerated, deliberate
+- **16 of 24 states are within the 0.02 review threshold.**
+- **8 states exceed it**, every one attributable to an enumerated, deliberate
   build addition rather than to drift:
 
   | State | MAE | What accounts for it |
@@ -121,19 +123,19 @@ left to authorise future drift.
 ## Evidence
 
 - Renderer build:
-  `3634e0898a5577ae72caf0352a5b6da45db86f6d3591f1346b275c4f5d410263`
-  (19 files, 1,394,442 bytes).
+  `a6ae696896cb286a8bb2b71f7729bdd62f11788ef14a52950721094161fe51a7`
+  (19 files, 1,394,440 bytes).
 - Design handoff source (comp + README + support.js + baseline):
-  `74e05d51b2042b052ecaf64a938112f7c84e3854bb4a17279324ce098919bd11`.
+  `62beceff7879a8f87581adcd3560213f85bdcf494c7ad75f7ba005b15f15efed`.
 - `Anchorage v2.dc.html` (v2.5 revision):
   `4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe`
   (372,457 bytes).
 - Capture provenance SHA-256:
-  `2cc566a7d5aa6222f0e29503fec57e516fb63eaea9437244026d643c37df5a8a`.
+  `85e2ef8fde24623804f86ba9e4aa4f25b0418eebfe2a6759a61fd56191beeb85`.
 - Paired-review attestation SHA-256:
-  `19be434ffab1082efdefebec92e06b6449511e5d276cf992f80ef12fd13805bd`.
+  `9288840ce810f0fef18f4fcf913f4c277b45d4878c3673288c718a027dace540`.
 - Design ledger SHA-256:
-  `3f93a6660e9c29eaf72d8eb1215275df262a0bae3cde362bfc3f1da0ed462efd`.
+  `58912d57585581bab6728ee284e4fac035d0d7ac7b715ac7c0dbeb25743d19fb`.
 - Per-state diffs and masked comparisons: `artifacts/design/`.
 
 The attestation carries a distinct note per state — what was compared, what was

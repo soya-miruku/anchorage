@@ -15,7 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { createFixtureCapabilities } from "./data/commandFixtures";
 import { useAnchorageStore } from "./store/useAnchorageStore";
-import { APPEARANCE_STORAGE_KEY } from "./theme/appearance";
+import {
+  APPEARANCE_STORAGE_KEY,
+  DEFAULT_APPEARANCE,
+  THEME_OPTIONS,
+} from "./theme/appearance";
 
 function installMemoryStorage() {
   const values = new Map<string, string>();
@@ -84,6 +88,11 @@ function useHostContainerList(list: () => Promise<unknown>) {
     },
   };
 }
+
+
+/** The label of whichever family ships as the default, so tests track it rather than name it. */
+const defaultThemeLabel = () =>
+  THEME_OPTIONS.find((option) => option.id === DEFAULT_APPEARANCE.family)!.label;
 
 describe("Anchorage containers workspace", () => {
   it("composes global search with the only-running filter", async () => {
@@ -592,8 +601,10 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByTestId("nav-settings"));
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
 
+    // Whichever family ships as the default, not a literal: v2.5 moved it from Nous to Y2K and
+    // a hard-coded name here would have to be chased every time that happens.
     expect(
-      screen.getByRole("radio", { name: /Nous/u }),
+      screen.getByRole("radio", { name: new RegExp(defaultThemeLabel(), "u") }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
       screen.getByRole("radio", { name: /Dark/u }),
@@ -625,32 +636,37 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByTestId("nav-settings"));
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
 
-    const defaultTheme = screen.getByRole("radio", { name: /Nous/u });
-    const dockerTheme = screen.getByRole("radio", { name: /Docker/u });
-    const githubTheme = screen.getByRole("radio", { name: /GitHub/u });
-    const monoTheme = screen.getByRole("radio", { name: /Monochrome/u });
-    // v2.5 added Magnetic and Y2K, so the family list is six long and Y2K is now last.
-    const y2kTheme = screen.getByRole("radio", { name: /Y2K/u });
-    expect(defaultTheme).toHaveAttribute("tabindex", "0");
-    expect(dockerTheme).toHaveAttribute("tabindex", "-1");
-    expect(githubTheme).toHaveAttribute("tabindex", "-1");
-    expect(monoTheme).toHaveAttribute("tabindex", "-1");
-    expect(y2kTheme).toHaveAttribute("tabindex", "-1");
+    // Addressed by position rather than by name. Which family is selected, and where it sits in
+    // the list, are both product decisions that have already moved once — naming them here meant
+    // chasing this test every time. What must hold is the roving-focus contract itself: exactly
+    // one row is tabbable, Home and End reach the ends, and arrowing wraps.
+    const themeRadios = within(
+      screen.getByRole("radiogroup", { name: /theme/iu }),
+    ).getAllByRole("radio");
+    const firstTheme = themeRadios[0];
+    const lastTheme = themeRadios[themeRadios.length - 1];
+    const selectedTheme = screen.getByRole("radio", {
+      name: new RegExp(defaultThemeLabel(), "u"),
+    });
+
+    expect(themeRadios.filter((r) => r.getAttribute("tabindex") === "0")).toEqual([
+      selectedTheme,
+    ]);
 
     // Backwards from the first family wraps onto the last one.
-    defaultTheme.focus();
-    fireEvent.keyDown(defaultTheme, { key: "ArrowLeft" });
-    expect(y2kTheme).toHaveFocus();
-    expect(y2kTheme).toHaveAttribute("aria-checked", "true");
-    expect(y2kTheme).toHaveAttribute("tabindex", "0");
+    firstTheme.focus();
+    fireEvent.keyDown(firstTheme, { key: "ArrowLeft" });
+    expect(lastTheme).toHaveFocus();
+    expect(lastTheme).toHaveAttribute("aria-checked", "true");
+    expect(lastTheme).toHaveAttribute("tabindex", "0");
 
-    fireEvent.keyDown(y2kTheme, { key: "Home" });
-    expect(defaultTheme).toHaveFocus();
-    expect(defaultTheme).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(lastTheme, { key: "Home" });
+    expect(firstTheme).toHaveFocus();
+    expect(firstTheme).toHaveAttribute("aria-checked", "true");
 
-    fireEvent.keyDown(defaultTheme, { key: "ArrowDown" });
-    expect(dockerTheme).toHaveFocus();
-    expect(dockerTheme).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(firstTheme, { key: "ArrowDown" });
+    expect(themeRadios[1]).toHaveFocus();
+    expect(themeRadios[1]).toHaveAttribute("aria-checked", "true");
 
     const darkMode = screen.getByRole("radio", { name: /^Dark/u });
     const lightMode = screen.getByRole("radio", { name: /^Light/u });
@@ -691,19 +707,19 @@ describe("Anchorage containers workspace", () => {
     window.localStorage.setItem(APPEARANCE_STORAGE_KEY, storedPreference);
     const { result } = renderHook(() => useAnchorageStore());
 
-    expect(result.current.themeFamily).toBe("nous");
-    expect(result.current.colorMode).toBe("dark");
+    expect(result.current.themeFamily).toBe(DEFAULT_APPEARANCE.family);
+    expect(result.current.colorMode).toBe(DEFAULT_APPEARANCE.mode);
 
     act(() => {
       result.current.setThemeFamily("github");
       result.current.setColorMode("light");
     });
 
-    expect(result.current.themeFamily).toBe("nous");
-    expect(result.current.colorMode).toBe("dark");
+    expect(result.current.themeFamily).toBe(DEFAULT_APPEARANCE.family);
+    expect(result.current.colorMode).toBe(DEFAULT_APPEARANCE.mode);
     expect(document.documentElement).toHaveAttribute(
       "data-theme",
-      "nous",
+      DEFAULT_APPEARANCE.family,
     );
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",

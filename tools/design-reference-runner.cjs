@@ -10,8 +10,10 @@ const { app, BrowserWindow } = require("electron");
 const { writeFileSync } = require("node:fs");
 const { resolve } = require("node:path");
 
-const [, , COMP, OUTDIR, STATES_JSON] = process.argv;
+const [, , COMP, OUTDIR, STATES_JSON, APPEARANCE_JSON] = process.argv;
 const STATES = JSON.parse(STATES_JSON);
+/** The appearance both sides are pinned to — the renderer's shipped default. */
+const APPEARANCE = JSON.parse(APPEARANCE_JSON);
 
 app.disableHardwareAcceleration();
 
@@ -89,22 +91,23 @@ app.whenReady().then(async () => {
   });
 
   /**
-   * Hold the appearance constant before capturing anything.
+   * Hold the appearance constant before capturing anything, and hold it to what ships.
    *
-   * The build's capture route locks Nous Dark, so the comp has to be pinned to the same thing or
-   * the comparison measures a palette rather than a layout. v2.5 made this necessary: its
-   * `pickTheme()` force-writes `anchorage.pack` and switches the stored theme to Y2K on first
-   * run — the comp promoting its new family — so an unpinned capture came back in acid green on
-   * near-black and every one of the 24 states measured ~0.21 against a build drawn in royal
-   * blue. Seeding `pack` is what stops that promotion from running again on each load.
+   * Both sides have to be drawn in the same appearance or the comparison measures a palette
+   * rather than a layout — an unpinned run came back with all 24 states at ~0.21, purely because
+   * the comp was in Y2K and the build in Nous. The pin follows the shipping default rather than
+   * naming a family, so the rig always measures the configuration people actually see.
+   *
+   * `anchorage.pack` is seeded because the comp's `pickTheme()` overwrites the stored theme once
+   * on first run; without the marker it would undo this pin on every load.
    */
   await win.loadFile(COMP);
   await sleep(1200);
   await win.webContents.executeJavaScript(`(() => {
     localStorage.setItem('anchorage.pack', 'y2k');
-    localStorage.setItem('anchorage.theme', 'nous');
-    localStorage.setItem('anchorage.mode', 'dark');
-    localStorage.setItem('anchorage.corners', 'rounded');
+    localStorage.setItem('anchorage.theme', ${JSON.stringify(APPEARANCE.family)});
+    localStorage.setItem('anchorage.mode', ${JSON.stringify(APPEARANCE.mode)});
+    localStorage.setItem('anchorage.corners', ${JSON.stringify(APPEARANCE.corners)});
     localStorage.setItem('anchorage.cornersSet', '1');
     return true;
   })()`);

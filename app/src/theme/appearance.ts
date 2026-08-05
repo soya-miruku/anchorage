@@ -99,10 +99,21 @@ export const COLOR_MODE_OPTIONS = Object.freeze([
   description: string;
 }>);
 
+/**
+ * What a fresh install looks like.
+ *
+ * Y2K per the v2.5 handoff, which draws it square. This is only the default: a stored preference
+ * always wins, so nobody who has already chosen a theme is moved off it. The comp goes further —
+ * `pickTheme()` writes a `pack` marker and overwrites the stored theme once — and that part is
+ * deliberately not reproduced, because overwriting a choice the operator made is not a default.
+ *
+ * `corners` follows `themeCornerDefault(family)` and must stay consistent with it; a test in
+ * theme/appearance.test.ts asserts that rather than trusting the two to be edited together.
+ */
 export const DEFAULT_APPEARANCE: Readonly<AppearancePreference> = Object.freeze({
-  family: "nous",
+  family: "y2k",
   mode: "dark",
-  corners: "rounded",
+  corners: "square",
   cornersChosen: false,
 });
 
