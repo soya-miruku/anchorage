@@ -2,20 +2,20 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-05T17:56:56.799Z",
+  "capturedAt": "2026-08-05T21:10:02.959Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "e57ea0fd9571bb48b886a3928595ba6960d8a2fb16639791e82383880e958fbe",
+    "sha256": "20ca0363d0445fe2090a526d41262d4d3a94eaf3de5f08182a5669257ed02550",
     "files": 19,
-    "bytes": 1403899
+    "bytes": 1427621
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",
-    "sha256": "ca5912ccf106f958f1f4ea1bbfab04a80b9b9716b0840b3fb2184fff738f200a"
+    "sha256": "f3a37ea822a552db92afea5642d4079011d95e2d878f315ef9583de3feaa14e2"
   },
   "runtime": {
     "executable": "app/node_modules/electron/dist/electron",
