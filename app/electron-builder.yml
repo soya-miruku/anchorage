@@ -2,7 +2,14 @@ appId: io.anchorage.desktop
 productName: Anchorage
 electronVersion: 43.2.0
 asar: true
-compression: maximum
+# gzip, not xz. `maximum` builds the AppImage's squashfs with xz at 1 MB blocks, and Electron
+# demand-pages a 220 MB binary: every fault into an uncached region costs a whole 1 MB xz block
+# decompressed through squashfuse, on every launch, because the mount is fresh each time.
+# Measured on this machine, same commit, headless smoke: xz 57.8 s, gzip 7.4 s, and the plain
+# unpacked build 7.4 s — so with gzip the squashfs layer costs nothing at all and xz was the
+# entire 50 s. The price is size: 93.6 MB -> 119.2 MB. Do not raise this without re-measuring
+# `test:appimage-startup`, which exists because of this.
+compression: normal
 npmRebuild: false
 
 directories:

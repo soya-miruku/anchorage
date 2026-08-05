@@ -11,7 +11,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { constants } from "node:fs";
+import { constants, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,6 +111,18 @@ const DESIGN_HANDOFF_DIRECTORY = join(
   REPOSITORY_DIRECTORY,
   "docs",
   "design_handoff_anchorage",
+);
+/**
+ * The measured baseline: renders of the current comp produced by
+ * `tools/capture-design-reference.mjs`. It lives outside the handoff directory because it is
+ * generated output, and because the handoff's own `reference-captures/` are v1 renders that the
+ * v2 build can no longer be measured against.
+ */
+const DESIGN_REFERENCE_DIRECTORY = join(
+  REPOSITORY_DIRECTORY,
+  "docs",
+  "design-qa",
+  "reference",
 );
 const PERFORMANCE_RESULTS_EVIDENCE = join(
   REPOSITORY_DIRECTORY,
@@ -412,23 +424,24 @@ async function hashPackagedElectronRuntime() {
 }
 
 async function hashDesignHandoffSource() {
+  // Must reproduce `tools/measure-design-parity.mjs`'s digest byte for byte: same files, same
+  // workspace-relative names, same sort. The baseline moved out of the handoff directory when it
+  // was regenerated from the v2 comp, so the names are relative to the repository root now.
   const files = [
-    join(DESIGN_HANDOFF_DIRECTORY, "Anchorage.dc.html"),
+    join(DESIGN_HANDOFF_DIRECTORY, "Anchorage v2.dc.html"),
     join(DESIGN_HANDOFF_DIRECTORY, "README.md"),
     join(DESIGN_HANDOFF_DIRECTORY, "support.js"),
-    ...(await collectFiles(
-      join(DESIGN_HANDOFF_DIRECTORY, "reference-captures"),
-    )),
+    ...(await collectFiles(DESIGN_REFERENCE_DIRECTORY)),
   ];
   const entries = [];
   for (const file of files) {
     entries.push({
-      name: normalizedRelative(DESIGN_HANDOFF_DIRECTORY, file),
+      name: normalizedRelative(REPOSITORY_DIRECTORY, file),
       content: await readFile(file),
     });
   }
   return {
-    scope: "anchorage-design-handoff-v1",
+    scope: "anchorage-design-handoff-v2",
     ...hashNamedContents(entries),
   };
 }
@@ -909,19 +922,12 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
       join(APP_DIRECTORY, "src"),
       (path) => !/\.test\.[cm]?[jt]sx?$/u.test(path),
     ),
-    collectFiles(
-      join(
-        REPOSITORY_DIRECTORY,
-        "docs",
-        "design_handoff_anchorage",
-        "reference-captures",
-      ),
-    ),
+    collectFiles(DESIGN_REFERENCE_DIRECTORY),
     collectFiles(
       join(REPOSITORY_DIRECTORY, "docs", "design-qa", "final-actual"),
     ),
     [
-      join(DESIGN_HANDOFF_DIRECTORY, "Anchorage.dc.html"),
+      join(DESIGN_HANDOFF_DIRECTORY, "Anchorage v2.dc.html"),
       join(DESIGN_HANDOFF_DIRECTORY, "README.md"),
       join(DESIGN_HANDOFF_DIRECTORY, "support.js"),
     ],
@@ -1586,6 +1592,95 @@ async function verifyPackagedPayload(
   };
 }
 
+/**
+ * The slowest a mounted AppImage may take to reach a shown window, in milliseconds.
+ *
+ * The AppImage smoke below sets `APPIMAGE_EXTRACT_AND_RUN`, which unpacks to a temp directory and
+ * runs from plain files — correct, because a CI host need not have FUSE, but it means the release
+ * gate never exercised the path a user actually double-clicks. A build shipped at 57.8 s to first
+ * window while every gate stayed green: `compression: maximum` had built the squashfs with xz at
+ * 1 MB blocks, and Electron demand-pages a 220 MB binary, so each fault cost a whole block
+ * decompressed through squashfuse on every launch. Rebuilt with gzip it is 7.4 s, exactly the
+ * unpacked figure.
+ *
+ * The budget is loose against 7.4 s because packaging hosts vary, and still an order of magnitude
+ * under the failure it exists to catch. The measurement is recorded in the release receipt either
+ * way, so drift is visible long before it trips.
+ */
+const APPIMAGE_MOUNTED_STARTUP_BUDGET_MS = 20_000;
+
+/**
+ * One message for every way the mounted AppImage can be too slow, because the actionable part is
+ * identical either way: this is what squashfs compression costs.
+ */
+function failMountedStartup(elapsedMs, why) {
+  fail(
+    `Mounted AppImage startup failed: ${why} after ${(elapsedMs / 1000).toFixed(1)} s, against a ` +
+      `${APPIMAGE_MOUNTED_STARTUP_BUDGET_MS / 1000} s budget.\n` +
+      "  This is almost always squashfs compression in app/electron-builder.yml. `maximum` builds\n" +
+      "  the filesystem with xz at 1 MB blocks; Electron demand-pages a 220 MB binary, so every\n" +
+      "  fault costs a whole block decompressed through squashfuse, on every launch. Measured\n" +
+      "  here: xz 57.8 s, gzip 7.4 s, unpacked 7.4 s. Use `compression: normal`.",
+  );
+}
+
+
+/**
+ * Times the AppImage over its real squashfs mount.
+ *
+ * Returns the measurement rather than only asserting it, and reports an explicit `unavailable`
+ * when the host has no FUSE — a gate that quietly skips is how this defect stayed invisible.
+ */
+async function measureMountedAppImageStartup(appImage) {
+  if (!existsSync("/dev/fuse")) {
+    log(
+      "  AppImage mounted-startup NOT MEASURED: this host has no /dev/fuse, so the launch path " +
+        "a user double-clicks was not exercised",
+    );
+    return { status: "unavailable", reason: "no /dev/fuse on the packaging host" };
+  }
+
+  log("Timing the AppImage over its own squashfs mount");
+  const startedAt = process.hrtime.bigint();
+  // Ceiling well above the budget so a slow start is reported as a slow start, with the
+  // diagnostic below, rather than as a bare `xvfb-run failed after timing out`.
+  let smoke;
+  try {
+    smoke = await run(
+      "xvfb-run",
+      ["-a", "-s", "-screen 0 1920x1200x24", appImage.path],
+      {
+        capture: true,
+        timeoutMs: APPIMAGE_MOUNTED_STARTUP_BUDGET_MS * 6,
+        // Deliberately without APPIMAGE_EXTRACT_AND_RUN: the point is the mounted path.
+        env: { ...process.env, ANCHORAGE_PACKAGED_SMOKE: "1" },
+      },
+    );
+  } catch (error) {
+    failMountedStartup(
+      Number((process.hrtime.bigint() - startedAt) / 1_000_000n),
+      `it never reached a window (${error.message})`,
+    );
+  }
+  const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1_000_000n);
+  const output = `${smoke.stdout}\n${smoke.stderr}`;
+  if (!output.includes("ANCHORAGE_DESKTOP_SMOKE_OK")) {
+    fail(`Mounted AppImage smoke did not report success:\n${output.trim()}`);
+  }
+  if (elapsedMs > APPIMAGE_MOUNTED_STARTUP_BUDGET_MS) {
+    failMountedStartup(elapsedMs, "it is over budget");
+  }
+  log(
+    `  AppImage mounted startup: ${(elapsedMs / 1000).toFixed(1)} s ` +
+      `(budget ${APPIMAGE_MOUNTED_STARTUP_BUDGET_MS / 1000} s)`,
+  );
+  return {
+    status: "measured",
+    elapsedMs,
+    budgetMs: APPIMAGE_MOUNTED_STARTUP_BUDGET_MS,
+  };
+}
+
 async function smokePackagedApplication(
   executable,
   {
@@ -1798,6 +1893,9 @@ async function main() {
         APPIMAGE_EXTRACT_AND_RUN: "1",
       },
     });
+    // The check above runs the payload from a temp directory. This one runs it the way a user
+    // does, over the squashfs mount, and is the only place startup cost is visible.
+    const mountedStartup = await measureMountedAppImageStartup(appImage);
     appImageVerification = {
       artifact: {
         path: normalizedRelative(REPOSITORY_DIRECTORY, appImage.path),
@@ -1805,6 +1903,7 @@ async function main() {
         bytes: appImage.bytes,
       },
       extractedPayload,
+      mountedStartup,
     };
   }
   const stagedManifestInfo = await assertFile(
