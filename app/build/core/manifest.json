@@ -20,22 +20,22 @@
   },
   "renderer": {
     "path": "app.asar/dist/client",
-    "sha256": "3634e0898a5577ae72caf0352a5b6da45db86f6d3591f1346b275c4f5d410263",
+    "sha256": "a6ae696896cb286a8bb2b71f7729bdd62f11788ef14a52950721094161fe51a7",
     "files": 19,
-    "bytes": 1394442
+    "bytes": 1394440
   },
   "evidence": {
     "designConformance": {
       "path": "artifacts/design/design-ledger.json",
-      "sha256": "3f93a6660e9c29eaf72d8eb1215275df262a0bae3cde362bfc3f1da0ed462efd",
-      "bytes": 119701,
+      "sha256": "58912d57585581bab6728ee284e4fac035d0d7ac7b715ac7c0dbeb25743d19fb",
+      "bytes": 118321,
       "reviewedStates": 24,
       "generatorSha256": "b29c8cd5e1d824d0c8dd635de0a280ac1986d13c0a95a148976eb6209f201e72",
       "handoffSource": {
         "scope": "anchorage-design-handoff-v2",
-        "sha256": "74e05d51b2042b052ecaf64a938112f7c84e3854bb4a17279324ce098919bd11",
+        "sha256": "62beceff7879a8f87581adcd3560213f85bdcf494c7ad75f7ba005b15f15efed",
         "files": 28,
-        "bytes": 4212788,
+        "bytes": 3358616,
         "declaredSources": [
           "docs/design_handoff_anchorage/Anchorage v2.dc.html",
           "docs/design_handoff_anchorage/README.md",
@@ -49,8 +49,8 @@
         },
         "referenceHarness": {
           "path": "tools/capture-design-reference.mjs",
-          "sha256": "538cfa0429a33156d7500663cd489f0921254a55097ec31fcbb506fb7e7317e0",
-          "bytes": 7385
+          "sha256": "c77488c2e11c0eac9cb65869bb096fc0c02fdbba0ff6937a85238fdad3c12317",
+          "bytes": 8514
         },
         "supersededBaseline": {
           "path": "docs/design_handoff_anchorage/reference-captures",
@@ -59,20 +59,20 @@
       },
       "visualReviewAttestation": {
         "path": "docs/design-qa/visual-review-attestation.json",
-        "sha256": "19be434ffab1082efdefebec92e06b6449511e5d276cf992f80ef12fd13805bd",
-        "bytes": 44217,
+        "sha256": "9288840ce810f0fef18f4fcf913f4c277b45d4878c3673288c718a027dace540",
+        "bytes": 43609,
         "claim": "reviewed-visual-conformance-not-pixel-identity",
         "states": 24
       },
       "rendererBuild": {
-        "sha256": "3634e0898a5577ae72caf0352a5b6da45db86f6d3591f1346b275c4f5d410263",
+        "sha256": "a6ae696896cb286a8bb2b71f7729bdd62f11788ef14a52950721094161fe51a7",
         "files": 19,
-        "bytes": 1394442
+        "bytes": 1394440
       },
       "captureProvenance": {
         "path": "docs/design-qa/final-actual/capture-provenance.json",
-        "sha256": "2cc566a7d5aa6222f0e29503fec57e516fb63eaea9437244026d643c37df5a8a",
-        "bytes": 7758,
+        "sha256": "85e2ef8fde24623804f86ba9e4aa4f25b0418eebfe2a6759a61fd56191beeb85",
+        "bytes": 7752,
         "captureMode": "fixture-browser",
         "bridgeMode": "fixture",
         "harnessSha256": "e70984ac0377642e43bc8ed02a7ef65b8532ca482ec380c38c50deabf1569829"
@@ -155,8 +155,8 @@
     },
     "hostCandidate": {
       "path": "artifacts/host-candidate/host-candidate.json",
-      "sha256": "8f6e6af0010b3e265fd36ad9ade22b0ed0b2cf55e02357fd88b7fbd3b8475a6c",
-      "bytes": 24003,
+      "sha256": "6ee2ed9f1fd3e716b80823b8a2793d3454d0515ce6ef90db08a30da53a23c035",
+      "bytes": 24000,
       "scope": "host-integration-smoke-not-pixel-parity",
       "bridgeMode": "host",
       "checks": 12,
@@ -178,8 +178,8 @@
         {
           "id": "host-dashboard",
           "path": "screens/host-dashboard.png",
-          "sha256": "2200e99d6186c14fa84951237ae7d6efc5b6a939b575772513dcc012308d7c35",
-          "bytes": 135439,
+          "sha256": "8da5e4462dc77ad890645a6144854d3b53d57da4c1fb7a220555533d5008d54f",
+          "bytes": 126695,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -188,8 +188,8 @@
         {
           "id": "host-containers",
           "path": "screens/host-containers.png",
-          "sha256": "c76faf0c39b92d4995d99d2ec87f3970c5222267d71490579b152bc3fbdb96b7",
-          "bytes": 234944,
+          "sha256": "0992a5cd02b69a0c49999ecb107d51180d3224e7da9d0bfc8e5a0dd572d0417c",
+          "bytes": 206653,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -198,8 +198,8 @@
         {
           "id": "host-container-detail",
           "path": "screens/host-container-detail.png",
-          "sha256": "7418caa2af8e33ce3638d0eb8236b846b1ff4628c66ffdbf488dec6d27c8a790",
-          "bytes": 114837,
+          "sha256": "b9984c68bd627967fc4e67ec8a4cbb302bacad33fedcfa5f171c7ef02dea81c9",
+          "bytes": 107305,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -208,8 +208,8 @@
         {
           "id": "host-files-live",
           "path": "screens/host-files-live.png",
-          "sha256": "2ffdd1cc4086d477676a09752a939a13cdb087a1dcc91227a4f50b0f0127e95b",
-          "bytes": 78392,
+          "sha256": "f147793a81780c041cc23ff6ffe9a1989bc1e4296538f6946c3bcfc731e5a47e",
+          "bytes": 72289,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -218,8 +218,8 @@
         {
           "id": "host-images",
           "path": "screens/host-images.png",
-          "sha256": "ca2201e7a3d08c07b96bd083592f95082e4cdab31e9afe2c01ddaccf4f70fe90",
-          "bytes": 226630,
+          "sha256": "5b64a96409898223ac0b93450e9b990b60e0afa5f11c27e6711282b4e54552e0",
+          "bytes": 206424,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -228,8 +228,8 @@
         {
           "id": "host-volumes",
           "path": "screens/host-volumes.png",
-          "sha256": "58a70d591e2207d51fdab3aa735fd129d16c112e7e7a67cf1a3ff50407342c58",
-          "bytes": 272435,
+          "sha256": "f350847085cb7c525fcf4a05d34c787ce16fb62380f4ff48754d885b464ba059",
+          "bytes": 250937,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -238,8 +238,8 @@
         {
           "id": "host-command-center-pinned",
           "path": "screens/host-command-center-pinned.png",
-          "sha256": "28e73004c2f62fa7128af46aee0dbb4e15b6cc0bb4c1a87ce8fe642c6eaae178",
-          "bytes": 137654,
+          "sha256": "9c7e109c7e34800855e5f956c4351610bdeaac5d6701a21fdaade68d0b6bd743",
+          "bytes": 121165,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -248,8 +248,8 @@
         {
           "id": "host-command-center-literal",
           "path": "screens/host-command-center-literal.png",
-          "sha256": "5611e2af632a09f6d22e0357a570929a5d01426d600f3224d7d558ffea83ead8",
-          "bytes": 144495,
+          "sha256": "bc68a79931f7152f91761c403c6d87545d2e33b54039561cb18285a6f7a64444",
+          "bytes": 128084,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -258,8 +258,8 @@
         {
           "id": "host-builds-live",
           "path": "screens/host-builds-live.png",
-          "sha256": "78ca8593456a934f5a3976eb46fd21dd8b2ae87c4bfcdca683472e2029033a14",
-          "bytes": 65152,
+          "sha256": "52800eb86eedcd2f8ab8548d7c0d8b94fd6c5e1bef40f0dd924b17566fa0fff9",
+          "bytes": 132539,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -268,8 +268,8 @@
         {
           "id": "host-settings-engine",
           "path": "screens/host-settings-engine.png",
-          "sha256": "f68fa403581ea977bd80a234a20b5582db764dca33ec02d9b27633cbe9139856",
-          "bytes": 163427,
+          "sha256": "6acfe37f4b206a9cff784db216b972ac29fad46048ac46f659d84eb256994549",
+          "bytes": 156195,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -277,9 +277,9 @@
         }
       ],
       "rendererBuild": {
-        "sha256": "3634e0898a5577ae72caf0352a5b6da45db86f6d3591f1346b275c4f5d410263",
+        "sha256": "a6ae696896cb286a8bb2b71f7729bdd62f11788ef14a52950721094161fe51a7",
         "files": 19,
-        "bytes": 1394442
+        "bytes": 1394440
       },
       "coreSha256": "232e589f1344b5acc9aafe15b7a44c26a515d9d81cc0cafb9372165f9acb1f8b",
       "electronBinary": {
@@ -289,16 +289,16 @@
       },
       "electronRuntimeClosure": {
         "scope": "packaged-electron-runtime-v1",
-        "sha256": "75e531f6b401b1c3ef9d2f7bd6e556dcf70d2640cc90108e3706feafb2ba949e",
-        "files": 14,
-        "bytes": 233634
+        "sha256": "b954773c0432019af39cff23ed2297602d33a772a15c758098f55695bb1cad61",
+        "files": 15,
+        "bytes": 236578
       },
       "harnessSha256": "70aabc62c9573079357208b9d4bbf9be79fbe0731b5b198a49024e3e61b74157"
     },
     "coreAcceptance": {
       "path": "artifacts/docker/read-only-acceptance.json",
-      "sha256": "2f92cf3f1c43d55e5ca48b52b8d839488f1515257e95cf1f02d782df5eaa762f",
-      "bytes": 11450,
+      "sha256": "a1bd14b2a8e6f6562e3d176893a08bf58f16f32b3ff4c86b7de49381e831a88f",
+      "bytes": 11451,
       "coreSha256": "232e589f1344b5acc9aafe15b7a44c26a515d9d81cc0cafb9372165f9acb1f8b",
       "schemaVersion": 3,
       "matrixVersion": 2,
@@ -320,13 +320,13 @@
     },
     "electronSecurity": {
       "path": "artifacts/security/electron-config.json",
-      "sha256": "c65f4068a25af2b37b585f25315ef9418996e3f25e4d737b6766068577c8764c",
+      "sha256": "0caa31e5824156016ddb2447e2ca56609118893ca727154591546a11384ab1c1",
       "bytes": 3958,
       "policyVersion": 1
     },
     "dependencyAudit": {
       "path": "artifacts/security/dependency-audit.json",
-      "sha256": "5ce991431fd4a7fcd16717f52635a2158fb64292e8b79a8a399fa9161572e859",
+      "sha256": "611fb139f0b0040a29efaf259f2aff8d2fad90d3095061ea62fb00605bfa7421",
       "bytes": 527,
       "vulnerabilities": 0
     }
@@ -336,7 +336,7 @@
     "protocolTests": 2,
     "securityEvidenceTests": 1,
     "packageEvidenceTests": 1,
-    "electronTests": 14,
+    "electronTests": 15,
     "coreTests": 15
   }
 }

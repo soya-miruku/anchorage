@@ -1,7 +1,8 @@
 import { defaultDeskColor } from "./theme-desk.mjs";
 import { validateRevealPath } from "./reveal-path.mjs";
-import { existsSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { existsSync, mkdtempSync, realpathSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { tmpdir } from "node:os";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
 import { app, BrowserWindow, ipcMain, Menu, session,
@@ -1009,7 +1010,27 @@ async function initialize() {
   createWindow();
 }
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
+/**
+ * A smoke run must not collide with a real one.
+ *
+ * The single-instance lock is per-user, so with Anchorage already open the packaged smoke's
+ * instance took the `!hasSingleInstanceLock` branch and called `app.quit()` — exit 0, no output,
+ * and a release gate failing for a reason nothing reported. Having the app open while packaging
+ * it is entirely ordinary, so the gate has to tolerate it.
+ *
+ * The temporary profile matters for a second reason: the smoke would otherwise read the
+ * operator's own `~/.config/Anchorage`, so a stored theme or window size could change what it
+ * measured. A verification run should not depend on who is running it.
+ */
+const smokeStartup = desktopSmokeEnabled({
+  isPackaged: app.isPackaged,
+  developmentValue: process.env.ANCHORAGE_DESKTOP_SMOKE,
+  packagedValue: process.env.ANCHORAGE_PACKAGED_SMOKE,
+});
+if (smokeStartup) {
+  app.setPath("userData", mkdtempSync(join(tmpdir(), "anchorage-smoke-")));
+}
+const hasSingleInstanceLock = smokeStartup || app.requestSingleInstanceLock();
 // Fail closed before any window exists if the OS sandbox was disabled on the command line.
 // webPreferences.sandbox keeps Node out of the renderer; it does not replace the Chromium
 // seccomp-bpf/namespace sandbox that --no-sandbox turns off.
