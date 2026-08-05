@@ -479,3 +479,114 @@ describe("ComposeScreen action progress", () => {
     expect(screen.getByTestId("compose-action-output")).toHaveTextContent("Compose Down");
   });
 });
+
+/**
+ * A service row could only be left, not opened.
+ *
+ * Clicking a service name switched the whole view to Containers and opened that container's
+ * logs, which is a reasonable destination and a poor default: checking which port a service is
+ * bound to, or why it exited, meant leaving the project view and navigating back. The row now
+ * expands in place, and the jump to the full screen stays as an explicit choice.
+ *
+ * Ports matter most here. Compose reports a service's state but not its bindings, so the row
+ * reads them from the container the project actually produced.
+ */
+describe("ComposeScreen service detail", () => {
+  const withService = (overrides: Partial<AnchorageStore> = {}) =>
+    renderScreen({
+      expandedComposeProject: "storefront",
+      composeServices: { storefront: [live("api")] },
+      composeConfigs: {
+        storefront: configResult({ services: [service("api")] }),
+      },
+      containers: [
+        {
+          cpu: 0,
+          memory: 0,
+          memoryLimit: 0,
+          cpuHistory: [],
+          memoryHistory: [],
+          labels: {},
+          composeProject: "storefront",
+          id: "container-api",
+          name: "storefront-api-1",
+          image: "team/api:latest",
+          ports: "8080:8080, 9229:9229",
+          state: "running",
+          rawState: "running",
+          status: "Up 2 hours",
+          exitCode: 0,
+          kind: "http",
+          health: "healthy",
+        },
+      ],
+      ...overrides,
+    });
+
+  it("keeps the detail closed until asked", () => {
+    withService();
+    expect(screen.queryByTestId("compose-service-detail-api")).toBeNull();
+  });
+
+  it("shows the bindings Compose does not report, read from the container", () => {
+    withService();
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    const detail = screen.getByTestId("compose-service-detail-api");
+    expect(detail).toHaveTextContent("8080:8080");
+    expect(detail).toHaveTextContent("9229:9229");
+  });
+
+  it("states plainly when a service publishes nothing, rather than showing an empty field", () => {
+    withService({
+      containers: [
+        {
+          cpu: 0,
+          memory: 0,
+          memoryLimit: 0,
+          cpuHistory: [],
+          memoryHistory: [],
+          labels: {},
+          composeProject: "storefront",
+          id: "container-api",
+          name: "storefront-api-1",
+          image: "team/api:latest",
+          ports: "",
+          state: "running",
+          rawState: "running",
+          status: "Up 2 hours",
+          exitCode: 0,
+          kind: "http",
+          health: "healthy",
+        },
+      ],
+    } as unknown as Partial<AnchorageStore>);
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    expect(screen.getByTestId("compose-service-detail-api")).toHaveTextContent(
+      "No published ports",
+    );
+  });
+
+  it("still offers the jump to the full container screen", () => {
+    const store = withService();
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    fireEvent.click(screen.getByTestId("compose-service-open-full-api"));
+    expect(store.selectContainer).toHaveBeenCalledWith("container-api");
+  });
+
+  it("expands a service whose container is gone, and says that is why there is nothing", () => {
+    // Compose reports services whose containers have been removed. Refusing to expand them
+    // leaves the operator with no explanation at all.
+    renderScreen({
+      expandedComposeProject: "storefront",
+      composeServices: { storefront: [live("api", { containerId: "" })] },
+      composeConfigs: {
+        storefront: configResult({ services: [service("api")] }),
+      },
+      containers: [],
+    });
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    expect(screen.getByTestId("compose-service-detail-api")).toHaveTextContent(
+      "no container",
+    );
+  });
+});

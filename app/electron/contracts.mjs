@@ -99,6 +99,8 @@ export const IPC_CHANNELS = Object.freeze({
   containersCreate: "anchorage:containers.create",
   containersExport: "anchorage:containers.export",
   imagesScout: "anchorage:images.scout",
+  // Reveals a path in the operator's file manager. Never opens it; see electron/reveal-path.mjs.
+  desktopRevealPath: "anchorage:desktop.revealPath",
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",

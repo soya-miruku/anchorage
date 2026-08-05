@@ -79,6 +79,7 @@ const formatHostBytes = (bytes: number) => {
 
 function HostDashboard({ store }: { store: AnchorageStore }) {
   const [pruneOpen, setPruneOpen] = useState(false);
+  const [prunePreset, setPrunePreset] = useState<{ all: boolean; volumes: boolean } | undefined>(undefined);
   const snapshot = store.systemSnapshot;
   if (!snapshot) {
     return (
@@ -242,6 +243,42 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
         />
       </div>
 
+      {/* One click to the common cleanups, with the confirmation intact. Prune is irreversible
+          and `--volumes` destroys data no registry can rebuild, so these preselect the dialog
+          rather than firing straight at the daemon. There is deliberately no shortcut that
+          includes volumes: the one destructive choice stays a deliberate one. */}
+      <div className="dashboard-reclaim-actions" data-testid="dashboard-reclaim-actions">
+        <span className="dashboard-reclaim-actions__label">Reclaim</span>
+        <button
+          type="button"
+          className="ghost-button"
+          data-testid="reclaim-dangling"
+          title="Removes stopped containers, unused networks, dangling images and build cache"
+          onClick={() => {
+            setPrunePreset({ all: false, volumes: false });
+            setPruneOpen(true);
+          }}
+        >
+          Build cache &amp; dangling
+        </button>
+        <button
+          type="button"
+          className="ghost-button"
+          data-testid="reclaim-all-images"
+          title="Everything above, plus unused images that still carry tags"
+          onClick={() => {
+            setPrunePreset({ all: true, volumes: false });
+            setPruneOpen(true);
+          }}
+        >
+          All unused images
+        </button>
+        <span className="dashboard-reclaim-actions__note resource-dim">
+          {formatHostBytes(reclaimableImages + reclaimableCache)} reclaimable · volumes are
+          excluded and stay a deliberate choice
+        </span>
+      </div>
+
       <div className="dashboard-main-grid">
         <article className="dashboard-panel dashboard-chart-panel">
           <div className="dashboard-panel__heading">
@@ -338,6 +375,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
         <SystemPruneDialog
           snapshot={snapshot}
           pending={store.systemPrunePending}
+          preset={prunePreset}
           onCancel={() => setPruneOpen(false)}
           onConfirm={(options) => {
             setPruneOpen(false);

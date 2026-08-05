@@ -166,3 +166,47 @@ describe("DashboardScreen engine history", () => {
   });
 });
 
+
+/**
+ * Quick reclaim actions must not become a quick way to lose data.
+ *
+ * `docker system prune` is irreversible, and with `--volumes` it removes data no registry can
+ * rebuild. The shortcuts save the operator ticking a box; they must not save them the sentence
+ * explaining what is about to go, and nothing here may reach the daemon without confirmation.
+ */
+describe("DashboardScreen reclaim shortcuts", () => {
+  const renderHost = () => {
+    const store = createHostStore({ pruneSystem: vi.fn(async () => undefined) });
+    render(<DashboardScreen store={store} />);
+    return store;
+  };
+
+  it("opens the confirmation rather than pruning on click", () => {
+    const store = renderHost();
+    fireEvent.click(screen.getByTestId("reclaim-dangling"));
+    expect(screen.getByTestId("system-prune-preview")).toBeInTheDocument();
+    expect(store.pruneSystem).not.toHaveBeenCalled();
+  });
+
+  it("preselects tagged images for the shortcut that says it removes them", () => {
+    renderHost();
+    fireEvent.click(screen.getByTestId("reclaim-all-images"));
+    expect(screen.getByTestId("system-prune-all")).toBeChecked();
+    expect(screen.getByTestId("system-prune-volumes")).not.toBeChecked();
+  });
+
+  it("offers no shortcut that removes volumes", () => {
+    // The one destructive choice stays deliberate: no shortcut reaches it, and the one that
+    // mentions volumes does so only to say they are excluded.
+    renderHost();
+    const buttons = Array.from(
+      screen.getByTestId("dashboard-reclaim-actions").querySelectorAll("button"),
+    );
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const button of buttons) {
+      expect(button.textContent ?? "").not.toMatch(/volume/i);
+    }
+    fireEvent.click(screen.getByTestId("reclaim-dangling"));
+    expect(screen.getByTestId("system-prune-volumes")).not.toBeChecked();
+  });
+});

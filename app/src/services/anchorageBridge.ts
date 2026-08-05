@@ -1837,6 +1837,20 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       list: (context = "default") => buildsList(context),
       inspect: (ref: string, context = "default") => buildsInspect(ref, context),
     },
+    /**
+     * Desktop integration. Reveal only — the main process refuses `shell.openPath`, so this can
+     * show where a compose file lives and can never launch it. See electron/reveal-path.mjs.
+     */
+    desktop: {
+      revealPath: async (path: string) => {
+        if (!host.invoke) {
+          throw new Error("Revealing a location needs the desktop shell");
+        }
+        return (await host.invoke("desktop.revealPath", { path })) as {
+          revealed: string;
+        };
+      },
+    },
     compose: {
       list: (context = "default", all = true) => composeList(context, all),
       ps: (project: string, context = "default") => composePs(project, context),

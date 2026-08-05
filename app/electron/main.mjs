@@ -1,8 +1,11 @@
+import { validateRevealPath } from "./reveal-path.mjs";
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
-import { app, BrowserWindow, ipcMain, Menu, session } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, session,
+  shell,
+} from "electron";
 
 import {
   IPC_CHANNELS,
@@ -756,6 +759,15 @@ function registerIpcHandlers() {
   });
   // Scout indexes an image the first time it analyses it, which is slow in proportion to
   // image size; a second run against the same image returns from its cache in seconds.
+  // `showItemInFolder` only. `shell.openPath` would launch whatever handler the desktop has
+  // registered for the file type, which is arbitrary program execution driven by a path that
+  // came from a Docker daemon. Revealing shows the location and runs nothing.
+  registerHandler(IPC_CHANNELS.desktopRevealPath, async (request) => {
+    const target = validateRevealPath(request?.path);
+    shell.showItemInFolder(target);
+    return { revealed: target };
+  });
+
   registerHandler(IPC_CHANNELS.imagesScout, (request) =>
     core.request("images.scout", validateImagesScout(request), { timeoutMs: 540_000 }),
   );

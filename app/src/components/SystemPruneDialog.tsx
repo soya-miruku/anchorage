@@ -24,16 +24,23 @@ const formatBytes = (bytes: number) => {
 export function SystemPruneDialog({
   snapshot,
   pending,
+  preset,
   onCancel,
   onConfirm,
 }: {
   snapshot: SystemSnapshot | null;
   pending: boolean;
+  /**
+   * What a quick action asked for. It preselects the options; it does not skip the dialog.
+   * Prune is irreversible — with `--volumes` it destroys data no registry can rebuild — so the
+   * shortcuts save the tick, never the confirmation or the sentence explaining what goes.
+   */
+  preset?: { all?: boolean; volumes?: boolean };
   onCancel: () => void;
   onConfirm: (options: SystemPruneOptions) => void;
 }) {
-  const [all, setAll] = useState(false);
-  const [volumes, setVolumes] = useState(false);
+  const [all, setAll] = useState(preset?.all ?? false);
+  const [volumes, setVolumes] = useState(preset?.volumes ?? false);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<Element | null>(null);
 

@@ -1265,6 +1265,13 @@ export interface AnchorageBridge {
       options?: SystemPruneOptions,
     ): Promise<SystemActionResult>;
   };
+  /**
+   * Desktop integration. Reveal only: the main process never calls `shell.openPath`, so a path
+   * that came from a Docker daemon can be shown but never launched.
+   */
+  readonly desktop?: {
+    revealPath(path: string): Promise<{ revealed: string }>;
+  };
   readonly images: ImagesOperations;
   readonly compose: ComposeOperations;
   readonly builds: BuildsOperations;

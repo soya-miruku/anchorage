@@ -3519,6 +3519,35 @@ export function useAnchorageStore() {
    * time it sees one — minutes of CPU and IO. Until this was logged, the only sign of that was a
    * disabled button on the screen that started it, so navigating away lost the job entirely.
    */
+  /**
+   * Shows a path in the operator's file manager.
+   *
+   * Failures land in the activity log rather than a screen-local error: the common ones are a
+   * compose file on a remote context that does not exist on this machine, and a project whose
+   * directory has since been moved — neither of which the screen that asked can explain.
+   */
+  const revealPath = useCallback(
+    async (path: string) => {
+      if (!isHost || !path) return;
+      try {
+        await bridge.desktop?.revealPath(path);
+      } catch (reason) {
+        recordActivity({
+          id: `job:reveal:${path}:${Date.now()}`,
+          kind: "job",
+          state: "failed",
+          title: "Could not show location",
+          subject: path,
+          detail: reason instanceof Error ? reason.message : "The desktop refused the path",
+          startedAt: new Date().toISOString(),
+          endedAt: new Date().toISOString(),
+          read: false,
+        });
+      }
+    },
+    [bridge, isHost, recordActivity],
+  );
+
   const analyzeImage = useCallback(
     async (reference: string) => {
       if (!isHost || !reference) return;
@@ -4062,6 +4091,7 @@ export function useAnchorageStore() {
     dockerContext,
     systemSnapshot,
     activities,
+    revealPath,
     unreadActivityCount,
     markActivitiesRead,
     dismissActivity,

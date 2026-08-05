@@ -21,6 +21,7 @@ const CHANNELS = Object.freeze({
   containersCreate: "anchorage:containers.create",
   containersExport: "anchorage:containers.export",
   imagesScout: "anchorage:images.scout",
+  desktopRevealPath: "anchorage:desktop.revealPath",
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
@@ -1049,6 +1050,22 @@ function volumeFileWrite(value) {
   return normalized;
 }
 
+/**
+ * The path to reveal, validated again in the main process before it reaches the desktop.
+ * Shape-checking here keeps a malformed call from crossing the boundary at all.
+ */
+function desktopRevealPath(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["path"]), "request");
+  // 4096 is PATH_MAX on Linux; anything longer cannot name a real file and is only ever an
+  // attempt to see what the other side does with it.
+  const path = text(value.path, "request.path", 4_096);
+  if (path.includes("\u0000")) {
+    fail("request.path must not contain a null byte");
+  }
+  return { path };
+}
+
 function imagesScout(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context", "reference"]), "request");
@@ -1991,6 +2008,8 @@ function invoke(method, payload) {
       return call(CHANNELS.containersExport, containersExport(payload));
     case "images.scout":
       return call(CHANNELS.imagesScout, imagesScout(payload));
+    case "desktop.revealPath":
+      return call(CHANNELS.desktopRevealPath, desktopRevealPath(payload));
     case "volumes.files":
       return call(CHANNELS.volumesFiles, volumeFiles(payload));
     case "volumes.fileRead":

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnchorageIcon } from "../components/AnchorageIcon";
 import type { AnchorageStore } from "../store/useAnchorageStore";
 import type {
+  AnchorageContainer,
   ComposeConfigResult,
   ComposeConfigService,
   ComposeProject,
@@ -93,6 +94,9 @@ function ServiceStartOrder({
   resolved: boolean;
   store: AnchorageStore;
 }) {
+  // Which services are open. Local rather than in the store: it is view state that means nothing
+  // once the operator leaves the project, and persisting it would restore rows they did not open.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   return (
     <section className="compose-panel">
       <div className="compose-panel__heading">
@@ -114,18 +118,40 @@ function ServiceStartOrder({
           // A service only links through when its container is actually in the list;
           // Compose can report a service whose container has since been removed, and a
           // detail screen with nothing to show is worse than plain text.
-          const linkable =
-            (row.live?.containerId.length ?? 0) > 0 &&
-            store.containers.some(
-              (candidate) => candidate.id === row.live?.containerId,
-            );
+          // The container this service actually produced, when it still exists. Compose keeps
+          // reporting a service after its container is removed, and the detail below needs the
+          // container for the one thing Compose never reports: published ports.
+          const matched =
+            (row.live?.containerId.length ?? 0) > 0
+              ? store.containers.find(
+                  (candidate) => candidate.id === row.live?.containerId,
+                )
+              : undefined;
+          const linkable = matched !== undefined;
           const running = row.live?.state === "running";
           return (
+            <div className="compose-service-entry" key={row.name}>
             <div
               className="compose-service-row"
-              key={row.name}
               data-testid={`compose-service-${project}-${row.name}`}
             >
+              <button
+                type="button"
+                className="compose-service-row__expand"
+                aria-expanded={expanded.has(row.name)}
+                aria-label={`${expanded.has(row.name) ? "Collapse" : "Expand"} ${row.name}`}
+                data-testid={`compose-service-expand-${row.name}`}
+                onClick={() =>
+                  setExpanded((current) => {
+                    const next = new Set(current);
+                    if (next.has(row.name)) next.delete(row.name);
+                    else next.add(row.name);
+                    return next;
+                  })
+                }
+              >
+                <span aria-hidden="true">{expanded.has(row.name) ? "▾" : "▸"}</span>
+              </button>
               <span
                 className="compose-service-row__wave resource-mono"
                 title={
@@ -199,10 +225,87 @@ function ServiceStartOrder({
                   : "no container"}
               </span>
             </div>
+            {expanded.has(row.name) && (
+              <ServiceDetail
+                row={row}
+                container={matched}
+                onOpenFull={
+                  matched ? () => void store.selectContainer(matched.id) : undefined
+                }
+              />
+            )}
+            </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * What a service is, without leaving the project.
+ *
+ * The row already linked through to the container screen, which switched the whole view and
+ * opened that container's logs — a reasonable destination and a poor default, since checking a
+ * binding or an exit code meant navigating away and back. Ports are the reason this exists:
+ * Compose reports a service's state but never its published bindings, so they are read from the
+ * container the project produced.
+ */
+function ServiceDetail({
+  row,
+  container,
+  onOpenFull,
+}: {
+  row: ServiceRow;
+  container: AnchorageContainer | undefined;
+  onOpenFull?: () => void;
+}) {
+  return (
+    <div
+      className="compose-service-detail"
+      data-testid={`compose-service-detail-${row.name}`}
+    >
+      <dl>
+        <div>
+          <dt>Container</dt>
+          <dd className="resource-mono">
+            {container ? container.name : "no container — Compose reports this service, but the container it names is gone"}
+          </dd>
+        </div>
+        <div>
+          <dt>Image</dt>
+          <dd className="resource-mono">
+            {container?.image ?? row.config?.image ?? row.live?.image ?? "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Ports</dt>
+          <dd className="resource-mono">
+            {/* Compose does not report bindings at all, so an empty field here would be
+                ambiguous between "none" and "not known". */}
+            {container?.ports?.trim() ? container.ports : "No published ports"}
+          </dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd className="resource-mono">
+            {container?.status ?? row.live?.status ?? "—"}
+          </dd>
+        </div>
+      </dl>
+      {onOpenFull && (
+        <div className="compose-service-detail__actions">
+          <button
+            type="button"
+            className="ghost-button"
+            data-testid={`compose-service-open-full-${row.name}`}
+            onClick={onOpenFull}
+          >
+            Open in Containers
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -692,6 +795,20 @@ export function ComposeScreen({ store }: { store: AnchorageStore }) {
               {selected.configFiles.length > 0
                 ? selected.configFiles.join(" · ")
                 : "no compose file reported"}
+              {/* Reveal, never open. The main process refuses `shell.openPath`, so this shows
+                  where the project lives and cannot launch anything with a path that came from
+                  a Docker daemon. Absent for a project discovered by label, which has no file. */}
+              {selected.configFiles.length > 0 && (
+                <button
+                  type="button"
+                  className="compose-detail__reveal"
+                  data-testid="compose-reveal-location"
+                  title="Show this project's compose file in your file manager"
+                  onClick={() => void store.revealPath(selected.configFiles[0])}
+                >
+                  Show in folder
+                </button>
+              )}
             </p>
 
 
