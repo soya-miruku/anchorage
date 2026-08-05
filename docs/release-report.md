@@ -8,8 +8,15 @@ download today. Two things make it historical rather than current:
 
 - The AppImage it certifies no longer exists. `app/release/` was emptied by a
   `package:preflight` run — preflight rebuilds the staging inputs and clears the release
-  directory, so it must be run *before* packaging, never after — and every build attempt since
-  has stopped at the design-parity gate.
+  directory, so it must be run *before* packaging, never after.
+- The design-parity gate that blocked every build attempt after this run no longer does, and the
+  reason it blocked was not a regression. Its baseline was 24 renders of the **v1** comp while the
+  build had migrated to v2, so all 24 states failed uniformly at 0.098–0.123 against a 0.02
+  threshold. The baseline is now generated from the current comp by
+  `tools/capture-design-reference.mjs`; 14 states pass outright and 10 ship as budgeted
+  divergences for surfaces the build deliberately carries and the comp does not. The design
+  figures in this document therefore describe a comparison against a superseded baseline and
+  should not be carried forward — see `design-qa.md`.
 - The build it describes predates both the settings-honesty work and the launch-path work, so
   its core and renderer digests below identify neither of the current binaries.
 
@@ -111,7 +118,9 @@ only then wrote the passing receipt.
 ## Design conformance
 
 - All **24/24 canonical handoff states** were captured at 1656 x 1056 and
-  passed the normalized mean absolute pixel-error review threshold of 0.02.
+  passed the normalized mean absolute pixel-error review threshold of 0.02
+  **against the v1 baseline that has since been retired** — see the note at the
+  top of this document; the same states measure 0.016–0.044 against the v2 comp.
 - The worst measured state was `container-detail-logs` at `0.01623`.
 - Every reference and implementation was reviewed in the same combined
   source-left/implementation-right input for geometry, typography, colour,

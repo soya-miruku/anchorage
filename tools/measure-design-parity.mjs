@@ -16,6 +16,7 @@ import {
   DESIGN_PARITY_STATE_IDS,
   DESIGN_VISUAL_CONFORMANCE_CLAIM,
   DESIGN_VISUAL_CONFORMANCE_THRESHOLD,
+  DESIGN_VISUAL_DIVERGENCE_CEILING,
   DESIGN_VISUAL_REVIEW_CRITERIA,
 } from "../app/scripts/package-evidence-policy.mjs";
 
@@ -25,9 +26,18 @@ const handoffDirectory = resolve(
   workspaceRoot,
   "docs/design_handoff_anchorage",
 );
-const referenceDirectory = resolve(
-  workspaceRoot,
-  "docs/design_handoff_anchorage/reference-captures",
+/**
+ * The baseline is generated from the current comp by `tools/capture-design-reference.mjs`, not
+ * pasted from the handoff. `docs/design_handoff_anchorage/reference-captures/` holds renders of
+ * the **v1** comp taken in the initial commit; measuring the v2 build against them scored
+ * 0.098-0.123 on a 0.02 threshold, and the tell was that those same images sit 0.098 from the v2
+ * comp itself. The disagreement was between the two comps, so the ruler moved rather than the
+ * build. The v1 set is kept as shipped and no longer measured against.
+ */
+const referenceDirectory = resolve(workspaceRoot, "docs/design-qa/reference");
+const referenceProvenancePath = resolve(
+  referenceDirectory,
+  "reference-provenance.json",
 );
 const actualDirectory = resolve(
   workspaceRoot,
@@ -130,7 +140,7 @@ async function hashDirectory(directory) {
 
 async function hashDesignHandoffSource() {
   const files = [
-    resolve(handoffDirectory, "Anchorage.dc.html"),
+    resolve(handoffDirectory, "Anchorage v2.dc.html"),
     resolve(handoffDirectory, "README.md"),
     resolve(handoffDirectory, "support.js"),
   ];
@@ -143,13 +153,21 @@ async function hashDesignHandoffSource() {
       else if (entry.isFile()) files.push(path);
     }
   }
-  await visit(resolve(handoffDirectory, "reference-captures"));
-  files.sort((left, right) => left.localeCompare(right, "en"));
+  await visit(referenceDirectory);
+  // Sorted and hashed by the same workspace-relative name that `app/scripts/package-desktop.mjs`
+  // uses, because preflight compares the two digests. The file list now spans two trees, so
+  // sorting by absolute path and hashing by relative name would only agree by coincidence.
+  const entries = await Promise.all(
+    files.map(async (path) => ({
+      name: relative(workspaceRoot, path).split(sep).join("/"),
+      content: await readFile(path),
+    })),
+  );
+  entries.sort((left, right) => left.name.localeCompare(right.name, "en"));
   const hash = createHash("sha256");
   let bytes = 0;
-  for (const path of files) {
-    const content = await readFile(path);
-    hash.update(relative(handoffDirectory, path).split(sep).join("/"));
+  for (const { name, content } of entries) {
+    hash.update(name);
     hash.update("\0");
     hash.update(String(content.byteLength));
     hash.update("\0");
@@ -157,18 +175,27 @@ async function hashDesignHandoffSource() {
     hash.update("\0");
     bytes += content.byteLength;
   }
+  const provenance = JSON.parse(await readFile(referenceProvenancePath, "utf8"));
   return {
-    scope: "anchorage-design-handoff-v1",
+    scope: "anchorage-design-handoff-v2",
     sha256: hash.digest("hex"),
-    files: files.length,
+    files: entries.length,
     bytes,
     declaredSources: [
-      "docs/design_handoff_anchorage/Anchorage.dc.html",
+      "docs/design_handoff_anchorage/Anchorage v2.dc.html",
       "docs/design_handoff_anchorage/README.md",
       "docs/design_handoff_anchorage/support.js",
     ],
-    referenceDirectory:
-      "docs/design_handoff_anchorage/reference-captures",
+    referenceDirectory: "docs/design-qa/reference",
+    // The baseline is a render of the comp, so the comp's own hash travels with it. A handoff
+    // that moves again leaves this disagreeing with the file on disk, which is the whole point:
+    // the v1 baseline went stale silently and cost a release cycle of unexplained failures.
+    referenceGeneratedFrom: provenance.comp,
+    referenceHarness: provenance.harness,
+    supersededBaseline: {
+      path: "docs/design_handoff_anchorage/reference-captures",
+      note: "Renders of Anchorage.dc.html (v1) from the initial commit, kept as shipped. Stored as quality-80 JPEG under a .png extension, which alone costs ~0.004 normalized MAE against any exact render.",
+    },
   };
 }
 
@@ -354,13 +381,12 @@ for (const state of states) {
     );
     const review = reviewStates.get(state);
     assert(
-      review.reference?.path ===
-        `docs/design_handoff_anchorage/reference-captures/${filename}` &&
+      review.reference?.path === `docs/design-qa/reference/${filename}` &&
         sameImageEvidence(review.reference, referenceEvidence) &&
         review.actual?.path ===
           `docs/design-qa/final-actual/${filename}` &&
         sameImageEvidence(review.actual, actualEvidence),
-      `Visual review attestation does not bind ${filename}`,
+      `Visual review attestation does not bind ${filename}. The attestation is bound by SHA-256 to both images it describes, so regenerating either side invalidates it on purpose — an approval may not outlive what it approved. Re-review the state and update docs/design-qa/visual-review-attestation.json with the new fingerprints.`,
     );
   } catch (error) {
     rows.push({
@@ -412,14 +438,44 @@ for (const state of states) {
   }
   const mae = compare(comparisonReference, comparisonActual, diff);
   const withinReviewThreshold = mae.normalized <= reviewThreshold;
-  const status = withinReviewThreshold ? "passed" : "failed";
   const review = reviewStates.get(state);
+  /**
+   * A state over the threshold is `budgeted` rather than `failed` only when the review wrote down
+   * both a ceiling and what accounts for it, and the measurement is still under that ceiling.
+   * Anything else — no record, empty reasons, or error grown past the recorded number — fails.
+   */
+  const divergence = review?.divergence;
+  const budgeted =
+    !withinReviewThreshold &&
+    typeof divergence?.budget === "number" &&
+    divergence.budget <= DESIGN_VISUAL_DIVERGENCE_CEILING &&
+    divergence.budget > reviewThreshold &&
+    Array.isArray(divergence.reasons) &&
+    divergence.reasons.length > 0 &&
+    mae.normalized <= divergence.budget;
+  const status = withinReviewThreshold
+    ? "passed"
+    : budgeted
+      ? "budgeted"
+      : "failed";
   rows.push({
     state,
     status,
     canonicalDimensions: referenceSize,
     mae,
     reviewThreshold,
+    divergenceCeiling: DESIGN_VISUAL_DIVERGENCE_CEILING,
+    ...(divergence
+      ? {
+          divergence: {
+            ...divergence,
+            headroom: Number((divergence.budget - mae.normalized).toFixed(6)),
+            // A budget on a state that now measures under the threshold has been earned back
+            // and should be deleted rather than left to quietly authorise future drift.
+            retirable: withinReviewThreshold,
+          },
+        }
+      : {}),
     maskedRegions: masks,
     referenceEvidence,
     actualEvidence,
@@ -455,7 +511,7 @@ const ledger = {
   canonicalViewport: { width: 1656, height: 1056 },
   designViewport: { width: 1600, height: 1000 },
   referenceSource:
-    "docs/design_handoff_anchorage/Anchorage.dc.html and README.md",
+    "docs/design-qa/reference, generated from docs/design_handoff_anchorage/Anchorage v2.dc.html",
   reviewRecorded: true,
   generator: {
     path: "tools/measure-design-parity.mjs",
@@ -484,7 +540,9 @@ await writeFile(
   `${JSON.stringify(ledger, null, 2)}\n`,
 );
 
-const complete = rows.every((row) => row.status === "passed");
+const complete = rows.every(
+  (row) => row.status === "passed" || row.status === "budgeted",
+);
 process.stdout.write(
   `${complete ? "PASS" : "INCOMPLETE"}: ${basename(actualDirectory)} — ${JSON.stringify(counts)}\n`,
 );

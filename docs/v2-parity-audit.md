@@ -15,6 +15,108 @@ critic's original list, kept because it records what a parity audit of this kind
 Corrected headline: **131 distinct findings** — 15 blocker, 25 high, 44 medium, 47 low — across
 **5 shipped · 5 partial · 11 absent** of v2's 21 destinations.
 
+## Defects in the source of record
+
+`docs/design_handoff_anchorage/docker-features.md` is this project's source of record for every
+Docker claim the product makes. Two problems were found in it while remediating, and they are
+recorded here rather than edited into the handoff, which is a dated research snapshot the
+designer owns:
+
+1. **Line 1975 is not supported by its own citation.** It states that build secrets and SSH
+   mounts "are not intended to be retained in shared build cache". Its citation `[103]` is
+   https://docs.docker.com/build-cloud/ci/, which does not discuss build secrets, SSH mounts or
+   the shared cache at all. The hedge is the snapshot's own paraphrase. The same file states the
+   mechanism without hedging at `:796` — BuildKit secret and SSH mounts expose credentials to a
+   build step *without baking them into image layers*. Two review findings were generated off
+   the unsupported line and both were rejected on this evidence; the Cloud screen states the
+   protection plainly and widens the leak surface around it instead.
+
+2. **The Linux install path for Docker Model Runner is absent.** §13 acknowledges standalone
+   Engine installations as a target at `:1250` but never records how the plugin is installed
+   there. `app/src/screens/ModelsScreen.tsx` now names the package `docker-model-plugin`,
+   verified against https://docs.docker.com/ai/model-runner/get-started/ — so that one shipped
+   string rests on a live fetch rather than on the repo. Worth adding to §13.
+
+---
+
+## Remediation status
+
+All six tranches of the sequencing plan are **landed** (`npm test` green: 376 renderer tests across 33 files plus
+the node suites; `typecheck:renderer` clean; `go vet` and `go test ./...` clean).
+
+| Tranche | State | Notes |
+|---|---|---|
+| 1 — Nav IA + level-chip primitive | **Done** | Four-group scheme and handoff ordering; `LevelChip`; `aria-current` dropped while the engine is not ready |
+| 2 — Maturity chip + drawer + LIFE | **Done** | `app/src/data/maturity.ts`, ten shipped views only; reconciled against `docker-features.md:44-70`; plan-entitlement axis added |
+| 3 — Correctness and copy sweep | **Done** | Build status collapse, dead resources binding, Networks error-as-empty-state, Images/Volumes empty states, status chip vocabulary and hue, live regions, posture copy, version string, vector mark, mode toggle |
+| 3.5 — Token semantics | **Done** | `-fg` layer across all four families both modes; 67 text sites repointed; GitHub primary separated from accent |
+| 4 — Monochrome | **Done** | `themes/mono.css`; ladder retuned from the handoff's greys, which fail their own premise |
+| 5 — Promote what has live backing | **Done** | Scan destination, Settings > Builders (live `buildx ls`), Compose master/detail, Secrets (`secrets.list`, 503 modelled as a state carrying `manager:false`), Logs (real merged `docker logs --follow` streams), live Dashboard charts |
+| 6 — The eleven absent destinations | **Done** | Capability-triaged. `core/internal/core/plugins.go` walks the CLI plugin dirs and classifies what `docker info` omits — `broken` for a dangling symlink or missing execute bit, `degraded` for executable-but-rejected, silent for shadowed |
+
+Three findings were **corrected by the remediation rather than confirmed**, and the audit text below
+is wrong about them:
+
+1. **The `-fg` derivation was needed in dark mode too, not only light.** §5 and the addendum both
+   scope the contrast defect to light mode. A regression test written during remediation
+   (`app/scripts/theme-contrast.test.mjs`) measured **seven dark-mode combinations under WCAG AA** —
+   GitHub dark accent is 3.79:1 on its own fill. Dark mode now lifts danger, violet and accent
+   toward white; light mode darkens all five toward black.
+2. **The handoff's Monochrome palette does not survive the test Monochrome exists to be.** The
+   addendum recommends porting spec lines `:40-41` verbatim as a "~165-line paste". Ported as
+   written it fails: violet is under AA in both modes, light amber is 4.21:1, and green `#cfcfcf`
+   and accent `#d0d0d0` are one value apart — a healthy container and a selected row painted the
+   same colour. Hues and ordering are kept; the lightness steps are retuned and asserted.
+3. **The handoff's chip label is wrong for a Deprecated capability.** The spec's titlebar chip
+   reads `'<n> pre-GA'` (`Anchorage v2.dc.html:100-102`, `:3452`), and §5 below quotes it as the
+   target. The build deliberately renders **`<n> not GA`** instead: Deprecated is past GA, not
+   before it, so a Dev Environments view — whose only entry is Deprecated — would have read
+   "1 pre-GA" about a capability being withdrawn. Verified against all 21 views before changing
+   the wording. `app/src/components/MaturityDrawer.tsx` counts with `notGaCount`; the
+   `.maturity-chip--pre-ga` CSS modifier keeps its name and no longer matches the label.
+
+4. **The chrome health dots had no per-status styling at all.** `statusbar-engine-dot-hue` is filed
+   as an accent-for-green substitution. In fact `.statusbar__engine--*` and `.engine-card--*` had no
+   CSS rules whatsoever, so the dot was accent in *every* engine state, including unreachable — the
+   one state it has something to report.
+
+Two items in tranche 3 were **deliberately not done**:
+
+- **Titlebar gutter width (240px → 216px).** The audit promotes this to a finding. The build's 216px
+  aligns the brand and action gutters to the sidebar; the handoff's 240px does not align to its own
+  216px sidebar. Kept as a deliberate divergence.
+- **`--primary` separated from `--accent` in the Default and Docker families.** Done for GitHub,
+  where Primer gives a citable answer (blue links, green primary actions). Default and Docker need a
+  branding decision about what Anchorage's primary-action colour is, which is not the audit's to
+  make. `--anc-action-primary` still equals `--anc-accent` in Default dark and Docker light.
+
+## 5. The design-parity baseline was the v1 comp
+
+Not a finding about the build. The 24 images in
+`docs/design_handoff_anchorage/reference-captures/` are renders of
+**`Anchorage.dc.html`** — the v1 comp — committed in the initial commit and never
+documented in the handoff's own README. Measured against them, the v2 build scored
+0.098–0.123 normalized MAE on a 0.02 threshold across all 24 states uniformly,
+including states nobody had touched.
+
+The proof that the ruler moved rather than the build: those same v1 images sit
+**0.098** from the v2 comp itself, against 0.110 from the build. Re-basing on
+renders of `Anchorage v2.dc.html` drops the build to 0.016–0.044, with 14 of 24
+states inside the threshold.
+
+Two further defects in the retired baseline, neither previously noticed:
+
+- All 24 files are **quality-80 JPEG data under a `.png` extension**. Re-encoding
+  an exact render at that quality costs ~0.004 MAE on its own — a fifth of the
+  threshold, spent permanently on nothing.
+- The handoff README documents no viewport, no state list, and does not mention
+  the captures at all, so nothing recorded which comp they came from.
+
+The baseline is now generated by `tools/capture-design-reference.mjs` from
+whichever comp is the current source of record, and its provenance carries that
+comp's SHA-256 so the next revision leaves a detectable mismatch. Full record in
+`design-qa.md`.
+
 ---
 
 # Part 1 — Parity report

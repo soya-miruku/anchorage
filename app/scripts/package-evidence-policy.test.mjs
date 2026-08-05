@@ -299,8 +299,7 @@ test("design ledger requires recorded review and every measured state passed", (
     criteria: [...DESIGN_VISUAL_REVIEW_CRITERIA],
     notes: `Reviewed canonical state ${capture.state} side by side.`,
     reference: {
-      path:
-        `docs/design_handoff_anchorage/reference-captures/${capture.state}.png`,
+      path: `docs/design-qa/reference/${capture.state}.png`,
       sha256: SHA,
       bytes: 20_000 + index,
       dimensions: { width: 1656, height: 1056 },
@@ -329,17 +328,16 @@ test("design ledger requires recorded review and every measured state passed", (
       sha256: SHA,
     },
     handoffSource: {
-      scope: "anchorage-design-handoff-v1",
+      scope: "anchorage-design-handoff-v2",
       sha256: SHA,
       files: 27,
       bytes: 2_000_000,
       declaredSources: [
-        "docs/design_handoff_anchorage/Anchorage.dc.html",
+        "docs/design_handoff_anchorage/Anchorage v2.dc.html",
         "docs/design_handoff_anchorage/README.md",
         "docs/design_handoff_anchorage/support.js",
       ],
-      referenceDirectory:
-        "docs/design_handoff_anchorage/reference-captures",
+      referenceDirectory: "docs/design-qa/reference",
     },
     visualReviewAttestation: {
       source: {
@@ -463,6 +461,77 @@ test("design ledger requires recorded review and every measured state passed", (
     /fixture bridge provenance/u,
   );
   ledger.captureProvenance.bridgeMode = "fixture";
+
+  // A budgeted state ships on a written exception, so every part of that exception is load
+  // bearing. The build deliberately carries surfaces the comp does not — posture paragraphs, a
+  // checkbox column, a Networks destination — and those push ten states over the pixel threshold
+  // legitimately; what must stay impossible is passing a state by asserting an exception rather
+  // than evidencing one.
+  const budgetedRow = ledger.rows[0];
+  const budgetedReview = visualReviewAttestation.states.find(
+    (state) => state.state === budgetedRow.state,
+  );
+  budgetedRow.status = "budgeted";
+  budgetedRow.mae = { absolute: 40, normalized: 0.03 };
+  ledger.summary = { total: 24, passed: 23, budgeted: 1 };
+  budgetedRow.divergence = {
+    budget: 0.035,
+    reasons: ["A posture paragraph the comp does not carry translates the table."],
+  };
+  budgetedReview.divergence = { ...budgetedRow.divergence };
+  validateDesignLedger(ledger, options);
+
+  budgetedRow.divergence.budget = 0.025;
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /is budgeted, so it must record a budget/u,
+    "a measurement above its own budget is a regression, not an accepted divergence",
+  );
+  budgetedRow.divergence.budget = 0.9;
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /is budgeted, so it must record a budget/u,
+    "no budget may exceed the ceiling",
+  );
+  budgetedRow.divergence.budget = 0.035;
+  budgetedRow.divergence.reasons = [];
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /is budgeted, so it must record a budget/u,
+    "an exception with nothing enumerated is a rubber stamp",
+  );
+  budgetedRow.divergence.reasons = ["too short"];
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /is budgeted, so it must record a budget/u,
+    "a reason has to say something",
+  );
+  budgetedRow.divergence.reasons = [
+    "A posture paragraph the comp does not carry translates the table.",
+  ];
+  delete budgetedRow.divergence;
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /is budgeted, so it must record a budget/u,
+    "a budgeted status with no divergence record at all",
+  );
+  budgetedRow.divergence = {
+    budget: 0.035,
+    reasons: ["A posture paragraph the comp does not carry translates the table."],
+  };
+  ledger.summary = { total: 24, passed: 22, budgeted: 1 };
+  assert.throws(
+    () => validateDesignLedger(ledger, options),
+    /either passed or budgeted/u,
+    "the summary still has to account for every state",
+  );
+
+  ledger.summary = { total: 24, passed: 24 };
+  budgetedRow.status = "passed";
+  budgetedRow.mae = { absolute: 12, normalized: 0.012 };
+  delete budgetedRow.divergence;
+  delete budgetedReview.divergence;
+
   ledger.rows[0].actualEvidence.sha256 = "b".repeat(64);
   assert.throws(
     () => validateDesignLedger(ledger, options),

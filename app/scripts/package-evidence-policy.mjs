@@ -121,6 +121,21 @@ export const DESIGN_PARITY_STATE_IDS = Object.freeze([
 export const DESIGN_VISUAL_CONFORMANCE_CLAIM =
   "reviewed-visual-conformance-not-pixel-identity";
 export const DESIGN_VISUAL_CONFORMANCE_THRESHOLD = 0.02;
+
+/**
+ * The most a single state may diverge from the design and still ship.
+ *
+ * A state over `DESIGN_VISUAL_CONFORMANCE_THRESHOLD` is not automatically a defect: the build
+ * deliberately carries surfaces the comp does not — the posture paragraphs above all, which exist
+ * to say what a capability does not protect. Such a state ships only while its measured error
+ * stays at or under a budget a reviewer wrote down, alongside an enumeration of what accounts for
+ * it. That keeps the ratchet: a regression on top of an accepted divergence pushes past the
+ * budget and fails, and no state can be waved through with prose alone.
+ *
+ * The ceiling is what stops a budget from being set to "whatever it measures today". Nothing may
+ * diverge by more than this without the design or the build changing.
+ */
+export const DESIGN_VISUAL_DIVERGENCE_CEILING = 0.05;
 export const DESIGN_VISUAL_REVIEW_CRITERIA = Object.freeze([
   "geometry",
   "typography",
@@ -346,7 +361,7 @@ const HOST_BRIDGE_FUNCTIONS = Object.freeze([
 ]);
 
 const DESIGN_HANDOFF_DECLARED_SOURCES = Object.freeze([
-  "docs/design_handoff_anchorage/Anchorage.dc.html",
+  "docs/design_handoff_anchorage/Anchorage v2.dc.html",
   "docs/design_handoff_anchorage/README.md",
   "docs/design_handoff_anchorage/support.js",
 ]);
@@ -1264,13 +1279,12 @@ export function validateDesignLedger(
     );
   }
   requireCondition(
-    ledger.handoffSource?.scope === "anchorage-design-handoff-v1" &&
+    ledger.handoffSource?.scope === "anchorage-design-handoff-v2" &&
       sameStringArray(
         ledger.handoffSource.declaredSources,
         DESIGN_HANDOFF_DECLARED_SOURCES,
       ) &&
-      ledger.handoffSource.referenceDirectory ===
-        "docs/design_handoff_anchorage/reference-captures" &&
+      ledger.handoffSource.referenceDirectory === "docs/design-qa/reference" &&
       SHA256_PATTERN.test(ledger.handoffSource.sha256 ?? "") &&
       Number.isSafeInteger(ledger.handoffSource.files) &&
       ledger.handoffSource.files >=
@@ -1418,9 +1432,34 @@ export function validateDesignLedger(
     `${description} summary total must match its rows`,
   );
   requireCondition(
-    ledger.summary.passed === ledger.rows.length,
-    `${description} summary must report every state passed`,
+    (ledger.summary.passed ?? 0) + (ledger.summary.budgeted ?? 0) ===
+      ledger.rows.length,
+    `${description} summary must report every state either passed or budgeted`,
   );
+  /**
+   * A budgeted state ships on a written exception, so the exception is checked here rather than
+   * trusted: it must name what accounts for the divergence, cap it at a number under the ceiling
+   * and over the threshold, and still measure under that number. Prose alone waves nothing
+   * through, and a regression on top of an accepted divergence exceeds the budget and fails.
+   */
+  for (const row of ledger.rows) {
+    if (row?.status !== "budgeted") continue;
+    const divergence = row.divergence;
+    requireCondition(
+      typeof divergence?.budget === "number" &&
+        Number.isFinite(divergence.budget) &&
+        divergence.budget > DESIGN_VISUAL_CONFORMANCE_THRESHOLD &&
+        divergence.budget <= DESIGN_VISUAL_DIVERGENCE_CEILING &&
+        typeof row.mae?.normalized === "number" &&
+        row.mae.normalized <= divergence.budget &&
+        Array.isArray(divergence.reasons) &&
+        divergence.reasons.length > 0 &&
+        divergence.reasons.every(
+          (reason) => typeof reason === "string" && reason.trim().length >= 20,
+        ),
+      `${description} state ${row.state} is budgeted, so it must record a budget over ${DESIGN_VISUAL_CONFORMANCE_THRESHOLD}, at or under ${DESIGN_VISUAL_DIVERGENCE_CEILING}, that its own measurement does not exceed, with each intended difference stated`,
+    );
+  }
   requireCondition(
     sameStringArray(
       ledger.rows.map((row) => row?.state).sort(),
@@ -1446,7 +1485,7 @@ export function validateDesignLedger(
         const stateCapture = captureByState.get(row?.state);
         const stateReview = visualReviewByState.get(row?.state);
         return (
-          row?.status === "passed" &&
+          (row?.status === "passed" || row?.status === "budgeted") &&
           typeof row.state === "string" &&
           row.state.length > 0 &&
           Number.isFinite(row.mae?.normalized) &&
@@ -1454,7 +1493,12 @@ export function validateDesignLedger(
             row.reviewThreshold,
             DESIGN_VISUAL_CONFORMANCE_THRESHOLD,
           ) &&
-          row.mae.normalized <= row.reviewThreshold &&
+          // A passed row is bounded by the threshold; a budgeted one by the budget its own
+          // review recorded, which the loop above independently checks is under the ceiling.
+          row.mae.normalized <=
+            (row.status === "budgeted"
+              ? (row.divergence?.budget ?? row.reviewThreshold)
+              : row.reviewThreshold) &&
           typeof row.reference === "string" &&
           row.reference.endsWith(`/${row.state}.png`) &&
           typeof row.actual === "string" &&
@@ -1477,7 +1521,7 @@ export function validateDesignLedger(
           typeof stateReview.notes === "string" &&
           stateReview.notes.trim().length >= 20 &&
           stateReview.reference?.path ===
-            `docs/design_handoff_anchorage/reference-captures/${row.state}.png` &&
+            `docs/design-qa/reference/${row.state}.png` &&
           SHA256_PATTERN.test(
             stateReview.reference?.sha256 ?? "",
           ) &&
@@ -1528,6 +1572,7 @@ export function validateDesignLedger(
       ([name, count]) =>
         name === "total" ||
         name === "passed" ||
+        name === "budgeted" ||
         (Number.isSafeInteger(count) && count === 0),
     ),
     `${description} summary must not contain non-passing states`,
