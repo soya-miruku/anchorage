@@ -26,6 +26,7 @@ import {
   primaryContainerAction,
   removeUnavailableReason,
   requiresForceRemove,
+  statusDetail,
   statusKind,
   statusLabel,
 } from "../utils/containerPresentation";
@@ -207,7 +208,10 @@ function DetailHeader({
           </h1>
         )}
         <span className="detail-header__image">{container.image}</span>
-        <span className={`status-pill status-pill--${kind}`}>
+        <span
+          className={`status-pill status-pill--${kind}`}
+          title={statusDetail(container) ?? undefined}
+        >
           {statusLabel(container)}
         </span>
         <div className="detail-header__actions">

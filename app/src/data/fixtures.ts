@@ -303,7 +303,6 @@ export const REGISTRY_FIXTURES: RegistryImage[] = [
     stars: "14.2k",
     pulls: "10B+",
     updated: "3 days ago",
-    color: "#7fb4e8",
   },
   {
     name: "valkey/valkey",
@@ -312,7 +311,6 @@ export const REGISTRY_FIXTURES: RegistryImage[] = [
     stars: "1.3k",
     pulls: "80M+",
     updated: "6 days ago",
-    color: "#b193ec",
   },
   {
     name: "grafana/grafana",
@@ -321,7 +319,6 @@ export const REGISTRY_FIXTURES: RegistryImage[] = [
     stars: "3.9k",
     pulls: "2B+",
     updated: "yesterday",
-    color: "#e2b062",
   },
   {
     name: "traefik",
@@ -330,7 +327,6 @@ export const REGISTRY_FIXTURES: RegistryImage[] = [
     stars: "3.1k",
     pulls: "3B+",
     updated: "5 days ago",
-    color: "#8ba8f0",
   },
   {
     name: "clickhouse/clickhouse-server",
@@ -339,7 +335,6 @@ export const REGISTRY_FIXTURES: RegistryImage[] = [
     stars: "1.8k",
     pulls: "500M+",
     updated: "2 days ago",
-    color: "#e2c06a",
   },
 ];
 
@@ -472,16 +467,22 @@ export const BUILD_STEP_FIXTURES: BuildStep[] = [
   { command: "exporting layers", cached: false, duration: "7.2s" },
 ];
 
+/*
+ * Deterministic, and coherent with the figures rendered beside them. The previous series
+ * ran 22-44 next to a printed "CPU 10%", so the chart contradicted its own legend — a reader
+ * cannot tell a decorative series from a wrong one.
+ */
 export const DASHBOARD_CPU_HISTORY = [
-  27, 25, 34, 21, 23, 32, 41, 28, 37, 24, 31, 38, 26, 35, 42, 29,
-  22, 33, 39, 27, 36, 44, 31, 25, 34, 41, 28, 38, 24, 32, 43, 30,
-  26, 37, 40, 29, 35, 22, 31, 39, 27, 42, 34, 24, 36, 44, 30, 41,
+  9, 11, 12, 13, 13, 13, 11, 10, 9, 8, 8, 8, 8, 8, 7, 7,
+  6, 6, 6, 7, 8, 10, 12, 13, 14, 13, 12, 11, 9, 8, 7, 6,
+  6, 7, 7, 8, 8, 7, 7, 8, 8, 10, 11, 12, 13, 14, 13, 10,
 ];
 
+/** Percent of the fixture's 16 GB allocation; the legend prints 1.4 GB, which is ~9%. */
 export const DASHBOARD_MEMORY_HISTORY = [
-  38, 41, 35, 46, 43, 50, 39, 45, 52, 42, 48, 36, 44, 51, 40, 47,
-  54, 43, 49, 37, 45, 53, 41, 48, 35, 44, 50, 39, 47, 52, 42, 49,
-  36, 45, 51, 40, 46, 54, 43, 48, 37, 44, 52, 41, 47, 50, 39, 49,
+  9, 9, 10, 10, 10, 10, 10, 10, 10, 9, 9, 9, 9, 9, 9, 9,
+  9, 8, 8, 8, 7, 7, 7, 7, 7, 8, 8, 9, 9, 10, 10, 10,
+  10, 10, 10, 9, 9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 7, 9,
 ];
 
 export const DASHBOARD_ACTIVITY: DashboardActivity[] = [
@@ -596,7 +597,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
       "Break down image, volume and build-cache footprint layer by layer.",
     rating: "4.8",
     installs: "2.1M",
-    color: "#8ba8f0",
   },
   {
     name: "Logs Explorer",
@@ -605,7 +605,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
       "Query and correlate logs across every running container at once.",
     rating: "4.6",
     installs: "1.4M",
-    color: "#e2b062",
   },
   {
     name: "Trivy Scanner",
@@ -614,7 +613,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
       "Scan images for CVEs, misconfigurations and leaked secrets.",
     rating: "4.9",
     installs: "3.8M",
-    color: "#a89bf0",
   },
   {
     name: "Compose Watch",
@@ -622,7 +620,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
     description: "Hot-reload services when files in the build context change.",
     rating: "4.3",
     installs: "640k",
-    color: "#7fb4e8",
   },
   {
     name: "Registry Mirror",
@@ -630,7 +627,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
     description: "Pull-through cache for private and upstream registries.",
     rating: "4.1",
     installs: "310k",
-    color: "#e08a80",
   },
   {
     name: "k3s Sandbox",
@@ -639,7 +635,6 @@ export const EXTENSION_FIXTURES: AnchorageExtension[] = [
       "Single-node Kubernetes wired to the local engine socket.",
     rating: "4.7",
     installs: "980k",
-    color: "#b193ec",
   },
 ];
 

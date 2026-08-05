@@ -13,24 +13,40 @@
   --anc-on-accent: #ffffff;
   --anc-on-danger: #0d1117;
 
-  --anc-accent: #2f81f7;
-  --anc-accent-hover: #58a6ff;
+  --anc-accent: #4493f8;
+  --anc-accent-hover: #79c0ff;
   --anc-accent-deep: #1f6feb;
-  --anc-action-primary: #1f6feb;
-  --anc-action-primary-hover: #1158c7;
+  /*
+   * Primer paints links blue and primary actions green. Accent and primary are different
+   * roles, and collapsing them into one blue was the reason nothing on screen could tell a
+   * link apart from the button you are meant to press.
+   */
+  --anc-action-primary: #238636;
+  --anc-action-primary-hover: #2ea043;
   --anc-success: #3fb950;
   --anc-warning: #d29922;
   --anc-danger: #f85149;
-  --anc-violet: #a371f7;
-  --anc-blue: #2f81f7;
+  --anc-violet: #ab7df8;
+  --anc-blue: #58a6ff;
+  /*
+   * Status colours used as TEXT, lifted off their own translucent fill. Green and amber
+   * already clear WCAG AA against a 16% tint of themselves; red, violet and blue do not in
+   * every theme — GitHub dark measures 3.8:1 for accent — so they take a little white.
+   * Light mode does the same thing in the other direction. `contrast.test.ts` asserts it.
+   */
+  --anc-success-fg: var(--anc-success);
+  --anc-warning-fg: var(--anc-warning);
+  --anc-danger-fg: color-mix(in srgb, var(--anc-danger) 82%, white);
+  --anc-violet-fg: color-mix(in srgb, var(--anc-violet) 90%, white);
+  --anc-accent-fg: color-mix(in srgb, var(--anc-accent) 85%, white);
 
-  --anc-accent-rgb: 47 129 247;
-  --anc-action-primary-rgb: 31 111 235;
+  --anc-accent-rgb: 68 147 248;
+  --anc-action-primary-rgb: 35 134 54;
   --anc-success-rgb: 63 185 80;
   --anc-warning-rgb: 210 153 34;
   --anc-danger-rgb: 248 81 73;
-  --anc-violet-rgb: 163 113 247;
-  --anc-blue-rgb: 47 129 247;
+  --anc-violet-rgb: 171 125 248;
+  --anc-blue-rgb: 88 166 255;
   --anc-overlay-rgb: 255 255 255;
   --anc-contrast-rgb: 255 255 255;
   --anc-shadow-rgb: 0 0 0;
@@ -99,16 +115,28 @@
   --anc-accent: #0969da;
   --anc-accent-hover: #0550ae;
   --anc-accent-deep: #1f6feb;
-  --anc-action-primary: #0969da;
-  --anc-action-primary-hover: #0550ae;
+  --anc-action-primary: #1f883d;
+  --anc-action-primary-hover: #1a7f37;
   --anc-success: #1a7f37;
   --anc-warning: #9a6700;
   --anc-danger: #cf222e;
   --anc-violet: #8250df;
   --anc-blue: #0969da;
+  /*
+   * Status colours used as TEXT. A chip paints its label in the same hue as its own 13-16%
+   * fill, which on a light surface lands under WCAG AA — default-light success measures
+   * 3.9:1. Darkening the text and leaving the fill alone carries the hue and clears AA
+   * (6.5:1 for the same pair). Ratios follow the handoff (Anchorage v2.dc.html:42-48):
+   * amber needs the most darkening, accent the least.
+   */
+  --anc-success-fg: color-mix(in srgb, var(--anc-success) 70%, black);
+  --anc-danger-fg: color-mix(in srgb, var(--anc-danger) 70%, black);
+  --anc-warning-fg: color-mix(in srgb, var(--anc-warning) 66%, black);
+  --anc-violet-fg: color-mix(in srgb, var(--anc-violet) 72%, black);
+  --anc-accent-fg: color-mix(in srgb, var(--anc-accent) 80%, black);
 
   --anc-accent-rgb: 9 105 218;
-  --anc-action-primary-rgb: 9 105 218;
+  --anc-action-primary-rgb: 31 136 61;
   --anc-success-rgb: 26 127 55;
   --anc-warning-rgb: 154 103 0;
   --anc-danger-rgb: 207 34 46;

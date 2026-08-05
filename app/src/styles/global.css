@@ -89,6 +89,50 @@ p {
   border: 0;
 }
 
+/*
+ * Maturity level chip — Anchorage v2.dc.html:2441, colours from LVLS at :2744-2750.
+ *
+ * Each level resolves one token pair, so a hue change is a change to this block and
+ * nowhere else. The pairs currently reuse each status colour as its own foreground;
+ * when the light-mode `-fg` derivations land, only the modifiers below change.
+ */
+.level-chip {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: var(--anc-level-fg);
+  background: var(--anc-level-bg);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.level-chip--ga {
+  --anc-level-fg: var(--anc-success-fg);
+  --anc-level-bg: rgb(var(--anc-success-rgb) / 16%);
+}
+
+.level-chip--early-access {
+  --anc-level-fg: var(--anc-accent-fg);
+  --anc-level-bg: rgb(var(--anc-accent-rgb) / 16%);
+}
+
+.level-chip--beta {
+  --anc-level-fg: var(--anc-violet-fg);
+  --anc-level-bg: rgb(var(--anc-violet-rgb) / 16%);
+}
+
+.level-chip--experimental {
+  --anc-level-fg: var(--anc-warning-fg);
+  --anc-level-bg: rgb(var(--anc-warning-rgb) / 16%);
+}
+
+.level-chip--deprecated {
+  --anc-level-fg: var(--anc-danger-fg);
+  --anc-level-bg: rgb(var(--anc-danger-rgb) / 16%);
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

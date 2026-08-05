@@ -1,11 +1,33 @@
+/**
+ * Every destination in the handoff's nav (Anchorage v2.dc.html:136-236), grouped as it is
+ * there. A destination Anchorage cannot serve on this host still gets an id and a row: the
+ * product's posture is to say what it cannot do rather than to omit it, and eleven silent
+ * absences said nothing at all.
+ */
 export type ViewId =
+  // Workspace
   | "dashboard"
   | "containers"
+  | "compose"
   | "images"
   | "volumes"
   | "networks"
-  | "compose"
   | "builds"
+  | "logs"
+  | "kubernetes"
+  // AI
+  | "bosun"
+  | "models"
+  | "agents"
+  | "tools"
+  | "sandboxes"
+  // Security
+  | "scan"
+  | "hardened"
+  | "secrets"
+  | "governance"
+  // Platform
+  | "cloud"
   | "devenv"
   | "extensions"
   | "settings";
@@ -34,6 +56,7 @@ export type DevEnvironmentState = "running" | "stopped";
 export type SettingsTab =
   | "appearance"
   | "resources"
+  | "builders"
   | "engine"
   | "kubernetes"
   | "updates"
@@ -53,6 +76,8 @@ export interface LogLine {
   timestamp: string;
   level: "INFO" | "LOG" | "WARN" | "ERROR";
   message: string;
+  /** Container name, when the line came from a merged multi-source stream. */
+  source?: string;
 }
 
 export interface AnchorageContainer {
@@ -100,7 +125,6 @@ export interface RegistryImage {
   stars: string;
   pulls: string;
   updated: string;
-  color: string;
 }
 
 export interface AnchorageVolume {
@@ -554,7 +578,6 @@ export interface AnchorageExtension {
   description: string;
   rating: string;
   installs: string;
-  color: string;
 }
 
 export interface EngineResources {
@@ -851,6 +874,61 @@ export interface NetworksOperations {
   action(params: NetworksActionParams): Promise<NetworksActionResult>;
 }
 
+/**
+ * Whether the Swarm secret store answered, and why not when it did not.
+ *
+ * Docker refuses every Swarm endpoint on a node that is not a manager, which is the ordinary
+ * state of a desktop engine. A manager holding no secrets and an engine with no secret store
+ * are different facts, and the screen has to be able to say which one it is looking at.
+ */
+export interface SwarmSurface {
+  manager: boolean;
+  /** Docker's Swarm.LocalNodeState, or "unknown" when the transport could not report it. */
+  nodeState: string;
+  /** The engine's or the CLI's own words for the refusal. */
+  reason?: string;
+}
+
+/**
+ * A reference to a secret, never a secret.
+ *
+ * Docker discards the plaintext once a secret exists: no API call and no CLI command reads
+ * it back, and only the containers it is granted to ever see it. There is no field here that
+ * could hold one and no verb that could fetch one.
+ */
+export interface SecretSummary {
+  id: string;
+  name: string;
+  /** An external secret driver, when one holds the value instead of Swarm's own store. */
+  driver?: string;
+  /** RFC3339, from the Engine transport only. */
+  createdAt?: string;
+  updatedAt?: string;
+  /** Swarm's object index, which every update increments. */
+  version?: number;
+  labels: Record<string, string>;
+  /** The CLI transport formats times relative to now and joins labels into one string. */
+  createdDisplay?: string;
+  updatedDisplay?: string;
+  labelsText?: string;
+}
+
+export interface SecretsListResult {
+  context: string;
+  source: "engine-api" | "cli-json";
+  apiVersion?: string;
+  swarm: SwarmSurface;
+  secrets: SecretSummary[];
+  observedAt: string;
+  endpointHash?: string;
+  limitations: string[];
+}
+
+/** Read-only on purpose: no inspect, because there is no value; no writes, by scope. */
+export interface SecretsOperations {
+  list(context?: string): Promise<SecretsListResult>;
+}
+
 export interface VolumesOperations {
   list(context: string): Promise<VolumesListResult>;
   action(params: VolumesActionParams): Promise<Record<string, unknown>>;
@@ -886,6 +964,14 @@ export interface VolumesOperations {
     options?: { confirmedInUse?: boolean },
     context?: string,
   ): Promise<VolumeRestoreResult>;
+  /** Copies the volume into a new one; the target must not already exist. */
+  clone(
+    name: string,
+    target: string,
+    context?: string,
+  ): Promise<VolumeCloneResult>;
+  /** Discards the volume's contents. Destructive, and the volume is recreated to do it. */
+  empty(name: string, context?: string): Promise<VolumeEmptyResult>;
 }
 
 export interface CliRunParams {
@@ -996,6 +1082,41 @@ export interface SystemContexts {
   contexts: DockerContext[];
   warnings: string[];
   observedAt: string;
+}
+
+/**
+ * The CLI plugin installation, as the Docker CLI sees it.
+ *
+ * `plugins` holds both what the CLI loaded and what it skipped. The skipped entries are the
+ * reason this exists: `docker info` omits them, so a link with no target is invisible from
+ * the CLI — the command simply prints root help as though it were misspelled.
+ */
+export interface SystemPlugins {
+  protocolVersion: "1";
+  plugins: DockerCliPlugin[];
+  /** Directories searched, in the CLI's own order. */
+  searchPath: string[];
+  warnings: string[];
+  observedAt: string;
+}
+
+/** `broken` means the installation is faulty, not that a capability is unavailable. */
+export type DockerCliPluginStatus =
+  | "available"
+  | "unavailable"
+  | "degraded"
+  | "unknown"
+  | "broken";
+
+export interface DockerCliPlugin {
+  name: string;
+  version?: string;
+  vendor?: string;
+  description?: string;
+  path?: string;
+  status: DockerCliPluginStatus;
+  discoverySource: string;
+  availabilityNote?: string;
 }
 
 export type SessionMode = "pipes" | "pty";
@@ -1137,6 +1258,7 @@ export interface AnchorageBridge {
   readonly system: {
     capabilities(context?: string): Promise<SystemCapabilities>;
     contexts(context?: string): Promise<SystemContexts>;
+    plugins(context?: string): Promise<SystemPlugins>;
     snapshot(context: string, includeDiskUsage?: boolean): Promise<SystemSnapshot>;
     prune(
       context: string,
@@ -1148,6 +1270,7 @@ export interface AnchorageBridge {
   readonly builds: BuildsOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
+  readonly secrets: SecretsOperations;
   readonly cli: {
     run(params: CliRunParams): Promise<unknown>;
   };
@@ -1235,6 +1358,7 @@ export interface HostAnchorageApi {
   system?: {
     capabilities: (request?: { context?: string }) => Promise<unknown>;
     contexts?: (request?: { context?: string }) => Promise<unknown>;
+    plugins?: (request?: { context?: string }) => Promise<unknown>;
     snapshot?: (request: {
       context: string;
       includeDiskUsage?: boolean;
@@ -1254,6 +1378,11 @@ export interface HostAnchorageApi {
   compose?: {
     list: (request: { context: string; all?: boolean }) => Promise<unknown>;
     ps: (request: { context: string; project: string }) => Promise<unknown>;
+    config?: (request: {
+      context: string;
+      project: string;
+      configFiles: string[];
+    }) => Promise<unknown>;
     action: (request: ComposeActionParams) => Promise<unknown>;
   };
   images?: {
@@ -1273,6 +1402,9 @@ export interface HostAnchorageApi {
   networks?: {
     list: (request: { context: string }) => Promise<unknown>;
     action: (request: NetworksActionParams) => Promise<unknown>;
+  };
+  secrets?: {
+    list: (request: { context: string }) => Promise<unknown>;
   };
   volumes?: {
     list: (request: { context: string }) => Promise<unknown>;
@@ -1307,6 +1439,16 @@ export interface HostAnchorageApi {
       archivePath: string;
       confirmed: true;
       confirmedInUse?: boolean;
+    }) => Promise<unknown>;
+    clone?: (request: {
+      context: string;
+      name: string;
+      target: string;
+    }) => Promise<unknown>;
+    empty?: (request: {
+      context: string;
+      name: string;
+      confirmed: true;
     }) => Promise<unknown>;
   };
   cli?: {
@@ -1452,9 +1594,83 @@ export type ComposeActionInput = ComposeActionParams extends infer Variant
     : never
   : never;
 
+/**
+ * The resolved compose file, projected. Compose merges `include` before it renders, so an
+ * included service appears inline and the include entries themselves are not reported; the
+ * result's `limitations` names that and anything else the rendering does not carry.
+ */
+export interface ComposeDependsOn {
+  service: string;
+  /** `service_started`, `service_healthy` or `service_completed_successfully`. */
+  condition: string;
+  restart?: boolean;
+  /** False means Compose starts the service even when the dependency is absent. */
+  required: boolean;
+}
+
+export interface ComposeWatchRule {
+  path: string;
+  action: string;
+  target?: string;
+  ignore?: string[];
+  include?: string[];
+  /** The argv an `exec` rule runs after syncing. */
+  command?: string[];
+}
+
+export interface ComposeLifecycleHook {
+  phase: "post_start" | "pre_stop";
+  command: string[];
+  /** The hook's own user, or the service's where the hook names none. */
+  user?: string;
+  /** True only where a declared user resolves to root; an unstated one is never assumed. */
+  runsAsRoot: boolean;
+  privileged?: boolean;
+  workingDir?: string;
+}
+
+export interface ComposeConfigService {
+  name: string;
+  image?: string;
+  /** A service with a profile does not start unless that profile is selected. */
+  profiles?: string[];
+  /** The wave Compose starts it in: 0 when it waits for nothing. */
+  startOrder: number;
+  dependsOn: ComposeDependsOn[];
+  watch: ComposeWatchRule[];
+  hooks: ComposeLifecycleHook[];
+}
+
+export interface ComposeDeclaredDependency {
+  kind: "model" | "provider" | "secret" | "volume";
+  name: string;
+  /** What Compose resolves it to: a volume or secret's Docker name, a provider's type. */
+  resource?: string;
+  external?: boolean;
+  services: string[];
+}
+
+export interface ComposeConfigResult {
+  context: string;
+  project: string;
+  source: "cli-json";
+  configFiles: string[];
+  /** Ordered by start order, then by name. */
+  services: ComposeConfigService[];
+  dependencies: ComposeDeclaredDependency[];
+  observedAt: string;
+  limitations: string[];
+}
+
 export interface ComposeOperations {
   list(context: string, all?: boolean): Promise<ComposeListResult>;
   ps(project: string, context?: string): Promise<ComposePsResult>;
+  /** Resolves the project's own files; Compose cannot render a project by label alone. */
+  config(
+    project: string,
+    configFiles: string[],
+    context?: string,
+  ): Promise<ComposeConfigResult>;
   action(params: ComposeActionParams): Promise<ComposeActionResult>;
 }
 
@@ -1535,6 +1751,30 @@ export interface VolumeRestoreResult {
   volume: string;
   archivePath: string;
   observedAt: string;
+}
+
+/**
+ * Docker has no clone or empty verb. A clone streams the source's contents through the same
+ * never-started helper the browser uses into a helper on the new volume. Emptying cannot work
+ * that way — the archive endpoint writes files but cannot delete them — so the volume is
+ * removed and recreated from its own declaration, which is what `recreated` reports.
+ */
+export interface VolumeCloneResult {
+  context: string;
+  volume: string;
+  target: string;
+  entries: number;
+  sizeBytes: number;
+  observedAt: string;
+  limitations: string[];
+}
+
+export interface VolumeEmptyResult {
+  context: string;
+  volume: string;
+  recreated?: VolumeProjection;
+  observedAt: string;
+  limitations: string[];
 }
 
 /**

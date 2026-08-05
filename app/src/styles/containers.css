@@ -31,7 +31,7 @@
 
 .filter-button--active {
   background-color: rgb(var(--anc-accent-rgb) / 12%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .filter-button--active > span {
@@ -83,7 +83,7 @@
 }
 
 .container-row:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 /* Inset, like the image rows: the row sits inside a clipping scroll container, so an outset
@@ -100,9 +100,10 @@
   border-radius: 50%;
 }
 
+/* Success, not accent: accent also means "selected", and one hue cannot carry both. */
 .status-dot--running {
-  background: var(--anc-accent);
-  box-shadow: 0 0 0 3px rgb(var(--anc-accent-rgb) / 15%);
+  background: var(--anc-success);
+  box-shadow: 0 0 0 3px rgb(var(--anc-success-rgb) / 16%);
 }
 
 .status-dot--unhealthy {
@@ -118,6 +119,11 @@
 .status-dot--pulling {
   background: var(--anc-violet);
   box-shadow: 0 0 0 3px rgb(var(--anc-violet-rgb) / 16%);
+}
+
+.status-dot--transition {
+  background: var(--anc-warning);
+  box-shadow: 0 0 0 3px rgb(var(--anc-warning-rgb) / 16%);
 }
 
 .container-identity {
@@ -184,13 +190,13 @@
 }
 
 .status-pill--running {
-  background: rgb(var(--anc-accent-rgb) / 13%);
-  color: var(--anc-accent);
+  background: rgb(var(--anc-success-rgb) / 14%);
+  color: var(--anc-success-fg);
 }
 
 .status-pill--unhealthy {
   background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .status-pill--stopped {
@@ -200,7 +206,12 @@
 
 .status-pill--pulling {
   background: rgb(var(--anc-violet-rgb) / 14%);
-  color: var(--anc-violet);
+  color: var(--anc-violet-fg);
+}
+
+.status-pill--transition {
+  background: rgb(var(--anc-warning-rgb) / 14%);
+  color: var(--anc-warning-fg);
 }
 
 .pull-progress {
@@ -226,11 +237,11 @@
 }
 
 .container-metric--warning {
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .container-metric--danger {
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .container-actions {
@@ -258,16 +269,16 @@
 }
 
 .icon-action--toggle {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .icon-action--stop {
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .icon-action--delete:hover:not(:disabled) {
-  background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger-fg);
 }
 
 .empty-state {
@@ -286,7 +297,7 @@
   width: 46px;
   height: 46px;
   margin-bottom: 4px;
-  border: 1px dashed rgb(var(--anc-overlay-rgb) / 18%);
+  border: 1px dashed var(--anc-line-control);
   border-radius: 12px;
 }
 

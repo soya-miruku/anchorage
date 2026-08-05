@@ -42,6 +42,7 @@ import {
   validateImagesSearch,
   validateNetworksAction,
   validateNetworksList,
+  validateSecretsList,
   validateSystemAction,
   validateSystemSnapshot,
   validateVolumesAction,
@@ -305,6 +306,7 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
       }),
     ),
     request("networks.list", validateNetworksList({ context: "default" })),
+    request("secrets.list", validateSecretsList({ context: "default" })),
     request(
       "networks.action",
       validateNetworksAction({

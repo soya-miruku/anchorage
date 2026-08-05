@@ -1,4 +1,11 @@
 import {
+  appendActivity,
+  summariseDockerEvent,
+  updateActivity,
+  type Activity,
+} from "./activity";
+import { aggregateEngineCpuPercent } from "./engineUtilisation";
+import {
   BUILD_FIXTURES,
   DEFAULT_ENGINE_RESOURCES,
   DEFAULT_FEATURE_FLAGS,
@@ -32,6 +39,7 @@ import {
   type ThemeFamily,
 } from "../theme/appearance";
 import type {
+  ComposeConfigResult,
   AnchorageContainer,
   ContainerCreateOptions,
   ContainerRemoveOptions,
@@ -64,6 +72,8 @@ import type {
   SettingsTab,
   NetworkSummary,
   NetworksActionParams,
+  SecretSummary,
+  SwarmSurface,
   SystemActionResult,
   SystemPruneOptions,
   SystemSnapshot,
@@ -210,6 +220,24 @@ const CONTAINER_RENDER_FIELDS = [
   "progress",
 ] as const;
 
+/**
+ * Columns the list cannot answer for.
+ *
+ * The core's `Container` has no CPU or memory field — those come from `containers.stats.batch`,
+ * which the sampler writes into these same objects every 8 s because each sample costs the daemon
+ * a full collection cycle. A list refresh carrying `undefined` for them is silence, not a reading
+ * of zero, so it is carried forward rather than applied.
+ */
+const CONTAINER_SAMPLED_FIELDS = ["cpu", "memory", "memoryLimit"] as const;
+
+/**
+ * Merges a fresh list over the current rows, keeping the sampler's columns.
+ *
+ * Without this, every containers refresh blanked CPU and MEMORY: reconciliation compared the
+ * sampled fields against a payload that never carries them, concluded the row had changed, and
+ * replaced it with the bare one. Docker healthcheck events refresh the list far more often than
+ * the 8 s sampler refills it, so the columns were empty most of the time.
+ */
 export const reconcileContainerIdentity = (
   previous: AnchorageContainer[],
   next: AnchorageContainer[],
@@ -219,15 +247,28 @@ export const reconcileContainerIdentity = (
   let changed = previous.length !== next.length;
   const merged = next.map((candidate, index) => {
     const existing = byId.get(candidate.id);
+    // A container that is no longer running consumes nothing, and the list is the only thing
+    // that knows it stopped. Carrying the last sample forward there would leave the table
+    // asserting that an exited container is still burning CPU.
+    const carried =
+      existing && candidate.state === "running"
+        ? CONTAINER_SAMPLED_FIELDS.reduce<AnchorageContainer>(
+            (row, field) =>
+              row[field] === undefined && existing[field] !== undefined
+                ? { ...row, [field]: existing[field] }
+                : row,
+            candidate,
+          )
+        : candidate;
     if (
       existing &&
-      CONTAINER_RENDER_FIELDS.every((field) => existing[field] === candidate[field])
+      CONTAINER_RENDER_FIELDS.every((field) => existing[field] === carried[field])
     ) {
       if (previous[index] !== existing) changed = true;
       return existing;
     }
     changed = true;
-    return candidate;
+    return carried;
   });
   return changed ? merged : previous;
 };
@@ -308,6 +349,12 @@ const POLL_FAILURE_TOLERANCE = 3;
 const LIST_STATS_BATCH_LIMIT = 32;
 /** Slower than the 2s container poll: metrics are supplementary, not authoritative. */
 const LIST_STATS_INTERVAL_MS = 8_000;
+/** One subprocess per source, so this is a real resource bound rather than a UI preference. */
+const MERGED_LOG_SOURCE_LIMIT = 6;
+const MERGED_LOG_LINE_LIMIT = 2_000;
+const MERGED_LOG_TAIL = 50;
+/** Matches the chart's own bar count, so the series is exactly what is drawn. */
+const ENGINE_HISTORY_POINTS = 48;
 
 const classifyEngineFailure = (
   reason: unknown,
@@ -387,13 +434,14 @@ export function useAnchorageStore() {
     useState<SystemSnapshot | null>(null);
   const [hostDomainState, setHostDomainState] = useState<
     Record<
-      "snapshot" | "images" | "volumes",
+      "snapshot" | "images" | "volumes" | "networks",
       { status: "idle" | "loading" | "ready" | "error"; error?: string }
     >
   >({
     snapshot: { status: "idle" },
     images: { status: "idle" },
     volumes: { status: "idle" },
+    networks: { status: "idle" },
   });
   const [inspectByContainer, setInspectByContainer] = useState<
     Record<string, ContainerInspectResult>
@@ -445,6 +493,12 @@ export function useAnchorageStore() {
    * a second cancels the first — the same rule Docker Desktop applies to its pull panel.
    */
   const [imageTransfer, setImageTransfer] = useState<{
+    /**
+     * Which screen owns this session. Image transfers and Compose actions share one slot, so
+     * without this a `compose down` rendered its panel on Images and an image pull rendered one
+     * on Compose. Each screen shows only its own.
+     */
+    kind: "image" | "compose";
     /** "Pull" | "Save" | "Load" | "Export" — what the progress panel is reporting on. */
     title: string;
     reference: string;
@@ -464,6 +518,15 @@ export function useAnchorageStore() {
   const [buildsError, setBuildsError] = useState<string | null>(null);
   const [buildDetail, setBuildDetail] = useState<BuildsInspectResult | null>(null);
   const [selectedBuildRef, setSelectedBuildRef] = useState<string | null>(null);
+  const [secrets, setSecrets] = useState<SecretSummary[]>([]);
+  // Kept beside the status rather than folded into it: an engine that is not a Swarm manager
+  // is neither an error nor a ready empty list, and the screen has to say which it is.
+  const [secretsSwarm, setSecretsSwarm] = useState<SwarmSurface | null>(null);
+  const [secretsStatus, setSecretsStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [secretsError, setSecretsError] = useState<string | null>(null);
+  const [secretsLimitations, setSecretsLimitations] = useState<string[]>([]);
   const [composeProjectList, setComposeProjectList] = useState<ComposeProject[]>([]);
   const [composeStatus, setComposeStatus] = useState<
     "idle" | "loading" | "ready" | "unavailable" | "error"
@@ -500,7 +563,7 @@ export function useAnchorageStore() {
     message: string;
   } | null>(null);
   const [volumeTransfer, setVolumeTransfer] = useState<{
-    kind: "backup" | "restore";
+    kind: "backup" | "restore" | "clone" | "empty";
     volume: string;
     status: "running" | "done";
     detail?: string;
@@ -678,18 +741,31 @@ export function useAnchorageStore() {
   const refreshNetworks = useCallback(async (): Promise<NetworkSummary[]> => {
     if (!isHost) return [];
     const context = dockerContextRef.current;
+    setHostDomainState((current) => ({
+      ...current,
+      networks: { status: "loading" },
+    }));
     try {
       const result = await bridge.networks.list(context);
       if (context !== dockerContextRef.current) return [];
       setNetworks(result.networks);
+      setHostDomainState((current) => ({
+        ...current,
+        networks: { status: "ready" },
+      }));
       return result.networks;
     } catch (reason) {
       if (context === dockerContextRef.current) {
-        setError(
-          reason instanceof Error ? reason.message : "Network list failed",
-        );
+        setHostDomainState((current) => ({
+          ...current,
+          networks: {
+            status: "error",
+            error:
+              reason instanceof Error ? reason.message : "Network list failed",
+          },
+        }));
       }
-      return [];
+      throw reason;
     }
   }, [bridge, isHost]);
 
@@ -1815,6 +1891,11 @@ export function useAnchorageStore() {
         try {
           const event = JSON.parse(line) as { Type?: string };
           if (typeof event.Type === "string") note(event.Type);
+          // The stream was previously read only to decide which list to re-fetch, and the event
+          // itself thrown away — so a container dying produced a silent table refresh and no
+          // statement that anything had happened.
+          const summary = summariseDockerEvent(event);
+          if (summary) recordActivity(summary);
         } catch {
           // A malformed line is not worth tearing the stream down for.
         }
@@ -1875,15 +1956,21 @@ export function useAnchorageStore() {
   ]);
 
   /**
-   * Populate the list's CPU and MEMORY columns.
+   * Populate the list's CPU and MEMORY columns, and the engine aggregates behind them.
    *
    * Those columns rendered a permanent em-dash in host mode because stats were only ever
-   * fetched for the single selected container. This samples the running containers actually
-   * on screen, bounded so a large daemon cannot turn a poll into hundreds of requests, and
-   * skipped entirely while the tab is hidden.
+   * fetched for the single selected container. This samples the running containers, bounded
+   * so a large daemon cannot turn a poll into hundreds of requests, and skipped while the tab
+   * is hidden.
+   *
+   * It deliberately does NOT stop when you leave the Containers view. `engineCpu` and
+   * `engineMemory` are derived from the same per-container samples, and they are rendered by
+   * the sidebar engine card and the status bar — chrome that is on screen everywhere. Gating
+   * this on the list froze both the moment you navigated to any other destination, which read
+   * as an idle engine rather than as a stopped sampler.
    */
   useEffect(() => {
-    if (!isHost || engineStatus !== "ready" || view !== "containers") return;
+    if (!isHost || engineStatus !== "ready") return;
     let disposed = false;
     let inFlight = false;
 
@@ -1932,7 +2019,164 @@ export function useAnchorageStore() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [bridge, engineStatus, isHost, view]);
+  }, [bridge, engineStatus, isHost]);
+
+  /**
+   * The unified log stream.
+   *
+   * One `docker logs --follow` session per selected container, merged in arrival order. It is
+   * arrival order rather than timestamp order on purpose: the daemon's timestamps come from
+   * each container's own clock and reordering by them would silently move lines relative to
+   * what actually happened.
+   *
+   * Bounded deliberately. Every source is a subprocess, and this host runs 54 containers; a
+   * "follow everything" button would open 54 of them. The cap is disclosed rather than
+   * silently applied — a truncated source list that looks complete is worse than a small one
+   * that says so.
+   */
+  const [logSources, setLogSources] = useState<string[]>([]);
+  const [mergedLogLines, setMergedLogLines] = useState<LogLine[]>([]);
+  const [logStreamErrors, setLogStreamErrors] = useState<Record<string, string>>({});
+  const [mergedLogFilter, setMergedLogFilter] = useState("");
+  const mergedSequenceRef = useRef(0);
+
+  const toggleLogSource = useCallback((id: string) => {
+    setLogSources((current) =>
+      current.includes(id)
+        ? current.filter((entry) => entry !== id)
+        : current.length >= MERGED_LOG_SOURCE_LIMIT
+          ? current
+          : [...current, id],
+    );
+  }, []);
+
+  const clearMergedLogs = useCallback(() => {
+    // Discards the buffer, not the sources: the streams stay open. "Clear" that also stopped
+    // following would be two actions wearing one label.
+    setMergedLogLines([]);
+  }, []);
+
+  useEffect(() => {
+    if (!isHost || engineStatus !== "ready" || logSources.length === 0) return;
+    const active = containersRef.current.filter((container) =>
+      logSources.includes(container.id),
+    );
+    if (active.length === 0) return;
+
+    let disposed = false;
+    const owners = new Map<string, string>();
+    const partials = new Map<string, string>();
+    const unsubscribers: Array<() => void> = [];
+
+    const appendFrom = (containerId: string, name: string, text: string) => {
+      const carried = partials.get(containerId) ?? "";
+      const lines = `${carried}${text}`.split(/\r?\n/u);
+      partials.set(containerId, lines.pop() ?? "");
+      if (lines.length === 0) return;
+      const additions = lines
+        .filter((line) => line.trim().length > 0)
+        .map((line): LogLine => {
+          mergedSequenceRef.current += 1;
+          // The daemon prefixes an RFC3339 stamp because --timestamps is set; it is split off
+          // so the column is the container's own clock rather than the time we received it.
+          const match = /^(\S+)\s([\s\S]*)$/u.exec(line);
+          const stamped = match && match[1].includes("T");
+          return {
+            id: `${containerId}-merged-${mergedSequenceRef.current}`,
+            timestamp: stamped ? match[1].slice(11, 19) : formatClock(),
+            level: /\berror\b/iu.test(line)
+              ? "ERROR"
+              : /\bwarn(ing)?\b/iu.test(line)
+                ? "WARN"
+                : "INFO",
+            message: stamped ? match[2] : line,
+            source: name,
+          };
+        });
+      if (additions.length === 0) return;
+      setMergedLogLines((current) =>
+        [...current, ...additions].slice(-MERGED_LOG_LINE_LIMIT),
+      );
+    };
+
+    for (const container of active) {
+      const unsubscribe = bridge.sessions.subscribe((event) => {
+        const owner = owners.get(container.id);
+        if (!owner || event.payload.sessionId !== owner) return;
+        if (event.event === "session.output") {
+          appendFrom(container.id, container.name, decodeSessionData(event));
+          // Acknowledged so the core's backpressure window advances; an unacked stream
+          // stalls once the window fills, which looks exactly like a quiet container.
+          void bridge.sessions
+            .ack({
+              sessionId: event.payload.sessionId,
+              throughSequence: event.payload.sequence,
+            })
+            .catch(() => undefined);
+        } else if (event.event === "session.error") {
+          setLogStreamErrors((current) => ({
+            ...current,
+            [container.name]: "The daemon stopped this log stream.",
+          }));
+        }
+      });
+      unsubscribers.push(unsubscribe);
+
+      void bridge.sessions
+        .start({
+          context: dockerContextRef.current,
+          argv: [
+            "logs",
+            "--timestamps",
+            "--tail",
+            String(MERGED_LOG_TAIL),
+            "--follow",
+            container.id,
+          ],
+          mode: "pipes",
+          outputWindowBytes: 64 * 1024,
+          maxOutputBytes: 16 * 1024 * 1024,
+        })
+        .then((result) => {
+          if (disposed) {
+            void Promise.resolve(
+              bridge.sessions.cancel({ sessionId: result.sessionId, gracePeriodMs: 250 }),
+            ).catch(() => undefined);
+            return;
+          }
+          owners.set(container.id, result.sessionId);
+        })
+        .catch((reason: unknown) => {
+          if (disposed) return;
+          // A logging driver the daemon cannot read back fails here rather than returning
+          // nothing, and it fails per source — one unreadable container must not look like a
+          // dead stream for the others.
+          setLogStreamErrors((current) => ({
+            ...current,
+            [container.name]:
+              reason instanceof Error ? reason.message : "Log stream failed",
+          }));
+        });
+    }
+
+    return () => {
+      disposed = true;
+      for (const unsubscribe of unsubscribers) unsubscribe();
+      for (const sessionId of owners.values()) {
+        void Promise.resolve(
+          bridge.sessions.cancel({ sessionId, gracePeriodMs: 250 }),
+        ).catch(() => undefined);
+      }
+    };
+  }, [bridge, engineStatus, isHost, logSources]);
+
+  const filteredLogLines = useMemo(() => {
+    const needle = mergedLogFilter.trim().toLocaleLowerCase();
+    if (!needle) return mergedLogLines;
+    return mergedLogLines.filter((line) =>
+      `${line.source ?? ""} ${line.message}`.toLocaleLowerCase().includes(needle),
+    );
+  }, [mergedLogFilter, mergedLogLines]);
 
   const [filePath, setFilePath] = useState("/");
   // Upload targets whichever directory is on screen when the picker resolves.
@@ -2105,14 +2349,58 @@ export function useAnchorageStore() {
       ).length,
     [containers],
   );
+  /**
+   * Rolling history behind the dashboard's CPU and memory charts.
+   *
+   * The Engine exposes per-container `/stats` and keeps no aggregate history, so there is
+   * nothing to backfill from — the series can only be accumulated from the samples as they
+   * arrive. Host mode showed a static fact list instead of the charts precisely because this
+   * did not exist; it does now that the sampler runs on every destination rather than only
+   * on the containers list.
+   *
+   * Seeded empty rather than zero-filled: a chart of invented zeroes would read as an idle
+   * engine for the first minute after launch.
+   */
+  /**
+   * Everything that is happening or just happened — jobs Anchorage started and events Docker
+   * reported. See store/activity.ts for why those share one model.
+   */
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const recordActivity = useCallback((entry: Activity) => {
+    setActivities((current) => appendActivity(current, entry));
+  }, []);
+  const patchActivity = useCallback((id: string, patch: Partial<Activity>) => {
+    setActivities((current) => updateActivity(current, id, patch));
+  }, []);
+  const markActivitiesRead = useCallback(() => {
+    setActivities((current) =>
+      current.every((item) => item.read)
+        ? current
+        : current.map((item) => (item.read ? item : { ...item, read: true })),
+    );
+  }, []);
+  const dismissActivity = useCallback((id: string) => {
+    setActivities((current) => current.filter((item) => item.id !== id));
+  }, []);
+  const unreadActivityCount = useMemo(
+    () => activities.filter((item) => !item.read).length,
+    [activities],
+  );
+
+  const [engineHistory, setEngineHistory] = useState<{
+    cpu: number[];
+    memory: number[];
+  }>({ cpu: [], memory: [] });
+
+  // Divided by the engine's real core count, not a constant. This was `/ 8`, which overstated
+  // load eightfold on a 64-core host; see store/engineUtilisation.ts.
   const engineCpu = useMemo(
     () =>
-      containers.reduce(
-        (total, container) =>
-          total + (container.state === "running" ? (container.cpu ?? 0) : 0),
-        0,
-      ) / 8,
-    [containers],
+      aggregateEngineCpuPercent(
+        containers,
+        systemSnapshot?.engine?.cpus,
+      ) ?? 0,
+    [containers, systemSnapshot],
   );
   const engineMemory = useMemo(
     () =>
@@ -2123,6 +2411,15 @@ export function useAnchorageStore() {
       ) / 1024,
     [containers],
   );
+
+  useEffect(() => {
+    if (!isHost || engineStatus !== "ready") return;
+    setEngineHistory((current) => ({
+      cpu: [...current.cpu, engineCpu].slice(-ENGINE_HISTORY_POINTS),
+      memory: [...current.memory, engineMemory].slice(-ENGINE_HISTORY_POINTS),
+    }));
+  }, [engineCpu, engineMemory, engineStatus, isHost]);
+
 
   const visibleLogs = useMemo(() => {
     if (!selectedContainer) return [];
@@ -2329,7 +2626,20 @@ export function useAnchorageStore() {
    */
   const pruneSystem = useCallback(
     async (options: SystemPruneOptions = {}) => {
-      if (!isHost) return;
+      if (!isHost) {
+        // The browser preview reclaims across the same three domains a real system prune
+        // does, against fixture state. It previously did nothing, which is why the button
+        // beside it had to be relabelled to the narrower verb it actually performed.
+        setImages((current) => current.filter((image) => !image.reclaimable));
+        setContainers((current) =>
+          current.filter(
+            (container) =>
+              !["exited", "dead", "stopped", "created"].includes(container.state),
+          ),
+        );
+        setVolumes((current) => current.filter((volume) => volume.usedBy));
+        return;
+      }
       setSystemPrunePending(true);
       try {
         let result: SystemActionResult;
@@ -2565,6 +2875,7 @@ export function useAnchorageStore() {
    */
   const runTransferSession = useCallback(
     async (options: {
+      kind: "image" | "compose";
       title: string;
       reference: string;
       failureMessage: string;
@@ -2620,6 +2931,11 @@ export function useAnchorageStore() {
                 }
               : current,
           );
+          patchActivity(activityId, {
+            state: "failed",
+            detail: `${event.payload.code}: ${event.payload.message}`,
+            endedAt: new Date().toISOString(),
+          });
         } else if (event.event === "session.exited") {
           setImageTransfer((current) =>
             current
@@ -2636,6 +2952,16 @@ export function useAnchorageStore() {
                 }
               : current,
           );
+          const ok = event.payload.exitCode === 0 && !event.payload.timedOut;
+          patchActivity(activityId, {
+            state: ok ? "succeeded" : "failed",
+            detail: ok
+              ? undefined
+              : event.payload.timedOut
+                ? `${options.title} timed out`
+                : `Exited with code ${event.payload.exitCode}`,
+            endedAt: new Date().toISOString(),
+          });
           finish();
         }
       };
@@ -2663,10 +2989,24 @@ export function useAnchorageStore() {
       };
       transferCleanupRef.current = cleanup;
       setImageTransfer({
+        kind: options.kind,
         title: options.title,
         reference: options.reference,
         status: "starting",
         output: "",
+      });
+      // The same session, recorded where it can be seen from any screen. The inline panel stays
+      // for the screen that started the work; this is what makes a failure visible to an operator
+      // who has already navigated away.
+      const activityId = `job:${options.kind}:${options.reference}:${Date.now()}`;
+      recordActivity({
+        id: activityId,
+        kind: "job",
+        state: "running",
+        title: options.title,
+        subject: options.reference,
+        startedAt: new Date().toISOString(),
+        read: false,
       });
       try {
         const result = await options.start();
@@ -2772,6 +3112,38 @@ export function useAnchorageStore() {
     [bridge, isHost],
   );
 
+  /**
+   * Loads Swarm secret references.
+   *
+   * A non-manager engine is the common case on Linux and comes back as a successful result
+   * carrying `swarm.manager: false`, not as a rejection — so the error branch here is only
+   * for a request that genuinely failed. Collapsing the two would make "this engine has no
+   * secret store" look like "the secret list broke", and both would look like "no secrets".
+   */
+  const refreshSecrets = useCallback(async () => {
+    if (!isHost) return;
+    const context = dockerContextRef.current;
+    setSecretsStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.secrets.list(context);
+      if (context !== dockerContextRef.current) return;
+      setSecrets(result.secrets);
+      setSecretsSwarm(result.swarm);
+      setSecretsLimitations(result.limitations);
+      setSecretsStatus("ready");
+      setSecretsError(null);
+    } catch (reason) {
+      if (context !== dockerContextRef.current) return;
+      setSecrets([]);
+      setSecretsSwarm(null);
+      setSecretsLimitations([]);
+      setSecretsStatus("error");
+      setSecretsError(
+        reason instanceof Error ? reason.message : "Secret list failed",
+      );
+    }
+  }, [bridge, isHost]);
+
   const refreshCompose = useCallback(async () => {
     if (!isHost) return;
     setComposeStatus((current) => (current === "ready" ? "ready" : "loading"));
@@ -2823,12 +3195,63 @@ export function useAnchorageStore() {
    * container list is refreshed on completion because a compose verb changes many containers
    * at once and the label-derived groupings would otherwise lag.
    */
+  /**
+   * The resolved configuration for a project, which is where start order, watch rules,
+   * lifecycle hooks and declared dependencies live. `compose ps` reports running state and
+   * carries none of it, so the detail panels need this separate read.
+   *
+   * Fetched per project rather than for all of them: `compose config` renders and resolves
+   * the whole file, which is a real cost on a large project, and only the expanded one is
+   * on screen.
+   */
+  const [composeConfigs, setComposeConfigs] = useState<
+    Record<string, ComposeConfigResult>
+  >({});
+  const [composeConfigPending, setComposeConfigPending] = useState<string | null>(
+    null,
+  );
+  const [composeConfigError, setComposeConfigError] = useState<string | null>(null);
+
+  const loadComposeConfig = useCallback(
+    async (project: string, configFiles: string[]) => {
+      if (!isHost || !project) return;
+      // `config` renders files by path; a project discovered by label alone has none, and
+      // asking anyway would resolve whatever happens to sit in the working directory.
+      if (configFiles.length === 0) {
+        setComposeConfigError(
+          `${project} was discovered by label and reports no compose file, so its configuration cannot be resolved.`,
+        );
+        return;
+      }
+      setComposeConfigPending(project);
+      setComposeConfigError(null);
+      try {
+        const result = await bridge.compose.config(
+          project,
+          configFiles,
+          dockerContextRef.current,
+        );
+        setComposeConfigs((current) => ({ ...current, [project]: result }));
+      } catch (reason) {
+        setComposeConfigError(
+          reason instanceof Error ? reason.message : "Compose config failed",
+        );
+      } finally {
+        setComposeConfigPending((current) =>
+          current === project ? null : current,
+        );
+      }
+    },
+    [bridge, isHost],
+  );
+
   const runComposeAction = useCallback(
     async (params: ComposeActionInput) => {
       if (!isHost) return;
       const label =
         params.action.charAt(0).toUpperCase() + params.action.slice(1);
       await runTransferSession({
+        kind: "compose",
         title: `Compose ${label}`,
         reference: params.project,
         failureMessage: `Compose ${params.action} failed`,
@@ -2978,6 +3401,66 @@ export function useAnchorageStore() {
     [bridge, isHost],
   );
 
+  const dismissVolumeError = useCallback(() => setVolumeBrowseError(null), []);
+
+  const cloneVolume = useCallback(
+    async (name: string, target: string) => {
+      if (!isHost) return;
+      setVolumeBrowseError(null);
+      setVolumeTransfer({ kind: "clone", volume: name, status: "running" });
+      try {
+        const result = await bridge.volumes.clone(
+          name,
+          target,
+          dockerContextRef.current,
+        );
+        setVolumeTransfer({
+          kind: "clone",
+          volume: name,
+          status: "done",
+          // The core only reports the driver-option limitation when the source actually has
+          // options, so it cannot be stated before the copy runs. Dropping it here would
+          // lose the one case where the copy is least interchangeable with its source.
+          detail: [`${result.entries} entries copied to ${result.target}`, ...result.limitations].join(" "),
+        });
+        await refreshVolumes();
+      } catch (reason) {
+        setVolumeTransfer(null);
+        setVolumeBrowseError(
+          reason instanceof Error ? reason.message : "Volume clone failed",
+        );
+      }
+    },
+    [bridge, isHost, refreshVolumes],
+  );
+
+  const emptyVolume = useCallback(
+    async (name: string) => {
+      if (!isHost) return;
+      setVolumeBrowseError(null);
+      setVolumeTransfer({ kind: "empty", volume: name, status: "running" });
+      try {
+        const emptied = await bridge.volumes.empty(name, dockerContextRef.current);
+        setVolumeTransfer({
+          kind: "empty",
+          volume: name,
+          status: "done",
+          detail: [
+            "Volume emptied; the volume itself was recreated.",
+            ...emptied.limitations,
+          ].join(" "),
+        });
+        await refreshVolumes();
+      } catch (reason) {
+        setVolumeTransfer(null);
+        setVolumeBrowseError(
+          reason instanceof Error ? reason.message : "Emptying the volume failed",
+        );
+      }
+    },
+    [bridge, isHost, refreshVolumes],
+  );
+
   const restoreVolume = useCallback(
     async (name: string, archivePath: string, confirmedInUse = false) => {
       if (!isHost) return;
@@ -3029,26 +3512,61 @@ export function useAnchorageStore() {
    * which took over two minutes for a 1 GB image here — opening a detail panel must not do
    * that. Subsequent analyses of the same image return from Scout's cache in seconds.
    */
+  /**
+   * Scout analysis, recorded in the activity log because it is the longest-running thing here.
+   *
+   * The core admits one scan at a time through a semaphore, and Scout indexes an image the first
+   * time it sees one — minutes of CPU and IO. Until this was logged, the only sign of that was a
+   * disabled button on the screen that started it, so navigating away lost the job entirely.
+   */
   const analyzeImage = useCallback(
     async (reference: string) => {
       if (!isHost || !reference) return;
       setScoutPending(reference);
       setScoutError(null);
+      const activityId = `job:scan:${reference}:${Date.now()}`;
+      recordActivity({
+        id: activityId,
+        kind: "job",
+        state: "running",
+        title: "Security scan",
+        subject: reference,
+        detail: "Docker Scout indexes an image the first time it sees one, which can take minutes.",
+        startedAt: new Date().toISOString(),
+        read: false,
+      });
       try {
         const result = await bridge.images.scout(
           reference,
           dockerContextRef.current,
         );
         setScoutByReference((current) => ({ ...current, [reference]: result }));
+        // Scout reports severities in upper case (see ScanScreen's SEVERITIES). Reading them
+        // in lower case silently yields 0 and would claim a clean image for every scan.
+        const critical = result?.summary?.CRITICAL ?? 0;
+        const high = result?.summary?.HIGH ?? 0;
+        patchActivity(activityId, {
+          state: "succeeded",
+          detail:
+            critical + high > 0
+              ? `${critical} critical, ${high} high`
+              : "No critical or high findings",
+          endedAt: new Date().toISOString(),
+        });
       } catch (reason) {
-        setScoutError(
-          reason instanceof Error ? reason.message : "Image analysis failed",
-        );
+        const message =
+          reason instanceof Error ? reason.message : "Image analysis failed";
+        setScoutError(message);
+        patchActivity(activityId, {
+          state: "failed",
+          detail: message,
+          endedAt: new Date().toISOString(),
+        });
       } finally {
         setScoutPending((current) => (current === reference ? null : current));
       }
     },
-    [bridge, isHost],
+    [bridge, isHost, patchActivity, recordActivity],
   );
 
   /**
@@ -3063,6 +3581,7 @@ export function useAnchorageStore() {
     async (reference: string, registry: string) => {
       if (!isHost || !reference) return;
       await runTransferSession({
+        kind: "image",
         title: "Push",
         reference: `${reference} → ${registry}`,
         failureMessage: "Image push failed",
@@ -3086,6 +3605,7 @@ export function useAnchorageStore() {
         return;
       }
       await runTransferSession({
+        kind: "image",
         title: "Pull",
         reference: name,
         failureMessage: "Image pull failed",
@@ -3113,6 +3633,7 @@ export function useAnchorageStore() {
     async (reference: string, archivePath: string, overwrite = false) => {
       if (!isHost) return;
       await runTransferSession({
+        kind: "image",
         title: "Save",
         reference: `${reference} → ${archivePath}`,
         failureMessage: "Image save failed",
@@ -3135,6 +3656,7 @@ export function useAnchorageStore() {
     async (archivePath: string) => {
       if (!isHost) return;
       await runTransferSession({
+        kind: "image",
         title: "Load",
         reference: archivePath,
         failureMessage: "Image load failed",
@@ -3161,6 +3683,7 @@ export function useAnchorageStore() {
     async (container: AnchorageContainer, archivePath: string, overwrite = false) => {
       if (!isHost) return;
       await runTransferSession({
+        kind: "image",
         title: "Export",
         reference: `${container.name} → ${archivePath}`,
         failureMessage: "Container export failed",
@@ -3538,6 +4061,10 @@ export function useAnchorageStore() {
     engineStatusMessage,
     dockerContext,
     systemSnapshot,
+    activities,
+    unreadActivityCount,
+    markActivitiesRead,
+    dismissActivity,
     hostDomainState,
     selectedInspect:
       selectedId === null ? null : inspectByContainer[selectedId] ?? null,
@@ -3606,7 +4133,21 @@ export function useAnchorageStore() {
     containerCreatePending,
     availableContexts,
     selectDockerContext,
+    logSources,
+    mergedLogLines,
+    filteredLogLines,
+    logStreamErrors,
+    mergedLogFilter,
+    setMergedLogFilter,
+    toggleLogSource,
+    clearMergedLogs,
+    mergedLogSourceLimit: MERGED_LOG_SOURCE_LIMIT,
+    engineHistory,
     composeProjects,
+    composeConfigs,
+    composeConfigPending,
+    composeConfigError,
+    loadComposeConfig,
     composeFilter,
     setComposeFilter,
     pauseContainer,
@@ -3657,6 +4198,9 @@ export function useAnchorageStore() {
     browseVolume,
     uploadVolumeFile,
     backupVolume,
+    cloneVolume,
+    emptyVolume,
+    dismissVolumeError,
     restoreVolume,
     volumeTransfer,
     volumeInUseRestore,
@@ -3674,6 +4218,12 @@ export function useAnchorageStore() {
     selectedBuildRef,
     refreshBuilds,
     selectBuildRecord,
+    secrets,
+    secretsSwarm,
+    secretsStatus,
+    secretsError,
+    secretsLimitations,
+    refreshSecrets,
     composeProjectList,
     composeStatus,
     composeError,

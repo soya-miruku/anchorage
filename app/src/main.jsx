@@ -22,6 +22,7 @@ import "./styles/workspace.css";
 import "./styles/dashboard.css";
 import "./styles/resources.css";
 import "./styles/builds.css";
+import "./styles/scan.css";
 import "./styles/development.css";
 import "./styles/settings.css";
 import "./styles/states.css";

@@ -1,0 +1,200 @@
+/*
+ * Monochrome — the handoff's fourth family (Anchorage v2.dc.html:40-41).
+ *
+ * Not a fourth palette so much as an accessibility harness. Every status colour here is a
+ * grey, separated by lightness rather than hue, so anything in the product that encodes
+ * meaning in hue alone stops encoding anything at all. Danger is furthest from the surface
+ * because it is the most urgent, then success, accent, blue, warning and violet.
+ *
+ * That ordering is load-bearing: if two statuses land on the same lightness step here, they
+ * are indistinguishable to anyone reading by colour alone in every other theme too.
+ *
+ * The steps are retuned from the handoff's own greys (Anchorage v2.dc.html:40-41), which do
+ * not survive the test this theme exists to be: its violet fails WCAG AA against its own
+ * fill in both modes, its light amber fails too, and its green (#cfcfcf) and accent
+ * (#d0d0d0) are one value apart — a healthy container and a selected row rendered the same
+ * colour. Hues and ordering are the handoff's; the lightness values clear AA and stay a
+ * measurable distance apart. `scripts/theme-contrast.test.mjs` asserts both.
+ */
+
+:root[data-theme="mono"][data-color-mode="dark"] {
+  color-scheme: dark;
+
+  --anc-desk: #0a0a0a;
+  --anc-desk-glow: #262626;
+  --anc-app: #141414;
+  --anc-panel: #1c1c1c;
+  --anc-input: #101010;
+  --anc-code: #101010;
+  --anc-table-head: #1f1f1f;
+  --anc-surface-elevated: #262626;
+  --anc-status-neutral: #636363;
+  --anc-on-accent: #141414;
+  --anc-on-danger: #141414;
+
+  --anc-accent: #bebebe;
+  --anc-accent-hover: #ffffff;
+  --anc-accent-deep: #a0a0a0;
+  --anc-action-primary: #f0f0f0;
+  --anc-action-primary-hover: #ffffff;
+  --anc-success: #d6d6d6;
+  --anc-warning: #a6a6a6;
+  --anc-danger: #f0f0f0;
+  --anc-violet: #999999;
+  --anc-blue: #b0b0b0;
+  /*
+   * Every status already clears AA against its own fill here — greyscale separation is what
+   * this theme is for — so each -fg aliases its base. Lifting them would compress the
+   * lightness ladder the theme depends on.
+   */
+  --anc-success-fg: var(--anc-success);
+  --anc-warning-fg: var(--anc-warning);
+  --anc-danger-fg: var(--anc-danger);
+  --anc-violet-fg: var(--anc-violet);
+  --anc-accent-fg: var(--anc-accent);
+
+  --anc-accent-rgb: 190 190 190;
+  --anc-action-primary-rgb: 240 240 240;
+  --anc-success-rgb: 214 214 214;
+  --anc-warning-rgb: 166 166 166;
+  --anc-danger-rgb: 240 240 240;
+  --anc-violet-rgb: 153 153 153;
+  --anc-blue-rgb: 176 176 176;
+  --anc-overlay-rgb: 255 255 255;
+  --anc-contrast-rgb: 255 255 255;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 10 10 10;
+  --anc-code-rgb: 16 16 16;
+  --anc-inset-rgb: 5 5 5;
+
+  --anc-text-primary: #f0f0f0;
+  --anc-text-strong: #e4e4e4;
+  --anc-text-body: #d4d4d4;
+  --anc-text-mono: #c8c8c8;
+  --anc-text-secondary: #a0a0a0;
+  --anc-text-muted: #909090;
+  --anc-text-dim: #808080;
+  --anc-text-dimmer: #707070;
+  --anc-text-faint: #636363;
+  --anc-text-quiet: #545454;
+  --anc-text-subdued: #6a6a6a;
+  --anc-text-emphasis-muted: #a0a0a0;
+  --anc-update-text: #d4d4d4;
+
+  --anc-line-hairline: rgba(255, 255, 255, 0.045);
+  --anc-line-border: #262626;
+  --anc-line-strong: #333333;
+  --anc-line-control: #454545;
+
+  --anc-scrim: rgba(10, 10, 10, 0.78);
+  --anc-scrim-soft: rgba(10, 10, 10, 0.68);
+  --anc-control-neutral: #454545;
+  --anc-control-neutral-hover: #636363;
+  --anc-control-close: #3a3a3a;
+  --anc-error-surface: #262626;
+  --anc-error-text: #f0f0f0;
+  --anc-scrollbar: rgba(255, 255, 255, 0.14);
+  --anc-scrollbar-hover: rgba(255, 255, 255, 0.26);
+
+  --anc-terminal-background: #0a0a0a;
+  --anc-terminal-foreground: #f0f0f0;
+  --anc-terminal-cursor: #bebebe;
+  --anc-terminal-selection: #454545;
+  --anc-terminal-black: #0a0a0a;
+  --anc-terminal-red: #f0f0f0;
+  --anc-terminal-green: #d6d6d6;
+  --anc-terminal-yellow: #a6a6a6;
+  --anc-terminal-blue: #b0b0b0;
+  --anc-terminal-magenta: #999999;
+  --anc-terminal-cyan: #c8c8c8;
+  --anc-terminal-white: #f0f0f0;
+}
+
+:root[data-theme="mono"][data-color-mode="light"] {
+  color-scheme: light;
+
+  --anc-desk: #e8e8e8;
+  --anc-desk-glow: #ffffff;
+  --anc-app: #ffffff;
+  --anc-panel: #fafafa;
+  --anc-input: #f6f6f6;
+  --anc-code: #f6f6f6;
+  --anc-table-head: #f2f2f2;
+  --anc-surface-elevated: #ffffff;
+  --anc-status-neutral: #737373;
+  --anc-on-accent: #ffffff;
+  --anc-on-danger: #ffffff;
+
+  --anc-accent: #484848;
+  --anc-accent-hover: #1a1a1a;
+  --anc-accent-deep: #1a1a1a;
+  --anc-action-primary: #1a1a1a;
+  --anc-action-primary-hover: #000000;
+  --anc-success: #343434;
+  --anc-warning: #5a5a5a;
+  --anc-danger: #1a1a1a;
+  --anc-violet: #646464;
+  --anc-blue: #525252;
+  /* Already dark greys on a near-white surface; darkening further would collapse the ladder. */
+  --anc-success-fg: var(--anc-success);
+  --anc-warning-fg: var(--anc-warning);
+  --anc-danger-fg: var(--anc-danger);
+  --anc-violet-fg: var(--anc-violet);
+  --anc-accent-fg: var(--anc-accent);
+
+  --anc-accent-rgb: 72 72 72;
+  --anc-action-primary-rgb: 26 26 26;
+  --anc-success-rgb: 52 52 52;
+  --anc-warning-rgb: 90 90 90;
+  --anc-danger-rgb: 26 26 26;
+  --anc-violet-rgb: 100 100 100;
+  --anc-blue-rgb: 82 82 82;
+  --anc-overlay-rgb: 26 26 26;
+  --anc-contrast-rgb: 26 26 26;
+  --anc-shadow-rgb: 26 26 26;
+  --anc-terminal-rgb: 26 26 26;
+  --anc-code-rgb: 26 26 26;
+  --anc-inset-rgb: 26 26 26;
+
+  --anc-text-primary: #1a1a1a;
+  --anc-text-strong: #2a2a2a;
+  --anc-text-body: #3a3a3a;
+  --anc-text-mono: #333333;
+  --anc-text-secondary: #4a4a4a;
+  --anc-text-muted: #555555;
+  --anc-text-dim: #606060;
+  --anc-text-dimmer: #6a6a6a;
+  --anc-text-faint: #737373;
+  --anc-text-quiet: #7a7a7a;
+  --anc-text-subdued: #737373;
+  --anc-text-emphasis-muted: #4a4a4a;
+  --anc-update-text: #2a2a2a;
+
+  --anc-line-hairline: rgba(26, 26, 26, 0.055);
+  --anc-line-border: #e8e8e8;
+  --anc-line-strong: #dcdcdc;
+  --anc-line-control: #c4c4c4;
+
+  --anc-scrim: rgba(26, 26, 26, 0.34);
+  --anc-scrim-soft: rgba(26, 26, 26, 0.24);
+  --anc-control-neutral: #c4c4c4;
+  --anc-control-neutral-hover: #a0a0a0;
+  --anc-control-close: #8a8a8a;
+  --anc-error-surface: #f2f2f2;
+  --anc-error-text: #1a1a1a;
+  --anc-scrollbar: rgba(26, 26, 26, 0.18);
+  --anc-scrollbar-hover: rgba(26, 26, 26, 0.3);
+
+  --anc-terminal-background: #fafafa;
+  --anc-terminal-foreground: #1a1a1a;
+  --anc-terminal-cursor: #484848;
+  --anc-terminal-selection: #dcdcdc;
+  --anc-terminal-black: #1a1a1a;
+  --anc-terminal-red: #1a1a1a;
+  --anc-terminal-green: #343434;
+  --anc-terminal-yellow: #5a5a5a;
+  --anc-terminal-blue: #525252;
+  --anc-terminal-magenta: #646464;
+  --anc-terminal-cyan: #333333;
+  --anc-terminal-white: #737373;
+}

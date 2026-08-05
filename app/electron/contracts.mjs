@@ -14,6 +14,7 @@ const CONTAINER_SIGNAL = /^[A-Z0-9]{1,20}$/u;
 export const RENDERER_RPC_METHODS = Object.freeze([
   "system.capabilities",
   "system.contexts",
+  "system.plugins",
   "system.snapshot",
   "system.action",
   "containers.list",
@@ -36,8 +37,11 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "builds.inspect",
   "volumes.backup",
   "volumes.restore",
+  "volumes.clone",
+  "volumes.empty",
   "compose.list",
   "compose.ps",
+  "compose.config",
   "compose.action",
   "images.list",
   "images.action",
@@ -48,6 +52,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.action",
   "networks.list",
   "networks.action",
+  "secrets.list",
   "cli.run",
   "session.start",
   "session.input",
@@ -78,6 +83,7 @@ export const RENDERER_EVENTS = Object.freeze([
 export const IPC_CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
   systemContexts: "anchorage:system.contexts",
+  systemPlugins: "anchorage:system.plugins",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -100,8 +106,11 @@ export const IPC_CHANNELS = Object.freeze({
   buildsInspect: "anchorage:builds.inspect",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
+  volumesClone: "anchorage:volumes.clone",
+  volumesEmpty: "anchorage:volumes.empty",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
+  composeConfig: "anchorage:compose.config",
   composeAction: "anchorage:compose.action",
   imagesList: "anchorage:images.list",
   imagesAction: "anchorage:images.action",
@@ -112,6 +121,7 @@ export const IPC_CHANNELS = Object.freeze({
   volumesAction: "anchorage:volumes.action",
   networksList: "anchorage:networks.list",
   networksAction: "anchorage:networks.action",
+  secretsList: "anchorage:secrets.list",
   cliRun: "anchorage:cli.run",
   sessionStart: "anchorage:session.start",
   sessionInput: "anchorage:session.input",
@@ -351,6 +361,20 @@ export function validateSystemCapabilities(value) {
  * quietly widen one of them the day the other gained a parameter.
  */
 export function validateSystemContexts(value) {
+  if (value === undefined) {
+    return {};
+  }
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  const context = validateContext(value.context, { required: false });
+  return context === undefined ? {} : { context };
+}
+
+/**
+ * Same shape again, and again validated separately: system.plugins reports the installation
+ * rather than a capability, so it is free to gain parameters the other two never want.
+ */
+export function validateSystemPlugins(value) {
   if (value === undefined) {
     return {};
   }
@@ -868,10 +892,10 @@ const COMPOSE_ACTIONS = new Set(["up", "down", "start", "stop", "restart"]);
 // becomes an argv element and a label selector, so the shape is enforced, not assumed.
 const COMPOSE_PROJECT = /^[a-z0-9][a-z0-9_.-]{0,254}$/u;
 
-function validateVolumeName(value) {
-  const name = boundedString(value, "request.name", 255);
+function validateVolumeName(value, field = "request.name") {
+  const name = boundedString(value, field, 255);
   if (!VOLUME_NAME.test(name)) {
-    fail("request.name must be a Docker volume name");
+    fail(`${field} must be a Docker volume name`);
   }
   return name;
 }
@@ -933,6 +957,31 @@ export function validateVolumeRestore(value) {
     optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
   );
   return normalized;
+}
+
+export function validateVolumeClone(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "name", "target"]), "request");
+  const name = validateVolumeName(value.name);
+  const target = validateVolumeName(value.target, "request.target");
+  if (name === target) {
+    fail("request.target must differ from request.name");
+  }
+  return { context: validateContext(value.context), name, target };
+}
+
+export function validateVolumeEmpty(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "name", "confirmed"]), "request");
+  // Emptying discards every byte the volume holds and nothing restores it.
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true for a volume empty");
+  }
+  return {
+    context: validateContext(value.context),
+    name: validateVolumeName(value.name),
+    confirmed: true,
+  };
 }
 
 export function validateVolumeFileWrite(value) {
@@ -1042,6 +1091,34 @@ export function validateComposePs(value) {
   return {
     context: validateContext(value.context),
     project: validateComposeProject(value.project),
+  };
+}
+
+// A configuration path that becomes an argv element beside -f. The core resolves each one and
+// refuses anything that is not an ordinary file; this boundary rejects the shapes that would
+// be misread before they get that far.
+function validateComposeConfigFiles(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 32) {
+    fail("request.configFiles must be an array of 1 to 32 paths");
+  }
+  return value.map((entry, index) => {
+    const file = boundedString(entry, `request.configFiles[${index}]`, 4_096);
+    // The path becomes an argv element beside -f; a leading '-' would read as a flag.
+    if (file.startsWith("-") || /[\u0000\r\n]/u.test(file)) {
+      fail(`request.configFiles[${index}] must be a plain file path`);
+    }
+    return file;
+  });
+}
+
+export function validateComposeConfig(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "project", "configFiles"]), "request");
+  return {
+    context: validateContext(value.context),
+    project: validateComposeProject(value.project),
+    // `config` renders files: unlike the lifecycle verbs it cannot find a project by label.
+    configFiles: validateComposeConfigFiles(value.configFiles),
   };
 }
 
@@ -1584,6 +1661,17 @@ const NETWORK_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/u;
 const NETWORK_PRUNE_FILTERS = new Set(["until", "label"]);
 
 export function validateNetworksList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
+
+/**
+ * The whole secrets surface. There is no inspect and no mutation to validate: Docker never
+ * returns a secret's value, and creating or removing one is out of scope, so the context is
+ * the only thing that crosses.
+ */
+export function validateSecretsList(value) {
   assertPlainObject(value, "request");
   assertOnlyKeys(value, new Set(["context"]), "request");
   return { context: validateContext(value.context) };

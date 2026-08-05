@@ -21,6 +21,7 @@ import {
   validateSessionStart,
   validateSystemCapabilities,
   validateSystemContexts,
+  validateSystemPlugins,
   validateContainersCreate,
   validateContainersExport,
   validateImagesScout,
@@ -31,8 +32,11 @@ import {
   validateBuildsInspect,
   validateVolumeBackup,
   validateVolumeRestore,
+  validateVolumeClone,
+  validateVolumeEmpty,
   validateComposeList,
   validateComposePs,
+  validateComposeConfig,
   validateComposeAction,
   validateContainerFileRead,
   validateContainerFileWrite,
@@ -43,6 +47,7 @@ import {
   validateImagesSearch,
   validateNetworksAction,
   validateNetworksList,
+  validateSecretsList,
   validateSystemAction,
   validateSystemSnapshot,
   validateVolumesAction,
@@ -635,6 +640,12 @@ function registerIpcHandlers() {
       timeoutMs: 20_000,
     }),
   );
+  // A directory scan and one `docker info`, so it answers on the same order as contexts.
+  registerHandler(IPC_CHANNELS.systemPlugins, (request) =>
+    core.request("system.plugins", validateSystemPlugins(request), {
+      timeoutMs: 20_000,
+    }),
+  );
   registerHandler(IPC_CHANNELS.systemSnapshot, (request) =>
     core.request("system.snapshot", validateSystemSnapshot(request), {
       timeoutMs: 45_000,
@@ -772,6 +783,20 @@ function registerIpcHandlers() {
       timeoutMs: 1_860_000,
     });
   });
+  // A clone copies the whole volume through two helpers, so it is bounded by volume size in
+  // the same way a backup is. Emptying is a removal and a recreation: fast, and destructive.
+  registerHandler(IPC_CHANNELS.volumesClone, (request) => {
+    assertMutationsEnabled();
+    return core.request("volumes.clone", validateVolumeClone(request), {
+      timeoutMs: 1_860_000,
+    });
+  });
+  registerHandler(IPC_CHANNELS.volumesEmpty, (request) => {
+    assertMutationsEnabled();
+    return core.request("volumes.empty", validateVolumeEmpty(request), {
+      timeoutMs: 120_000,
+    });
+  });
   // Writing mounts the helper rw, so it is a mutation even though the volume's own
   // containers are untouched.
   registerHandler(IPC_CHANNELS.volumesFileWrite, (request) => {
@@ -788,6 +813,11 @@ function registerIpcHandlers() {
   );
   registerHandler(IPC_CHANNELS.composePs, (request) =>
     core.request("compose.ps", validateComposePs(request), { timeoutMs: 60_000 }),
+  );
+  // Resolving a configuration reads files and interpolates them; it starts nothing, so it is
+  // a read on the same budget as the other compose queries.
+  registerHandler(IPC_CHANNELS.composeConfig, (request) =>
+    core.request("compose.config", validateComposeConfig(request), { timeoutMs: 60_000 }),
   );
   // Every compose verb returns as soon as its session starts, so this is a start timeout,
   // not a budget for `up` to pull images and wait on health checks.
@@ -806,6 +836,11 @@ function registerIpcHandlers() {
       timeoutMs: 120_000,
     });
   });
+  // Read-only by construction: there is no secrets mutation channel to guard, because
+  // Docker returns no values and this build creates and removes nothing.
+  registerHandler(IPC_CHANNELS.secretsList, (request) =>
+    core.request("secrets.list", validateSecretsList(request), { timeoutMs: 45_000 }),
+  );
   registerHandler(IPC_CHANNELS.cliRun, (request) => {
     assertMutationsEnabled();
     const normalized = validateCliRun(request);

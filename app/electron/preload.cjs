@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 const CHANNELS = Object.freeze({
   systemCapabilities: "anchorage:system.capabilities",
   systemContexts: "anchorage:system.contexts",
+  systemPlugins: "anchorage:system.plugins",
   systemSnapshot: "anchorage:system.snapshot",
   systemAction: "anchorage:system.action",
   containersList: "anchorage:containers.list",
@@ -27,8 +28,11 @@ const CHANNELS = Object.freeze({
   buildsInspect: "anchorage:builds.inspect",
   volumesBackup: "anchorage:volumes.backup",
   volumesRestore: "anchorage:volumes.restore",
+  volumesClone: "anchorage:volumes.clone",
+  volumesEmpty: "anchorage:volumes.empty",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
+  composeConfig: "anchorage:compose.config",
   composeAction: "anchorage:compose.action",
   imagesList: "anchorage:images.list",
   imagesAction: "anchorage:images.action",
@@ -39,6 +43,7 @@ const CHANNELS = Object.freeze({
   volumesAction: "anchorage:volumes.action",
   networksList: "anchorage:networks.list",
   networksAction: "anchorage:networks.action",
+  secretsList: "anchorage:secrets.list",
   cliRun: "anchorage:cli.run",
   sessionStart: "anchorage:session.start",
   sessionInput: "anchorage:session.input",
@@ -264,6 +269,16 @@ function systemContexts(value) {
   return selectedContext === undefined ? {} : { context: selectedContext };
 }
 
+function systemPlugins(value) {
+  if (value === undefined) {
+    return {};
+  }
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  const selectedContext = context(value.context, false);
+  return selectedContext === undefined ? {} : { context: selectedContext };
+}
+
 function containersList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context", "all"]), "request");
@@ -326,6 +341,13 @@ const NETWORK_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/u;
 const NETWORK_PRUNE_FILTERS = new Set(["until", "label"]);
 
 function networksList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
+
+// The whole secrets surface: no inspect, no mutation, so the context is all that crosses.
+function secretsList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context"]), "request");
   return { context: context(value.context) };
@@ -898,10 +920,10 @@ const COMPOSE_ACTIONS = new Set(["up", "down", "start", "stop", "restart"]);
 // becomes an argv element and a label selector, so the shape is enforced, not assumed.
 const COMPOSE_PROJECT = /^[a-z0-9][a-z0-9_.-]{0,254}$/u;
 
-function volumeName(value) {
-  const name = text(value, "request.name", 255);
+function volumeName(value, field = "request.name") {
+  const name = text(value, field, 255);
   if (!VOLUME_NAME.test(name)) {
-    fail("request.name must be a Docker volume name");
+    fail(`${field} must be a Docker volume name`);
   }
   return name;
 }
@@ -963,6 +985,31 @@ function volumeRestore(value) {
     optionalBoolean(value.confirmedInUse, "request.confirmedInUse"),
   );
   return normalized;
+}
+
+function volumeClone(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "name", "target"]), "request");
+  const name = volumeName(value.name);
+  const target = volumeName(value.target, "request.target");
+  if (name === target) {
+    fail("request.target must differ from request.name");
+  }
+  return { context: context(value.context), name, target };
+}
+
+function volumeEmpty(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "name", "confirmed"]), "request");
+  // Emptying discards every byte the volume holds and nothing restores it.
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true for a volume empty");
+  }
+  return {
+    context: context(value.context),
+    name: volumeName(value.name),
+    confirmed: true,
+  };
 }
 
 function volumeFileWrite(value) {
@@ -1072,6 +1119,34 @@ function composePs(value) {
   return {
     context: context(value.context),
     project: composeProject(value.project),
+  };
+}
+
+// A configuration path that becomes an argv element beside -f. The core resolves each one and
+// refuses anything that is not an ordinary file; this boundary rejects the shapes that would
+// be misread before they get that far.
+function composeConfigFiles(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 32) {
+    fail("request.configFiles must be an array of 1 to 32 paths");
+  }
+  return value.map((entry, index) => {
+    const file = text(entry, `request.configFiles[${index}]`, 4_096);
+    // The path becomes an argv element beside -f; a leading '-' would read as a flag.
+    if (file.startsWith("-") || /[\u0000\r\n]/u.test(file)) {
+      fail(`request.configFiles[${index}] must be a plain file path`);
+    }
+    return file;
+  });
+}
+
+function composeConfig(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "project", "configFiles"]), "request");
+  return {
+    context: context(value.context),
+    project: composeProject(value.project),
+    // `config` renders files: unlike the lifecycle verbs it cannot find a project by label.
+    configFiles: composeConfigFiles(value.configFiles),
   };
 }
 
@@ -1884,6 +1959,8 @@ function invoke(method, payload) {
       return call(CHANNELS.systemCapabilities, systemCapabilities(payload));
     case "system.contexts":
       return call(CHANNELS.systemContexts, systemContexts(payload));
+    case "system.plugins":
+      return call(CHANNELS.systemPlugins, systemPlugins(payload));
     case "system.snapshot":
       return call(CHANNELS.systemSnapshot, systemSnapshot(payload));
     case "system.action":
@@ -1928,10 +2005,16 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesBackup, volumeBackup(payload));
     case "volumes.restore":
       return call(CHANNELS.volumesRestore, volumeRestore(payload));
+    case "volumes.clone":
+      return call(CHANNELS.volumesClone, volumeClone(payload));
+    case "volumes.empty":
+      return call(CHANNELS.volumesEmpty, volumeEmpty(payload));
     case "compose.list":
       return call(CHANNELS.composeList, composeList(payload));
     case "compose.ps":
       return call(CHANNELS.composePs, composePs(payload));
+    case "compose.config":
+      return call(CHANNELS.composeConfig, composeConfig(payload));
     case "compose.action":
       return call(CHANNELS.composeAction, composeAction(payload));
     case "images.list":
@@ -1952,6 +2035,8 @@ function invoke(method, payload) {
       return call(CHANNELS.networksList, networksList(payload));
     case "networks.action":
       return call(CHANNELS.networksAction, networksAction(payload));
+    case "secrets.list":
+      return call(CHANNELS.secretsList, secretsList(payload));
     case "cli.run":
       return call(CHANNELS.cliRun, cliRun(payload));
     case "session.start":
@@ -1977,6 +2062,7 @@ const api = Object.freeze({
     capabilities: (request) =>
       call(CHANNELS.systemCapabilities, systemCapabilities(request)),
     contexts: (request) => call(CHANNELS.systemContexts, systemContexts(request)),
+    plugins: (request) => call(CHANNELS.systemPlugins, systemPlugins(request)),
     snapshot: (request) => call(CHANNELS.systemSnapshot, systemSnapshot(request)),
     action: (request) => call(CHANNELS.systemAction, systemAction(request)),
   }),
@@ -2007,6 +2093,7 @@ const api = Object.freeze({
   compose: Object.freeze({
     list: (request) => call(CHANNELS.composeList, composeList(request)),
     ps: (request) => call(CHANNELS.composePs, composePs(request)),
+    config: (request) => call(CHANNELS.composeConfig, composeConfig(request)),
     action: (request) => call(CHANNELS.composeAction, composeAction(request)),
   }),
   images: Object.freeze({
@@ -2024,10 +2111,15 @@ const api = Object.freeze({
     fileWrite: (request) => call(CHANNELS.volumesFileWrite, volumeFileWrite(request)),
     backup: (request) => call(CHANNELS.volumesBackup, volumeBackup(request)),
     restore: (request) => call(CHANNELS.volumesRestore, volumeRestore(request)),
+    clone: (request) => call(CHANNELS.volumesClone, volumeClone(request)),
+    empty: (request) => call(CHANNELS.volumesEmpty, volumeEmpty(request)),
   }),
   networks: Object.freeze({
     list: (request) => call(CHANNELS.networksList, networksList(request)),
     action: (request) => call(CHANNELS.networksAction, networksAction(request)),
+  }),
+  secrets: Object.freeze({
+    list: (request) => call(CHANNELS.secretsList, secretsList(request)),
   }),
   cli: Object.freeze({
     run: (request) => call(CHANNELS.cliRun, cliRun(request)),

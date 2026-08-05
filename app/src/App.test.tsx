@@ -540,7 +540,13 @@ describe("Anchorage containers workspace", () => {
     await renderReady();
     fireEvent.click(screen.getByTestId("nav-settings"));
 
-    fireEvent.click(screen.getByRole("button", { name: "Kubernetes" }));
+    // Scoped: the sidebar now carries a Kubernetes destination of its own, so the bare
+    // name matches both it and the Settings pane tab.
+    fireEvent.click(
+      within(screen.getByTestId("settings-navigation")).getByRole("button", {
+        name: "Kubernetes",
+      }),
+    );
     const kubernetes = screen.getByRole("switch", {
       name: "Enable Kubernetes",
     });
@@ -587,7 +593,7 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
 
     expect(
-      screen.getByRole("radio", { name: /Default/u }),
+      screen.getByRole("radio", { name: /Nous/u }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
       screen.getByRole("radio", { name: /Dark/u }),
@@ -614,20 +620,23 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByTestId("nav-settings"));
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
 
-    const defaultTheme = screen.getByRole("radio", { name: /Default/u });
+    const defaultTheme = screen.getByRole("radio", { name: /Nous/u });
     const dockerTheme = screen.getByRole("radio", { name: /Docker/u });
     const githubTheme = screen.getByRole("radio", { name: /GitHub/u });
+    const monoTheme = screen.getByRole("radio", { name: /Monochrome/u });
     expect(defaultTheme).toHaveAttribute("tabindex", "0");
     expect(dockerTheme).toHaveAttribute("tabindex", "-1");
     expect(githubTheme).toHaveAttribute("tabindex", "-1");
+    expect(monoTheme).toHaveAttribute("tabindex", "-1");
 
+    // Monochrome is last, so backwards from the first family wraps onto it.
     defaultTheme.focus();
     fireEvent.keyDown(defaultTheme, { key: "ArrowLeft" });
-    expect(githubTheme).toHaveFocus();
-    expect(githubTheme).toHaveAttribute("aria-checked", "true");
-    expect(githubTheme).toHaveAttribute("tabindex", "0");
+    expect(monoTheme).toHaveFocus();
+    expect(monoTheme).toHaveAttribute("aria-checked", "true");
+    expect(monoTheme).toHaveAttribute("tabindex", "0");
 
-    fireEvent.keyDown(githubTheme, { key: "Home" });
+    fireEvent.keyDown(monoTheme, { key: "Home" });
     expect(defaultTheme).toHaveFocus();
     expect(defaultTheme).toHaveAttribute("aria-checked", "true");
 
@@ -674,7 +683,7 @@ describe("Anchorage containers workspace", () => {
     window.localStorage.setItem(APPEARANCE_STORAGE_KEY, storedPreference);
     const { result } = renderHook(() => useAnchorageStore());
 
-    expect(result.current.themeFamily).toBe("default");
+    expect(result.current.themeFamily).toBe("nous");
     expect(result.current.colorMode).toBe("dark");
 
     act(() => {
@@ -682,11 +691,11 @@ describe("Anchorage containers workspace", () => {
       result.current.setColorMode("light");
     });
 
-    expect(result.current.themeFamily).toBe("default");
+    expect(result.current.themeFamily).toBe("nous");
     expect(result.current.colorMode).toBe("dark");
     expect(document.documentElement).toHaveAttribute(
       "data-theme",
-      "default",
+      "nous",
     );
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",

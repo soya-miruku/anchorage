@@ -1,3 +1,4 @@
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { XIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
@@ -45,6 +46,9 @@ function LocalImages({
     store.filteredImages,
     IMAGE_COLUMNS,
   );
+  // Two boxes narrow this table — the in-screen filter and the titlebar search. The in-screen
+  // one is the nearer of the two, so it is what gets quoted back when both are set.
+  const filterQuery = store.imageQuery.trim() || store.search.trim();
   return (
     <div
       className="images-local"
@@ -55,6 +59,8 @@ function LocalImages({
       <div className="images-table__head">
         <SortableHeader label="Repository" ariaSort={headerProps("repository")["aria-sort"]} onClick={headerProps("repository").onClick} />
         <SortableHeader label="Tag" ariaSort={headerProps("tag")["aria-sort"]} onClick={headerProps("tag").onClick} />
+        {/* Deliberately not sortable: a digest has no ordering a reader would act on, and
+            offering one would imply the column means something it does not. */}
         <span>IMAGE ID</span>
         <SortableHeader label="Created" ariaSort={headerProps("created")["aria-sort"]} onClick={headerProps("created").onClick} />
         <SortableHeader label="Size" ariaSort={headerProps("size")["aria-sort"]} onClick={headerProps("size").onClick} />
@@ -62,79 +68,107 @@ function LocalImages({
             that any more now the header is a flex container. */}
         <SortableHeader label="In use" align="end" ariaSort={headerProps("usage")["aria-sort"]} onClick={headerProps("usage").onClick} />
       </div>
-      <FixedRowWindow
-        className="images-table__body"
-        testId="images-table-body"
-        items={rows}
-        rowHeight={52}
-        keyFor={(image) => image.identity}
-        renderRow={(image) => (
-          <div
-            className="image-row image-row--clickable"
-            data-testid={`image-${image.id}`}
-            data-image-identity={image.identity}
-            role="button"
-            tabIndex={0}
-            aria-label={`Open ${image.repository}:${image.tag}`}
-            onClick={() => void store.openImageDetail(image)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                void store.openImageDetail(image);
-              }
-            }}
-          >
-            <span
-              className={
-                image.repository === "<none>" ? "image-row__dangling" : ""
-              }
-            >
-              {image.repository}
+      {rows.length === 0 ? (
+        <div className="images-table__body" data-testid="images-table-body">
+          <div className="empty-state" data-testid="images-empty-state">
+            <span className="empty-state__icon" aria-hidden="true">
+              <AnchorageIcon
+                className="empty-state__glyph"
+                name="empty"
+                size={19}
+              />
             </span>
-            <span className="resource-mono resource-secondary">{image.tag}</span>
-            <span className="resource-mono resource-dim">{image.id}</span>
-            <span className="resource-muted">{image.created}</span>
-            <span className="resource-mono resource-secondary">{image.size}</span>
-            <span className="image-row__usage">
-              <span
-                className={`usage-pill${
-                  image.inUse ? " usage-pill--active" : ""
-                }`}
-              >
-                {!image.usageKnown
-                  ? "Unknown"
-                  : image.inUse
-                    ? "In use"
-                    : "Unused"}
-              </span>
-              {store.isHost && (
-                <button
-                  className="image-row__remove"
-                  type="button"
-                  aria-label={`Remove ${image.repository}:${image.tag}`}
-                  // A missing reference no longer disables this: dangling images are removed
-                  // by immutable ID. In-use images are removable with --force, confirmed in
-                  // the dialog rather than silently escalated here.
-                  title={
-                    !image.usageKnown
-                      ? "Usage is unknown, so removal is unsafe"
-                      : image.inUse
-                        ? "In use — removing requires force"
-                        : "Remove"
-                  }
-                  disabled={!image.usageKnown || store.imageMutationPending}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRequestRemove(image);
-                  }}
-                >
-                  <AnchorageIcon name="delete" size={12} />
-                </button>
-              )}
-            </span>
+            {filterQuery ? (
+              <>
+                <strong>No images match “{filterQuery}”</strong>
+                <p>
+                  Clear the search and filters, or pull the image from a
+                  registry.
+                </p>
+              </>
+            ) : (
+              <>
+                <strong>No images yet</strong>
+                <p>Pull one from a registry, or build one from a Dockerfile.</p>
+              </>
+            )}
           </div>
-        )}
-      />
+        </div>
+      ) : (
+        <FixedRowWindow
+          className="images-table__body"
+          testId="images-table-body"
+          items={rows}
+          rowHeight={52}
+          keyFor={(image) => image.identity}
+          renderRow={(image) => (
+            <div
+              className="image-row image-row--clickable"
+              data-testid={`image-${image.id}`}
+              data-image-identity={image.identity}
+              role="button"
+              tabIndex={0}
+              aria-label={`Open ${image.repository}:${image.tag}`}
+              onClick={() => void store.openImageDetail(image)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void store.openImageDetail(image);
+                }
+              }}
+            >
+              <span
+                className={
+                  image.repository === "<none>" ? "image-row__dangling" : ""
+                }
+              >
+                {image.repository}
+              </span>
+              <span className="resource-mono resource-secondary">{image.tag}</span>
+              <span className="resource-mono resource-dim">{image.id}</span>
+              <span className="resource-muted">{image.created}</span>
+              <span className="resource-mono resource-secondary">{image.size}</span>
+              <span className="image-row__usage">
+                <span
+                  className={`usage-pill${
+                    image.inUse ? " usage-pill--active" : ""
+                  }`}
+                >
+                  {!image.usageKnown
+                    ? "Unknown"
+                    : image.inUse
+                      ? "In use"
+                      : "Unused"}
+                </span>
+                {store.isHost && (
+                  <button
+                    className="image-row__remove"
+                    type="button"
+                    aria-label={`Remove ${image.repository}:${image.tag}`}
+                    // A missing reference no longer disables this: dangling images are removed
+                    // by immutable ID. In-use images are removable with --force, confirmed in
+                    // the dialog rather than silently escalated here.
+                    title={
+                      !image.usageKnown
+                        ? "Usage is unknown, so removal is unsafe"
+                        : image.inUse
+                          ? "In use — removing requires force"
+                          : "Remove"
+                    }
+                    disabled={!image.usageKnown || store.imageMutationPending}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRequestRemove(image);
+                    }}
+                  >
+                    <AnchorageIcon name="delete" size={12} />
+                  </button>
+                )}
+              </span>
+            </div>
+          )}
+        />
+      )}
     </div>
   );
 }
@@ -142,9 +176,11 @@ function LocalImages({
 function RegistrySearch({ store }: { store: AnchorageStore }) {
   if (store.isHost) {
     const reference = store.registryQuery.trim();
+    // Scoped to image sessions: a Compose action shares this slot and must not disable Pull.
     const running =
-      store.imageTransfer?.status === "starting" ||
-      store.imageTransfer?.status === "running";
+      store.imageTransfer?.kind === "image" &&
+      (store.imageTransfer.status === "starting" ||
+        store.imageTransfer.status === "running");
     return (
       <div
         className="registry-panel"
@@ -221,26 +257,18 @@ function RegistrySearch({ store }: { store: AnchorageStore }) {
             ))}
           </div>
         )}
-        {store.imageTransfer && (
-          <section
-            className="host-pull-output"
-            aria-live="polite"
-            data-testid="image-transfer-output"
+        {/* Image sessions only; Compose actions share this slot and render on their own screen. */}
+        {store.imageTransfer?.kind === "image" && (
+          <SessionActivityPanel
+            session={store.imageTransfer}
+            testId="image-transfer-output"
+            // Docker writes nothing at all while an archive streams, so an empty pane is the
+            // normal state for save and export rather than a sign of a stall.
+            runningMessage="Working — Docker reports nothing until the transfer finishes."
+            idleMessage="Waiting for Docker…"
           >
-            <header>
-              <strong>
-                <span className="host-pull-output__kind">
-                  {store.imageTransfer.title}
-                </span>
-                {store.imageTransfer.reference}
-              </strong>
-              <span>{store.imageTransfer.status}</span>
-            </header>
-            {store.imageTransfer.error && (
-              <p className="capability-error">{store.imageTransfer.error}</p>
-            )}
-            {/* Docker reports an unauthenticated registry in its own words. Rather than
-                offer a password field, point at the command that owns the credential. */}
+            {/* Docker reports an unauthenticated registry in its own words. Rather than offer a
+                password field, point at the command that owns the credential. */}
             {store.imageTransfer.title === "Push" &&
               looksUnauthenticated(store.imageTransfer.output) && (
                 <p className="capability-error" data-testid="push-auth-hint">
@@ -254,15 +282,7 @@ function RegistrySearch({ store }: { store: AnchorageStore }) {
                   in a terminal, then try again.
                 </p>
               )}
-            {/* Docker writes nothing at all while an archive streams, so an empty pane is
-                the normal state for save and export rather than a sign of a stall. */}
-            <pre>
-              {store.imageTransfer.output ||
-                (store.imageTransfer.status === "running"
-                  ? "Working — Docker reports nothing until the transfer finishes."
-                  : "Waiting for Docker…")}
-            </pre>
-          </section>
+          </SessionActivityPanel>
         )}
       </div>
     );
@@ -298,7 +318,6 @@ function RegistrySearch({ store }: { store: AnchorageStore }) {
               <article className="registry-card" key={image.name}>
                 <span
                   className="registry-card__mark"
-                  style={{ background: image.color }}
                   aria-hidden="true"
                 >
                   {image.name.charAt(0).toLocaleUpperCase()}
@@ -621,12 +640,18 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
           }
           // Tagging works on any image, dangling included — the source is the immutable ID,
           // so an image with no reference at all can still be given one.
+          // Keyed the same way `analyzeImage` is called below. Looking results up by
+          // reference alone lost them for a dangling image, which is stored under its
+          // immutable ID: the scan ran, succeeded, and the drawer showed nothing.
           scout={
-            store.selectedImage.reference
-              ? store.scoutByReference[store.selectedImage.reference] ?? null
-              : null
+            store.scoutByReference[
+              store.selectedImage.reference ?? store.selectedImage.imageId
+            ] ?? null
           }
-          scoutPending={store.scoutPending === store.selectedImage.reference}
+          scoutPending={
+            store.scoutPending ===
+            (store.selectedImage.reference ?? store.selectedImage.imageId)
+          }
           scoutError={store.scoutError}
           // Scout takes a reference or an immutable ID, so a dangling image can be
           // analysed too — it is addressed by whichever it has.

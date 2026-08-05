@@ -1,3 +1,4 @@
+import { aggregateEngineCpuPercent } from "../store/engineUtilisation";
 import { useEffect, useState, type CSSProperties } from "react";
 
 import { SystemPruneDialog } from "../components/SystemPruneDialog";
@@ -14,7 +15,8 @@ interface StatCardProps {
   value: string;
   unit: string;
   detail: string;
-  percent: number;
+  /** null when the value is a capacity rather than a share, so no meter is drawn. */
+  percent: number | null;
   tone: "accent" | "warning" | "violet" | "blue";
 }
 
@@ -33,9 +35,13 @@ function StatCard({
         <strong>{value}</strong>
         <span>{unit}</span>
       </div>
-      <div className="dashboard-progress" aria-hidden="true">
-        <span style={{ width: `${percent}%` }} />
-      </div>
+      {/* A null percent means the figure is a capacity, or its share is unknown. Drawing an
+          empty bar would still assert "0% used", so the bar is omitted rather than emptied. */}
+      {percent !== null && (
+        <div className="dashboard-progress" aria-hidden="true">
+          <span style={{ width: `${percent}%` }} />
+        </div>
+      )}
       <div className="dashboard-stat__detail">{detail}</div>
     </article>
   );
@@ -99,6 +105,8 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
   }
 
   const engine = snapshot.engine;
+  // The honest share of the engine's cores in use, or null when it cannot be computed.
+  const engineCpuShare = aggregateEngineCpuPercent(store.containers ?? [], engine.cpus);
   // Use the daemon's own deduplicated aggregates. Summing per-image sizeBytes repeats every
   // shared parent layer, which overstated the headline figures by more than 10x on a real
   // host (133 GB reclaimable reported against `docker system df`'s 9.3 GB).
@@ -166,7 +174,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
             disabled={store.systemPrunePending}
             onClick={() => setPruneOpen(true)}
           >
-            Clean up
+            Prune system
           </button>
           <button
             className="primary-button"
@@ -189,20 +197,31 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
           }
           tone="accent"
         />
+        {/* Capacity, not consumption. This drew `(engine.cpus / 64) * 100`, so on a 64-core
+            host the bar was permanently full and read as every CPU being used up, while
+            measuring nothing. The meter now shows the aggregate share of those cores that
+            running containers are actually using, and is omitted entirely when the engine has
+            not reported a core count — there is no honest share without one. */}
         <StatCard
           label="Engine CPUs"
           value={String(engine.cpus)}
           unit="logical CPUs"
-          detail={engine.architecture ?? "architecture unavailable"}
-          percent={Math.min(100, (engine.cpus / 64) * 100)}
+          detail={
+            engineCpuShare === null
+              ? (engine.architecture ?? "architecture unavailable")
+              : `${engineCpuShare.toFixed(1)}% in use by running containers`
+          }
+          percent={engineCpuShare === null ? null : Math.min(100, engineCpuShare)}
           tone="warning"
         />
+        {/* Also a capacity rather than a share: the old `/ 128` denominator was invented, so
+            the bar told an operator with 128 GB that their memory was full. */}
         <StatCard
           label="Engine memory"
           value={memoryGb.toFixed(1)}
           unit="GB capacity"
           detail="Reported by the selected Docker engine"
-          percent={Math.min(100, (memoryGb / 128) * 100)}
+          percent={null}
           tone="violet"
         />
         <StatCard
@@ -227,7 +246,38 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
         <article className="dashboard-panel dashboard-chart-panel">
           <div className="dashboard-panel__heading">
             <h2>Engine</h2>
+            <div className="chart-legend">
+              <span>
+                <i className="chart-legend__swatch chart-legend__swatch--cpu" />
+                CPU {Math.round(store.engineCpu)}%
+              </span>
+              <span>
+                <i className="chart-legend__swatch chart-legend__swatch--memory" />
+                MEM {store.engineMemory.toFixed(1)} GB
+              </span>
+            </div>
           </div>
+          {/*
+            Accumulated from live per-container samples since launch. The Engine keeps no
+            aggregate history, so the series starts empty and fills — it is never backfilled
+            with zeroes, which would draw an idle engine that was never observed.
+          */}
+          {store.engineHistory.cpu.length > 1 ? (
+            <>
+              <Bars values={store.engineHistory.cpu} kind="cpu" />
+              <div className="dashboard-chart-divider" />
+              <Bars values={store.engineHistory.memory} kind="memory" />
+              <div className="dashboard-chart-axis">
+                <span>{store.engineHistory.cpu.length} samples</span>
+                <span>now</span>
+              </div>
+            </>
+          ) : (
+            <p className="resource-dim" role="status">
+              Collecting samples. The Engine reports per-container statistics only and keeps
+              no history, so this series builds from launch rather than loading a past.
+            </p>
+          )}
           <div className="host-engine-facts">
             <span>API</span>
             <strong>{snapshot.apiVersion}</strong>
@@ -336,7 +386,11 @@ export function DashboardScreen({ store }: { store: AnchorageStore }) {
   const total = store.containers.length;
   const cpu = Math.round(store.engineCpu);
   const memory = store.engineMemory;
-  const memoryPercent = Math.max(2, Math.min(100, (memory / 16) * 100));
+  const { cpus: allocatedCpus, memoryGb: allocatedMemoryGb } = store.resources;
+  const memoryPercent = Math.max(
+    2,
+    Math.min(100, (memory / allocatedMemoryGb) * 100),
+  );
 
   return (
     <section
@@ -346,13 +400,16 @@ export function DashboardScreen({ store }: { store: AnchorageStore }) {
       <header className="dashboard-header">
         <div>
           <h1>Overview</h1>
-          <p>Local engine · linux/amd64 · 8 CPUs · 16 GB allocated</p>
+          <p>
+            Local engine · linux/amd64 · {allocatedCpus} CPUs ·{" "}
+            {allocatedMemoryGb} GB allocated
+          </p>
         </div>
         <div className="screen-header__actions">
           <button
             className="ghost-button"
             type="button"
-            onClick={() => void store.cleanUpImages()}
+            onClick={() => void store.pruneSystem()}
           >
             Prune system
           </button>
@@ -378,7 +435,7 @@ export function DashboardScreen({ store }: { store: AnchorageStore }) {
         <StatCard
           label="CPU usage"
           value={`${cpu}%`}
-          unit="of 8 cores"
+          unit={`of ${allocatedCpus} cores`}
           detail="peak 84% in last hour"
           percent={cpu}
           tone="warning"
@@ -386,7 +443,7 @@ export function DashboardScreen({ store }: { store: AnchorageStore }) {
         <StatCard
           label="Memory"
           value={memory.toFixed(1)}
-          unit="GB / 16 GB"
+          unit={`GB / ${allocatedMemoryGb} GB`}
           detail="engine overhead 0.8 GB"
           percent={memoryPercent}
           tone="violet"

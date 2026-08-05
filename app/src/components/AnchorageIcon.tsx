@@ -12,13 +12,27 @@ import {
 } from "@phosphor-icons/react";
 import {
   Blocks,
+  Bot,
+  Box,
+  Brain,
   ChevronLeft,
+  Cloud,
   Layers,
   Copy,
   Cylinder,
   Diamond,
+  KeyRound,
   LayoutGrid,
+  MessagesSquare,
+  Moon,
   RotateCw,
+  Scale,
+  ScanSearch,
+  ScrollText,
+  ShieldCheck,
+  Ship,
+  Sun,
+  Wrench,
   Rows3,
   Share2,
   Search,
@@ -28,8 +42,11 @@ import {
 import type { ComponentPropsWithoutRef } from "react";
 
 export type AnchorageIconName =
+  | "agents"
   | "back"
+  | "bosun"
   | "builds"
+  | "cloud"
   | "compose"
   | "containers"
   | "dashboard"
@@ -37,16 +54,27 @@ export type AnchorageIconName =
   | "dev-environments"
   | "empty"
   | "extensions"
+  | "governance"
+  | "hardened"
   | "images"
+  | "kubernetes"
+  | "logs"
+  | "mode-dark"
+  | "mode-light"
   | "networks"
   | "more"
   | "pause"
   | "pause-freeze"
   | "play"
   | "rating"
+  | "models"
   | "restart"
+  | "sandboxes"
+  | "scan"
   | "search"
+  | "secrets"
   | "settings"
+  | "tools"
   | "volumes";
 
 interface PhosphorIconDefinition {
@@ -133,6 +161,18 @@ const iconDefinitions: Record<
     libraryName: "Copy",
     strokeWidth: 2.1,
   },
+  "mode-dark": {
+    component: Moon,
+    family: "lucide",
+    libraryName: "Moon",
+    strokeWidth: 1.8,
+  },
+  "mode-light": {
+    component: Sun,
+    family: "lucide",
+    libraryName: "Sun",
+    strokeWidth: 1.8,
+  },
   networks: {
     component: Share2,
     family: "lucide",
@@ -155,10 +195,15 @@ const iconDefinitions: Record<
   // Stop control, so the separate Pause action needed its own glyph — two adjacent
   // buttons carrying the same shape, told apart only by colour, are not a control pair.
   "pause-freeze": {
+    // Filled, not outlined. At the 12px the row cluster uses, a `regular` circle plus two
+    // hairline bars merged into a smudge. The fill knocks the bars out as negative space,
+    // which survives the size — and the circle is what keeps Pause distinct from Stop, so
+    // dropping it and using the bare pause glyph would reinstate two identical-looking
+    // controls.
     component: PauseCircleIcon,
     family: "phosphor",
     libraryName: "PauseCircle",
-    weight: "regular",
+    weight: "fill",
   },
   play: {
     component: PlayIcon,
@@ -189,6 +234,78 @@ const iconDefinitions: Record<
     family: "phosphor",
     libraryName: "RadioButton",
     weight: "bold",
+  },
+  "agents": {
+    component: Bot,
+    family: "lucide",
+    libraryName: "Bot",
+    strokeWidth: 1.9,
+  },
+  "bosun": {
+    component: MessagesSquare,
+    family: "lucide",
+    libraryName: "MessagesSquare",
+    strokeWidth: 1.9,
+  },
+  "cloud": {
+    component: Cloud,
+    family: "lucide",
+    libraryName: "Cloud",
+    strokeWidth: 1.9,
+  },
+  "governance": {
+    component: Scale,
+    family: "lucide",
+    libraryName: "Scale",
+    strokeWidth: 1.9,
+  },
+  "hardened": {
+    component: ShieldCheck,
+    family: "lucide",
+    libraryName: "ShieldCheck",
+    strokeWidth: 1.9,
+  },
+  "kubernetes": {
+    component: Ship,
+    family: "lucide",
+    libraryName: "Ship",
+    strokeWidth: 1.9,
+  },
+  "logs": {
+    component: ScrollText,
+    family: "lucide",
+    libraryName: "ScrollText",
+    strokeWidth: 1.9,
+  },
+  "models": {
+    component: Brain,
+    family: "lucide",
+    libraryName: "Brain",
+    strokeWidth: 1.9,
+  },
+  "sandboxes": {
+    component: Box,
+    family: "lucide",
+    libraryName: "Box",
+    strokeWidth: 1.9,
+  },
+  "scan": {
+    component: ScanSearch,
+    family: "lucide",
+    libraryName: "ScanSearch",
+    strokeWidth: 1.9,
+  },
+  "secrets": {
+    component: KeyRound,
+    family: "lucide",
+    libraryName: "KeyRound",
+    strokeWidth: 1.9,
+  },
+  "tools": {
+    component: Wrench,
+    family: "lucide",
+    libraryName: "Wrench",
+    strokeWidth: 1.9,
   },
   volumes: {
     component: Cylinder,

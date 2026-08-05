@@ -42,7 +42,7 @@
 
 .settings-navigation .settings-navigation__active {
   background: rgb(var(--anc-accent-rgb) / 12%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .settings-content {
@@ -96,7 +96,7 @@
 }
 
 .resource-slider__heading output {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-family: var(--anc-font-mono);
   font-size: 12.5px;
 }
@@ -154,7 +154,7 @@
 
 .settings-resource-notice {
   margin-top: 12px;
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
   font-family: var(--anc-font-mono);
   font-size: 10.5px;
 }
@@ -194,6 +194,9 @@
 }
 
 .settings-toggle-row h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--anc-text-primary);
   font-size: 13px;
   font-weight: 500;
@@ -422,7 +425,7 @@
 }
 
 .settings-pane--appearance .appearance-current {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-family: var(--anc-font-mono);
   font-size: 10.5px;
 }
@@ -464,6 +467,14 @@
   margin: 0;
   color: var(--anc-text-primary);
   overflow-wrap: anywhere;
+}
+
+/* Names where the value came from, so "Enabled" is attributable rather than asserted. */
+.engine-facts__source {
+  margin-left: 9px;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
 }
 
 .settings-pane--engine .engine-facts + .engine-warnings,
@@ -511,9 +522,149 @@
 }
 
 .settings-pane--unavailable code,
-.settings-pane--advanced code {
+.settings-pane--advanced code,
+.settings-pane--builders code {
   font-family: var(--anc-font-mono);
   font-size: 11.5px;
+}
+
+/*
+ * The builder inventory.
+ *
+ * A real table rather than the div grid the busier screens use: this one is short, static and
+ * never scrolls, so the semantics are free, and an unreachable builder's reason spans the row
+ * with a plain colSpan instead of a grid-column trick.
+ */
+.settings-pane--builders {
+  max-width: 820px;
+}
+
+.builders-table {
+  width: 100%;
+  margin-top: 20px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  text-align: left;
+}
+
+.builders-table th,
+.builders-table td {
+  padding: 0 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builders-table thead th {
+  height: 34px;
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+/* Widths follow the handoff's grid: the name gets the slack, ACTIVE is a fixed gutter. */
+.builders-table thead th:nth-child(1) {
+  width: 22%;
+}
+
+.builders-table thead th:nth-child(2) {
+  width: 17%;
+}
+
+.builders-table thead th:nth-child(4) {
+  width: 15%;
+}
+
+.builders-table thead th:nth-child(5) {
+  width: 92px;
+}
+
+.builders-row > th,
+.builders-row > td {
+  height: 46px;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 12px;
+}
+
+.builders-row--current > th,
+.builders-row--current > td {
+  background: rgb(var(--anc-accent-rgb) / 7%);
+}
+
+.builders-row__name {
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+  font-weight: 500;
+}
+
+.builders-row__mono {
+  color: var(--anc-text-muted);
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+}
+
+/* The status word is always spelled out, so the tone reinforces the label rather than
+   carrying it — the greyscale family has no hue to read. */
+.builders-row__status {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+}
+
+.builders-row__status--success {
+  color: var(--anc-success-fg);
+}
+
+.builders-row__status--danger {
+  color: var(--anc-danger-fg);
+}
+
+.builders-row__status--neutral {
+  color: var(--anc-text-faint);
+}
+
+.builders-table__active {
+  text-align: right;
+}
+
+.builders-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgb(var(--anc-success-rgb) / 16%);
+  color: var(--anc-success-fg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* Buildx's message is a full socket path and a syscall error, so this row is the one place
+   in the table that wraps rather than truncating: truncated, it says nothing. */
+.builders-row--reason > td {
+  height: auto;
+  padding: 0 16px 12px;
+  border-top: 0;
+  color: var(--anc-danger-fg);
+  font-size: 11px;
+  line-height: 1.55;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.builders-note {
+  margin-top: 14px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
 }
 
 @media (max-width: 1180px) {
@@ -530,4 +681,133 @@
     bottom: auto;
     left: 66px;
   }
+}
+
+/*
+ * CLI plugin health. The faults come first and the working plugins after: a list that opens
+ * with nine healthy rows buries the one that explains why `docker mcp` does nothing.
+ */
+.plugin-health {
+  margin-top: 26px;
+}
+
+.plugin-health h3 {
+  margin-bottom: 6px;
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.plugin-health__note {
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.plugin-health__list,
+.plugin-health__loaded {
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+
+.plugin-health__fault {
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-input);
+}
+
+.plugin-health__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.plugin-health__head code {
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+}
+
+.plugin-health__tag {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.plugin-health__tag--broken {
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger-fg);
+}
+
+.plugin-health__tag--degraded {
+  background: rgb(var(--anc-warning-rgb) / 16%);
+  color: var(--anc-warning-fg);
+}
+
+.plugin-health__path {
+  margin-top: 5px;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.plugin-health__reason {
+  margin-top: 6px;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.plugin-health__loaded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.plugin-health__loaded li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgb(var(--anc-overlay-rgb) / 5%);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+}
+
+.plugin-health__loaded code {
+  color: var(--anc-text-body);
+}
+
+.plugin-health__loaded span {
+  color: var(--anc-text-faint);
+}
+
+.plugin-health__search {
+  margin-top: 14px;
+}
+
+.plugin-health__search summary {
+  color: var(--anc-text-muted);
+  cursor: pointer;
+  font-size: 11.5px;
+}
+
+.plugin-health__search ol {
+  padding-left: 20px;
+  margin: 9px 0;
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  line-height: 1.8;
 }

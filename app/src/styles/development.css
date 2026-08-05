@@ -92,7 +92,7 @@
 
 .dev-environment-card__state--running {
   background: rgb(var(--anc-accent-rgb) / 12%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .dev-environment-card__state--stopped {
@@ -197,7 +197,7 @@
 }
 
 .dev-environment-menu .dev-environment-menu__delete {
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .dev-environments-empty {
@@ -215,7 +215,7 @@
   justify-content: center;
   width: 52px;
   height: 52px;
-  border: 1px dashed rgb(var(--anc-overlay-rgb) / 18%);
+  border: 1px dashed var(--anc-line-control);
   border-radius: 14px;
   color: var(--anc-text-faint);
 }
@@ -335,8 +335,13 @@
   margin-top: 20px;
 }
 
+/* The privilege disclosure absorbs most of the gap the header already reserved rather than
+   pushing the marketplace down a full row. It wraps to two lines at the canonical 1656px
+   width, so the card grid does sit ~17px below the handoff's y-position — the trade is
+   deliberate: the warning has to read as the last thing before the cards it is about, and
+   card height, gutters and grid edges are unchanged. */
 .extensions-screen > header {
-  margin-bottom: 20px;
+  margin-bottom: 2px;
 }
 
 .extension-card {
@@ -359,7 +364,15 @@
   height: 36px;
   flex: none;
   border-radius: 9px;
-  color: var(--anc-on-accent);
+  /*
+   * The chip construction, not a solid fill. A solid mark needs an ink chosen for that exact
+   * fill, and the one reached for here was `--anc-on-accent` — designed for `--anc-accent`,
+   * not for the deeper fill actually used, which left the initial at 1.77:1. A tint plus its
+   * own `-fg` is the pairing `scripts/theme-integrity.test.mjs` already measures per theme.
+   */
+  border: 1px solid rgb(var(--anc-accent-rgb) / 32%);
+  background: rgb(var(--anc-accent-rgb) / 16%);
+  color: var(--anc-accent-fg);
   font-size: 14px;
   font-weight: 700;
 }
@@ -429,7 +442,7 @@
 .extension-card__action--installed {
   border-color: rgb(var(--anc-accent-rgb) / 35%);
   background: transparent;
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .extension-card__action--installed:hover {
@@ -594,7 +607,7 @@ label.prune-option > span {
 }
 
 .network-row:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 .network-row > span {
@@ -650,7 +663,7 @@ label.prune-option > span {
 }
 
 .ghost-button--danger {
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .ghost-button--danger:hover:not(:disabled) {
@@ -668,6 +681,7 @@ label.prune-option > span {
    unchecked box has to be drawn explicitly for the control to belong to the design system. */
 .container-row__select input[type="checkbox"],
 .container-table__head input[type="checkbox"],
+.logs-source input[type="checkbox"],
 .prune-option input[type="checkbox"],
 .prune-option input[type="radio"] {
   appearance: none;
@@ -691,6 +705,7 @@ label.prune-option > span {
 
 .container-row__select input[type="checkbox"]:hover,
 .container-table__head input[type="checkbox"]:hover,
+.logs-source input[type="checkbox"]:hover,
 .prune-option input[type="checkbox"]:hover,
 .prune-option input[type="radio"]:hover {
   border-color: rgb(var(--anc-accent-rgb) / 60%);
@@ -698,6 +713,7 @@ label.prune-option > span {
 
 .container-row__select input[type="checkbox"]::before,
 .container-table__head input[type="checkbox"]::before,
+.logs-source input[type="checkbox"]::before,
 .prune-option input[type="checkbox"]::before {
   content: "";
   width: 7px;
@@ -722,6 +738,7 @@ label.prune-option > span {
 .container-row__select input[type="checkbox"]:checked,
 .container-table__head input[type="checkbox"]:checked,
 .container-table__head input[type="checkbox"]:indeterminate,
+.logs-source input[type="checkbox"]:checked,
 .prune-option input[type="checkbox"]:checked,
 .prune-option input[type="radio"]:checked {
   border-color: rgb(var(--anc-accent-rgb));
@@ -730,6 +747,7 @@ label.prune-option > span {
 
 .container-row__select input[type="checkbox"]:checked::before,
 .container-table__head input[type="checkbox"]:checked::before,
+.logs-source input[type="checkbox"]:checked::before,
 .prune-option input[type="checkbox"]:checked::before,
 .prune-option input[type="radio"]:checked::before {
   transform: scale(1);
@@ -1152,7 +1170,7 @@ select option {
 }
 
 .container-files .files-row:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 .files-row__name,
@@ -1171,7 +1189,7 @@ select option {
 }
 
 .files-row__name--dir {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-weight: 500;
 }
 
@@ -1292,17 +1310,17 @@ select option {
 
 .change-badge--added {
   background: rgb(var(--anc-success-rgb) / 22%);
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
 }
 
 .change-badge--modified {
   background: rgb(var(--anc-warning-rgb) / 22%);
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .change-badge--deleted {
   background: rgb(var(--anc-danger-rgb) / 22%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .change-badge--unknown {
@@ -1409,70 +1427,235 @@ select option {
 
 /* ---------------------------------------------------------------- Compose ---- */
 
-.compose-table__head,
-.compose-row {
-  display: grid;
-  grid-template-columns:
-    minmax(0, 1.6fr) minmax(0, 1.6fr) 90px 110px minmax(0, 340px);
-  gap: 14px;
-  align-items: center;
-  padding: 0 30px;
+.compose-screen {
+  display: flex;
 }
 
-.compose-table__head {
-  height: 34px;
+/* 270px is the handoff's own rail (Anchorage v2.dc.html:2070). It holds a project name, its
+   counts and the first configuration file, which is the width that fits a path worth
+   reading. */
+.compose-rail {
+  display: flex;
+  width: 270px;
   flex: none;
-  border-bottom: 1px solid var(--anc-line-strong);
-  background: var(--anc-table-head);
-  color: var(--anc-text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
+  flex-direction: column;
+  border-right: 1px solid var(--anc-line-border);
 }
 
-.compose-table__body {
-  flex: 1;
+.compose-rail__heading {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 22px 20px 14px;
+}
+
+.compose-rail__heading h1 {
+  color: var(--anc-text-primary);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: normal;
+}
+
+.compose-rail__heading p {
+  margin-top: 4px;
+  color: var(--anc-text-muted);
+  font-size: 12.5px;
+}
+
+.compose-rail__list {
   min-height: 0;
+  flex: 1;
   overflow-y: auto;
 }
 
-.compose-group {
+.compose-rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  padding: 13px 20px;
   border-bottom: 1px solid var(--anc-line-hairline);
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--anc-text-primary);
+  text-align: left;
 }
 
-.compose-row {
-  height: 46px;
+.compose-rail-item:hover {
+  background: var(--anc-row-hover);
 }
 
-.compose-row__name {
+.compose-rail-item--active {
+  border-left-color: var(--anc-accent);
+  background: rgb(var(--anc-accent-rgb) / 5%);
+}
+
+.compose-rail-item__top {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 0;
-  background: transparent;
+}
+
+/* The dot repeats what the state chips beneath it already spell out, so nothing here is
+   carried by hue alone. */
+.compose-rail-item__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--anc-status-neutral);
+}
+
+.compose-rail-item__dot--running {
+  background: var(--anc-success);
+}
+
+.compose-rail-item__name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-rail-item__count {
+  margin-left: auto;
+  color: var(--anc-text-dimmer);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.compose-rail-item__file {
+  overflow: hidden;
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-detail {
+  min-width: 0;
+  flex: 1;
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+}
+
+.compose-detail__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.compose-detail__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.compose-detail__title h2 {
   color: var(--anc-text-primary);
-  font-size: 12.5px;
-  font-weight: 500;
-  text-align: left;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.compose-detail__files {
+  margin-bottom: 16px;
+  color: var(--anc-text-dim);
+  font-size: 11.5px;
   overflow-wrap: anywhere;
 }
 
-/* A CSS triangle rather than an icon: it has to rotate, and the handoff's icon set has
-   no disclosure glyph to rotate. */
-.compose-row__caret {
-  flex: none;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 5px solid var(--anc-text-muted);
-  transition: transform 120ms ease;
+.compose-panel {
+  margin-bottom: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
+  background: var(--anc-panel);
 }
 
-.compose-row__caret--open {
-  transform: rotate(90deg);
+.compose-panel__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+.compose-panel__heading h3 {
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.compose-panel__heading p {
+  color: var(--anc-text-dim);
+  font-size: 11.5px;
+}
+
+.compose-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.compose-panel-grid > .compose-panel {
+  margin-bottom: 0;
+}
+
+/* The limitations the core reports are the difference between "this is the project" and
+   "this is what the rendering carried", so the panel is bordered rather than dimmed. */
+.compose-panel--limitations {
+  border-color: rgb(var(--anc-warning-rgb) / 40%);
+}
+
+.compose-limitations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 16px;
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+  list-style: disc;
+}
+
+.compose-limitations li::marker {
+  color: var(--anc-warning-fg);
+}
+
+.compose-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgb(var(--anc-warning-rgb) / 40%);
+  border-radius: 10px;
+  background: rgb(var(--anc-warning-rgb) / 8%);
+}
+
+.compose-notice strong {
+  color: var(--anc-warning-fg);
+  font-size: 12.5px;
+}
+
+.compose-notice p {
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.compose-notice .capability-error {
+  padding: 0;
 }
 
 .compose-states {
@@ -1501,44 +1684,212 @@ select option {
 
 .compose-state--running {
   background: rgb(var(--anc-success-rgb) / 14%);
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
 }
 
-.compose-row__actions {
+.compose-detail__actions {
   display: flex;
-  justify-content: flex-end;
+  margin-left: auto;
   gap: 6px;
 }
 
-.compose-row__actions > .ghost-button {
-  height: 26px;
-  padding: 0 9px;
-  font-size: 11px;
+.compose-detail__actions > .ghost-button {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 11.5px;
 }
 
-.compose-row__down:not(:disabled) {
-  color: var(--anc-danger);
+.compose-detail__down:not(:disabled) {
+  color: var(--anc-danger-fg);
 }
 
-.compose-services {
-  padding: 0 30px 12px 52px;
-}
-
-.compose-service {
+/* Wave, state dot, service, image, what it waits for, what it is doing now. The wave column
+   is empty for a service `compose ps` reports but the resolved file does not define. */
+.compose-service-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) 110px 150px minmax(0, 1.4fr);
-  gap: 14px;
+  grid-template-columns:
+    28px 8px minmax(0, 150px) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 150px);
   align-items: center;
-  height: 30px;
+  gap: 12px;
+  padding: 10px 0;
   border-top: 1px solid var(--anc-line-hairline);
   font-size: 11.5px;
 }
 
-.compose-service__name {
-  color: var(--anc-text-secondary);
+.compose-service-list > .compose-service-row:first-child {
+  border-top: 0;
+}
+
+.compose-service-row__wave {
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.compose-service-row__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--anc-status-neutral);
+}
+
+.compose-service-row__dot--running {
+  background: var(--anc-success);
+}
+
+/* A service the file declares with no container at all: an outline rather than a filled dot,
+   because "stopped" and "never created" are different answers. */
+.compose-service-row__dot--absent {
+  border: 1px solid var(--anc-line-control);
+  background: transparent;
+}
+
+.compose-service-row__name {
   overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 12px;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.compose-service-row__image {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-service-row__deps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.compose-service-row__state {
+  overflow: hidden;
+  color: var(--anc-text-dim);
+  font-size: 11px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-service-row__state--running {
+  color: var(--anc-success-fg);
+}
+
+.compose-dep-chip {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgb(var(--anc-overlay-rgb) / 7%);
+  color: var(--anc-text-secondary);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+/* Every tag says what it means in words; the colour only sorts them faster. Greyscale is a
+   supported theme, so nothing may depend on the hue. */
+.compose-tag {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  color: var(--anc-text-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.compose-tag--accent {
+  background: rgb(var(--anc-accent-rgb) / 14%);
+  color: var(--anc-accent-fg);
+}
+
+.compose-tag--warning {
+  background: rgb(var(--anc-warning-rgb) / 16%);
+  color: var(--anc-warning-fg);
+}
+
+.compose-tag--danger {
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger-fg);
+}
+
+.compose-watch-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 11px;
+}
+
+.compose-watch-row__path {
+  overflow: hidden;
+  color: var(--anc-text-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-watch-row__meta,
+.compose-watch-row__filters {
+  grid-column: 2;
+  overflow: hidden;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compose-hook-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 0;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.compose-hook-row__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+}
+
+.compose-hook-row__flags {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+}
+
+.compose-hook-row__command {
+  color: var(--anc-text-mono);
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.compose-dependency-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.compose-dependency-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 11.5px;
 }
 
 /* A service row links through to the container detail it already maps to, so Compose does
@@ -1546,7 +1897,7 @@ select option {
 .compose-service__link {
   padding: 0;
   background: transparent;
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-size: inherit;
   text-align: left;
 }
@@ -1589,7 +1940,7 @@ select option {
 
 .dashboard-compose-card__count {
   flex: none;
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1707,13 +2058,13 @@ select option {
 .scout-pill--critical,
 .scout-tag--critical {
   background: rgb(var(--anc-danger-rgb) / 16%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .scout-pill--high,
 .scout-tag--high {
   background: rgb(var(--anc-warning-rgb) / 16%);
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .scout-pill--medium,
@@ -1785,7 +2136,7 @@ select option {
 
 .scout-fix {
   flex: none;
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
 }
 
 /* An unfixable CVE is the one an operator cannot act on, so it must not read as advice. */
@@ -1879,4 +2230,254 @@ select option {
   background: transparent;
   color: var(--anc-text-body);
   font-size: 11px;
+}
+
+/* The tick and the radio dot animate by transform, which is the motion WCAG 2.3.3 asks us to
+   drop; the end states stay reachable without the tween. (The Compose disclosure caret was
+   the third of these until the rail replaced the expandable table.) */
+@media (prefers-reduced-motion: reduce) {
+  .container-row__select input[type="checkbox"]::before,
+  .container-table__head input[type="checkbox"]::before,
+  .prune-option input[type="checkbox"]::before,
+  .prune-option input[type="radio"]::before {
+    transition: none;
+  }
+}
+
+/* The log source picker refuses selections past its cap rather than dropping the oldest stream.
+   It is the only themed checkbox in the app that is ever disabled, so the state needs drawing:
+   without this the control looked identical to an available one and simply did not respond. */
+.logs-source input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  border-color: var(--anc-line);
+  background: var(--anc-surface-sunken, var(--anc-input));
+  opacity: 0.55;
+}
+
+.logs-source:has(input[type="checkbox"]:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ── Activity centre ─────────────────────────────────────────────────────────────────────
+   Floating progress and an inbox of what Docker reported. Everything here is drawn from the
+   semantic tokens rather than literal colour, so all four families and both modes follow. */
+
+.activity-inbox {
+  position: relative;
+}
+
+.activity-inbox__trigger {
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anc-text-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.activity-inbox__trigger:hover {
+  background: rgb(var(--anc-accent-rgb) / 10%);
+  border-color: rgb(var(--anc-accent-rgb) / 35%);
+  color: var(--anc-text-primary);
+}
+
+.activity-inbox__trigger:focus-visible {
+  outline: 2px solid rgb(var(--anc-accent-rgb) / 70%);
+  outline-offset: 1px;
+}
+
+/* The count sits on the bell rather than beside it so the control keeps one hit target. */
+.activity-inbox__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--anc-danger);
+  color: var(--anc-on-accent);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+}
+
+.activity-inbox__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 340px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 10px;
+  background: var(--anc-panel);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 32%);
+  overflow: hidden;
+}
+
+.activity-inbox__panel header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--anc-line);
+  font-size: 12px;
+}
+
+.activity-inbox__empty {
+  margin: 0;
+  padding: 16px 12px;
+  color: var(--anc-text-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.activity-inbox__list {
+  overflow-y: auto;
+}
+
+.activity-toasts {
+  position: fixed;
+  right: 18px;
+  bottom: 42px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 330px;
+  pointer-events: none;
+}
+
+.activity-toast {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 9px;
+  background: var(--anc-panel);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 34%);
+  pointer-events: auto;
+}
+
+.activity-toast--failed {
+  border-color: rgb(var(--anc-danger-rgb) / 55%);
+}
+
+.activity-toast__close {
+  flex: none;
+  align-self: stretch;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--anc-text-faint);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.activity-toast__close:hover {
+  color: var(--anc-text-primary);
+}
+
+.activity-row {
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-inbox__list .activity-row + .activity-row {
+  border-top: 1px solid var(--anc-line);
+}
+
+/* Colour reinforces the state; the title says it. Monochrome ships, so nothing may rest on hue. */
+.activity-row__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--anc-text-faint);
+}
+
+.activity-row--running .activity-row__dot {
+  background: var(--anc-accent);
+  animation: activity-pulse 1.4s ease-in-out infinite;
+}
+
+.activity-row--succeeded .activity-row__dot {
+  background: var(--anc-success);
+}
+
+.activity-row--failed .activity-row__dot {
+  background: var(--anc-danger);
+}
+
+@keyframes activity-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-row--running .activity-row__dot {
+    animation: none;
+  }
+}
+
+.activity-row__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-row__head strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--anc-text-primary);
+}
+
+.activity-row__when {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.activity-row__subject {
+  margin-top: 1px;
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+  color: var(--anc-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-row__detail {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--anc-text-soft);
+}
+
+.activity-row--failed .activity-row__detail {
+  color: var(--anc-danger-fg);
 }

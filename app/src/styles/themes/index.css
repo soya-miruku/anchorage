@@ -1,6 +1,7 @@
-@import "./default.css";
+@import "./nous.css";
 @import "./docker.css";
 @import "./github.css";
+@import "./mono.css";
 
 /*
  * Theme contract

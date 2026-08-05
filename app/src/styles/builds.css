@@ -38,7 +38,7 @@
 }
 
 .build-list-item:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 .build-list-item--active {
@@ -60,7 +60,11 @@
   background: var(--anc-danger);
 }
 
-.build-status-dot--cancelled {
+/* Neither a success nor a failure, so neutral: a running or cancelled build must not read as
+   broken, and neither must a status this build does not recognise. */
+.build-status-dot--cancelled,
+.build-status-dot--running,
+.build-status-dot--unknown {
   background: var(--anc-status-neutral);
 }
 
@@ -123,15 +127,17 @@
 
 .build-status-pill--success {
   background: rgb(var(--anc-success-rgb) / 13%);
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
 }
 
 .build-status-pill--failed {
   background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
-.build-status-pill--cancelled {
+.build-status-pill--cancelled,
+.build-status-pill--running,
+.build-status-pill--unknown {
   background: rgb(var(--anc-overlay-rgb) / 6%);
   color: var(--anc-text-muted);
 }
@@ -171,7 +177,7 @@
 }
 
 .build-stat-grid .build-stat--output strong {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .build-detail > h3 {
@@ -222,7 +228,7 @@
 }
 
 .build-step > .build-step__cached {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 /* Live build history additions. The builders strip exists so an unreachable builder is
@@ -248,12 +254,12 @@
 
 .builder-chip--current {
   background: rgb(var(--anc-accent-rgb) / 14%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .builder-chip--error {
   background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .builder-chip b {

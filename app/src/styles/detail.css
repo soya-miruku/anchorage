@@ -87,7 +87,7 @@
 
 .detail-action--stop {
   background: rgb(var(--anc-warning-rgb) / 15%);
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .detail-action--stop:hover:not(:disabled) {
@@ -96,7 +96,7 @@
 
 .detail-action--delete:hover:not(:disabled) {
   background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .detail-tabs {
@@ -194,7 +194,7 @@
 }
 
 .logs-toolbar__button--active {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .logs-toolbar__button--active > span {
@@ -237,11 +237,11 @@
 }
 
 .log-level--warn {
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .log-level--error {
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .log-output__empty {
@@ -313,11 +313,11 @@
 }
 
 .mount-type--volume {
-  color: var(--anc-violet);
+  color: var(--anc-violet-fg);
 }
 
 .mount-type--bind {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .exec-panel {
@@ -374,7 +374,7 @@
 }
 
 .terminal-prompt > span:first-child {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .terminal-prompt input {
@@ -413,7 +413,7 @@
 }
 
 .files-row:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 .files-row > span:nth-child(3) {
@@ -483,15 +483,15 @@
 }
 
 .stats-card__value--accent {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .stats-card__value--warning {
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .stats-card__value--violet {
-  color: var(--anc-violet);
+  color: var(--anc-violet-fg);
 }
 
 .stats-card__value--blue {
@@ -583,7 +583,7 @@
   padding: 8px 12px;
   border-bottom: 1px solid rgb(var(--anc-danger-rgb) / 22%);
   background: rgb(var(--anc-danger-rgb) / 8%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
   font-size: 11px;
 }
 
@@ -600,4 +600,340 @@
   color: inherit;
   font: inherit;
   white-space: pre-wrap;
+}
+
+/*
+ * Unified log stream. A source rail beside a merged view, because which container a line
+ * came from is the column that makes an interleaved stream readable at all.
+ */
+.logs-screen {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.logs-screen__posture {
+  max-width: 76ch;
+  margin-top: 6px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.logs-screen__controls {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+}
+
+/*
+ * Scoped to the Logs screen. Unscoped, this matched the container-detail filter too — which
+ * sets `border: 0` at :159 and relies on its wrapper for the frame — and won on source order,
+ * drawing a second border inside the first.
+ */
+.logs-screen .logs-filter input {
+  width: 240px;
+  height: 29px;
+  padding: 0 11px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--anc-input);
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+}
+
+.logs-screen .logs-filter input:focus {
+  border-color: rgb(var(--anc-accent-rgb) / 45%);
+}
+
+.logs-screen__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  gap: 0;
+}
+
+.logs-sources {
+  display: flex;
+  width: 270px;
+  min-height: 0;
+  flex: none;
+  flex-direction: column;
+  padding: 16px 14px;
+  border-right: 1px solid var(--anc-line-strong);
+  overflow-y: auto;
+}
+
+.logs-sources h2 {
+  color: var(--anc-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.logs-sources__note,
+.logs-sources__empty {
+  margin-top: 6px;
+  color: var(--anc-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.logs-sources ul {
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+}
+
+.logs-source {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 4px 9px;
+  padding: 7px 8px;
+  border-radius: 7px;
+}
+
+.logs-source:hover {
+  background: var(--anc-row-hover);
+}
+
+.logs-source--on {
+  background: var(--anc-surface-elevated);
+}
+
+.logs-source__name {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-source__image {
+  grid-column: 2;
+  overflow: hidden;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-source input:disabled + .logs-source__name {
+  color: var(--anc-text-faint);
+}
+
+.logs-stream-wrap {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.logs-errors {
+  padding: 10px 16px;
+  margin: 0;
+  border-bottom: 1px solid var(--anc-line-border);
+  background: rgb(var(--anc-warning-rgb) / 10%);
+  color: var(--anc-warning-fg);
+  font-size: 11.5px;
+  list-style: none;
+}
+
+.logs-stream {
+  min-height: 0;
+  flex: 1;
+  padding: 12px 16px;
+  overflow-y: auto;
+  background: var(--anc-code);
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+}
+
+.logs-stream__empty {
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-sans);
+  font-size: 12.5px;
+}
+
+.logs-line {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 160px) 52px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.logs-line__time {
+  color: var(--anc-text-quiet);
+}
+
+.logs-line__source {
+  overflow: hidden;
+  color: var(--anc-accent-fg);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-line__level {
+  color: var(--anc-text-faint);
+}
+
+.logs-line__level--warn {
+  color: var(--anc-warning-fg);
+}
+
+.logs-line__level--error {
+  color: var(--anc-danger-fg);
+}
+
+.logs-line__message {
+  color: var(--anc-text-mono);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Secrets ------------------------------------------------------------------
+   The two standing notices are not error chrome: they are true on every engine, including
+   a healthy Swarm manager with a full store, so they read as body copy rather than as an
+   alarm. Warning styling here would tell an operator something had gone wrong. */
+
+.secrets-notice {
+  flex: none;
+  margin: 0 30px 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-input);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.secrets-notice strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--anc-text-primary);
+  font-weight: 600;
+}
+
+.secrets-notice p {
+  margin: 0;
+  color: var(--anc-text-muted);
+}
+
+.secrets-notice code {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+}
+
+/* The label says which state this is; the colour only agrees with it. One of the four
+   families is greyscale, so a chip whose meaning lived in its hue would be mute there. */
+.swarm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.swarm-chip--manager {
+  color: var(--anc-success-fg);
+}
+
+.swarm-chip--absent {
+  color: var(--anc-text-muted);
+}
+
+.secrets-pending {
+  padding: 0 30px;
+  font-size: 12.5px;
+}
+
+/* Five columns, 30px gutters, same head chrome as the containers, images, volumes and
+   networks tables — this is the same component wearing different data. */
+.secrets-table__head,
+.secret-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.4fr)
+    minmax(0, 1.4fr);
+  gap: 14px;
+  align-items: center;
+  padding: 0 30px;
+}
+
+.secrets-table__head {
+  height: 34px;
+  flex: none;
+  border-bottom: 1px solid var(--anc-line-strong);
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.secrets-table__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.secret-row {
+  height: 52px;
+  border-bottom: 1px solid var(--anc-line-hairline);
+  font-size: 12.5px;
+}
+
+.secret-row:hover {
+  background: var(--anc-row-hover);
+}
+
+.secret-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secret-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.secret-row__name strong {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.secret-row__name .usage-pill {
+  flex: none;
+}
+
+.secrets-limitations {
+  flex: none;
+  margin: 10px 30px 0;
+  padding: 0;
+  color: var(--anc-text-faint);
+  font-size: 11px;
+  line-height: 1.6;
+  list-style: none;
+}
+
+.secrets-posture {
+  flex: none;
+  margin: 10px 30px 22px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.65;
 }

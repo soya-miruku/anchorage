@@ -51,6 +51,7 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
   }, [store.networks, query]);
 
   const { sorted: networkRows, headerProps } = useTableSort(filtered, NETWORK_COLUMNS);
+  const networksState = store.hostDomainState.networks;
 
   if (!store.isHost) {
     return (
@@ -86,7 +87,13 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
           <p>
             {store.networks.length} network
             {store.networks.length === 1 ? "" : "s"} · {removable.length} user-defined
+            {networksState.status === "loading" && " · refreshing live networks…"}
           </p>
+          {networksState.status === "error" && (
+            <p className="capability-error" role="status">
+              Live networks unavailable: {networksState.error}
+            </p>
+          )}
         </div>
         <div className="screen-header__actions">
           <button
@@ -180,12 +187,23 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
             </span>
           </div>
         ))}
-        {networkRows.length === 0 && (
-          <div className="empty-state" data-testid="networks-empty-state">
-            <strong>No networks match</strong>
-            <p>Clear the filter, or create a user-defined network.</p>
-          </div>
-        )}
+        {networkRows.length === 0 &&
+          // Docker always reports bridge/host/none, so an empty list after a failed
+          // refresh is a missing list, not a filter that matched nothing.
+          (networksState.status === "error" ? (
+            <div className="empty-state" data-testid="networks-error-state">
+              <strong>Networks unavailable</strong>
+              <p>
+                The last refresh failed, so nothing can be listed. Docker itself
+                always reports at least bridge, host and none.
+              </p>
+            </div>
+          ) : (
+            <div className="empty-state" data-testid="networks-empty-state">
+              <strong>No networks match</strong>
+              <p>Clear the filter, or create a user-defined network.</p>
+            </div>
+          ))}
       </div>
 
       {createOpen && (

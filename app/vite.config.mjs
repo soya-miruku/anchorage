@@ -1,7 +1,15 @@
+import { readFileSync } from "node:fs";
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 import { DESKTOP_HEALTH_PATH } from "./electron/dev-server-proof.mjs";
+
+// The titlebar states the running version. Reading it from the manifest is the only way
+// it cannot drift from what was actually packaged.
+const { version: anchorageVersion } = JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8"),
+);
 
 const desktopHealthToken = process.env.ANCHORAGE_VITE_HEALTH_TOKEN;
 const desktopHealthPlugin =
@@ -40,6 +48,9 @@ const developmentCspPlugin = {
 
 export default defineConfig({
   base: "./",
+  define: {
+    __ANCHORAGE_VERSION__: JSON.stringify(anchorageVersion),
+  },
   build: {
     outDir: "dist/client",
   },

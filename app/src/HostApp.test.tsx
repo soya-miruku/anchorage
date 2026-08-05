@@ -542,7 +542,11 @@ describe("host renderer integration", () => {
         ).length,
       ).toBeGreaterThan(0);
       expect(
-        within(surface).getByRole("button", { name: "Open Command Center" }),
+        // The label depends on whether the surface has a command worth seeding: devenv
+        // opens the palette on `compose`, extensions has none and browses the inventory.
+        within(surface).getByRole("button", {
+          name: /Open Command Center|Browse installed commands/u,
+        }),
       ).toBeInTheDocument();
     }
 
@@ -1281,6 +1285,53 @@ describe("host renderer integration", () => {
     expect(screen.getByText("22.0%")).toBeInTheDocument();
     expect(screen.queryByText("11.0%")).not.toBeInTheDocument();
     expect(maximumConcurrent).toBe(1);
+  });
+
+  it("keeps sampling engine telemetry after you leave the Containers list", async () => {
+    // engineCpu and engineMemory are derived from these same per-container samples, and are
+    // rendered by the sidebar engine card and the status bar — chrome that is on screen
+    // everywhere. Gating the sampler on the list froze both on every other destination,
+    // which reads as an idle engine rather than as a stopped sampler.
+    vi.useFakeTimers();
+    const statsBatch = vi.fn(async (request: { ids: string[] }) => ({
+      context: "default",
+      source: "engine-api",
+      samples: request.ids.map((id) => ({
+        id,
+        stats: {
+          ...statsResult(12),
+          containerId: id,
+          memoryWorkingSetBytes: 128 * 1024 * 1024,
+          memoryLimitBytes: 512 * 1024 * 1024,
+        },
+      })),
+      observedAt,
+    }));
+    const harness = createHost();
+    if (harness.host.containers) {
+      harness.host.containers.statsBatch = statsBatch;
+    }
+    window.anchorage = harness.host;
+    render(<App />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+      await flushMicrotasks();
+    });
+    expect(statsBatch).toHaveBeenCalled();
+
+    const beforeLeaving = statsBatch.mock.calls.length;
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("nav-volumes"));
+      await flushMicrotasks();
+    });
+
+    // The sampler polls on an 8s interval. Whether it is still armed once the list unmounts
+    // is the whole difference: the previous gate cleared it and nothing fired again.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000);
+      await flushMicrotasks();
+    });
+    expect(statsBatch.mock.calls.length).toBeGreaterThan(beforeLeaving);
   });
 
   it("fills the list CPU and MEMORY columns from batched stats", async () => {

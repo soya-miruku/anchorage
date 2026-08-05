@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
+import { CliPluginHealth } from "../components/CliPluginHealth";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { DAEMON_JSON_FIXTURE } from "../data/fixtures";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -9,14 +10,35 @@ import {
   type ThemeFamily,
 } from "../theme/appearance";
 import type {
+  BuildBuilder,
   EngineResources,
   FeatureFlags,
   SettingsTab,
 } from "../types";
 
-const settingsNavigation: Array<{ id: SettingsTab; label: string }> = [
+/**
+ * The panes this screen can show.
+ *
+ * `SettingsTab` lives in `src/types.ts`, which is outside this change's file set, so the
+ * Builders pane's id is widened here rather than added there. The union collapses back to
+ * `SettingsTab` the moment `"builders"` is added to it, and the two `as SettingsTab` casts
+ * below — the only places the id crosses back into the store's setter — become no-ops.
+ */
+export type SettingsPaneId = SettingsTab | "builders";
+
+/** The panes that are still a list of switches over `featureFlags`. */
+type TogglePaneId = Exclude<
+  SettingsPaneId,
+  "appearance" | "resources" | "engine" | "builders"
+>;
+
+const settingsNavigation: Array<{ id: SettingsPaneId; label: string }> = [
   { id: "appearance", label: "Appearance" },
   { id: "resources", label: "Resources" },
+  // The handoff orders Builders after Resources and before Engine; the panes between them
+  // there (File sharing, Virtualisation) are Docker Desktop VM concerns this build has no
+  // equivalent for.
+  { id: "builders", label: "Builders" },
   { id: "engine", label: "Docker Engine" },
   { id: "kubernetes", label: "Kubernetes" },
   { id: "updates", label: "Software updates" },
@@ -24,9 +46,10 @@ const settingsNavigation: Array<{ id: SettingsTab; label: string }> = [
 ];
 
 const themeSwatches: Record<ThemeFamily, readonly [string, string, string]> = {
-  default: ["#16224a", "#1b2a57", "#8ba8f0"],
-  docker: ["#00153c", "#d9e5fc", "#2560ff"],
-  github: ["#0d1117", "#f6f8fa", "#2f81f7"],
+  nous: ["#0d2f86", "#12378f", "#f2dbc5"],
+  docker: ["#0a1929", "#f7fafd", "#1d63ed"],
+  github: ["#0d1117", "#f6f8fa", "#4493f8"],
+  mono: ["#141414", "#fafafa", "#bebebe"],
 };
 
 const themeFamilies = THEME_OPTIONS.map((theme) => ({
@@ -159,7 +182,7 @@ interface ToggleDefinition {
 }
 
 const toggleDefinitions: Record<
-  Exclude<SettingsTab, "appearance" | "resources" | "engine">,
+  TogglePaneId,
   {
     title: string;
     subtitle: string;
@@ -454,6 +477,48 @@ function FixtureResourcesSettings({ store }: { store: AnchorageStore }) {
   );
 }
 
+/**
+ * A settings row with a switch, in one of three states: on, off, or locked.
+ *
+ * Locked is for a value Docker exposes and Anchorage cannot set. It uses the native `disabled`
+ * attribute rather than a class that only looks inert, because a control an operator can focus
+ * and press is a control they will expect to act; `aria-disabled` announces that and still lets
+ * the press through. The reason travels with the switch and is wired to it by `aria-describedby`
+ * — a dead control with no explanation reads as a bug, which is worse than not offering one.
+ */
+function SettingsToggleRow({
+  label,
+  description,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <div className="settings-toggle-row">
+      <div>
+        <h3>{label}</h3>
+        <p>{description}</p>
+      </div>
+      <button
+        className={`settings-switch${
+          checked ? " settings-switch--checked" : ""
+        }`}
+        type="button"
+        role="switch"
+        aria-label={label}
+        aria-checked={checked}
+        onClick={onToggle}
+      >
+        <span />
+      </button>
+    </div>
+  );
+}
+
 function EngineSettings({ store }: { store: AnchorageStore }) {
   // The fixture pane rendered a hardcoded daemon.json. Against a live engine that is
   // fabricated configuration presented as the operator's own — the same thing the host
@@ -507,11 +572,20 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
           {engine.cpus} CPUs ·{" "}
           {(engine.memoryBytes / 1024 ** 3).toFixed(1)} GB
         </dd>
+        {/* Read from the daemon and not writable here, so they are reported as facts. A
+            disabled switch would claim to be a control that this build never had. */}
         <dt>Live restore</dt>
-        <dd>{engine.liveRestoreEnabled ? "Enabled" : "Disabled"}</dd>
+        <dd data-testid="engine-live-restore">
+          {engine.liveRestoreEnabled ? "Enabled" : "Disabled"}
+          <span className="engine-facts__source">daemon.json · live-restore</span>
+        </dd>
         <dt>Experimental</dt>
-        <dd>{engine.experimental ? "Enabled" : "Disabled"}</dd>
+        <dd data-testid="engine-experimental">
+          {engine.experimental ? "Enabled" : "Disabled"}
+          <span className="engine-facts__source">daemon.json · experimental</span>
+        </dd>
       </dl>
+      <CliPluginHealth store={store} />
       {engine.warnings.length > 0 && (
         <div className="engine-warnings" data-testid="engine-warnings">
           <h3>Daemon warnings</h3>
@@ -526,12 +600,218 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
   );
 }
 
+/** Every platform the builder's nodes can produce, deduplicated across them. */
+function builderPlatforms(builder: BuildBuilder): string[] {
+  return [...new Set(builder.nodes.flatMap((node) => node.platforms))].sort();
+}
+
+/**
+ * The status line for a builder, and the tone that paints it.
+ *
+ * Buildx reports status per node rather than per builder, and reports none at all for one it
+ * could not reach — those arrive with `Err` set, an empty driver, and a single nameless node.
+ * The error is the status in that case: a blank cell beside a builder name reads as healthy.
+ *
+ * Only `running` is green. Everything else buildx reports (`inactive`, `starting`, `stopped`)
+ * is a builder that exists but is not currently serving builds, which is neither a fault nor
+ * a success, so it is left in the neutral text colour the handoff uses for `stopped`. The
+ * label is always the word buildx used, because the greyscale theme has no hue to lean on.
+ */
+function builderStatus(builder: BuildBuilder): {
+  label: string;
+  tone: "success" | "danger" | "neutral";
+} {
+  if (builder.error) return { label: "error", tone: "danger" };
+  const statuses = [
+    ...new Set(builder.nodes.map((node) => node.status).filter(Boolean)),
+  ];
+  if (statuses.length === 0) return { label: "unknown", tone: "neutral" };
+  const label = statuses.join(", ");
+  if (statuses.includes("error")) return { label, tone: "danger" };
+  if (statuses.every((status) => status === "running")) {
+    return { label, tone: "success" };
+  }
+  return { label, tone: "neutral" };
+}
+
+/**
+ * Builders.
+ *
+ * The builder inventory is already read for the Builds screen; this promotes it to the pane
+ * the handoff specifies. The handoff's rows are clickable and set the active builder — that
+ * is `docker buildx use`, a write to the CLI's own configuration that outlives this app, and
+ * this build has no verb for it. So the active builder is reported and not offered: a row
+ * that looks selectable and changes nothing is the Resources sliders again.
+ */
+function BuildersSettings({ store }: { store: AnchorageStore }) {
+  if (!store.isHost) return <FixtureBuildersSettings />;
+  return <HostBuildersSettings store={store} />;
+}
+
+/**
+ * Fixture mode has no builders, and inventing them would name BuildKit instances that do not
+ * exist — the operator would then go looking for a cache that was never anywhere.
+ */
+function FixtureBuildersSettings() {
+  return (
+    <div
+      className="settings-pane settings-pane--unavailable"
+      data-testid="builders-fixture-note"
+    >
+      <h2>Builders</h2>
+      <p>
+        Builders are read from <code>docker buildx ls</code> on the connected
+        engine. This session runs on fixture data and is not connected to one, so
+        there is no builder inventory to show.
+      </p>
+      <p className="resource-dim">
+        Connect Anchorage to a Docker engine to see which BuildKit instance runs
+        your builds.
+      </p>
+    </div>
+  );
+}
+
+function HostBuildersSettings({ store }: { store: AnchorageStore }) {
+  const refreshBuilds = store.refreshBuilds;
+  useEffect(() => {
+    void refreshBuilds();
+  }, [refreshBuilds]);
+
+  const builders = store.buildBuilders;
+  const unreachable = builders.filter((builder) => Boolean(builder.error));
+
+  if (store.buildsStatus === "unavailable") {
+    return (
+      <div
+        className="settings-pane settings-pane--unavailable"
+        data-testid="builders-unavailable"
+      >
+        <h2>Builders</h2>
+        <p>
+          Builders come from BuildKit through <code>docker buildx</code>, and the
+          plugin is not installed. Builds fall back to the legacy builder, which
+          has no builder to choose and no shared cache to place.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-pane settings-pane--builders">
+      <h2>Builders</h2>
+      <p>
+        Which BuildKit instance runs your builds. The active builder decides where
+        the cache lives and which platforms you can target natively.
+      </p>
+
+      {builders.length === 0 ? (
+        <p className="resource-dim" role="status" data-testid="builders-empty">
+          {store.buildsStatus === "ready"
+            ? "Buildx reported no builders."
+            : store.buildsStatus === "error"
+              ? "Buildx could not be read on this engine."
+              : "Reading builders…"}
+        </p>
+      ) : (
+        <table className="builders-table" data-testid="builders-table">
+          <thead>
+            <tr>
+              <th scope="col">Builder</th>
+              <th scope="col">Driver</th>
+              <th scope="col">Platforms</th>
+              <th scope="col">Status</th>
+              <th scope="col" className="builders-table__active">
+                Active
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {builders.map((builder) => {
+              const status = builderStatus(builder);
+              const platforms = builderPlatforms(builder);
+              return (
+                <Fragment key={builder.name}>
+                  <tr
+                    className={`builders-row${
+                      builder.current ? " builders-row--current" : ""
+                    }`}
+                    data-testid={`builder-${builder.name}`}
+                  >
+                    <th scope="row" className="builders-row__name">
+                      {builder.name}
+                    </th>
+                    {/* A builder buildx could not reach reports no driver and no
+                        platforms, so those cells are empty rather than unknown. */}
+                    <td className="builders-row__mono">
+                      {builder.driver || "—"}
+                    </td>
+                    <td className="builders-row__mono">
+                      {platforms.length > 0 ? platforms.join(", ") : "—"}
+                    </td>
+                    <td
+                      className={`builders-row__status builders-row__status--${status.tone}`}
+                    >
+                      {status.label}
+                    </td>
+                    <td className="builders-table__active">
+                      {builder.current && (
+                        <span className="builders-chip">Active</span>
+                      )}
+                    </td>
+                  </tr>
+                  {/* Buildx's own note, in the row it belongs to. The Builds screen
+                      carries it in a `title`, which is invisible until hovered — here
+                      it is the reason the operator came to this pane. */}
+                  {builder.error && (
+                    <tr className="builders-row builders-row--reason">
+                      <td colSpan={5} data-testid={`builder-error-${builder.name}`}>
+                        {builder.error}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {unreachable.length > 0 && (
+        <p className="builders-note" data-testid="builders-unreachable-note">
+          {unreachable.length === 1
+            ? "One builder is configured but unreachable"
+            : `${unreachable.length} builders are configured but unreachable`}
+          . A build that names one fails rather than falling back to the active
+          builder, so they are listed with buildx's reason instead of hidden.
+          Leftover entries from an uninstalled Docker Desktop are the usual cause;{" "}
+          <code>docker buildx rm &lt;name&gt;</code> removes one.
+        </p>
+      )}
+
+      <p className="builders-note" data-testid="builders-read-only">
+        Anchorage does not switch builders. Choosing one is{" "}
+        <code>docker buildx use &lt;name&gt;</code>, which rewrites the CLI's own
+        configuration for every tool on this machine, and this build has no verb
+        for it — so the active builder is reported here rather than offered as a
+        choice.
+      </p>
+
+      {store.buildsError && (
+        <p className="resource-dim" role="status">
+          {store.buildsError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ToggleSettings({
   store,
   tab,
 }: {
   store: AnchorageStore;
-  tab: Exclude<SettingsTab, "appearance" | "resources" | "engine">;
+  tab: TogglePaneId;
 }) {
   const definition = toggleDefinitions[tab];
   return (
@@ -539,29 +819,15 @@ function ToggleSettings({
       <h2>{definition.title}</h2>
       <p>{definition.subtitle}</p>
       <div className="settings-toggle-list">
-        {definition.rows.map((row) => {
-          const checked = store.featureFlags[row.key];
-          return (
-            <div className="settings-toggle-row" key={row.key}>
-              <div>
-                <h3>{row.label}</h3>
-                <p>{row.description}</p>
-              </div>
-              <button
-                className={`settings-switch${
-                  checked ? " settings-switch--checked" : ""
-                }`}
-                type="button"
-                role="switch"
-                aria-label={row.label}
-                aria-checked={checked}
-                onClick={() => store.toggleFeatureFlag(row.key)}
-              >
-                <span />
-              </button>
-            </div>
-          );
-        })}
+        {definition.rows.map((row) => (
+          <SettingsToggleRow
+            label={row.label}
+            description={row.description}
+            checked={store.featureFlags[row.key]}
+            onToggle={() => store.toggleFeatureFlag(row.key)}
+            key={row.key}
+          />
+        ))}
       </div>
     </div>
   );
@@ -707,41 +973,43 @@ export function SettingsScreen({ store }: { store: AnchorageStore }) {
   )
     ? settingsNavigation.filter((item) => item.id !== "appearance")
     : settingsNavigation;
+  // Widened rather than annotated: the store still types this as `SettingsTab`, and a plain
+  // annotation leaves control-flow analysis narrowing back to the initializer's type, which
+  // makes the `"builders"` comparison below look impossible.
+  const activeTab = store.settingsTab as SettingsPaneId;
   let content;
-  if (store.settingsTab === "appearance") {
+  if (activeTab === "appearance") {
     content = <AppearanceSettings store={store} />;
-  } else if (store.isHost && store.settingsTab === "kubernetes") {
+  } else if (store.isHost && activeTab === "kubernetes") {
     content = <HostKubernetesSettings />;
-  } else if (store.isHost && store.settingsTab === "updates") {
+  } else if (store.isHost && activeTab === "updates") {
     content = <HostUpdatesSettings />;
-  } else if (store.isHost && store.settingsTab === "advanced") {
+  } else if (store.isHost && activeTab === "advanced") {
     content = <HostAdvancedSettings store={store} />;
-  } else if (store.settingsTab === "resources") {
+  } else if (activeTab === "resources") {
     content = <ResourcesSettings store={store} />;
-  } else if (store.settingsTab === "engine") {
+  } else if (activeTab === "builders") {
+    content = <BuildersSettings store={store} />;
+  } else if (activeTab === "engine") {
     content = <EngineSettings store={store} />;
   } else {
-    content = <ToggleSettings store={store} tab={store.settingsTab} />;
+    content = <ToggleSettings store={store} tab={activeTab} />;
   }
 
   return (
     <section className="settings-screen screen" data-testid="settings-screen">
-      <aside className="settings-navigation">
+      <aside className="settings-navigation" data-testid="settings-navigation">
         <h1>Settings</h1>
         <nav aria-label="Settings sections">
           {navigationItems.map((item) => (
             <button
               className={
-                store.settingsTab === item.id
-                  ? "settings-navigation__active"
-                  : ""
+                activeTab === item.id ? "settings-navigation__active" : ""
               }
               type="button"
-              aria-current={
-                store.settingsTab === item.id ? "page" : undefined
-              }
+              aria-current={activeTab === item.id ? "page" : undefined}
               key={item.id}
-              onClick={() => store.setSettingsTab(item.id)}
+              onClick={() => store.setSettingsTab(item.id as SettingsTab)}
             >
               {item.label}
             </button>

@@ -55,10 +55,25 @@ describe("appearance preferences", () => {
     '{"family":"unknown","mode":"dark"}',
     '{"family":"default","mode":"system"}',
     '{"family":"default","mode":"dark","extra":true}',
-  ])("fails malformed storage closed to Default Dark: %s", (serialized) => {
+  ])("fails malformed storage closed to Nous Dark: %s", (serialized) => {
     expect(resolveAppearancePreference(serialized)).toEqual(
       DEFAULT_APPEARANCE,
     );
+  });
+
+  it("carries a stored `default` forward as `nous` rather than discarding it", () => {
+    // The house family was renamed, not removed. Treating the old name as unknown would
+    // quietly reset a choice the user made, and quietly is the problem — falling back to
+    // Nous Dark from a stored Nous Light looks like the setting simply does not stick.
+    expect(
+      resolveAppearancePreference('{"family":"default","mode":"light"}'),
+    ).toEqual({ family: "nous", mode: "light" });
+  });
+
+  it("still rejects a renamed family carrying an invalid mode", () => {
+    expect(
+      resolveAppearancePreference('{"family":"default","mode":"sepia"}'),
+    ).toEqual(DEFAULT_APPEARANCE);
   });
 
   it("fails storage read errors closed to Default Dark", () => {
@@ -191,7 +206,7 @@ describe("appearance preferences", () => {
     ).toEqual(DEFAULT_APPEARANCE);
     expect(document.documentElement).toHaveAttribute(
       "data-theme",
-      "default",
+      "nous",
     );
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",

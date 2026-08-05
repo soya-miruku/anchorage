@@ -53,7 +53,7 @@ test("native background application normalizes before reaching BrowserWindow", (
 });
 
 test("every theme mode exposes an opaque native-safe app background", () => {
-  for (const family of ["default", "docker", "github"]) {
+  for (const family of ["nous", "docker", "github", "mono"]) {
     const css = readFileSync(
       new URL(`../src/styles/themes/${family}.css`, import.meta.url),
       "utf8",

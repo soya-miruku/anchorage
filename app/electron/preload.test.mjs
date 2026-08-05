@@ -326,6 +326,7 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
   const samples = {
     "system.capabilities": { context: "default" },
     "system.contexts": { context: "default" },
+    "system.plugins": { context: "default" },
     "system.snapshot": { context: "default" },
     "system.action": {
       context: "default",
@@ -379,6 +380,16 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       archivePath: "/home/operator/project_data.tar",
       confirmed: true,
     },
+    "volumes.clone": {
+      context: "default",
+      name: "project_data",
+      target: "project_data_copy",
+    },
+    "volumes.empty": {
+      context: "default",
+      name: "project_data",
+      confirmed: true,
+    },
     "volumes.fileWrite": {
       context: "default",
       name: "project_data",
@@ -393,6 +404,11 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
     },
     "compose.list": { context: "default", all: true },
     "compose.ps": { context: "default", project: "storefront" },
+    "compose.config": {
+      context: "default",
+      project: "storefront",
+      configFiles: ["/srv/storefront/compose.yaml"],
+    },
     "compose.action": {
       context: "default",
       project: "storefront",
@@ -405,6 +421,7 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       reference: "registry.example/team/api:latest",
     },
     "networks.list": { context: "default" },
+    "secrets.list": { context: "default" },
     "networks.action": {
       context: "default",
       action: "prune",

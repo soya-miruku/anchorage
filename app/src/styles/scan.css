@@ -1,0 +1,452 @@
+/*
+ * Scan — the cross-image vulnerability view (Anchorage v2.dc.html:1751-1848).
+ *
+ * Severity is never carried by hue alone here. Every chip and tile prints the severity word
+ * beside its count, the five always render in the same worst-first order, and the fill steps
+ * down in strength as well as in colour — so the ladder still reads in the Monochrome family,
+ * where the four themes' hues collapse to greys, and to anyone who does not separate red from
+ * amber in the other three.
+ *
+ * Every status colour is taken from the `-fg` token family, which is the layer that clears
+ * WCAG AA on its own translucent fill; `scripts/theme-integrity.test.mjs` fails the build if
+ * a raw status token is used for text.
+ */
+
+.scan-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.scan-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.scan-rail {
+  display: flex;
+  width: 320px;
+  flex: none;
+  flex-direction: column;
+  border-right: 1px solid var(--anc-line-strong);
+}
+
+.scan-rail__heading {
+  flex: none;
+  padding: 22px 20px 12px;
+}
+
+.scan-rail__heading h1 {
+  color: var(--anc-text-primary);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: normal;
+}
+
+.scan-rail__heading p {
+  margin-top: 4px;
+  color: var(--anc-text-muted);
+  font-size: 12.5px;
+  text-wrap: pretty;
+}
+
+.scan-rail__plugin {
+  margin-top: 6px;
+  color: var(--anc-text-faint);
+  font-size: 11.5px;
+}
+
+.scan-list {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.scan-list__group {
+  padding: 14px 20px 7px;
+  color: var(--anc-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* Not a muted aside: this is the sentence that stops an unanalysed image reading as a clean
+   one, so it carries a marked left edge and body-weight text rather than fading out. */
+.scan-list__note {
+  margin: 0 20px 8px;
+  padding-left: 9px;
+  border-left: 2px solid var(--anc-line-control);
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.scan-row {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--anc-line-hairline);
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--anc-text-primary);
+  text-align: left;
+}
+
+.scan-row:hover {
+  background: var(--anc-row-hover);
+}
+
+.scan-row--active {
+  border-left-color: var(--anc-accent);
+  background: rgb(var(--anc-accent-rgb) / 5%);
+}
+
+.scan-row__name {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-row__meta {
+  color: var(--anc-text-dimmer);
+  font-family: var(--anc-font-mono);
+  font-size: 10px;
+}
+
+/* An unanalysed row states its own state in words. Leaving it blank would make the absence of
+   chips the only signal, which is exactly the reading this screen must not allow. */
+.scan-row__unanalysed {
+  align-self: flex-start;
+  padding: 2px 7px;
+  border: 1px dashed var(--anc-line-control);
+  border-radius: 5px;
+  color: var(--anc-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+}
+
+.scan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.scan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgb(var(--anc-overlay-rgb) / 8%);
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.scan-chip b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The two severities that carry a hue are the two an operator acts on first, and they keep the
+   same mapping as the per-image panel in Images so the same count does not change colour
+   between the two screens. */
+.scan-chip--critical {
+  background: rgb(var(--anc-danger-rgb) / 16%);
+  color: var(--anc-danger-fg);
+}
+
+.scan-chip--high {
+  background: rgb(var(--anc-warning-rgb) / 16%);
+  color: var(--anc-warning-fg);
+}
+
+.scan-chip--medium {
+  background: rgb(var(--anc-overlay-rgb) / 11%);
+  color: var(--anc-text-body);
+}
+
+.scan-chip--low {
+  background: rgb(var(--anc-overlay-rgb) / 7%);
+  color: var(--anc-text-muted);
+}
+
+/* Unspecified is dashed rather than dimmer than low: Scout emits it when the advisory carried
+   no CVSS vector, so it is an unknown quantity and must not read as a sixth step below LOW. */
+.scan-chip--unspecified {
+  border: 1px dashed var(--anc-line-control);
+  padding: 1px 5px;
+  background: transparent;
+  color: var(--anc-text-muted);
+}
+
+.scan-chip--empty {
+  background: rgb(var(--anc-overlay-rgb) / 5%);
+  color: var(--anc-text-faint);
+}
+
+.scan-chip--unspecified.scan-chip--empty {
+  background: transparent;
+}
+
+.scan-detail {
+  min-width: 0;
+  flex: 1;
+  padding: 22px 26px 26px;
+  overflow-y: auto;
+}
+
+.scan-detail__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+.scan-detail__header h2 {
+  overflow: hidden;
+  color: var(--anc-text-primary);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The handoff's grade chip, rendered as the absence it is. Dashed and neutral so it cannot be
+   mistaken for a passing grade at a glance. */
+.scan-grade {
+  display: inline-flex;
+  align-items: center;
+  height: 21px;
+  flex: none;
+  padding: 0 9px;
+  border: 1px dashed var(--anc-line-control);
+  border-radius: 6px;
+  color: var(--anc-text-muted);
+  font-size: 11px;
+}
+
+.scan-detail__analyze {
+  margin-left: auto;
+  flex: none;
+}
+
+.scan-detail__meta {
+  margin-bottom: 16px;
+  color: var(--anc-text-dimmer);
+  font-size: 11.5px;
+}
+
+.scan-detail__inherited {
+  margin: -10px 0 16px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  text-wrap: pretty;
+}
+
+.scan-detail__inherited code,
+.scan-detail__note code {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+}
+
+.scan-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.scan-stat {
+  padding: 13px 15px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-panel);
+}
+
+.scan-stat span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--anc-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.scan-stat strong {
+  display: block;
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+
+.scan-stat small {
+  display: block;
+  margin-top: 6px;
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  text-wrap: pretty;
+}
+
+.scan-stat--critical strong {
+  color: var(--anc-danger-fg);
+}
+
+.scan-stat--high strong {
+  color: var(--anc-warning-fg);
+}
+
+/* The unranked tile is bordered rather than coloured, matching its chip: the number is real,
+   the ranking behind it is not there. */
+.scan-stat--unspecified {
+  border-style: dashed;
+}
+
+.scan-policy {
+  margin-bottom: 16px;
+  padding: 15px 17px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
+  background: var(--anc-panel);
+}
+
+.scan-policy h3 {
+  margin-bottom: 8px;
+  color: var(--anc-text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.scan-policy__state {
+  margin-bottom: 6px;
+  color: var(--anc-text-secondary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+}
+
+.scan-policy p:last-child {
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.scan-detail__clean {
+  padding: 13px 15px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-panel);
+  color: var(--anc-text-secondary);
+  font-size: 12px;
+  text-wrap: pretty;
+}
+
+.scan-cves {
+  overflow: hidden;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
+}
+
+.scan-cves__head,
+.scan-cve {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) 92px minmax(0, 1fr) 110px 130px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.scan-cves__head {
+  height: 34px;
+  background: var(--anc-table-head);
+  color: var(--anc-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+}
+
+.scan-cve {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-top: 1px solid var(--anc-line-hairline);
+  font-size: 11.5px;
+}
+
+.scan-cve__id {
+  overflow: hidden;
+  color: var(--anc-text-mono);
+  text-overflow: ellipsis;
+}
+
+.scan-cve__package {
+  overflow: hidden;
+  color: var(--anc-text-strong);
+  text-overflow: ellipsis;
+}
+
+.scan-cve__version {
+  color: var(--anc-text-muted);
+  font-size: 11px;
+}
+
+.scan-cve__fix {
+  color: var(--anc-success-fg);
+  font-size: 11px;
+}
+
+/* A CVE with no fix is the one the operator cannot act on, so it must not read as advice. */
+.scan-cve__fix--none {
+  color: var(--anc-text-muted);
+}
+
+.scan-detail__note {
+  margin-top: 12px;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.scan-unanalysed {
+  padding: 16px 18px;
+  border: 1px dashed var(--anc-line-control);
+  border-radius: 11px;
+}
+
+.scan-unanalysed strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scan-unanalysed p {
+  color: var(--anc-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.scan-posture {
+  flex: none;
+  /* Sits at the foot of the screen on both branches: in preview the empty state above it
+     does not grow, so without this the statement would float mid-page. */
+  margin-top: auto;
+  padding: 12px 26px 14px;
+  border-top: 1px solid var(--anc-line-border);
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}

@@ -1,0 +1,213 @@
+/*
+ * Nous — the house theme (Anchorage v2.dc.html:34-35).
+ *
+ * Royal blue surfaces under a warm psyche-cream foreground. The warmth is dark-mode only:
+ * cream on deep blue is the identity, and inverting it on a white surface just produces
+ * unreadable beige, so light mode runs a near-neutral ink ramp instead.
+ *
+ * The ramp is split by temperature in dark mode — four warm emphasis steps
+ * (--anc-text-primary … --anc-text-mono, hue ~29°) over six cool recessive steps
+ * (--anc-text-secondary … --anc-text-quiet, hue ~222°). Emphasis is what the cream is for;
+ * anything receding goes back to the blue family so it sits down into the surface.
+ *
+ * `--anc-action-primary` is the cream, distinct from the blue `--anc-accent`: accent is a
+ * link, primary is the button you are meant to press. In light mode the spec collapses them
+ * to the same blue, and that is deliberate rather than an oversight — there is no second
+ * hue on a white surface that reads as primary without shouting.
+ */
+
+:root,
+:root[data-theme="nous"][data-color-mode="dark"] {
+  color-scheme: dark;
+
+  --anc-desk: #061c56;
+  --anc-desk-glow: #1b45a4;
+  --anc-app: #0d2f86;
+  --anc-panel: #12378f;
+  --anc-input: #0b2566;
+  --anc-code: #0b2566;
+  --anc-table-head: #143b91;
+  --anc-surface-elevated: #183f9a;
+  --anc-status-neutral: #6a86c6;
+  --anc-on-accent: #0d2f86;
+  --anc-on-danger: #f2dbc5;
+
+  --anc-accent: #8fb3ff;
+  --anc-accent-hover: #a9c4ff;
+  --anc-accent-deep: #3158ad;
+  --anc-action-primary: #f2dbc5;
+  --anc-action-primary-hover: #fbead8;
+  --anc-success: #55a583;
+  --anc-warning: #d9a45e;
+  --anc-danger: #c0473a;
+  --anc-violet: #9b8ee8;
+  --anc-blue: #6fa8e0;
+  /*
+   * Status colours used as TEXT. The handoff aliases each to its base in dark mode
+   * (Anchorage v2.dc.html:31-32) and these reproduce it exactly.
+   *
+   * That costs contrast, and the cost is larger here than anywhere else in the product,
+   * because nous alone puts a bright royal blue behind the chips rather than a near-black:
+   * a 16% tint over #12378f lands close to the status colour itself. Measured against that
+   * fill, all five are under WCAG AA — danger 2.07:1, success 2.98:1, violet 3.06:1,
+   * accent 3.87:1, warning 3.89:1.
+   *
+   * This is a deliberate fidelity decision, not an oversight, so it is pinned rather than
+   * silently tolerated: `scripts/theme-integrity.test.mjs` holds nous dark to these exact
+   * measurements and fails if any of them gets worse, while every other theme and mode is
+   * held to 4.5:1. To trade fidelity back for legibility, lift each token toward white —
+   * 62/78/52/63/77% clears AA and lands accent within one value of the handoff's own
+   * `--accent-hi`, which is the register it already reserves for text on this surface.
+   */
+  --anc-success-fg: var(--anc-success);
+  --anc-warning-fg: var(--anc-warning);
+  --anc-danger-fg: var(--anc-danger);
+  --anc-violet-fg: var(--anc-violet);
+  --anc-accent-fg: var(--anc-accent);
+
+  --anc-accent-rgb: 143 179 255;
+  --anc-action-primary-rgb: 242 219 197;
+  --anc-success-rgb: 85 165 131;
+  --anc-warning-rgb: 217 164 94;
+  --anc-danger-rgb: 192 71 58;
+  --anc-violet-rgb: 155 142 232;
+  --anc-blue-rgb: 111 168 224;
+  --anc-overlay-rgb: 255 255 255;
+  --anc-contrast-rgb: 255 255 255;
+  --anc-shadow-rgb: 0 0 0;
+  --anc-terminal-rgb: 6 28 86;
+  --anc-code-rgb: 11 37 102;
+  --anc-inset-rgb: 9 40 111;
+
+  --anc-text-primary: #f2dbc5;
+  --anc-text-strong: #ebd5be;
+  --anc-text-body: #e4d3bf;
+  --anc-text-mono: #dccbb5;
+  --anc-text-secondary: #b5c7f3;
+  --anc-text-muted: #9fb4e8;
+  --anc-text-dim: #8ca4de;
+  --anc-text-dimmer: #7b95d4;
+  --anc-text-faint: #6a86c6;
+  --anc-text-quiet: #5b78bc;
+  --anc-text-subdued: #7b95d4;
+  --anc-text-emphasis-muted: #b5c7f3;
+  --anc-update-text: #b5c7f3;
+
+  --anc-line-hairline: rgba(255, 255, 255, 0.045);
+  --anc-line-border: #1b45a4;
+  --anc-line-strong: #234a9c;
+  --anc-line-control: #3158ad;
+
+  --anc-scrim: rgba(6, 28, 86, 0.78);
+  --anc-scrim-soft: rgba(6, 28, 86, 0.68);
+  --anc-control-neutral: #3158ad;
+  --anc-control-neutral-hover: #6a86c6;
+  --anc-control-close: #7a2f3c;
+  --anc-error-surface: #3d1824;
+  --anc-error-text: #e8a196;
+  --anc-scrollbar: rgba(255, 255, 255, 0.14);
+  --anc-scrollbar-hover: rgba(255, 255, 255, 0.26);
+
+  --anc-terminal-background: #061c56;
+  --anc-terminal-foreground: #f2dbc5;
+  --anc-terminal-cursor: #8fb3ff;
+  --anc-terminal-selection: #3158ad;
+  --anc-terminal-black: #061c56;
+  --anc-terminal-red: #c0473a;
+  --anc-terminal-green: #55a583;
+  --anc-terminal-yellow: #d9a45e;
+  --anc-terminal-blue: #6fa8e0;
+  --anc-terminal-magenta: #9b8ee8;
+  --anc-terminal-cyan: #6fc0d4;
+  --anc-terminal-white: #dccbb5;
+}
+
+:root[data-theme="nous"][data-color-mode="light"] {
+  color-scheme: light;
+
+  --anc-desk: #e6edfb;
+  --anc-desk-glow: #ffffff;
+  --anc-app: #f8faff;
+  --anc-panel: #ffffff;
+  --anc-input: #eef3fe;
+  --anc-code: #eef3fe;
+  --anc-table-head: #eef3ff;
+  /* `--muted` in the handoff: the sidebar is already white, so a persistent selection needs
+     a surface that sits above it rather than the panel colour repeated. */
+  --anc-surface-elevated: #e2eafb;
+  --anc-status-neutral: #6e6e82;
+  --anc-on-accent: #fcfcfc;
+  --anc-on-danger: #ffffff;
+
+  --anc-accent: #2c5ce6;
+  --anc-accent-hover: #1a48d0;
+  --anc-accent-deep: #1a48d0;
+  --anc-action-primary: #2c5ce6;
+  --anc-action-primary-hover: #1a48d0;
+  --anc-success: #1f8a5f;
+  --anc-warning: #b07a1d;
+  --anc-danger: #c72e4d;
+  --anc-violet: #6c4fd6;
+  --anc-blue: #2c5ce6;
+  --anc-success-fg: color-mix(in srgb, var(--anc-success) 70%, black);
+  --anc-danger-fg: color-mix(in srgb, var(--anc-danger) 70%, black);
+  --anc-warning-fg: color-mix(in srgb, var(--anc-warning) 66%, black);
+  --anc-violet-fg: color-mix(in srgb, var(--anc-violet) 72%, black);
+  --anc-accent-fg: color-mix(in srgb, var(--anc-accent) 80%, black);
+
+  --anc-accent-rgb: 44 92 230;
+  --anc-action-primary-rgb: 44 92 230;
+  --anc-success-rgb: 31 138 95;
+  --anc-warning-rgb: 176 122 29;
+  --anc-danger-rgb: 199 46 77;
+  --anc-violet-rgb: 108 79 214;
+  --anc-blue-rgb: 44 92 230;
+  --anc-overlay-rgb: 23 23 26;
+  --anc-contrast-rgb: 23 23 26;
+  --anc-shadow-rgb: 23 23 26;
+  --anc-terminal-rgb: 23 23 26;
+  --anc-code-rgb: 23 23 26;
+  --anc-inset-rgb: 23 23 26;
+
+  --anc-text-primary: #17171a;
+  --anc-text-strong: #242432;
+  --anc-text-body: #2f2f3d;
+  --anc-text-mono: #33334a;
+  --anc-text-secondary: #4a4a5c;
+  --anc-text-muted: #55556a;
+  --anc-text-dim: #5f5f75;
+  --anc-text-dimmer: #6a6a80;
+  --anc-text-faint: #6e6e82;
+  --anc-text-quiet: #76768a;
+  --anc-text-subdued: #6a6a80;
+  --anc-text-emphasis-muted: #4a4a5c;
+  --anc-update-text: #1a48d0;
+
+  --anc-line-hairline: rgba(23, 23, 26, 0.055);
+  --anc-line-border: #e8eefb;
+  --anc-line-strong: #dbe4f7;
+  --anc-line-control: #c7d5f0;
+
+  --anc-scrim: rgba(23, 23, 26, 0.34);
+  --anc-scrim-soft: rgba(23, 23, 26, 0.24);
+  --anc-control-neutral: #c7d5f0;
+  --anc-control-neutral-hover: #9fb0d8;
+  --anc-control-close: #d9536a;
+  --anc-error-surface: #fdeef1;
+  --anc-error-text: #a3223c;
+  --anc-scrollbar: rgba(23, 23, 26, 0.18);
+  --anc-scrollbar-hover: rgba(23, 23, 26, 0.3);
+
+  --anc-terminal-background: #eef3fe;
+  --anc-terminal-foreground: #17171a;
+  --anc-terminal-cursor: #2c5ce6;
+  --anc-terminal-selection: #c7d5f0;
+  --anc-terminal-black: #17171a;
+  --anc-terminal-red: #c72e4d;
+  --anc-terminal-green: #1f8a5f;
+  --anc-terminal-yellow: #b07a1d;
+  --anc-terminal-blue: #2c5ce6;
+  --anc-terminal-magenta: #6c4fd6;
+  --anc-terminal-cyan: #1f6a8a;
+  --anc-terminal-white: #55556a;
+}

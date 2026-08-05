@@ -328,9 +328,17 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
         : [],
     [capabilities],
   );
-  const commandResults = useMemo(
-    () => searchCommandLeaves(availableCommands, query).slice(0, 100),
+  const COMMAND_RESULT_LIMIT = 100;
+  // The full tree is thousands of leaves, so the list is capped. The count below is the
+  // total before capping: a silently truncated list reads as "that is all there is", which
+  // is the one thing this palette must never imply about the installed command surface.
+  const commandMatches = useMemo(
+    () => searchCommandLeaves(availableCommands, query),
     [availableCommands, query],
+  );
+  const commandResults = useMemo(
+    () => commandMatches.slice(0, COMMAND_RESULT_LIMIT),
+    [commandMatches],
   );
   const running =
     sessionState === "starting" ||
@@ -1002,6 +1010,12 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
                   </button>
                 );
               })}
+              {commandMatches.length > commandResults.length && (
+                <p className="command-center__truncated" role="status">
+                  Showing {commandResults.length} of {commandMatches.length}{" "}
+                  matching commands. Narrow the search to see the rest.
+                </p>
+              )}
               {!capabilitiesLoading && commandResults.length === 0 && (
                 <p className="command-results__empty">
                   No installed command leaf matches this query.

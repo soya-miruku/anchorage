@@ -1,8 +1,9 @@
 import { XIcon } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnchorageIcon } from "../components/AnchorageIcon";
 import { ArchivePathDialog } from "../components/ArchivePathDialog";
+import { CloneVolumeDialog } from "../components/CloneVolumeDialog";
 import { VolumeFilesPanel } from "../components/VolumeFilesPanel";
 import { SortableHeader } from "../components/SortableHeader";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -20,6 +21,20 @@ const VOLUME_COLUMNS: ReadonlyArray<
   { key: "created", label: "Created", kind: "text", value: (row) => row.created },
 ];
 
+/**
+ * How each volume transfer names itself in the toast. Keyed off the store's own kind so a
+ * clone or an empty cannot report as the "restoring" a two-branch ternary used to make it.
+ */
+const TRANSFER_VERB: Record<
+  NonNullable<AnchorageStore["volumeTransfer"]>["kind"],
+  string
+> = {
+  backup: "Backing up",
+  restore: "Restoring",
+  clone: "Cloning",
+  empty: "Emptying",
+};
+
 export function VolumesScreen({ store }: { store: AnchorageStore }) {
   // window.prompt used to back this. Electron short-circuits prompt() in the renderer and
   // returns null, so in the packaged application "Create volume" silently did nothing.
@@ -30,6 +45,24 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
   const [pruneIncludeNamed, setPruneIncludeNamed] = useState(false);
   const [backupTarget, setBackupTarget] = useState<AnchorageVolume | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<AnchorageVolume | null>(null);
+  const [cloneTarget, setCloneTarget] = useState<AnchorageVolume | null>(null);
+  const [emptyTarget, setEmptyTarget] = useState<AnchorageVolume | null>(null);
+  const emptyConfirmRef = useRef<HTMLButtonElement>(null);
+  const focusedBeforeEmpty = useRef<Element | null>(null);
+
+  // The destructive confirmation takes focus and gives it back, the same way
+  // DeleteContainerDialog does: without it focus drops to <body> and a keyboard user loses
+  // the row they were on.
+  useEffect(() => {
+    if (!emptyTarget) return;
+    focusedBeforeEmpty.current = document.activeElement;
+    emptyConfirmRef.current?.focus();
+    return () => {
+      if (focusedBeforeEmpty.current instanceof HTMLElement) {
+        focusedBeforeEmpty.current.focus();
+      }
+    };
+  }, [emptyTarget]);
 
   const reclaimable = useMemo(
     () =>
@@ -50,6 +83,18 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
   const { sorted: volumeRows, headerProps } = useTableSort(
     store.filteredVolumes,
     VOLUME_COLUMNS,
+  );
+  // The titlebar search is the only thing narrowing this table, so an empty body is either
+  // "nothing matched" or "no volumes at all" — two different things to tell the operator.
+  const searchQuery = store.search.trim();
+  // Every one of these verbs reads or writes a volume through the core's fixed set of volume
+  // slots, and a second one arriving while the first is streaming is answered with
+  // volume_browse_busy. Rather than let the operator earn that error, the controls that would
+  // produce it stand down until the running transfer reports done.
+  const transferRunning = store.volumeTransfer?.status === "running";
+  const volumeNames = useMemo(
+    () => store.volumes.map((volume) => volume.name),
+    [store.volumes],
   );
 
   const openCreate = () => {
@@ -85,6 +130,20 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
           {store.isHost && store.hostDomainState.volumes.status === "error" && (
             <p className="capability-error" role="status">
               Live volumes unavailable: {store.hostDomainState.volumes.error}
+            </p>
+          )}
+          {/* Backup, restore, clone and empty all report their failures on the same channel
+              the file browser uses, and the browser is usually closed when a row verb runs —
+              a refused clone or a half-finished empty would otherwise have nowhere to appear.
+              Shown only while the browser is closed, because it prints the same message and
+              two copies would read as two failures. */}
+          {store.volumeBrowseError && !store.browsedVolume && (
+            <p
+              className="capability-error"
+              role="alert"
+              data-testid="volume-operation-error"
+            >
+              {store.volumeBrowseError}
             </p>
           )}
         </div>
@@ -143,58 +202,100 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                 : volume.usedBy ?? "Not in use"}
             </span>
             <span className="resource-dim volume-row__created">
-              {volume.created}
+              <span className="volume-row__created-at">{volume.created}</span>
               {store.isHost && (
-                <button
-                  className="volume-row__browse"
-                  type="button"
-                  aria-label={`Back up volume ${volume.name}`}
-                  title="Write this volume's contents to a tar archive"
-                  onClick={() => setBackupTarget(volume)}
-                >
-                  Back up
-                </button>
-              )}
-              {store.isHost && (
-                <button
-                  className="volume-row__browse"
-                  type="button"
-                  aria-label={`Restore volume ${volume.name}`}
-                  title="Replace this volume's contents from a backup archive"
-                  onClick={() => setRestoreTarget(volume)}
-                >
-                  Restore
-                </button>
-              )}
-              {store.isHost && (
-                <button
-                  className="volume-row__browse"
-                  type="button"
-                  aria-label={`Browse volume ${volume.name}`}
-                  title="Browse this volume's contents"
-                  onClick={() => void store.browseVolume(volume.name)}
-                >
-                  Browse
-                </button>
-              )}
-              {store.isHost && (
-                <button
-                  className="volume-row__remove"
-                  type="button"
-                  aria-label={`Remove volume ${volume.name}`}
-                  disabled={
-                    !volume.usageKnown ||
-                    Boolean(volume.usedBy) ||
-                    store.volumeMutationPending
-                  }
-                  onClick={() => void store.removeVolume(volume)}
-                >
-                  <AnchorageIcon name="delete" size={12} />
-                </button>
+                <span className="volume-row__actions">
+                  <button
+                    className="volume-row__browse"
+                    type="button"
+                    aria-label={`Back up volume ${volume.name}`}
+                    title="Write this volume's contents to a tar archive"
+                    disabled={transferRunning}
+                    onClick={() => setBackupTarget(volume)}
+                  >
+                    Back up
+                  </button>
+                  <button
+                    className="volume-row__browse"
+                    type="button"
+                    aria-label={`Restore volume ${volume.name}`}
+                    title="Replace this volume's contents from a backup archive"
+                    disabled={transferRunning}
+                    onClick={() => setRestoreTarget(volume)}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    className="volume-row__browse"
+                    type="button"
+                    aria-label={`Browse volume ${volume.name}`}
+                    title="Browse this volume's contents"
+                    onClick={() => void store.browseVolume(volume.name)}
+                  >
+                    Browse
+                  </button>
+                  <button
+                    className="volume-row__browse"
+                    type="button"
+                    aria-label={`Clone volume ${volume.name}`}
+                    title="Copy this volume's contents into a new volume"
+                    disabled={transferRunning}
+                    onClick={() => setCloneTarget(volume)}
+                  >
+                    Clone
+                  </button>
+                  <button
+                    className="volume-row__browse volume-row__empty"
+                    type="button"
+                    aria-label={`Empty volume ${volume.name}`}
+                    title="Delete everything in this volume, keeping the volume"
+                    disabled={transferRunning || store.volumeMutationPending}
+                    onClick={() => setEmptyTarget(volume)}
+                  >
+                    Empty
+                  </button>
+                  <button
+                    className="volume-row__remove"
+                    type="button"
+                    aria-label={`Remove volume ${volume.name}`}
+                    disabled={
+                      !volume.usageKnown ||
+                      Boolean(volume.usedBy) ||
+                      store.volumeMutationPending
+                    }
+                    onClick={() => void store.removeVolume(volume)}
+                  >
+                    <AnchorageIcon name="delete" size={12} />
+                  </button>
+                </span>
               )}
             </span>
           </div>
         ))}
+        {volumeRows.length === 0 && (
+          <div className="empty-state" data-testid="volumes-empty-state">
+            <span className="empty-state__icon" aria-hidden="true">
+              <AnchorageIcon
+                className="empty-state__glyph"
+                name="empty"
+                size={19}
+              />
+            </span>
+            {searchQuery ? (
+              <>
+                <strong>No volumes match “{searchQuery}”</strong>
+                <p>Clear the search, or create a volume with that name.</p>
+              </>
+            ) : (
+              <>
+                <strong>No volumes yet</strong>
+                <p>
+                  Create one here, or start a container that declares a volume.
+                </p>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {backupTarget && (
@@ -202,6 +303,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
           testId="volume-backup-dialog"
           title={`Back up ${backupTarget.name}`}
           description="Writes the volume's contents to a tar archive rooted at its own files, so any tool can read it."
+          disclosure="The archive is a plaintext copy of everything in this volume. Once written it is protected by the permissions of the directory you name here, and by nothing that protected the volume."
           placeholder="/home/you/backups/project_data.tar"
           confirmLabel="Back up"
           allowOverwrite
@@ -228,6 +330,114 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
             void store.restoreVolume(target.name, archivePath);
           }}
         />
+      )}
+
+      {cloneTarget && (
+        <CloneVolumeDialog
+          volume={cloneTarget.name}
+          existingNames={volumeNames}
+          busy={transferRunning}
+          onCancel={() => setCloneTarget(null)}
+          onConfirm={(target) => {
+            const source = cloneTarget;
+            setCloneTarget(null);
+            void store.cloneVolume(source.name, target);
+          }}
+        />
+      )}
+
+      {emptyTarget && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              setEmptyTarget(null);
+            }
+          }}
+        >
+          <div
+            className="create-environment-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="empty-volume-title"
+            aria-describedby="empty-volume-description"
+            data-testid="empty-volume-dialog"
+          >
+            <div className="create-environment-dialog__heading">
+              <div>
+                <h2 id="empty-volume-title">Empty {emptyTarget.name}</h2>
+                <p id="empty-volume-description">
+                  Every file in “{emptyTarget.name}” is deleted
+                  {/* Only when the daemon actually measured it — "Unavailable of
+                      contents" would read as a figure. */}
+                  {emptyTarget.sizeBytes !== undefined &&
+                    ` — ${emptyTarget.size} of contents`}
+                  . Nothing is copied out first, so a database&rsquo;s data goes with
+                  it. This cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close empty volume"
+                onClick={() => setEmptyTarget(null)}
+              >
+                <XIcon aria-hidden="true" size={15} />
+              </button>
+            </div>
+
+            <p className="volume-limitation" data-testid="empty-volume-limitations">
+              Docker cannot empty a volume in place, so the volume is removed and
+              recreated from its own declaration. It keeps its name, driver, labels
+              and options — a Compose project still finds it — but its mount point
+              and creation time are new.
+            </p>
+
+            {emptyTarget.usageKnown && Boolean(emptyTarget.usedBy) && (
+              // Not an acknowledgeable warning like the in-use restore below: Docker refuses
+              // to remove a volume anything references, so there is no version of this that
+              // proceeds and nothing to offer beyond saying so.
+              <p
+                className="capability-error"
+                role="status"
+                data-testid="empty-volume-in-use"
+              >
+                Docker reports {emptyTarget.usedBy} using this volume. It will not
+                release a volume a container still references, so this cannot run
+                until those containers are stopped. There is no way to force it.
+              </p>
+            )}
+
+            <div className="create-environment-dialog__actions">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => setEmptyTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button primary-button--danger"
+                type="button"
+                ref={emptyConfirmRef}
+                data-testid="empty-volume-confirm"
+                disabled={
+                  (emptyTarget.usageKnown && Boolean(emptyTarget.usedBy)) ||
+                  transferRunning ||
+                  store.volumeMutationPending
+                }
+                onClick={() => {
+                  const target = emptyTarget;
+                  setEmptyTarget(null);
+                  void store.emptyVolume(target.name);
+                }}
+              >
+                Delete contents
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {store.volumeInUseRestore && (
@@ -287,7 +497,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
           data-testid="volume-transfer"
         >
           <span>
-            {store.volumeTransfer.kind === "backup" ? "Backing up" : "Restoring"}{" "}
+            {TRANSFER_VERB[store.volumeTransfer.kind]}{" "}
             <strong>{store.volumeTransfer.volume}</strong>
             {store.volumeTransfer.status === "done" ? " · done" : "…"}
           </span>

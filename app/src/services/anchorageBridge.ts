@@ -10,6 +10,8 @@ import type {
   CommandEvidence,
   CommandInventory,
   SystemContexts,
+  SystemPlugins,
+  DockerCliPluginStatus,
   CommandNode,
   ContainerInspectResult,
   ContainerHealth,
@@ -27,7 +29,9 @@ import type {
   ComposeListResult,
   BuildsListResult,
   BuildsInspectResult,
+  SecretsListResult,
   ComposePsResult,
+  ComposeConfigResult,
   ContainerRemoveOptions,
   ContainerStatsResult,
   ContainerState,
@@ -68,6 +72,8 @@ import type {
   VolumeFileWriteResult,
   VolumeBackupResult,
   VolumeRestoreResult,
+  VolumeCloneResult,
+  VolumeEmptyResult,
   WindowAction,
 } from "../types";
 
@@ -402,6 +408,59 @@ function normalizeCapabilities(value: unknown): SystemCapabilities {
     commandInventory,
     warnings: stringArray(raw.warnings),
     observedAt: String(raw.observedAt ?? ""),
+  };
+}
+
+const PLUGIN_STATUSES = new Set([
+  "available",
+  "unavailable",
+  "degraded",
+  "unknown",
+  "broken",
+]);
+
+function normalizePlugins(value: unknown): SystemPlugins {
+  const raw = asRecord(value);
+  const protocolVersion = String(raw.protocolVersion ?? "");
+  if (protocolVersion !== "1") {
+    throw new Error(
+      `Unsupported Anchorage protocol version: ${protocolVersion || "missing"}`,
+    );
+  }
+  const plugins = Array.isArray(raw.plugins) ? raw.plugins : [];
+  return {
+    protocolVersion: "1",
+    plugins: plugins
+      .map((entry) => asRecord(entry))
+      .filter((entry) => typeof entry.name === "string" && entry.name)
+      .map((entry) => {
+        const status = String(entry.status ?? "");
+        return {
+          name: String(entry.name),
+          version: typeof entry.version === "string" ? entry.version : undefined,
+          vendor: typeof entry.vendor === "string" ? entry.vendor : undefined,
+          description:
+            typeof entry.description === "string" ? entry.description : undefined,
+          path: typeof entry.path === "string" ? entry.path : undefined,
+          // An unrecognised status is reported as unknown rather than passed through:
+          // the UI groups on this value, and a stray string would render as its own group.
+          status: (PLUGIN_STATUSES.has(status)
+            ? status
+            : "unknown") as DockerCliPluginStatus,
+          discoverySource: String(entry.discoverySource ?? "unknown"),
+          availabilityNote:
+            typeof entry.availabilityNote === "string"
+              ? entry.availabilityNote
+              : undefined,
+        };
+      }),
+    searchPath: Array.isArray(raw.searchPath)
+      ? raw.searchPath.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    warnings: Array.isArray(raw.warnings)
+      ? raw.warnings.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
   };
 }
 
@@ -812,6 +871,7 @@ class FixtureBridge implements AnchorageBridge {
         observedAt: capabilities.observedAt,
       };
     },
+    plugins: async () => fixtureUnsupported("system.plugins"),
     snapshot: async () => fixtureUnsupported("system.snapshot"),
     prune: async () => fixtureUnsupported("system.action"),
   };
@@ -832,12 +892,23 @@ class FixtureBridge implements AnchorageBridge {
   readonly compose = {
     list: async () => fixtureUnsupported("compose.list"),
     ps: async () => fixtureUnsupported("compose.ps"),
+    config: async () => fixtureUnsupported("compose.config"),
     action: async () => fixtureUnsupported("compose.action"),
   };
 
   readonly networks = {
     list: async () => fixtureUnsupported("networks.list"),
     action: async () => fixtureUnsupported("networks.action"),
+  };
+
+  /**
+   * Refused rather than stubbed, like every other live surface here. A simulated secret
+   * inventory would be indistinguishable on screen from a real one, and this is the one
+   * screen where a reader taking fixture rows for the engine's own answer would be reading
+   * a false claim about what the host holds.
+   */
+  readonly secrets = {
+    list: async () => fixtureUnsupported("secrets.list"),
   };
 
   readonly volumes = {
@@ -848,6 +919,8 @@ class FixtureBridge implements AnchorageBridge {
     fileWrite: async () => fixtureUnsupported("volumes.fileWrite"),
     backup: async () => fixtureUnsupported("volumes.backup"),
     restore: async () => fixtureUnsupported("volumes.restore"),
+    clone: async () => fixtureUnsupported("volumes.clone"),
+    empty: async () => fixtureUnsupported("volumes.empty"),
   };
 
   readonly cli = {
@@ -1100,6 +1173,18 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
   };
   // Falls back to capabilities when the host predates this verb, so a renderer served by an
   // older core still starts — slowly, but it starts.
+  // A core that predates this verb simply has nothing to report, which is the same shape as
+  // a clean installation. Reporting "no issues" is wrong there, so it reports the absence.
+  const systemPlugins = async (context?: string) => {
+    const request = context ? { context } : undefined;
+    if (host.system?.plugins) {
+      return normalizePlugins(await host.system.plugins(request));
+    }
+    if (host.invoke) {
+      return normalizePlugins(await host.invoke("system.plugins", request));
+    }
+    throw new Error("Docker plugin inspection is unavailable");
+  };
   const systemContexts = async (context?: string) => {
     const request = context ? { context } : undefined;
     if (host.system?.contexts) {
@@ -1147,6 +1232,29 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       throw new Error("networks.list returned an incomplete result");
     }
     return structuredClone(raw) as unknown as NetworksListResult;
+  };
+
+  /**
+   * Lists Swarm secret references.
+   *
+   * `swarm` is checked as strictly as `secrets` because it is what tells an empty store apart
+   * from an absent one — a result missing it would leave the screen guessing, and the guess
+   * would read as "this manager holds no secrets" on an engine that has no secret store.
+   */
+  const listSecrets = async (context: string): Promise<SecretsListResult> => {
+    const request = { context };
+    const result = host.secrets
+      ? await host.secrets.list(request)
+      : host.invoke
+        ? await host.invoke("secrets.list", request)
+        : await Promise.reject(
+            new Error("Docker secret capability is unavailable"),
+          );
+    const raw = requireObjectResult(result, "secrets.list");
+    if (!Array.isArray(raw.secrets) || typeof raw.swarm !== "object" || !raw.swarm) {
+      throw new Error("secrets.list returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as SecretsListResult;
   };
 
   const mutateNetworks = async (
@@ -1385,6 +1493,32 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as VolumeRestoreResult;
   };
+  const volumeClone = async (name: string, target: string, context: string) => {
+    const payload = { context, name, target };
+    const result = host.volumes?.clone
+      ? await host.volumes.clone(payload)
+      : host.invoke
+        ? await host.invoke("volumes.clone", payload)
+        : await Promise.reject(new Error("Volume clone is unavailable"));
+    const raw = requireObjectResult(result, "volumes.clone");
+    if (typeof raw.target !== "string") {
+      throw new Error("volumes.clone returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as VolumeCloneResult;
+  };
+  const volumeEmpty = async (name: string, context: string) => {
+    const payload = { context, name, confirmed: true as const };
+    const result = host.volumes?.empty
+      ? await host.volumes.empty(payload)
+      : host.invoke
+        ? await host.invoke("volumes.empty", payload)
+        : await Promise.reject(new Error("Volume empty is unavailable"));
+    const raw = requireObjectResult(result, "volumes.empty");
+    if (typeof raw.volume !== "string") {
+      throw new Error("volumes.empty returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as VolumeEmptyResult;
+  };
   const buildsList = async (context: string) => {
     const request = { context };
     const result = host.builds
@@ -1440,6 +1574,25 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       throw new Error("compose.ps returned an incomplete result");
     }
     return structuredClone(raw) as unknown as ComposePsResult;
+  };
+  const composeConfig = async (
+    project: string,
+    configFiles: string[],
+    context: string,
+  ) => {
+    const request = { context, project, configFiles };
+    const result = host.compose?.config
+      ? await host.compose.config(request)
+      : host.invoke
+        ? await host.invoke("compose.config", request)
+        : await Promise.reject(
+            new Error("Compose capability is unavailable"),
+          );
+    const raw = requireObjectResult(result, "compose.config");
+    if (!Array.isArray(raw.services) || !Array.isArray(raw.dependencies)) {
+      throw new Error("compose.config returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as ComposeConfigResult;
   };
   const composeAction = async (params: ComposeActionParams) => {
     const result = host.compose
@@ -1676,6 +1829,7 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     system: {
       capabilities: systemCapabilities,
       contexts: systemContexts,
+      plugins: systemPlugins,
       snapshot: systemSnapshot,
       prune: systemPrune,
     },
@@ -1686,6 +1840,8 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     compose: {
       list: (context = "default", all = true) => composeList(context, all),
       ps: (project: string, context = "default") => composePs(project, context),
+      config: (project: string, configFiles: string[], context = "default") =>
+        composeConfig(project, configFiles, context),
       action: composeAction,
     },
     images: {
@@ -1713,6 +1869,9 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     networks: {
       list: listNetworks,
       action: mutateNetworks,
+    },
+    secrets: {
+      list: (context = "default") => listSecrets(context),
     },
     volumes: {
       list: listVolumes,
@@ -1742,6 +1901,9 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
         options: { confirmedInUse?: boolean } = {},
         context = "default",
       ) => volumeRestore(name, archivePath, options, context),
+      clone: (name: string, target: string, context = "default") =>
+        volumeClone(name, target, context),
+      empty: (name: string, context = "default") => volumeEmpty(name, context),
       action: mutateVolumes,
     },
     cli: {

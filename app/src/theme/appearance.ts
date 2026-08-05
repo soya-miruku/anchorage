@@ -1,4 +1,4 @@
-export const THEME_FAMILIES = ["default", "docker", "github"] as const;
+export const THEME_FAMILIES = ["nous", "docker", "github", "mono"] as const;
 export type ThemeFamily = (typeof THEME_FAMILIES)[number];
 
 export const COLOR_MODES = ["dark", "light"] as const;
@@ -22,9 +22,9 @@ export interface AppearanceRuntimeOptions {
 
 export const THEME_OPTIONS = Object.freeze([
   {
-    id: "default",
-    label: "Default",
-    description: "Anchorage's original indigo palette.",
+    id: "nous",
+    label: "Nous",
+    description: "Royal blue surfaces under a warm psyche-cream foreground.",
   },
   {
     id: "docker",
@@ -35,6 +35,11 @@ export const THEME_OPTIONS = Object.freeze([
     id: "github",
     label: "GitHub",
     description: "GitHub Primer canvas and semantic colours.",
+  },
+  {
+    id: "mono",
+    label: "Monochrome",
+    description: "Greyscale throughout; status separates by lightness, not hue.",
   },
 ] satisfies ReadonlyArray<{
   id: ThemeFamily;
@@ -60,7 +65,7 @@ export const COLOR_MODE_OPTIONS = Object.freeze([
 }>);
 
 export const DEFAULT_APPEARANCE: Readonly<AppearancePreference> = Object.freeze({
-  family: "default",
+  family: "nous",
   mode: "dark",
 });
 
@@ -120,6 +125,21 @@ export function isDesignCaptureRequest(search = ""): boolean {
   }
 }
 
+/**
+ * Families that were renamed rather than removed.
+ *
+ * `default` became `nous` when the house palette was brought onto the handoff's own colours.
+ * It is the same slot under a different name, so a stored `default` is a preference the user
+ * still holds — dropping it to the fallback would silently discard a choice they made.
+ */
+const RENAMED_FAMILIES: Record<string, ThemeFamily> = { default: "nous" };
+
+function migrateFamily(value: unknown): unknown {
+  return typeof value === "string" && value in RENAMED_FAMILIES
+    ? RENAMED_FAMILIES[value]
+    : value;
+}
+
 export function resolveAppearancePreference(
   serialized: string | null | undefined,
   search = "",
@@ -129,8 +149,12 @@ export function resolveAppearancePreference(
   }
   try {
     const parsed: unknown = JSON.parse(serialized);
-    return isAppearancePreference(parsed)
-      ? { family: parsed.family, mode: parsed.mode }
+    const migrated =
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? { ...parsed, family: migrateFamily((parsed as { family?: unknown }).family) }
+        : parsed;
+    return isAppearancePreference(migrated)
+      ? { family: migrated.family, mode: migrated.mode }
       : { ...DEFAULT_APPEARANCE };
   } catch {
     return { ...DEFAULT_APPEARANCE };

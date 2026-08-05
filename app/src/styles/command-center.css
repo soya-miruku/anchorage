@@ -48,7 +48,7 @@
 
 .command-center__eyebrow {
   margin-bottom: 3px;
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-family: var(--anc-font-mono);
   font-size: 9.5px;
   font-weight: 600;
@@ -83,7 +83,7 @@
 
 .command-center__close:hover {
   background: rgb(var(--anc-danger-rgb) / 15%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .command-center__toolbar {
@@ -168,7 +168,7 @@
   padding: 7px 16px;
   border-bottom: 1px solid rgb(var(--anc-warning-rgb) / 18%);
   background: rgb(var(--anc-warning-rgb) / 8%);
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
   font-size: 10.5px;
 }
 
@@ -336,7 +336,7 @@
 }
 
 .argv-context code {
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-family: var(--anc-font-mono);
   font-size: 10.5px;
 }
@@ -457,7 +457,7 @@
 .environment-editor__error {
   padding: 5px 8px;
   border-top: 1px solid rgb(var(--anc-danger-rgb) / 15%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
   font-size: 9.5px;
 }
 
@@ -526,7 +526,7 @@
 .command-center__danger {
   border-color: rgb(var(--anc-danger-rgb) / 20%);
   background: rgb(var(--anc-danger-rgb) / 8%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .command-center__session {
@@ -598,13 +598,13 @@
   border-top: 1px solid rgb(var(--anc-success-rgb) / 15%);
   border-bottom: 0;
   background: rgb(var(--anc-success-rgb) / 7%);
-  color: var(--anc-success);
+  color: var(--anc-success-fg);
 }
 
 .session-status--error {
   border-color: rgb(var(--anc-danger-rgb) / 18%);
   background: rgb(var(--anc-danger-rgb) / 8%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .command-history {
@@ -630,4 +630,11 @@
   color: var(--anc-text-mono);
   font-family: var(--anc-font-mono);
   font-size: 9.5px;
+}
+
+/* Says when the list is capped. An undisclosed cut reads as a complete answer. */
+.command-center__truncated {
+  padding: 9px 16px;
+  color: var(--anc-text-faint);
+  font-size: 11px;
 }

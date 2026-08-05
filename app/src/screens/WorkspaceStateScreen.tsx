@@ -45,6 +45,9 @@ export function WorkspaceStateScreen({ store }: { store: AnchorageStore }) {
     <section
       className={`workspace-state workspace-state--${store.engineStatus} screen`}
       data-testid={`engine-state-${store.engineStatus}`}
+      // Losing the engine replaces the whole workspace; a screen reader user is
+      // otherwise never told why the surface they were on disappeared.
+      role={store.engineStatus === "loading" ? "status" : "alert"}
     >
       <span className="workspace-state__icon">
         <IconComponent

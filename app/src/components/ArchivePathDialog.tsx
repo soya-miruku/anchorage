@@ -20,6 +20,7 @@ import { useState } from "react";
 export function ArchivePathDialog({
   title,
   description,
+  disclosure,
   placeholder,
   confirmLabel,
   testId,
@@ -30,6 +31,12 @@ export function ArchivePathDialog({
 }: {
   title: string;
   description: string;
+  /**
+   * What naming a destination gives away, for the verbs that copy a resource's contents out
+   * from under the permissions that were guarding them. Stated here rather than on the screen
+   * behind the dialog, because the path is chosen here.
+   */
+  disclosure?: string;
   placeholder: string;
   confirmLabel: string;
   testId: string;
@@ -70,6 +77,9 @@ export function ArchivePathDialog({
           <div>
             <h2 id={`${testId}-title`}>{title}</h2>
             <p>{description}</p>
+            {disclosure && (
+              <p data-testid={`${testId}-disclosure`}>{disclosure}</p>
+            )}
           </div>
           <button type="button" aria-label={`Close ${title.toLowerCase()}`} onClick={onCancel}>
             <XIcon aria-hidden="true" size={15} />

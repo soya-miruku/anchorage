@@ -1,15 +1,21 @@
 import type { AnchorageContainer } from "../types";
 
-export type StatusKind = "running" | "unhealthy" | "stopped" | "pulling";
+export type StatusKind =
+  | "running"
+  | "unhealthy"
+  | "stopped"
+  | "pulling"
+  | "transition";
 
 export function statusKind(container: AnchorageContainer): StatusKind {
+  if (container.state === "pulling") return "pulling";
+  // Distinct from `pulling`: painting "Paused" in the pull hue said a download was in flight.
   if (
-    container.state === "pulling" ||
     container.state === "paused" ||
     container.state === "restarting" ||
     container.state === "removing"
   ) {
-    return "pulling";
+    return "transition";
   }
   if (
     container.state === "stopped" ||
@@ -24,6 +30,11 @@ export function statusKind(container: AnchorageContainer): StatusKind {
   return "running";
 }
 
+/**
+ * The chip vocabulary, never the daemon's own sentence: in host mode `container.status` is
+ * prose like "Up 3 minutes (healthy)" or "Exited (137) 12 seconds ago", and the chip is sized
+ * for one or two words. The raw sentence stays reachable through `statusDetail`.
+ */
 export function statusLabel(container: AnchorageContainer) {
   if (
     container.state === "running" &&
@@ -31,7 +42,6 @@ export function statusLabel(container: AnchorageContainer) {
   ) {
     return "Unhealthy";
   }
-  if (container.status.trim()) return container.status;
   if (container.state === "pulling") return "Pulling";
   if (container.state === "created") return "Created";
   if (container.state === "paused") return "Paused";
@@ -47,6 +57,16 @@ export function statusLabel(container: AnchorageContainer) {
     return container.rawState ? `Unknown (${container.rawState})` : "Unknown";
   }
   return "Running";
+}
+
+/**
+ * The daemon's own status sentence, for a title/tooltip beside the chip. Null when it is
+ * absent (fixture mode) or says nothing the chip does not already say.
+ */
+export function statusDetail(container: AnchorageContainer): string | null {
+  const raw = container.status.trim();
+  if (!raw || raw === statusLabel(container)) return null;
+  return raw;
 }
 
 export function formatMemory(value: number) {

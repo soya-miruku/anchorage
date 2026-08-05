@@ -13,6 +13,26 @@ const formatDuration = (milliseconds?: number) => {
 const cacheRatio = (cached: number, total: number) =>
   total > 0 ? `${Math.round((cached / total) * 100)}%` : "—";
 
+const KNOWN_BUILD_STATUSES = new Set<string>([
+  "success",
+  "failed",
+  "cancelled",
+  "running",
+  "unknown",
+]);
+
+/**
+ * The class modifier for a build status.
+ *
+ * BuildKit reports five statuses (`normalizeBuildStatus` in core/internal/core/builds.go) and
+ * only `failed` is a failure — a running or cancelled build painted red would be a false
+ * statement about the engine. A status this build does not know falls back to the neutral
+ * `unknown` style rather than to a modifier with no rule behind it, which would leave the dot
+ * invisible.
+ */
+const buildStatusModifier = (status: string) =>
+  KNOWN_BUILD_STATUSES.has(status) ? status : "unknown";
+
 /**
  * Live build history, backed by buildx.
  *
@@ -100,9 +120,9 @@ function HostBuilds({ store }: { store: AnchorageStore }) {
               onClick={() => void store.selectBuildRecord(record)}
             >
               <span
-                className={`build-status-dot build-status-dot--${
-                  record.status === "success" ? "success" : "failed"
-                }`}
+                className={`build-status-dot build-status-dot--${buildStatusModifier(
+                  record.status,
+                )}`}
                 aria-hidden="true"
               />
               <span className="build-list-item__name">{record.name}</span>
@@ -134,9 +154,9 @@ function HostBuilds({ store }: { store: AnchorageStore }) {
               <div className="build-detail__title">
                 <h2>{detail.name}</h2>
                 <span
-                  className={`build-status-pill build-status-pill--${
-                    detail.status === "success" ? "success" : "failed"
-                  }`}
+                  className={`build-status-pill build-status-pill--${buildStatusModifier(
+                    detail.status,
+                  )}`}
                 >
                   {detail.status}
                 </span>

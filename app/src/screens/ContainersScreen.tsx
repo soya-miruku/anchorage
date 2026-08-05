@@ -17,6 +17,7 @@ import {
   primaryContainerAction,
   removeUnavailableReason,
   requiresForceRemove,
+  statusDetail,
   statusKind,
   statusLabel,
 } from "../utils/containerPresentation";
@@ -189,7 +190,10 @@ const ContainerRow = memo(function ContainerRow({
         {container.image}
       </span>
       <span className="container-status">
-        <span className={`status-pill status-pill--${kind}`}>
+        <span
+          className={`status-pill status-pill--${kind}`}
+          title={statusDetail(container) ?? undefined}
+        >
           {statusLabel(container)}
         </span>
         {container.state === "pulling" && (
@@ -276,6 +280,14 @@ export function ContainersScreen({ store }: { store: AnchorageStore }) {
           <p>
             {store.runningCount} running · {store.stoppedCount} stopped ·{" "}
             {store.containers.length} total
+          </p>
+          {/* A table of separated rows implies separated tenants. It is the wrong
+              impression to leave unstated on the screen that creates it. */}
+          <p data-testid="containers-isolation-posture">
+            Every container here runs on this host&rsquo;s one kernel: a
+            container is a process boundary, not a security boundary between
+            tenants. Anything given the Docker socket has the same authority
+            over this host as Anchorage does.
           </p>
         </div>
         <div className="screen-header__actions">

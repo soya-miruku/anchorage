@@ -15,9 +15,9 @@
   width: 52px;
   height: 52px;
   margin-bottom: 15px;
-  border: 1px dashed rgb(var(--anc-overlay-rgb) / 18%);
+  border: 1px dashed var(--anc-line-control);
   border-radius: 14px;
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .workspace-state--loading .workspace-state__icon svg {
@@ -25,11 +25,11 @@
 }
 
 .workspace-state--permission .workspace-state__icon {
-  color: var(--anc-warning);
+  color: var(--anc-warning-fg);
 }
 
 .workspace-state--error .workspace-state__icon {
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .workspace-state h1 {
@@ -122,6 +122,9 @@
   color: var(--anc-text-faint);
 }
 
+/* The <strong> arm is the dashboard's snapshot state, which reuses this block; the surface's
+   own headline is a real <h2> under the screen's <h1>. */
+.unsupported-surface__content h2,
 .unsupported-surface__content strong {
   color: var(--anc-text-primary);
   font-size: 15px;
@@ -135,4 +138,23 @@
 
 .unsupported-surface__action {
   margin-top: 17px;
+}
+
+/*
+ * What the capability would and would not protect. Set apart from the surrounding
+ * explanation because it is the one line that stays true whether or not the capability is
+ * reachable here — the rest of this surface is about this build, and this is not.
+ */
+.unsupported-surface__posture {
+  max-width: 62ch;
+  padding: 12px 15px;
+  margin-top: 18px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.55;
+  text-align: left;
+  text-wrap: pretty;
 }

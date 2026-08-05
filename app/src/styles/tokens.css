@@ -16,4 +16,15 @@
   --anc-container-grid:
     26px minmax(0, 1.5fr) minmax(0, 1.5fr) 116px 78px 96px
     minmax(0, 1.1fr) 126px;
+
+  /*
+   * Row hover, one value for every table in the product (Anchorage v2.dc.html:21, applied
+   * at 13 row sites there). Accent-tinted rather than a neutral wash: hover is the pointer
+   * saying "this row, the one you are about to act on", and a grey lift reads as texture.
+   *
+   * The counterpart rule is that accent does NOT mark persistent state — a selected or
+   * active row is a neutral surface with lifted text, so the two never compete. Defined
+   * here rather than per theme because it derives entirely from each theme's own accent.
+   */
+  --anc-row-hover: rgb(var(--anc-accent-rgb) / 10%);
 }

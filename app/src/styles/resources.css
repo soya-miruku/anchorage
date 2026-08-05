@@ -45,7 +45,7 @@
 
 .image-row:hover,
 .volume-row:hover {
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
+  background: var(--anc-row-hover);
 }
 
 .image-row > span {
@@ -92,7 +92,7 @@
 .image-row__remove:hover:not(:disabled),
 .volume-row__remove:hover:not(:disabled) {
   background: rgb(var(--anc-danger-rgb) / 14%);
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
 }
 
 .usage-pill {
@@ -109,7 +109,7 @@
 
 .usage-pill--active {
   background: rgb(var(--anc-accent-rgb) / 12%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .registry-panel {
@@ -175,7 +175,15 @@
   height: 38px;
   flex: none;
   border-radius: 9px;
-  color: var(--anc-on-accent);
+  /*
+   * The chip construction, not a solid fill. A solid mark needs an ink chosen for that exact
+   * fill, and the one reached for here was `--anc-on-accent` — designed for `--anc-accent`,
+   * not for the deeper fill actually used, which left the initial at 1.77:1. A tint plus its
+   * own `-fg` is the pairing `scripts/theme-integrity.test.mjs` already measures per theme.
+   */
+  border: 1px solid rgb(var(--anc-accent-rgb) / 32%);
+  background: rgb(var(--anc-accent-rgb) / 16%);
+  color: var(--anc-accent-fg);
   font-size: 15px;
   font-weight: 700;
 }
@@ -202,7 +210,7 @@
   padding: 2px 6px;
   border-radius: 4px;
   background: rgb(var(--anc-accent-rgb) / 13%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
   font-size: 10px;
   font-weight: 600;
 }
@@ -241,7 +249,7 @@
 
 .registry-pull--done {
   border-color: rgb(var(--anc-accent-rgb) / 35%);
-  color: var(--anc-accent);
+  color: var(--anc-accent-fg);
 }
 
 .registry-empty {
@@ -352,14 +360,18 @@
 
 .capability-error {
   padding: 10px 13px 0;
-  color: var(--anc-danger);
+  color: var(--anc-danger-fg);
   font-size: 11.5px;
 }
 
 .volumes-table__head,
 .volume-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) 110px 100px minmax(0, 1.3fr) 110px;
+  /* The last column carries every verb a volume has — browse, back up, restore, clone, empty
+     and remove — so it is sized to hold them rather than left to clip: a control the operator
+     cannot see is a control they do not have. Fixed rather than auto because the head and the
+     body are separate grids, and an intrinsic width would resolve differently in each. */
+  grid-template-columns: minmax(0, 1.5fr) 96px 88px minmax(0, 0.9fr) 400px;
   align-items: center;
   gap: 14px;
   padding: 0 30px;
@@ -388,5 +400,59 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 7px;
+  gap: 10px;
+}
+
+/* The date is the one thing in this cell that still reads when it is truncated, so it is what
+   yields when the column is squeezed; the buttons keep their width. */
+.volume-row__created-at {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.volume-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The row buttons carry a right margin from when this cell held one of them; the group owns
+   the spacing now, and doubling the two would push the set out of its column. */
+.volume-row__actions > .volume-row__browse {
+  margin-right: 0;
+}
+
+/* The shared hover fill is not written with a :disabled guard, so a control that is standing
+   down for a running transfer would still light up under the pointer as if it were live. */
+.volume-row__actions > .volume-row__browse:disabled:hover {
+  background: transparent;
+  color: var(--anc-text-secondary);
+}
+
+/* Emptying destroys data, and it sits beside four verbs that do not. It reads as one of them
+   until the pointer is on it, which is where the danger tint earns its place — the same tint
+   the remove control uses. */
+.volume-row__empty:hover:not(:disabled) {
+  background: rgb(var(--anc-danger-rgb) / 14%);
+  color: var(--anc-danger-fg);
+}
+
+/* What a clone or an empty does not do, stated where the operator is deciding to do it.
+   Neutral rather than tinted as an error: this is the shape of the operation, not a failure. */
+.volume-limitation {
+  margin-bottom: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--anc-line-strong);
+  border-radius: 8px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.volume-limitation code {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
 }
