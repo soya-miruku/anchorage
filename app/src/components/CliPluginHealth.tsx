@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { AnchorageStore } from "../store/useAnchorageStore";
+import { usePluginRepair } from "./usePluginRepair";
 import type { DockerCliPlugin } from "../types";
 
 /**
@@ -27,12 +27,11 @@ function isBroken(plugin: DockerCliPlugin) {
 }
 
 /**
- * The repair for one entry.
+ * The repair for one entry, as a compact row inside its fault card.
  *
- * Which one applies is decided from the fault the core named, not offered as a menu: a link with
- * no target cannot be made executable, and a file that merely lacks its execute bit should not be
- * deleted. Removal is confirmed in place rather than in a dialog — it deletes one file whose
- * target is already gone, and a modal for that would be heavier than the act.
+ * Which repair applies, whether one is in flight, and what removal costs all come from
+ * usePluginRepair — the same judgement the capability setup screen uses. What is local here is
+ * the shape: ghost buttons sized for a list, and a reveal that only the desktop shell can serve.
  */
 function FaultActions({
   store,
@@ -41,49 +40,25 @@ function FaultActions({
   store: AnchorageStore;
   plugin: DockerCliPlugin;
 }) {
-  const [confirming, setConfirming] = useState(false);
-  if (!plugin.path) return null;
-  const path = plugin.path;
-  const busy = store.pluginRepairPending === path;
-  const missingExecuteBit = plugin.fault === "not-executable";
+  const repair = usePluginRepair(store, plugin);
+  if (repair.path === null) return null;
 
-  if (confirming) {
+  if (repair.confirming) {
     return (
       <div className="plugin-health__confirm" role="group">
-        {/* What is actually being lost, which differs by fault. A dangling link points at
-            nothing, so deleting it costs nothing; a file that is merely not executable is a
-            real plugin, and removing it instead of fixing its permissions would lose it. */}
-        <p>
-          {plugin.fault === "dangling-link"
-            ? "Delete this entry? The plugin it points at is already gone, so nothing stops working."
-            : plugin.fault === "not-executable"
-              ? "Delete this plugin? The file itself is here and would work once it is executable — removing it discards it instead."
-              : "Delete this entry? The Docker CLI is not loading it, and nothing else on this machine reads it."}
-        </p>
+        <p>{repair.removalConsequence}</p>
         <div className="plugin-health__actions">
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={() => setConfirming(false)}
-          >
+          <button type="button" className="ghost-button" onClick={repair.cancel}>
             Cancel
           </button>
           <button
             type="button"
             className="primary-button primary-button--danger"
-            disabled={busy}
+            disabled={repair.busy}
             data-testid={`plugin-remove-confirm-${plugin.name}`}
-            onClick={() => {
-              setConfirming(false);
-              void store.repairPlugin({
-                name: plugin.name,
-                path,
-                action: "remove",
-                confirmed: true,
-              });
-            }}
+            onClick={repair.confirmRemove}
           >
-            {busy ? "Removing…" : "Remove entry"}
+            {repair.busy ? "Removing…" : "Remove entry"}
           </button>
         </div>
       </div>
@@ -92,25 +67,23 @@ function FaultActions({
 
   return (
     <div className="plugin-health__actions">
-      {missingExecuteBit && (
+      {repair.canEnable && (
         <button
           type="button"
           className="ghost-button"
-          disabled={busy}
+          disabled={repair.busy}
           data-testid={`plugin-enable-${plugin.name}`}
-          onClick={() => {
-            void store.repairPlugin({ name: plugin.name, path, action: "enable" });
-          }}
+          onClick={repair.enable}
         >
-          {busy ? "Working…" : "Make executable"}
+          {repair.busy ? "Working…" : "Make executable"}
         </button>
       )}
       <button
         type="button"
         className="ghost-button ghost-button--danger"
-        disabled={busy}
+        disabled={repair.busy}
         data-testid={`plugin-remove-${plugin.name}`}
-        onClick={() => setConfirming(true)}
+        onClick={repair.arm}
       >
         Remove entry
       </button>
@@ -119,7 +92,7 @@ function FaultActions({
           type="button"
           className="ghost-button"
           data-testid={`plugin-reveal-${plugin.name}`}
-          onClick={() => void store.revealPath(path)}
+          onClick={() => void store.revealPath(repair.path as string)}
         >
           Show in folder
         </button>

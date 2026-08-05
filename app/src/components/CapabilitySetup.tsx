@@ -9,6 +9,7 @@ import {
   type PluginCapability,
 } from "../data/capabilities";
 import type { AnchorageStore } from "../store/useAnchorageStore";
+import { usePluginRepair } from "./usePluginRepair";
 
 /**
  * What to do about a capability this machine does not have.
@@ -82,10 +83,11 @@ function CopyableCommand({ command }: { command: string }) {
 /**
  * The repairs available for a fault, if any.
  *
- * Which repair applies is decided from the entry the core reported rather than from the fault's
- * wording: `enable` only makes sense for a file that exists and lacks an execute bit, and a link
- * with no target can only be removed. Offering the wrong one would be the same mistake as
- * telling an operator to install a plugin that is already there.
+ * Which repair applies, whether one is in flight, and what removal costs come from
+ * usePluginRepair, shared with the Settings plugin list. What is local here is the prominence:
+ * this is the whole point of the screen rather than one row in a list, so the fault leads with
+ * its own panel, the path and the core's diagnosis are shown in full, and making a plugin
+ * executable is the primary action rather than a ghost button.
  */
 function PluginRepairActions({
   store,
@@ -94,84 +96,55 @@ function PluginRepairActions({
   store: AnchorageStore;
   capability: PluginCapability;
 }) {
-  const [confirming, setConfirming] = useState(false);
   const entry = capabilityEntry(store.pluginReport, capability.plugin);
-  if (!entry?.path) return null;
+  const repair = usePluginRepair(store, entry);
+  if (repair.path === null) return null;
   const state = capabilityState(store.pluginReport, capability.plugin);
   if (state !== "broken" && state !== "not-loaded") return null;
-  const busy = store.pluginRepairPending === entry.path;
-  // From the fault the core named, not from its wording: the note is for the operator and is
-  // free to be reworded, while this decides which repair is offered.
-  const missingExecuteBit = entry.fault === "not-executable";
 
   return (
     <div className="capability-repair" data-testid={`capability-repair-${capability.plugin}`}>
-      <p className="capability-repair__path resource-mono">{entry.path}</p>
-      {entry.availabilityNote && (
+      <p className="capability-repair__path resource-mono">{repair.path}</p>
+      {entry?.availabilityNote && (
         <p className="capability-repair__reason">{entry.availabilityNote}</p>
       )}
-      {confirming ? (
+      {repair.confirming ? (
         <div className="capability-repair__confirm" role="group">
-          <p>
-            Delete <code>{entry.path}</code>?{" "}
-            {entry.fault === "dangling-link"
-              ? "The plugin it names is already gone, so nothing stops working, and installing the plugin again writes a fresh entry over the top."
-              : entry.fault === "not-executable"
-                ? "The file itself is here and would work once it is executable — removing it discards it instead."
-                : "The Docker CLI is not loading it, and nothing else on this machine reads it."}
-          </p>
+          <p>{repair.removalConsequence}</p>
           <div className="capability-repair__actions">
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => setConfirming(false)}
-            >
+            <button type="button" className="ghost-button" onClick={repair.cancel}>
               Cancel
             </button>
             <button
               type="button"
               className="primary-button primary-button--danger"
-              disabled={busy}
+              disabled={repair.busy}
               data-testid={`capability-remove-confirm-${capability.plugin}`}
-              onClick={() => {
-                setConfirming(false);
-                void store.repairPlugin({
-                  name: capability.plugin,
-                  path: entry.path as string,
-                  action: "remove",
-                  confirmed: true,
-                });
-              }}
+              onClick={repair.confirmRemove}
             >
-              {busy ? "Removing…" : "Remove entry"}
+              {repair.busy ? "Removing…" : "Remove entry"}
             </button>
           </div>
         </div>
       ) : (
         <div className="capability-repair__actions">
-          {missingExecuteBit && (
+          {repair.canEnable && (
             <button
               type="button"
               className="primary-button"
-              disabled={busy}
+              disabled={repair.busy}
               data-testid={`capability-enable-${capability.plugin}`}
-              onClick={() => {
-                void store.repairPlugin({
-                  name: capability.plugin,
-                  path: entry.path as string,
-                  action: "enable",
-                });
-              }}
+              onClick={repair.enable}
             >
-              {busy ? "Working…" : "Make executable"}
+              {repair.busy ? "Working…" : "Make executable"}
             </button>
           )}
           <button
             type="button"
             className="ghost-button ghost-button--danger"
-            disabled={busy}
+            disabled={repair.busy}
             data-testid={`capability-remove-${capability.plugin}`}
-            onClick={() => setConfirming(true)}
+            onClick={repair.arm}
           >
             Remove this entry
           </button>
