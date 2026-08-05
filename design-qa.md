@@ -205,6 +205,9 @@ entry that postdates the handoff" from the two-group sidebar era.
    revision absorbing it. It shifts the sidebar from `Builds` down by one row,
    which is most of what those states' residual error is.
 
+For the designer-facing breakdown of every budget and the decision each needs, see
+[docs/design-divergences.md](docs/design-divergences.md).
+
 ## Open questions
 
 1. **Is the Containers hover fill correct at roughly twice the comp's strength?**
