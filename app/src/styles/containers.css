@@ -82,6 +82,17 @@
   cursor: pointer;
 }
 
+/*
+ * Known divergence from the handoff, left deliberately.
+ *
+ * Measured against the v2.5 comp, this hover lifts the row 0.0046 normalized MAE off its own
+ * base frame where the comp's lifts 0.0022 — roughly twice the design's strength. It is the one
+ * place the palette was adopted wholesale and the interaction state was not, and it is recorded
+ * rather than quietly matched because either answer is defensible and nobody has chosen yet.
+ *
+ * If this changes, re-measure `containers-row-hover`: it currently ships on a 0.029 budget and
+ * the strength of this fill is part of what that budget is paying for. See design-qa.md.
+ */
 .container-row:hover {
   background: var(--anc-row-hover);
 }
