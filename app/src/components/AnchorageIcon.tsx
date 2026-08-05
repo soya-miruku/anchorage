@@ -16,6 +16,7 @@ import {
   Box,
   Brain,
   ChevronLeft,
+  ChevronRight,
   Cloud,
   Layers,
   Copy,
@@ -53,6 +54,7 @@ export type AnchorageIconName =
   | "dashboard"
   | "delete"
   | "dev-environments"
+  | "disclose"
   | "empty"
   | "extensions"
   | "governance"
@@ -143,6 +145,12 @@ const iconDefinitions: Record<
     family: "phosphor",
     libraryName: "AppWindow",
     weight: "bold",
+  },
+  disclose: {
+    component: ChevronRight,
+    family: "lucide",
+    libraryName: "ChevronRight",
+    strokeWidth: 2.4,
   },
   empty: {
     component: SquareIcon,

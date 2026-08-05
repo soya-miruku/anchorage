@@ -377,9 +377,34 @@ describe("ComposeScreen project rail", () => {
       },
     });
 
-    fireEvent.click(screen.getByTestId("compose-service-open-api"));
+    // The row opens the service in place; the jump to the container's own screen is an
+    // explicit control inside what it opened.
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    fireEvent.click(screen.getByTestId("compose-service-open-full-api"));
     expect(store.selectContainer).toHaveBeenCalledWith("container-api");
-    expect(screen.queryByTestId("compose-service-open-gone")).toBeNull();
+
+    // A service whose container is gone still opens, but offers no jump to nothing.
+    fireEvent.click(screen.getByTestId("compose-service-expand-gone"));
+    expect(screen.queryByTestId("compose-service-open-full-gone")).toBeNull();
+  });
+
+  it("joins the short id compose ps reports onto the full id the container list carries", () => {
+    // `docker compose ps` truncates its ID field to 12 characters; the container list is
+    // read with --no-trunc. Exact equality never held, so every service in every project
+    // claimed "no container" while its container sat running in the list.
+    const fullId = `0244b7d89d10${"f".repeat(52)}`;
+    const store = renderScreen({
+      expandedComposeProject: "storefront",
+      containers: [{ id: fullId }] as AnchorageStore["containers"],
+      composeServices: {
+        storefront: [live("api", { containerId: "0244b7d89d10" })],
+      },
+    });
+
+    fireEvent.click(screen.getByTestId("compose-service-expand-api"));
+    fireEvent.click(screen.getByTestId("compose-service-open-full-api"));
+    // The full id is the one the container screen can act on.
+    expect(store.selectContainer).toHaveBeenCalledWith(fullId);
   });
 
   it("does not present the browser preview as a project inventory", () => {

@@ -2552,13 +2552,17 @@ describe("host renderer integration", () => {
     fireEvent.click(screen.getByTestId("nav-compose"));
     fireEvent.click(await screen.findByTestId("compose-expand-storefront"));
 
-    // The service without a container is plain text, not a link to nothing.
+    // The row opens the service in place; the jump to the container's screen lives inside.
+    fireEvent.click(await screen.findByTestId("compose-service-expand-api"));
     expect(
-      await screen.findByTestId("compose-service-open-api"),
+      await screen.findByTestId("compose-service-open-full-api"),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("compose-service-open-gone")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("compose-service-open-api"));
+    // The service without a container still opens, but offers no jump to nothing.
+    fireEvent.click(screen.getByTestId("compose-service-expand-gone"));
+    expect(screen.queryByTestId("compose-service-open-full-gone")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("compose-service-open-full-api"));
     // Lands on the container's own detail screen, on its logs.
     await screen.findByTestId("container-detail-screen");
   });

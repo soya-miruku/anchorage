@@ -115,31 +115,37 @@ function ServiceStartOrder({
           <p className="resource-dim">Reading services…</p>
         )}
         {rows.map((row) => {
-          // A service only links through when its container is actually in the list;
-          // Compose can report a service whose container has since been removed, and a
-          // detail screen with nothing to show is worse than plain text.
           // The container this service actually produced, when it still exists. Compose keeps
           // reporting a service after its container is removed, and the detail below needs the
           // container for the one thing Compose never reports: published ports.
+          // `compose ps` truncates the id to 12 characters while the container list is read
+          // with --no-trunc, so equality never holds between the two; the join is by prefix,
+          // in both directions because older plugin builds report the full id.
+          const liveId = row.live?.containerId ?? "";
           const matched =
-            (row.live?.containerId.length ?? 0) > 0
+            liveId.length > 0
               ? store.containers.find(
-                  (candidate) => candidate.id === row.live?.containerId,
+                  (candidate) =>
+                    candidate.id.startsWith(liveId) ||
+                    liveId.startsWith(candidate.id),
                 )
               : undefined;
-          const linkable = matched !== undefined;
           const running = row.live?.state === "running";
+          const open = expanded.has(row.name);
           return (
-            <div className="compose-service-entry" key={row.name}>
             <div
-              className="compose-service-row"
+              className="compose-service-entry"
+              key={row.name}
               data-testid={`compose-service-${project}-${row.name}`}
             >
+              {/* The whole row is one button that opens the service in place. The jump to the
+                  container's own screen lives in the detail it opens — a row that navigated on
+                  one third of its surface and expanded on another was two controls wearing one
+                  hover state. */}
               <button
                 type="button"
-                className="compose-service-row__expand"
-                aria-expanded={expanded.has(row.name)}
-                aria-label={`${expanded.has(row.name) ? "Collapse" : "Expand"} ${row.name}`}
+                className={`compose-service-row${open ? " compose-service-row--open" : ""}`}
+                aria-expanded={open}
                 data-testid={`compose-service-expand-${row.name}`}
                 onClick={() =>
                   setExpanded((current) => {
@@ -150,90 +156,77 @@ function ServiceStartOrder({
                   })
                 }
               >
-                <span aria-hidden="true">{expanded.has(row.name) ? "▾" : "▸"}</span>
-              </button>
-              <span
-                className="compose-service-row__wave resource-mono"
-                title={
-                  row.config
-                    ? `Starts in wave ${row.config.startOrder}`
-                    : "Not in the resolved file, so it has no place in the start order"
-                }
-              >
-                {row.config ? row.config.startOrder : "—"}
-              </span>
-              <span
-                className={`compose-service-row__dot compose-service-row__dot--${
-                  running ? "running" : row.live ? "idle" : "absent"
-                }`}
-                aria-hidden="true"
-              />
-              {linkable ? (
-                <button
-                  type="button"
-                  className="compose-service-row__name compose-service__link resource-mono"
-                  data-testid={`compose-service-open-${row.name}`}
-                  title={`Open ${row.live?.name} logs`}
-                  onClick={() =>
-                    void store.selectContainer(row.live?.containerId ?? "")
+                <span
+                  className="compose-service-row__wave resource-mono"
+                  title={
+                    row.config
+                      ? `Starts in wave ${row.config.startOrder}`
+                      : "Not in the resolved file, so it has no place in the start order"
                   }
                 >
-                  {row.name}
-                </button>
-              ) : (
+                  {row.config ? row.config.startOrder : "—"}
+                </span>
+                <span
+                  className={`compose-service-row__dot compose-service-row__dot--${
+                    running ? "running" : row.live ? "idle" : "absent"
+                  }`}
+                  aria-hidden="true"
+                />
                 <span className="compose-service-row__name resource-mono">
                   {row.name}
                 </span>
-              )}
-              <span className="compose-service-row__image resource-mono resource-dim">
-                {row.config?.image ?? row.live?.image ?? "—"}
-              </span>
-              <span className="compose-service-row__deps">
-                {row.config === null ? (
-                  <span className="resource-faint">
-                    not in the resolved file
-                  </span>
-                ) : row.config.dependsOn.length === 0 ? (
-                  <span className="resource-faint">waits for nothing</span>
-                ) : (
-                  row.config.dependsOn.map((dependency) => (
-                    <span
-                      className="compose-dep-chip resource-mono"
-                      key={dependency.service}
-                    >
-                      {dependency.service} · {conditionLabel(dependency.condition)}
-                      {/* required:false means Compose starts this service anyway, which
-                          changes what the condition above actually guarantees. */}
-                      {dependency.required ? "" : " · optional"}
-                      {dependency.restart ? " · restarts" : ""}
+                <span className="compose-service-row__image resource-mono resource-dim">
+                  {row.config?.image ?? row.live?.image ?? "—"}
+                </span>
+                <span className="compose-service-row__deps">
+                  {row.config === null ? (
+                    <span className="resource-faint">
+                      not in the resolved file
                     </span>
-                  ))
-                )}
-                {row.config?.profiles && row.config.profiles.length > 0 && (
-                  <span className="compose-tag compose-tag--accent">
-                    profile {row.config.profiles.join(", ")}
-                  </span>
-                )}
-              </span>
-              <span
-                className={`compose-service-row__state resource-mono${
-                  running ? " compose-service-row__state--running" : ""
-                }`}
-              >
-                {row.live
-                  ? `${row.live.state}${row.live.health ? ` · ${row.live.health}` : ""}`
-                  : "no container"}
-              </span>
-            </div>
-            {expanded.has(row.name) && (
-              <ServiceDetail
-                row={row}
-                container={matched}
-                onOpenFull={
-                  matched ? () => void store.selectContainer(matched.id) : undefined
-                }
-              />
-            )}
+                  ) : row.config.dependsOn.length === 0 ? (
+                    <span className="resource-faint">waits for nothing</span>
+                  ) : (
+                    row.config.dependsOn.map((dependency) => (
+                      <span
+                        className="compose-dep-chip resource-mono"
+                        key={dependency.service}
+                      >
+                        {dependency.service} · {conditionLabel(dependency.condition)}
+                        {/* required:false means Compose starts this service anyway, which
+                            changes what the condition above actually guarantees. */}
+                        {dependency.required ? "" : " · optional"}
+                        {dependency.restart ? " · restarts" : ""}
+                      </span>
+                    ))
+                  )}
+                  {row.config?.profiles && row.config.profiles.length > 0 && (
+                    <span className="compose-tag compose-tag--accent">
+                      profile {row.config.profiles.join(", ")}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={`compose-service-row__state resource-mono${
+                    running ? " compose-service-row__state--running" : ""
+                  }`}
+                >
+                  {row.live
+                    ? `${row.live.state}${row.live.health ? ` · ${row.live.health}` : ""}`
+                    : "no container"}
+                </span>
+                <span className="compose-service-row__caret" aria-hidden="true">
+                  <AnchorageIcon name="disclose" size={12} />
+                </span>
+              </button>
+              {open && (
+                <ServiceDetail
+                  row={row}
+                  container={matched}
+                  onOpenFull={
+                    matched ? () => void store.selectContainer(matched.id) : undefined
+                  }
+                />
+              )}
             </div>
           );
         })}
@@ -273,23 +266,31 @@ function ServiceDetail({
           </dd>
         </div>
         <div>
-          <dt>Image</dt>
+          <dt>Status</dt>
           <dd className="resource-mono">
-            {container?.image ?? row.config?.image ?? row.live?.image ?? "—"}
+            {container?.status ?? row.live?.status ?? "—"}
           </dd>
         </div>
         <div>
           <dt>Ports</dt>
           <dd className="resource-mono">
             {/* Compose does not report bindings at all, so an empty field here would be
-                ambiguous between "none" and "not known". */}
-            {container?.ports?.trim() ? container.ports : "No published ports"}
+                ambiguous between "none" and "not known" — and the container list itself
+                writes "—" for a container that publishes nothing, which is the same
+                ambiguity wearing a dash. */}
+            {container
+              ? container.ports?.trim() && container.ports.trim() !== "—"
+                ? container.ports
+                : "No published ports"
+              : "—"}
           </dd>
         </div>
-        <div>
-          <dt>Status</dt>
+        {/* Full width: a pinned reference carries a 64-character digest, and folding it
+            into a quarter-width column turns one identifier into a tower of hex. */}
+        <div className="compose-service-detail__wide">
+          <dt>Image</dt>
           <dd className="resource-mono">
-            {container?.status ?? row.live?.status ?? "—"}
+            {container?.image ?? row.config?.image ?? row.live?.image ?? "—"}
           </dd>
         </div>
       </dl>
