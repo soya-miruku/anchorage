@@ -245,3 +245,48 @@ describe("read-only detail tabs", () => {
     });
   }
 });
+
+/**
+ * The same staleness applies to a failure, and the guard on that path was untested.
+ *
+ * The race test above resolves both inspects, so it never reaches the catch. A rejection landing
+ * after the operator moved on would put one image's error message under another image's name —
+ * the panel renders `imageDetailError` above the selected image's identity, so the reader is told
+ * the wrong image failed.
+ */
+describe("openImageDetail failures", () => {
+  it("discards a rejection that lands after the panel moved to another image", async () => {
+    const pending = new Map<string, (reason: unknown) => void>();
+    const host = createHost(async () => listResult("networks", []));
+    (host as unknown as { images: Record<string, unknown> }).images.inspect = vi.fn(
+      (request: { id: string }) =>
+        new Promise((_resolve, reject) => pending.set(request.id, reject)),
+    );
+    window.anchorage = host;
+    const { result } = renderHook(() => useAnchorageStore());
+
+    await act(async () => {
+      void result.current.openImageDetail(anImage("first"));
+    });
+    await act(async () => {
+      void result.current.openImageDetail(anImage("second"));
+    });
+
+    await act(async () => {
+      pending.get("first")?.(new Error("image inspect: no such image"));
+      await Promise.resolve();
+    });
+
+    expect(result.current.selectedImage?.imageId).toBe("second");
+    expect(result.current.imageDetailError).toBeNull();
+
+    // The one on screen still reports its own failure.
+    await act(async () => {
+      pending.get("second")?.(new Error("second failed"));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(result.current.imageDetailError).toBe("second failed");
+    });
+  });
+});

@@ -139,3 +139,45 @@ describe("ImagesScreen empty state", () => {
     expect(screen.getByTestId("image-scout")).toBeInTheDocument();
   });
 });
+
+/**
+ * The detail panel has to be told whether an inspect is even possible.
+ *
+ * `ImageDetailPanel` distinguishes waiting from "no daemon to ask", but `inspectable` defaults
+ * to true, so the whole distinction rests on this one prop being passed. Deleting
+ * `inspectable={store.isHost}` from the screen left the suite green, which meant the only wiring
+ * for that fix was unasserted — the panel's own tests pass the prop explicitly and cannot catch
+ * a screen that stops passing it.
+ */
+describe("ImagesScreen detail panel wiring", () => {
+  it("tells the panel the preview has no daemon to inspect with", () => {
+    renderImages({
+      isHost: false,
+      images: [image("api")],
+      selectedImage: image("api"),
+      imageDetail: null,
+      imageDetailError: null,
+      scoutByReference: {},
+      scoutPending: null,
+      closeImageDetail: () => undefined,
+    } as Partial<AnchorageStore>);
+
+    expect(screen.getByText(/no daemon to inspect this image with/u)).toBeInTheDocument();
+    expect(screen.queryByText(/Loading image detail/u)).toBeNull();
+  });
+
+  it("still waits on the host, where an inspect is genuinely in flight", () => {
+    renderImages({
+      isHost: true,
+      images: [image("api")],
+      selectedImage: image("api"),
+      imageDetail: null,
+      imageDetailError: null,
+      scoutByReference: {},
+      scoutPending: null,
+      closeImageDetail: () => undefined,
+    } as Partial<AnchorageStore>);
+
+    expect(screen.getByText(/Loading image detail/u)).toBeInTheDocument();
+  });
+});

@@ -125,11 +125,18 @@ were both reported as missing capabilities and are neither.
 
 Recorded as found, not individually verified. Grouped by what they have in common.
 
-**A caveat on the index below.** It has 46 rows, but a handful name the same code as items
-already listed under "Fixed in this pass" — the audit's dimensions overlapped, and
-deduplication was by `file:line`, which does not catch two agents describing one defect at
-different lines. So "46 outstanding" overstates: treat the index as the raw record and the
-Fixed table as authoritative for what is done.
+**The index below has 46 rows but 43 outstanding items.** Deduplication was by `file:line`, which
+does not catch two agents describing one defect at different lines, so three rows name work
+already listed under "Fixed in this pass":
+
+- `useAnchorageStore.ts:2320` — the Processes/Changes swallow
+- `useAnchorageStore.ts:2715` — the `openImageDetail` no-op guard
+- `useAnchorageStore.ts:3122` — the `selectBuildRecord` failure routing
+
+Two rows that look like duplicates are not, and are still open: `ContainerDetailScreen.tsx:459`
+is the Resources dialog's **missing CPU shares field**, which is a different defect from the
+restart-policy and Apply fixes; and `useAnchorageStore.ts:3103` is `buildsStatus === "error"`
+having no rendering at all, which the detail-error fix did not touch.
 
 **Failures written but never rendered** — `toggleComposeProject` writes `composeError` under a
 status the screen does not render it in; `refreshBuilds` distinguishes `unavailable` from `error`
