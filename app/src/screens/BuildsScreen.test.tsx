@@ -100,3 +100,37 @@ describe("BuildsScreen host status colours", () => {
     expect(pill).toHaveClass("build-status-pill--running");
   });
 });
+
+/**
+ * A build whose record cannot be read has to say so on the screen the operator clicked from.
+ *
+ * `selectBuildRecord` used to route a failed `buildx history inspect` into `buildsError`, which
+ * only Settings → Builders renders — so the detail pane sat on "Reading build record…" and the
+ * reason appeared somewhere nobody was looking. `buildsError` also carries buildx's own
+ * limitations, which are caveats rather than failures, so the two could not share a slot.
+ */
+describe("BuildsScreen detail failures", () => {
+  it("reports why the selected record could not be read", () => {
+    renderHost({
+      buildRecords: [record("one", "success")],
+      selectedBuildRef: "default/default/one",
+      buildDetail: null,
+      buildDetailError: "buildx history inspect: no such record",
+    } as Partial<AnchorageStore>);
+    expect(
+      screen.getByText("buildx history inspect: no such record"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Reading build record/u)).toBeNull();
+  });
+
+  it("does not mistake a list-level buildx limitation for a failed record", () => {
+    renderHost({
+      buildRecords: [record("one", "success")],
+      selectedBuildRef: "default/default/one",
+      buildDetail: null,
+      buildsError: "History is limited to the default builder on this transport.",
+    } as Partial<AnchorageStore>);
+    expect(screen.getByText(/Reading build record/u)).toBeInTheDocument();
+    expect(screen.queryByText(/Could not read this build/u)).toBeNull();
+  });
+});

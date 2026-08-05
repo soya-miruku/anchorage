@@ -48,11 +48,20 @@ export function ImageDetailPanel({
   scoutPending,
   scoutError,
   onAnalyze,
+  inspectable = true,
 }: {
   image: AnchorageImage;
   detail: ImagesInspectResult | null;
   error: string | null;
   onClose: () => void;
+  /**
+   * Whether an inspect can be attempted at all.
+   *
+   * False in the browser preview, which has no daemon. The panel used to sit on "Loading image
+   * detail…" forever there, because the store returns before setting either a detail or an
+   * error — a permanent wait that reads as a hang rather than as an absent capability.
+   */
+  inspectable?: boolean;
   /** Omitted when the image cannot be saved — no reference, or a transfer is already running. */
   onSave?: () => void;
   /** Omitted off-host. Tagging works on any image, including a dangling one. */
@@ -156,7 +165,15 @@ export function ImageDetailPanel({
         </p>
       )}
 
-      {!detail && !error && (
+      {!detail && !error && !inspectable && (
+        <p className="resource-dim" role="status">
+          The deterministic browser preview has no daemon to inspect this image with. The
+          summary above is the fixture’s own; its configuration, layer history and digests are
+          only readable against a real engine.
+        </p>
+      )}
+
+      {!detail && !error && inspectable && (
         <p className="resource-dim" role="status">
           Loading image detail…
         </p>

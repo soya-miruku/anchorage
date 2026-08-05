@@ -150,9 +150,33 @@ function DetailHeader({
     store.imageTransfer?.status === "starting" ||
     store.imageTransfer?.status === "running";
   const [memoryMb, setMemoryMb] = useState("");
+  /**
+   * `""` means "leave the policy alone"; `"no"` is Docker's own policy of that name.
+   *
+   * These were the same value, so the one option an operator picks to stop a container
+   * restarting was indistinguishable from not having touched the field, and was dropped before
+   * the patch was built. The core has always treated them as distinct — `allowedRestartPolicies`
+   * in core/internal/core/domain.go accepts both.
+   */
   const [restartPolicy, setRestartPolicy] = useState<
-    "no" | "always" | "unless-stopped" | "on-failure"
-  >("no");
+    "" | "no" | "always" | "unless-stopped" | "on-failure"
+  >("");
+  /**
+   * What the Resources dialog would actually send.
+   *
+   * Derived once so the Apply button and the submit handler cannot disagree. An untouched form
+   * produces an empty patch, and `docker update` with no flags is a usage error — so Apply is
+   * disabled rather than left enabled to fail.
+   */
+  const limitsMegabytes = Number(memoryMb.trim());
+  const limitsPatch = {
+    ...(Number.isFinite(limitsMegabytes) && limitsMegabytes > 0
+      ? { memoryBytes: Math.round(limitsMegabytes) * 1024 * 1024 }
+      : {}),
+    ...(restartPolicy !== "" ? { restartPolicy } : {}),
+  };
+  const limitsEmpty = Object.keys(limitsPatch).length === 0;
+
   const removeBlocked = removeUnavailableReason(container);
   const kind = statusKind(container);
   const primaryAction = primaryContainerAction(container);
@@ -303,7 +327,7 @@ function DetailHeader({
               data-testid="container-limits-open"
               onClick={() => {
                 setMemoryMb("");
-                setRestartPolicy("no");
+                setRestartPolicy("");
                 setLimitsOpen(true);
               }}
             >
@@ -430,14 +454,9 @@ function DetailHeader({
             data-testid="container-limits-dialog"
             onSubmit={(event) => {
               event.preventDefault();
+              if (limitsEmpty) return;
               setLimitsOpen(false);
-              const megabytes = Number(memoryMb.trim());
-              void store.updateContainer(container, {
-                ...(Number.isFinite(megabytes) && megabytes > 0
-                  ? { memoryBytes: Math.round(megabytes) * 1024 * 1024 }
-                  : {}),
-                ...(restartPolicy !== "no" ? { restartPolicy } : {}),
-              });
+              void store.updateContainer(container, limitsPatch);
             }}
           >
             <div className="create-environment-dialog__heading">
@@ -478,7 +497,8 @@ function DetailHeader({
                   )
                 }
               >
-                <option value="no">Unchanged / No</option>
+                <option value="">Unchanged</option>
+                <option value="no">No — do not restart</option>
                 <option value="on-failure">On failure</option>
                 <option value="unless-stopped">Unless stopped</option>
                 <option value="always">Always</option>
@@ -492,7 +512,12 @@ function DetailHeader({
               >
                 Cancel
               </button>
-              <button className="primary-button" type="submit">
+              <button
+                className="primary-button"
+                type="submit"
+                data-testid="container-limits-apply"
+                disabled={limitsEmpty}
+              >
                 Apply
               </button>
             </div>
@@ -1296,7 +1321,16 @@ export function ContainerDetailScreen({ store }: { store: AnchorageStore }) {
       {store.detailTab === "processes" &&
         (store.isHost ? (
           <div className="detail-panel" data-testid="container-processes">
-            {store.processes ? (
+            {store.selectedDetailErrors.processes ? (
+              <DetailCapabilityState
+                title="Processes unavailable"
+                message={store.selectedDetailErrors.processes}
+                action={{
+                  label: "Open Command Center",
+                  onClick: () => store.openCommandCenter("top"),
+                }}
+              />
+            ) : store.processes ? (
               <div className="processes-table">
                 <div
                   className="processes-row processes-row--head"
@@ -1343,7 +1377,16 @@ export function ContainerDetailScreen({ store }: { store: AnchorageStore }) {
       {store.detailTab === "changes" &&
         (store.isHost ? (
           <div className="detail-panel" data-testid="container-changes">
-            {store.changes ? (
+            {store.selectedDetailErrors.changes ? (
+              <DetailCapabilityState
+                title="Changes unavailable"
+                message={store.selectedDetailErrors.changes}
+                action={{
+                  label: "Open Command Center",
+                  onClick: () => store.openCommandCenter("diff"),
+                }}
+              />
+            ) : store.changes ? (
               store.changes.changes.length === 0 ? (
                 <div className="empty-state">
                   <strong>No filesystem changes</strong>

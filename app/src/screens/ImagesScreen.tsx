@@ -630,6 +630,7 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
           image={store.selectedImage}
           detail={store.imageDetail}
           error={store.imageDetailError}
+          inspectable={store.isHost}
           onClose={store.closeImageDetail}
           // A dangling image has no reference to name on the command line, so it cannot be
           // saved by tag. Offering the control anyway would only produce a core rejection.

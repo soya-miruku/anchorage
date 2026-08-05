@@ -465,6 +465,22 @@ export function useAnchorageStore() {
   const [detailErrors, setDetailErrors] = useState<
     Record<string, Partial<Record<DetailTab, string>>>
   >({});
+  /**
+   * Records one tab's failure reason against one container.
+   *
+   * The nested spread is easy to write in a way that drops a sibling tab's error, so the
+   * read-only tabs share this rather than each keeping their own copy of it. Passing `null`
+   * clears the entry, which is what a retry needs before it starts.
+   */
+  const noteDetailError = useCallback(
+    (containerId: string, tab: DetailTab, message: string | null) => {
+      setDetailErrors((current) => ({
+        ...current,
+        [containerId]: { ...current[containerId], [tab]: message ?? undefined },
+      }));
+    },
+    [],
+  );
   const [imageTab, setImageTab] = useState<ImageTab>("local");
   /**
    * `docker image ls` switches. The bridge used to hardcode these, which inverted Docker's
@@ -519,7 +535,18 @@ export function useAnchorageStore() {
   >("idle");
   const [buildsError, setBuildsError] = useState<string | null>(null);
   const [buildDetail, setBuildDetail] = useState<BuildsInspectResult | null>(null);
+  /**
+   * Why one build record could not be read, kept apart from `buildsError`.
+   *
+   * `buildsError` carries two unlike things already — a failed list, and buildx's own
+   * limitations, which are caveats rather than failures. Routing a failed
+   * `buildx history inspect` there as well meant a benign limitation and a broken record were
+   * indistinguishable, and the detail failure overwrote the list caveat on its way past.
+   */
+  const [buildDetailError, setBuildDetailError] = useState<string | null>(null);
   const [selectedBuildRef, setSelectedBuildRef] = useState<string | null>(null);
+  /** Which record the detail pane is showing, so a slow inspect cannot land under another. */
+  const selectedBuildRefRef = useRef<string | null>(null);
   const [secrets, setSecrets] = useState<SecretSummary[]>([]);
   // Kept beside the status rather than folded into it: an engine that is not a Swarm manager
   // is neither an error nor a ready empty list, and the screen has to say which it is.
@@ -2317,24 +2344,54 @@ export function useAnchorageStore() {
     }
     if (detailTab === "processes") {
       setProcesses(null);
+      noteDetailError(selectedContainer.id, "processes", null);
       void bridge.containers
         .top(selectedContainer.id, dockerContextRef.current)
         .then((result) => {
           if (selectedIdRef.current === selectedContainer.id) setProcesses(result);
         })
-        .catch(() => undefined);
+        .catch((reason) => {
+          // `docker top` fails routinely rather than exceptionally: the Engine answers 409 for
+          // a container that is not running, and the tab is reachable in that state. Swallowing
+          // it left the loading message on screen with no terminal state, so a refusal read as
+          // a hang.
+          if (selectedIdRef.current !== selectedContainer.id) return;
+          noteDetailError(
+            selectedContainer.id,
+            "processes",
+            reason instanceof Error ? reason.message : "Could not read the process list.",
+          );
+        });
       return;
     }
     if (detailTab === "changes") {
       setChanges(null);
+      noteDetailError(selectedContainer.id, "changes", null);
       void bridge.containers
         .diff(selectedContainer.id, dockerContextRef.current)
         .then((result) => {
           if (selectedIdRef.current === selectedContainer.id) setChanges(result);
         })
-        .catch(() => undefined);
+        .catch((reason) => {
+          if (selectedIdRef.current !== selectedContainer.id) return;
+          noteDetailError(
+            selectedContainer.id,
+            "changes",
+            reason instanceof Error
+              ? reason.message
+              : "Could not read the filesystem changes.",
+          );
+        });
     }
-  }, [bridge, browseFiles, detailTab, isHost, selectedContainer?.id, selectedContainer]);
+  }, [
+    bridge,
+    browseFiles,
+    detailTab,
+    isHost,
+    noteDetailError,
+    selectedContainer?.id,
+    selectedContainer,
+  ]);
 
   const filteredContainers = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -2698,6 +2755,14 @@ export function useAnchorageStore() {
   const [selectedImage, setSelectedImage] = useState<AnchorageImage | null>(null);
   const [imageDetail, setImageDetail] = useState<ImagesInspectResult | null>(null);
   const [imageDetailError, setImageDetailError] = useState<string | null>(null);
+  /**
+   * Which image the detail panel is actually showing.
+   *
+   * Written by the opener and the closer rather than during render, because the guard has to be
+   * exact against the value this function just set and not against whatever React has most
+   * recently committed.
+   */
+  const openImageIdRef = useRef<string | null>(null);
 
   /** Open the image detail panel and load its configuration and layer history. */
   const openImageDetail = useCallback(
@@ -2705,18 +2770,20 @@ export function useAnchorageStore() {
       setSelectedImage(image);
       setImageDetail(null);
       setImageDetailError(null);
+      openImageIdRef.current = image.imageId;
       if (!isHost) return;
       try {
         const detail = await bridge.images.inspect(
           image.imageId,
           dockerContextRef.current,
         );
-        // The user may have closed or switched images while this was in flight.
-        setSelectedImage((current) =>
-          current && current.imageId === image.imageId ? current : current,
-        );
+        // The user may have closed or switched images while this was in flight. Landing a stale
+        // inspect would put one image's layers, size and platform under another image's name,
+        // and the panel gives no sign it is mixed.
+        if (openImageIdRef.current !== image.imageId) return;
         setImageDetail(detail);
       } catch (reason) {
+        if (openImageIdRef.current !== image.imageId) return;
         setImageDetailError(
           reason instanceof Error ? reason.message : "Image inspect failed",
         );
@@ -2729,6 +2796,7 @@ export function useAnchorageStore() {
     setSelectedImage(null);
     setImageDetail(null);
     setImageDetailError(null);
+    openImageIdRef.current = null;
   }, []);
 
   const [registrySearching, setRegistrySearching] = useState(false);
@@ -3111,16 +3179,21 @@ export function useAnchorageStore() {
   const selectBuildRecord = useCallback(
     async (record: BuildRecord) => {
       setSelectedBuildRef(record.ref);
+      selectedBuildRefRef.current = record.ref;
       setBuildDetail(null);
+      // Cleared on entry so a previous record's failure cannot be read as this one's.
+      setBuildDetailError(null);
       if (!isHost) return;
       try {
         const detail = await bridge.builds.inspect(
           record.ref,
           dockerContextRef.current,
         );
+        if (selectedBuildRefRef.current !== record.ref) return;
         setBuildDetail(detail);
       } catch (reason) {
-        setBuildsError(
+        if (selectedBuildRefRef.current !== record.ref) return;
+        setBuildDetailError(
           reason instanceof Error ? reason.message : "Build detail unavailable",
         );
       }
@@ -4330,6 +4403,7 @@ export function useAnchorageStore() {
     buildsStatus,
     buildsError,
     buildDetail,
+    buildDetailError,
     selectedBuildRef,
     refreshBuilds,
     selectBuildRecord,

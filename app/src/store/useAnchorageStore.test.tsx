@@ -119,3 +119,73 @@ describe("refreshNetworks", () => {
     });
   });
 });
+
+/**
+ * A slow inspect must not land under whichever image the panel has moved on to.
+ *
+ * The guard here was a ternary whose branches were identical — `current && current.imageId ===
+ * image.imageId ? current : current` — so it discarded nothing, and the detail was applied
+ * unconditionally. Clicking two images in quick succession on a busy daemon could therefore show
+ * one image's name and identity above another's layers, size and platform, with nothing marking
+ * the panel as mixed.
+ */
+const anImage = (imageId: string) =>
+  ({
+    repository: "registry.test/api",
+    tag: imageId,
+    id: imageId,
+    imageId,
+    reference: `registry.test/api:${imageId}`,
+    identity: `registry.test/api:${imageId}`,
+    created: observedAt,
+    size: "10 MB",
+    sizeMb: 10,
+    usageKnown: true,
+    inUse: false,
+    reclaimable: true,
+  }) as never;
+
+const inspectShape = (imageId: string) => ({
+  context: "default",
+  image: { Id: imageId },
+  history: [],
+  observedAt,
+});
+
+describe("openImageDetail", () => {
+  it("discards an inspect that lands after the panel moved to another image", async () => {
+    const pending = new Map<string, (value: unknown) => void>();
+    const host = createHost(async () => listResult("networks", []));
+    (host as unknown as { images: Record<string, unknown> }).images.inspect = vi.fn(
+      (request: { id: string }) =>
+        new Promise((resolve) => pending.set(request.id, resolve)),
+    );
+    window.anchorage = host;
+    const { result } = renderHook(() => useAnchorageStore());
+
+    await act(async () => {
+      void result.current.openImageDetail(anImage("first"));
+    });
+    await act(async () => {
+      void result.current.openImageDetail(anImage("second"));
+    });
+
+    // The first inspect finally answers, long after the operator moved on.
+    await act(async () => {
+      pending.get("first")?.(inspectShape("first"));
+      await Promise.resolve();
+    });
+
+    expect(result.current.selectedImage?.imageId).toBe("second");
+    expect(result.current.imageDetail).toBeNull();
+
+    // The one the panel is actually showing still lands.
+    await act(async () => {
+      pending.get("second")?.(inspectShape("second"));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(result.current.imageDetail?.image).toEqual({ Id: "second" });
+    });
+  });
+});

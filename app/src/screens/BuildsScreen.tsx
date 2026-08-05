@@ -144,6 +144,14 @@ function HostBuilds({ store }: { store: AnchorageStore }) {
             <strong>Select a build</strong>
             <p>Its source, timing and base images appear here.</p>
           </div>
+        ) : store.buildDetailError ? (
+          // A failed `buildx history inspect` used to leave this pane reading "Reading build
+          // record…" indefinitely, with its reason routed to Settings → Builders — a screen the
+          // operator who clicked the build was not looking at.
+          <div className="empty-state" role="status">
+            <strong>Could not read this build</strong>
+            <p>{store.buildDetailError}</p>
+          </div>
         ) : !detail ? (
           <p className="resource-dim" role="status">
             Reading build record…
