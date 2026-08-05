@@ -76,6 +76,33 @@ func (s *Service) volumeHelperImage(ctx context.Context, client *engineClient) (
 	return best, nil
 }
 
+// holdVolumeHelper records a helper this process created and still owns, and returns the
+// release for when it is gone.
+//
+// The sweep below exists for helpers whose ID was lost, and it finds them by label — which
+// matches every live helper too. Two volume operations can run at once, and a clone runs two
+// helpers by itself, so without this the second create would force-remove the container the
+// first is still streaming from.
+func (s *Service) holdVolumeHelper(containerID string) func() {
+	s.helperMu.Lock()
+	if s.liveHelpers == nil {
+		s.liveHelpers = map[string]bool{}
+	}
+	s.liveHelpers[containerID] = true
+	s.helperMu.Unlock()
+	return func() {
+		s.helperMu.Lock()
+		delete(s.liveHelpers, containerID)
+		s.helperMu.Unlock()
+	}
+}
+
+func (s *Service) helperIsLive(containerID string) bool {
+	s.helperMu.Lock()
+	defer s.helperMu.Unlock()
+	return s.liveHelpers[containerID]
+}
+
 // sweepVolumeHelpers force-removes any helper left behind by an earlier browse.
 //
 // The helper is labelled specifically so it can be found without guessing from a name. A leak
@@ -101,7 +128,7 @@ func (s *Service) sweepVolumeHelpers(ctx context.Context, client *engineClient) 
 		return
 	}
 	for _, container := range containers {
-		if container.ID == "" {
+		if container.ID == "" || s.helperIsLive(container.ID) {
 			continue
 		}
 		remove := url.Values{}
@@ -192,10 +219,12 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		return opError("volume_browse_failed",
 			"Docker Engine returned no identity for the volume helper.", err, nil)
 	}
+	release := s.holdVolumeHelper(created.ID)
 	// Removal uses a context detached from the caller's so a cancelled or timed-out browse
 	// still cleans up; a leaked helper would hold a reference on the volume and silently
 	// block its removal.
 	defer func() {
+		release()
 		removeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), domainReadTimeout)
 		defer cancel()
 		values := url.Values{}

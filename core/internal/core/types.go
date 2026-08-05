@@ -1207,6 +1207,86 @@ type ComposeActionResult struct {
 	Session *SessionStartResult    `json:"session,omitempty"`
 }
 
+// ComposeConfigParams resolves a project's configuration. Compose finds a running project by
+// label, but it cannot render a configuration it was never given, so the files `compose ls`
+// reported are required here exactly as they are for `up`.
+type ComposeConfigParams struct {
+	Context     string   `json:"context"`
+	Project     string   `json:"project"`
+	ConfigFiles []string `json:"configFiles"`
+}
+
+type ComposeDependsOn struct {
+	Service   string `json:"service"`
+	Condition string `json:"condition"`
+	// Restart asks Compose to restart this service when the dependency is restarted.
+	Restart bool `json:"restart,omitempty"`
+	// Required false means Compose starts this service even when the dependency is absent.
+	Required bool `json:"required"`
+}
+
+type ComposeWatchRule struct {
+	Path   string `json:"path"`
+	Action string `json:"action"`
+	Target string `json:"target,omitempty"`
+	// Ignore and Include filter the watched tree; Command is the argv an `exec` rule runs.
+	Ignore  []string `json:"ignore,omitempty"`
+	Include []string `json:"include,omitempty"`
+	Command []string `json:"command,omitempty"`
+}
+
+type ComposeLifecycleHook struct {
+	// Phase is "post_start" or "pre_stop": the point in the container's life Compose runs it.
+	Phase   string   `json:"phase"`
+	Command []string `json:"command"`
+	// User is the hook's own user, or the service's where the hook does not name one. Empty
+	// means the file does not say, and the image's user decides.
+	User string `json:"user,omitempty"`
+	// RunsAsRoot is true only where a declared user resolves to root. An unstated user is
+	// never reported as root: the resolved file does not carry the image's own default.
+	RunsAsRoot bool   `json:"runsAsRoot"`
+	Privileged bool   `json:"privileged,omitempty"`
+	WorkingDir string `json:"workingDir,omitempty"`
+}
+
+type ComposeConfigService struct {
+	Name  string `json:"name"`
+	Image string `json:"image,omitempty"`
+	// Profiles gates a service: one that declares a profile does not start unless that
+	// profile is selected, wherever it sits in the start order.
+	Profiles []string `json:"profiles,omitempty"`
+	// StartOrder is the wave Compose starts the service in: 0 when it waits for nothing,
+	// otherwise one past the deepest service it declares a dependency on.
+	StartOrder int                    `json:"startOrder"`
+	DependsOn  []ComposeDependsOn     `json:"dependsOn"`
+	Watch      []ComposeWatchRule     `json:"watch"`
+	Hooks      []ComposeLifecycleHook `json:"hooks"`
+}
+
+// ComposeDeclaredDependency is something the project declares but does not itself run.
+type ComposeDeclaredDependency struct {
+	// Kind is "model", "provider", "secret" or "volume".
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	// Resource is what Compose resolves the declaration to where the rendered file names one:
+	// the Docker-side name of a volume or secret, the type of a provider.
+	Resource string `json:"resource,omitempty"`
+	External bool   `json:"external,omitempty"`
+	// Services are the services that declare it, so the UI can draw the edge.
+	Services []string `json:"services"`
+}
+
+type ComposeConfigResult struct {
+	Context      string                      `json:"context"`
+	Project      string                      `json:"project"`
+	Source       string                      `json:"source"`
+	ConfigFiles  []string                    `json:"configFiles"`
+	Services     []ComposeConfigService      `json:"services"`
+	Dependencies []ComposeDeclaredDependency `json:"dependencies"`
+	ObservedAt   string                      `json:"observedAt"`
+	Limitations  []string                    `json:"limitations"`
+}
+
 // Volume browsing mounts the volume read-only into a helper container that is created and
 // never started, then reads it through the same archive endpoint the container file browser
 // uses. Docker exposes no way to read a volume directly; this is the approach Docker Desktop
@@ -1332,6 +1412,46 @@ type VolumeRestoreResult struct {
 	ObservedAt  string `json:"observedAt"`
 }
 
+// Docker has no clone or empty verb for volumes. Both are built from the same never-started
+// helper the browser uses: a clone streams one volume's archive into another, and an empty
+// has to remove and recreate the volume, because the archive endpoint can write files but
+// cannot delete them.
+
+type VolumeCloneParams struct {
+	Context string `json:"context"`
+	Name    string `json:"name"`
+	// Target must not already exist: a clone that wrote into an existing volume would be a
+	// restore over data the operator never named.
+	Target string `json:"target"`
+}
+
+type VolumeCloneResult struct {
+	Context     string   `json:"context"`
+	Volume      string   `json:"volume"`
+	Target      string   `json:"target"`
+	Entries     int      `json:"entries"`
+	SizeBytes   int64    `json:"sizeBytes"`
+	ObservedAt  string   `json:"observedAt"`
+	Limitations []string `json:"limitations"`
+}
+
+type VolumeEmptyParams struct {
+	Context string `json:"context"`
+	Name    string `json:"name"`
+	// Emptying discards every byte the volume holds and nothing restores it.
+	Confirmed bool `json:"confirmed,omitempty"`
+}
+
+type VolumeEmptyResult struct {
+	Context string `json:"context"`
+	Volume  string `json:"volume"`
+	// Recreated is the volume as it exists after the operation, so the UI can replace the row
+	// rather than infer what removing and recreating produced.
+	Recreated   *VolumeProjection `json:"recreated,omitempty"`
+	ObservedAt  string            `json:"observedAt"`
+	Limitations []string          `json:"limitations"`
+}
+
 type BuildsListParams struct {
 	Context string `json:"context"`
 }
@@ -1397,4 +1517,75 @@ type BuildsInspectResult struct {
 	CompletedSteps int      `json:"completedSteps"`
 	Materials      []string `json:"materials"`
 	ObservedAt     string   `json:"observedAt"`
+}
+
+type SecretsListParams struct {
+	Context string `json:"context"`
+}
+
+// SwarmSurface says whether the Swarm secret store was reachable, and why not when it was
+// not. Docker answers 503 on every Swarm endpoint of a node that is not a manager, which is
+// the ordinary state of a desktop engine — so it is carried on a successful result rather
+// than raised as an error. An empty store on a manager and no store at all are different
+// facts about the engine and a caller must be able to tell them apart.
+type SwarmSurface struct {
+	// Manager is true only when this engine served the secret list itself.
+	Manager bool `json:"manager"`
+	// NodeState is Docker's own Swarm.LocalNodeState: inactive, pending, active, error or
+	// locked. "unknown" when the transport could not report it.
+	NodeState string `json:"nodeState"`
+	// Reason is the engine's or the CLI's own words for the refusal, never Anchorage's.
+	Reason string `json:"reason,omitempty"`
+}
+
+// SecretSummary is a reference, not a secret. Docker discards a secret's plaintext once it
+// is created: neither the Engine API nor the CLI returns Spec.Data, and only the containers
+// the secret is granted to ever see the value. Nothing in this struct can hold one.
+type SecretSummary struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Driver string `json:"driver,omitempty"`
+	// CreatedAt/UpdatedAt are RFC3339 on the Engine transport only.
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+	// Version is Swarm's object index, which every update increments. Two secrets that share
+	// a name across time are not the same object, and this is what says so.
+	Version uint64            `json:"version,omitempty"`
+	Labels  map[string]string `json:"labels"`
+	// The CLI transport formats times relative to now ("2 hours ago") and joins labels into
+	// one string, exactly as the volume and image lists do, so those arrive as display text.
+	CreatedDisplay string `json:"createdDisplay,omitempty"`
+	UpdatedDisplay string `json:"updatedDisplay,omitempty"`
+	LabelsText     string `json:"labelsText,omitempty"`
+}
+
+type SecretsListResult struct {
+	Context      string          `json:"context"`
+	Source       string          `json:"source"`
+	APIVersion   string          `json:"apiVersion,omitempty"`
+	Swarm        SwarmSurface    `json:"swarm"`
+	Secrets      []SecretSummary `json:"secrets"`
+	ObservedAt   string          `json:"observedAt"`
+	EndpointHash string          `json:"endpointHash,omitempty"`
+	Limitations  []string        `json:"limitations"`
+}
+
+// PluginsParams asks only which CLI plugins are installed and which of them work.
+type PluginsParams struct {
+	Context string `json:"context,omitempty"`
+}
+
+// PluginsResult reports the plugin directories as the Docker CLI sees them.
+//
+// `Plugins` holds both the ones the CLI loaded and the entries it skipped; `Status` and
+// `DiscoverySource` distinguish them. Reporting the skipped ones is the point: `docker info`
+// omits them silently, so a broken plugin is invisible from the CLI alone.
+type PluginsResult struct {
+	ProtocolVersion string             `json:"protocolVersion"`
+	Binary          *BinaryFingerprint `json:"binary,omitempty"`
+	BinaryError     *OpError           `json:"binaryError,omitempty"`
+	Plugins         []Plugin           `json:"plugins"`
+	SearchPath      []string           `json:"searchPath"`
+	Warnings        []string           `json:"warnings"`
+	ObservedAt      string             `json:"observedAt"`
 }

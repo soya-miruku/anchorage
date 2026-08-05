@@ -690,6 +690,9 @@ case "$*" in
   "--context remote volume ls --format {{json .}}")
     printf '%s\n' '{"Name":"remote-data","Driver":"local","Scope":"local","Mountpoint":"/remote-data","Labels":"app=fixture","Size":"321B"}'
     ;;
+  "--context remote secret ls --format {{json .}}")
+    printf '%s\n' '{"ID":"ccccccccccccsecret3","Name":"remote-token","Driver":"","CreatedAt":"2 hours ago","UpdatedAt":"2 hours ago","Labels":"app=fixture"}'
+    ;;
   "--context remote image inspect --format {{.Id}} fixture:latest")
     printf '%s\n' '` + fullImageID + `'
     ;;

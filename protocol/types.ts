@@ -49,6 +49,18 @@ export interface SystemContextsRequest {
   params?: { context?: string };
 }
 
+/**
+ * Which CLI plugins are installed, and which of them the CLI actually loaded.
+ *
+ * Separate from `system.capabilities` because it is a stat of a few directories rather than a
+ * recursive help walk, so a settings pane can ask it without paying for discovery.
+ */
+export interface SystemPluginsRequest {
+  id: RequestId;
+  method: "system.plugins";
+  params?: { context?: string };
+}
+
 export interface SystemSnapshotRequest {
   id: RequestId;
   method: "system.snapshot";
@@ -787,6 +799,7 @@ export type RPCRequest =
   | HealthRequest
   | SystemCapabilitiesRequest
   | SystemContextsRequest
+  | SystemPluginsRequest
   | SystemSnapshotRequest
   | SystemActionRequest
   | ContainersListRequest
@@ -803,6 +816,7 @@ export type RPCRequest =
   | ContainersExportRequest
   | ComposeListRequest
   | ComposePsRequest
+  | ComposeConfigRequest
   | ComposeActionRequest
   | VolumeFilesRequest
   | VolumeFileReadRequest
@@ -810,6 +824,8 @@ export type RPCRequest =
   | VolumeFileWriteRequest
   | VolumeBackupRequest
   | VolumeRestoreRequest
+  | VolumeCloneRequest
+  | VolumeEmptyRequest
   | BuildsListRequest
   | BuildsInspectRequest
   | ImagesListRequest
@@ -907,6 +923,16 @@ export interface CommandInventory {
   warnings: string[];
 }
 
+/**
+ * `broken` is not one of `Availability`'s states on purpose.
+ *
+ * Availability answers "can this capability be used". A broken plugin is a different claim:
+ * the installation itself is faulty — a link with no target, or a file with no execute bit —
+ * and the remedy is to repair the machine rather than to install a capability. `docker info`
+ * omits these entirely, so nothing else in the product could report them.
+ */
+export type PluginStatus = Availability | "broken";
+
 export interface Plugin {
   name: string;
   version?: string;
@@ -914,8 +940,8 @@ export interface Plugin {
   description?: string;
   path?: string;
   schemaVersion?: string;
-  status: Availability;
-  discoverySource: "docker-info" | "docker-help" | string;
+  status: PluginStatus;
+  discoverySource: "docker-info" | "docker-help" | "cli-plugins-dir" | string;
   availabilityNote?: string;
 }
 
@@ -927,6 +953,18 @@ export interface CapabilityStatus {
   transports: string[];
   evidence?: CommandEvidence;
   metadata?: Record<string, string>;
+}
+
+export interface SystemPluginsResult {
+  protocolVersion: "1";
+  binary?: BinaryFingerprint;
+  binaryError?: RPCError;
+  /** Both the plugins the CLI loaded and the entries it skipped; `status` separates them. */
+  plugins: Plugin[];
+  /** The directories searched, in the CLI's own order. */
+  searchPath: string[];
+  warnings: string[];
+  observedAt: string;
 }
 
 export interface SystemCapabilitiesResult {
@@ -1631,6 +1669,88 @@ export interface ComposeActionResult {
 }
 
 /**
+ * `compose config` renders the fully resolved model. Compose finds a running project by label
+ * but cannot render a configuration it was never given, so the files are required here exactly
+ * as they are for `up`. The core projects a typed subset: what the resolved file does not
+ * carry is absent rather than guessed, and `limitations` says which of those there were.
+ */
+export interface ComposeConfigRequest {
+  id: RequestId;
+  method: "compose.config";
+  params: { context: string; project: string; configFiles: string[] };
+}
+
+export interface ComposeDependsOn {
+  service: string;
+  /** `service_started`, `service_healthy` or `service_completed_successfully`. */
+  condition: string;
+  /** Restart this service when the dependency is restarted. */
+  restart?: boolean;
+  /** False means Compose starts this service even when the dependency is absent. */
+  required: boolean;
+}
+
+export interface ComposeWatchRule {
+  path: string;
+  /** `sync`, `rebuild`, `restart`, `sync+restart` or `sync+exec`. */
+  action: string;
+  target?: string;
+  ignore?: string[];
+  include?: string[];
+  /** The argv an `exec` rule runs after syncing. */
+  command?: string[];
+}
+
+export interface ComposeLifecycleHook {
+  phase: "post_start" | "pre_stop";
+  command: string[];
+  /** The hook's own user, or the service's where the hook names none. */
+  user?: string;
+  /**
+   * True only where a declared user resolves to root. An unstated user is never reported as
+   * root: what it resolves to lives in the image, which the resolved file does not carry.
+   */
+  runsAsRoot: boolean;
+  privileged?: boolean;
+  workingDir?: string;
+}
+
+export interface ComposeConfigService {
+  name: string;
+  image?: string;
+  /** A service with a profile does not start unless that profile is selected. */
+  profiles?: string[];
+  /** The wave Compose starts it in: 0 when it waits for nothing. */
+  startOrder: number;
+  dependsOn: ComposeDependsOn[];
+  watch: ComposeWatchRule[];
+  hooks: ComposeLifecycleHook[];
+}
+
+/** Something the project declares but does not itself run. */
+export interface ComposeDeclaredDependency {
+  kind: "model" | "provider" | "secret" | "volume";
+  name: string;
+  /** What Compose resolves it to: a volume or secret's Docker name, a provider's type. */
+  resource?: string;
+  external?: boolean;
+  /** The services that declare it, so the edge can be drawn. */
+  services: string[];
+}
+
+export interface ComposeConfigResult {
+  context: string;
+  project: string;
+  source: "cli-json";
+  configFiles: string[];
+  /** Ordered by start order, then by name. */
+  services: ComposeConfigService[];
+  dependencies: ComposeDeclaredDependency[];
+  observedAt: string;
+  limitations: string[];
+}
+
+/**
  * Volume browsing mounts the volume read-only into a helper container that is created and
  * never started, then reads it through the same archive endpoint the container file browser
  * uses. Docker exposes no way to read a volume directly.
@@ -1785,6 +1905,54 @@ export interface VolumeRestoreResult {
 }
 
 /**
+ * Docker has no clone or empty verb. A clone is a backup and a restore that never touch the
+ * disk — the source is read through the never-started helper and rewritten straight into a
+ * second one on the target. Emptying cannot work that way at all: the archive endpoint writes
+ * files but cannot delete them, so the volume is removed and recreated from its own
+ * declaration, which the result reports.
+ */
+export interface VolumeCloneRequest {
+  id: RequestId;
+  method: "volumes.clone";
+  params: {
+    context: string;
+    name: string;
+    /** Must not already exist; a clone never writes into a volume that is already there. */
+    target: string;
+  };
+}
+
+export interface VolumeCloneResult {
+  context: string;
+  volume: string;
+  target: string;
+  entries: number;
+  sizeBytes: number;
+  observedAt: string;
+  limitations: string[];
+}
+
+export interface VolumeEmptyRequest {
+  id: RequestId;
+  method: "volumes.empty";
+  params: {
+    context: string;
+    name: string;
+    /** Emptying discards every byte the volume holds and nothing restores it. */
+    confirmed: true;
+  };
+}
+
+export interface VolumeEmptyResult {
+  context: string;
+  volume: string;
+  /** The volume as it exists afterwards, since it is a new one under the same declaration. */
+  recreated?: VolumeProjection;
+  observedAt: string;
+  limitations: string[];
+}
+
+/**
  * Buildx is an optional CLI plugin with no Engine API. Note that `history ls` reports a
  * reference as `builder/node/id` while `history inspect` accepts only the bare id, so the
  * core carries both and resolves between them.
@@ -1856,4 +2024,65 @@ export interface BuildsInspectResult {
   completedSteps: number;
   materials: string[];
   observedAt: string;
+}
+
+/**
+ * Swarm secrets are the only secret store the Docker Engine API exposes, and it exposes
+ * references to them, never values: `GET /secrets` returns an id, a name and metadata, and
+ * the daemon discards the plaintext once the secret exists. No API call and no CLI command
+ * reads a value back — only the containers a secret is granted to ever see it. There is
+ * therefore no inspect verb here and no field that could carry one.
+ *
+ * Distinct from Docker Pass, the separate `se://` resolver: this says nothing about whether
+ * an `se://` reference resolves on the host.
+ */
+export interface SecretsListRequest {
+  id: RequestId;
+  method: "secrets.list";
+  params: { context: string };
+}
+
+/**
+ * Whether the Swarm secret store was reachable, and why not when it was not.
+ *
+ * Docker answers 503 on every Swarm endpoint of a node that is not a manager, which is the
+ * ordinary state of a desktop engine — so it arrives as a state on a successful result
+ * rather than as an error. An empty store on a manager and no store at all are different
+ * facts and must not collapse into one empty list.
+ */
+export interface SwarmSurface {
+  /** True only when this engine served the secret list itself. */
+  manager: boolean;
+  /** Docker's Swarm.LocalNodeState, or "unknown" when the transport could not report it. */
+  nodeState: string;
+  /** The engine's or the CLI's own words for the refusal. */
+  reason?: string;
+}
+
+export interface SecretSummary {
+  id: string;
+  name: string;
+  /** An external secret driver, when one holds the value instead of Swarm's own store. */
+  driver?: string;
+  /** RFC3339 on the Engine transport only. */
+  createdAt?: string;
+  updatedAt?: string;
+  /** Swarm's object index, which every update increments. */
+  version?: number;
+  labels: Record<string, string>;
+  /** The CLI transport formats times relative to now and joins labels into one string. */
+  createdDisplay?: string;
+  updatedDisplay?: string;
+  labelsText?: string;
+}
+
+export interface SecretsListResult {
+  context: string;
+  source: "engine-api" | "cli-json";
+  apiVersion?: string;
+  swarm: SwarmSurface;
+  secrets: SecretSummary[];
+  observedAt: string;
+  endpointHash?: string;
+  limitations: string[];
 }

@@ -366,15 +366,29 @@ func TestVolumesListCreateRemoveAndPruneAreStructuredSingleSubmitMutations(t *te
 	service, requests, closeServer := newDomainTestService(t)
 	defer closeServer()
 
-	list, err := service.volumesList(context.Background(), VolumesListParams{Context: "default"})
-	if err != nil {
-		t.Fatalf("volumes list: %v", err)
+	// Usage arrives behind the list rather than inside it: the daemon sizes volumes with a disk
+	// walk that measured ~1.15s against ~8ms for the list itself, so the first call reports the
+	// volume immediately and the size lands on a later one. See volume_usage_cache.go.
+	var list VolumesListResult
+	var err error
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		list, err = service.volumesList(context.Background(), VolumesListParams{Context: "default"})
+		if err != nil {
+			t.Fatalf("volumes list: %v", err)
+		}
+		if len(list.Volumes) == 1 && list.Volumes[0].Usage != nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 	if len(list.Volumes) != 1 || list.Volumes[0].Name != "fixture-data" ||
 		list.Volumes[0].Usage == nil || list.Volumes[0].Usage.SizeBytes != 321 ||
 		list.Volumes[0].Usage.RefCount != 1 {
 		t.Fatalf("unexpected volumes: %#v", list.Volumes)
 	}
+	// Still exactly one walk however many lists ran: single-flight plus the TTL is what keeps
+	// the poll from putting the daemon back into a continuous disk walk.
 	assertDomainRequestCount(t, requests, http.MethodGet, "/v1.55/system/df?type=volume", 1)
 
 	created, err := service.volumesAction(context.Background(), VolumesActionParams{
@@ -670,6 +684,17 @@ func startDomainEngine(t *testing.T) (string, func(), *[]recordedDomainRequest) 
 				{"Name":"app-net","Id":"bbbbbbbbbbbb2222","Driver":"bridge","Scope":"local",
 				 "IPAM":{"Driver":"default","Config":[{"Subnet":"172.20.0.0/16","Gateway":"172.20.0.1"}]},
 				 "Labels":{"com.docker.compose.project":"app"}}
+			]`))
+		case request.Method == http.MethodGet && request.URL.Path == "/v1.55/secrets":
+			// Spec.Data is present here precisely because the real Engine never sends it:
+			// the projection has to drop a value even when one is handed to it.
+			_, _ = writer.Write([]byte(`[
+				{"ID":"aaaaaaaaaaaasecret1","Version":{"Index":11},
+				 "CreatedAt":"2026-01-01T00:00:00Z","UpdatedAt":"2026-01-02T00:00:00Z",
+				 "Spec":{"Name":"registry-token","Labels":{"app":"fixture"},"Data":"c3VwZXItc2VjcmV0"}},
+				{"ID":"bbbbbbbbbbbbsecret2","Version":{"Index":3},
+				 "CreatedAt":"2026-01-01T00:00:00Z","UpdatedAt":"2026-01-01T00:00:00Z",
+				 "Spec":{"Name":"db-password","Driver":{"Name":"vault"}}}
 			]`))
 		case request.Method == http.MethodPost && request.URL.Path == "/v1.55/networks/create":
 			_, _ = writer.Write([]byte(`{"Id":"cccccccccccc3333","Warning":""}`))
@@ -1784,5 +1809,65 @@ func TestPushIsConfirmedAndTakesNoForeignOptions(t *testing.T) {
 		Context: "default", Action: "push", Reference: "team/api:v1", Confirmed: true,
 	}); err != nil {
 		t.Fatalf("a confirmed push should validate: %v", err)
+	}
+}
+
+// TestImagesListDoesNotPayForSharedSize guards a measured 2.4x cost.
+//
+// `shared-size=true` makes the daemon walk the layer graph to compute how much of each image is
+// shared with others. Measured against a live daemon holding 1,986 images: 703-796 ms with the
+// flag, 283-326 ms without — roughly 450 ms per call. Nothing consumes the result on this path.
+// `ImageProjection.sharedBytes` reaches the renderer and no screen, component or store reads it;
+// the disk-usage summary that genuinely needs shared size reads it from `/system/df`, which is a
+// different request built by projectDiskUsage.
+//
+// Docker reports SharedSize as -1 when it has not computed it, and that sentinel is preserved
+// rather than flattened to 0, because 0 would assert that an image shares nothing.
+func TestImagesListDoesNotPayForSharedSize(t *testing.T) {
+	var queries []string
+	socketPath, closeServer := startCustomDomainEngine(t, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/version":
+			_, _ = writer.Write([]byte(`{"ApiVersion":"1.55","MinAPIVersion":"1.40"}`))
+		case "/v1.55/images/json":
+			queries = append(queries, request.URL.RawQuery)
+			// What a daemon returns when shared size was not requested.
+			_, _ = writer.Write([]byte(`[
+				{"Id":"` + fullImageID + `","RepoTags":["fixture:latest"],"RepoDigests":[],
+				 "Created":10,"Size":500,"SharedSize":-1,"VirtualSize":500,"Containers":1}
+			]`))
+		default:
+			writer.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer closeServer()
+	fakeDocker, _ := writeFakeDocker(t, socketPath)
+	service := newTestService(t, fakeDocker)
+
+	all := false
+	result, err := service.imagesList(context.Background(), ImagesListParams{
+		Context:         "default",
+		All:             &all,
+		IncludeDangling: true,
+	})
+	if err != nil {
+		t.Fatalf("images list: %v", err)
+	}
+	if len(queries) == 0 {
+		t.Fatal("expected at least one images/json request")
+	}
+	// Both the primary and the dangling query must stay off the expensive path; the dangling
+	// one was the easier of the two to miss.
+	for _, query := range queries {
+		if strings.Contains(query, "shared-size") {
+			t.Fatalf("images.list must not request shared-size; query was %q", query)
+		}
+	}
+	if len(result.Images) != 1 {
+		t.Fatalf("expected the tagged image, got %#v", result.Images)
+	}
+	if result.Images[0].SharedBytes != -1 {
+		t.Fatalf("Docker's uncomputed sentinel must survive rather than becoming a claim of zero sharing, got %d", result.Images[0].SharedBytes)
 	}
 }

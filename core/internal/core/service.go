@@ -37,13 +37,23 @@ type Service struct {
 	// creates and removes a container. Both are per-request work the renderer can start at
 	// any rate it likes, so each is admitted through a small semaphore rather than trusting
 	// the caller to be reasonable.
-	scoutSlots     chan struct{}
-	volumeSlots    chan struct{}
+	scoutSlots  chan struct{}
+	volumeSlots chan struct{}
+	// Volume helpers this process created and has not yet removed. The sweep that clears
+	// leaked helpers finds them by label, which matches live ones too; see holdVolumeHelper.
+	helperMu       sync.Mutex
+	liveHelpers    map[string]bool
 	inventoryMu    sync.Mutex
 	inventoryCache map[string]CommandInventory
 	// One walk per key, shared by everyone waiting on it: the warm start and the renderer's
 	// first request would otherwise run the whole subprocess storm twice.
 	inventoryFlights map[string]*inventoryFlight
+	// Volume sizes come from a daemon-side disk walk that costs ~1.15s and is 99% of what a
+	// volume list used to take. Cached per endpoint and refreshed behind the list; see
+	// volume_usage_cache.go.
+	volumeUsage *volumeUsageCache
+	// The dashboard polls a full /system/df every 10s and that walk can take longer than 10s.
+	systemDiskUsage *systemDiskUsageCache
 }
 
 func NewService(config Config) (*Service, error) {
@@ -81,6 +91,8 @@ func NewService(config Config) (*Service, error) {
 		// a second concurrent scan of the same image would duplicate the indexing work.
 		scoutSlots:  make(chan struct{}, 1),
 		volumeSlots: make(chan struct{}, 2),
+		volumeUsage:     newVolumeUsageCache(),
+		systemDiskUsage: newSystemDiskUsageCache(),
 	}
 	service.sessions = newSessionManager(service)
 	return service, nil
@@ -109,6 +121,12 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.contexts(ctx, params)
+	case "system.plugins":
+		var params PluginsParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.pluginInstallation(ctx, params)
 	case "system.snapshot":
 		if err := s.requireDocker(); err != nil {
 			return nil, err
@@ -262,6 +280,24 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.volumeRestore(ctx, params)
+	case "volumes.clone":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params VolumeCloneParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.volumeClone(ctx, params)
+	case "volumes.empty":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params VolumeEmptyParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.volumeEmpty(ctx, params)
 	case "volumes.fileWrite":
 		if err := s.requireDocker(); err != nil {
 			return nil, err
@@ -298,6 +334,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.composePs(ctx, params)
+	case "compose.config":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ComposeConfigParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.composeConfig(ctx, params)
 	case "compose.action":
 		if err := s.requireDocker(); err != nil {
 			return nil, err
@@ -406,6 +451,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.networksAction(ctx, params, emit)
+	case "secrets.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params SecretsListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.secretsList(ctx, params)
 	case "system.action":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

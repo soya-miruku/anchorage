@@ -688,13 +688,24 @@ func finishReceipt(receipt *OperationReceipt) {
 	}
 }
 
-func engineHTTPError(code, message string, status int, body []byte) *OpError {
-	details := map[string]any{"status": status}
+// engineMessageFrom extracts the daemon's own sentence from an error body, or "" when the
+// body is not one. Kept separate from engineHTTPError because a non-2xx status is not always
+// a failure: a Swarm endpoint refusing on a non-manager is a state to describe, and it
+// describes itself in exactly this field.
+func engineMessageFrom(body []byte) string {
 	var response struct {
 		Message string `json:"message"`
 	}
-	if json.Unmarshal(body, &response) == nil && response.Message != "" {
-		details["engineMessage"] = response.Message
+	if json.Unmarshal(body, &response) != nil {
+		return ""
+	}
+	return response.Message
+}
+
+func engineHTTPError(code, message string, status int, body []byte) *OpError {
+	details := map[string]any{"status": status}
+	if engineMessage := engineMessageFrom(body); engineMessage != "" {
+		details["engineMessage"] = engineMessage
 	} else if len(body) > 0 {
 		details["body"] = string(body)
 	}
