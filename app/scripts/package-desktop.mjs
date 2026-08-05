@@ -1367,13 +1367,22 @@ async function buildAndStage(sourceCounts, packageMetadata) {
   // builds of one commit. That is only worth stating if it is true, and the build flags that
   // make it true (-trimpath, -buildvcs=false, -buildid=, CGO_ENABLED=0) are easy to weaken by
   // accident. A second build costs well under a second because the Go build cache is warm.
-  const coreReplayPath = `${CORE_STAGE_BINARY}.replay`;
-  await run("go", [...goBuildFlags.slice(0, -2), coreReplayPath, "./cmd/anchorage-core"], {
-    cwd: CORE_DIRECTORY,
-    env: { ...process.env, CGO_ENABLED: "0" },
-  });
-  const coreReplaySha256 = await sha256File(coreReplayPath);
-  await rm(coreReplayPath, { force: true });
+  // Built into a temp directory rather than beside the staged core, because
+  // electron-builder ships `build/core` wholesale via extraResources — so a replay left there
+  // by an interrupted run would be packaged as a second 7.5 MB binary inside the release.
+  // Cleanup alone is not enough to rely on: it does not run if the build or the hash throws.
+  const coreReplayDirectory = await mkdtemp(join(tmpdir(), "anchorage-core-replay-"));
+  const coreReplayPath = join(coreReplayDirectory, "anchorage-core");
+  let coreReplaySha256;
+  try {
+    await run("go", [...goBuildFlags.slice(0, -2), coreReplayPath, "./cmd/anchorage-core"], {
+      cwd: CORE_DIRECTORY,
+      env: { ...process.env, CGO_ENABLED: "0" },
+    });
+    coreReplaySha256 = await sha256File(coreReplayPath);
+  } finally {
+    await rm(coreReplayDirectory, { recursive: true, force: true });
+  }
   if (coreReplaySha256 !== coreSha256) {
     fail(
       "The Go core is not reproducible: rebuilding the same source produced " +

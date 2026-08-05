@@ -27,7 +27,7 @@
   "evidence": {
     "designConformance": {
       "path": "artifacts/design/design-ledger.json",
-      "sha256": "5b3191d4d8d563d2eb84ab55f8747005f11f4bf03fbf1220fa62fcaa59b036d8",
+      "sha256": "c5128dd3a29bad5e2d6b585e7086f292452545e20e2d4c07a87a32b807dd8d32",
       "bytes": 118318,
       "reviewedStates": 24,
       "generatorSha256": "b29c8cd5e1d824d0c8dd635de0a280ac1986d13c0a95a148976eb6209f201e72",
@@ -71,7 +71,7 @@
       },
       "captureProvenance": {
         "path": "docs/design-qa/final-actual/capture-provenance.json",
-        "sha256": "86a27d5b292e9aef6a19a907f01ca3baf33e074c84d0b8733f70e13d5e038f94",
+        "sha256": "fc7a12f168cba9c5bc3efdf1d35bb5667b52c08c68b46f7ff6cac7b5970b77bf",
         "bytes": 7752,
         "captureMode": "fixture-browser",
         "bridgeMode": "fixture",
@@ -155,8 +155,8 @@
     },
     "hostCandidate": {
       "path": "artifacts/host-candidate/host-candidate.json",
-      "sha256": "1c9dfddecef0449cf6eac749fa367ebd6c100eabb763928e07ac5c3639ead4cc",
-      "bytes": 24029,
+      "sha256": "8c31a905084a0400105f9d24119aba96e1fef0f9b8df9034b688cd230f39b598",
+      "bytes": 24027,
       "scope": "host-integration-smoke-not-pixel-parity",
       "bridgeMode": "host",
       "checks": 12,
@@ -178,8 +178,8 @@
         {
           "id": "host-dashboard",
           "path": "screens/host-dashboard.png",
-          "sha256": "ae38ff202220caf0c1d82b70dec7458fee9737a49479ae66e36f4f33f34f5484",
-          "bytes": 126453,
+          "sha256": "6903b61020c93c844964369468060f6fd5332c78114ce3100e08af31fdc6d189",
+          "bytes": 126470,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -188,8 +188,8 @@
         {
           "id": "host-containers",
           "path": "screens/host-containers.png",
-          "sha256": "db3d44a62efa87db7956325764a576fdab73892b68cf320d96c5d382a3c601f1",
-          "bytes": 206601,
+          "sha256": "36f2fb42c7cef6d4ef06419cb0621ed24bd7c617f928a73e0fa546f657334f5d",
+          "bytes": 206620,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -198,8 +198,8 @@
         {
           "id": "host-container-detail",
           "path": "screens/host-container-detail.png",
-          "sha256": "540e914b5408e123424d5d739b2618254e854bd85fed519aab886c7205ef1d15",
-          "bytes": 107432,
+          "sha256": "e36681cc7c3c0b85bd0acea2155a206185cf4c1c5fd8fd5cdbc96fb1dc5dfd88",
+          "bytes": 107490,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -208,8 +208,8 @@
         {
           "id": "host-files-live",
           "path": "screens/host-files-live.png",
-          "sha256": "abdfd432506304307e31198a79c25734afb62e6cb3d0d0277d6e0969cad929ea",
-          "bytes": 72449,
+          "sha256": "7ebe2b439fb13090d04c352e804a18a5bb7a8777cad12e61e87310c7cc35041b",
+          "bytes": 72411,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -218,8 +218,8 @@
         {
           "id": "host-images",
           "path": "screens/host-images.png",
-          "sha256": "4ce06c74c9f7f82971ce9ceee8439de2f5e027050281cb1286336ad9896bcc40",
-          "bytes": 208084,
+          "sha256": "b3c0a9f276909db7c3adc9ddc70ecca305d698488c9f9d42de65c5739911c189",
+          "bytes": 208108,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -228,8 +228,8 @@
         {
           "id": "host-volumes",
           "path": "screens/host-volumes.png",
-          "sha256": "0047d1efb195c9b5cbf458e0c67c0abbe8c73b1320ec8043e367df770c8cc117",
-          "bytes": 251127,
+          "sha256": "dace2e81c3d714f1c9886a15062aa9e49b4dbbfcf46205ae1ec0902bea5486b8",
+          "bytes": 258120,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -238,8 +238,8 @@
         {
           "id": "host-command-center-pinned",
           "path": "screens/host-command-center-pinned.png",
-          "sha256": "4225f58995fcc2d3163ac601cd5145c46f3f0653698438c628ed6af5d7560b32",
-          "bytes": 124523,
+          "sha256": "e473ee0c0b45149eb28a0c0d605c21f41f42cd0b96ae1fb797eaf7fe4368b0e5",
+          "bytes": 124544,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -248,8 +248,8 @@
         {
           "id": "host-command-center-literal",
           "path": "screens/host-command-center-literal.png",
-          "sha256": "9ff4af163af3aeb5acef891fab0c1d481a71bfccba2d1b3d38e87b58ff5999bc",
-          "bytes": 131252,
+          "sha256": "6fde2726b407725695e270eb2b0148f21e0d05a0d39d344b58c3bd9ea71f6dc1",
+          "bytes": 131246,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -258,8 +258,8 @@
         {
           "id": "host-builds-live",
           "path": "screens/host-builds-live.png",
-          "sha256": "43593745094d7e8112747a1310df8deeb9901a192a553dd443f69a704468d6a5",
-          "bytes": 132626,
+          "sha256": "05c64b15d44fc9011093cba5fb85d75048e372e1758cff6e0c87303c2413b6b8",
+          "bytes": 132564,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -268,8 +268,8 @@
         {
           "id": "host-settings-engine",
           "path": "screens/host-settings-engine.png",
-          "sha256": "7cf90da0b3050467cd5a961f0f898e7564cca342b7e5dceb27fcaa89677277d0",
-          "bytes": 158585,
+          "sha256": "e636e7eed59e2209e1e80b9d7d8d23b1d47e6e4e1a6310faa3dc7903c578a341",
+          "bytes": 158562,
           "dimensions": {
             "width": 1656,
             "height": 1056
@@ -297,7 +297,7 @@
     },
     "coreAcceptance": {
       "path": "artifacts/docker/read-only-acceptance.json",
-      "sha256": "d8add8153488141c8a0d673ce3853c6c090fa01ce9b8b996c0fd0a3157ab1d5c",
+      "sha256": "d3a8bf7658f69487ec96170e65fbbef65bf9a08deeac682fbcd1373d53d04236",
       "bytes": 11450,
       "coreSha256": "232e589f1344b5acc9aafe15b7a44c26a515d9d81cc0cafb9372165f9acb1f8b",
       "schemaVersion": 3,
@@ -320,13 +320,13 @@
     },
     "electronSecurity": {
       "path": "artifacts/security/electron-config.json",
-      "sha256": "da3f70c80caa64321b3e97449d879630138daf8677acada0d04646a287a0fc0f",
+      "sha256": "eb18b38cf46cf37153f835d9fd4d9f7b3cb7c8288c8f30e0cd35809828897713",
       "bytes": 3958,
       "policyVersion": 1
     },
     "dependencyAudit": {
       "path": "artifacts/security/dependency-audit.json",
-      "sha256": "a96972549134d26f303001e108de060f186440fdef9f779d958cf3721911a266",
+      "sha256": "2513b9daad4fd3d6350d6694db3c7437d26f40719da3c429da0d9741f3872f67",
       "bytes": 527,
       "vulnerabilities": 0
     }
