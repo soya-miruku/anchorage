@@ -26,7 +26,12 @@ export const REQUIRED_EXACT_DEV_DEPENDENCIES = Object.freeze({
  * Nothing is lost by removing them. Every entry binds its evidence document by `sha256` and
  * `bytes`, and that document — which stays in `artifacts/` and is not shipped — keeps its own
  * timestamps. "When did this evidence run" is still answerable; it is just answered by the
- * evidence rather than by the artifact that has to be reproducible.
+ * evidence rather than by the manifest.
+ *
+ * Removing them does NOT make the AppImage reproducible, and this comment used to imply it did.
+ * The evidence digests themselves move between runs because some evidence photographs a live
+ * daemon, so the manifest moves with them. What is reproducible is the core and the renderer;
+ * `reproducibility` in release-verification.json records which is which.
  */
 export const MANIFEST_WALL_CLOCK_FIELDS = Object.freeze([
   "capturedAt",

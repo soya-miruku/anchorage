@@ -218,3 +218,28 @@ describe("ContainerDetailScreen resources dialog", () => {
     expect(screen.getByTestId("container-limits-apply")).toBeEnabled();
   });
 });
+
+/**
+ * A paused container's primary button has to say what pressing it does.
+ *
+ * `primaryContainerAction` returns `unpause`, the handler acts on it, and the disabled binding
+ * treats it as available — but the label fell through to "Unavailable". The result was an
+ * enabled button reading "Unavailable" that resumed the container, which is worse than an
+ * absent control: it contradicts itself and the operator has no reason to press it.
+ */
+describe("ContainerDetailScreen primary action label", () => {
+  it("offers to resume a paused container rather than calling it unavailable", () => {
+    renderDetail({ state: "paused", rawState: "paused", status: "Paused" });
+    const button = screen.getByRole("button", { name: "Resume" });
+    expect(button).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Unavailable" })).toBeNull();
+  });
+
+  it("still says Stop for a serving container and Start for a stopped one", () => {
+    renderDetail({ state: "running", rawState: "running", status: "Up 2 hours" });
+    expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+    cleanup();
+    renderDetail();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+  });
+});

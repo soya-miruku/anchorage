@@ -24,8 +24,10 @@ but they have not each been independently challenged — treat them as a strong 
 
 ## Fixed in this pass
 
-Six defects where a control looked like it worked and did not. All six passed the test suite
-before the fix; each now has a test that fails when the fix is reverted.
+Six defects where a control looked like it worked and did not. All six survived the **463-test**
+suite that existed before this pass; each now has a test that fails when its fix is reverted.
+(The suite is larger now precisely because of those regression tests — quoting the post-fix
+figure would credit the old suite with tests written to catch these bugs.)
 
 An adversarial review of this pass then found that two of the six were fixed only in the
 renderer. `rename` and `update` were missing from the container-action allowlists in both
@@ -45,18 +47,26 @@ flags. Both faults are fixed and covered by contract tests.
 | Builds → record detail | A failed `buildx history inspect` was routed to `buildsError`, rendered only by Settings → Builders. Now has its own state: `buildsError` also carries buildx *limitations*, which are caveats, and collapsing the two would show a benign limitation as a broken record. |
 | Image detail in preview | The store returns before setting either a detail or an error, so every row opened a panel reading "Loading image detail…" permanently. The panel now distinguishes *waiting*, *failed* and *no daemon to ask*. |
 
-## The largest single finding
+## A sampler whose comment names the wrong surfaces
 
-**The engine telemetry chrome shows less than the browser preview, in the mode where the data is
-real.** The store samples per-container stats continuously and **only when `isHost`**
-(`app/src/store/useAnchorageStore.ts:1989`). The comment above it justifies never stopping that
-sampler on the grounds that `engineCpu` and `engineMemory` "are rendered by the sidebar engine
-card and the status bar — chrome that is on screen everywhere."
+**Corrected after review.** This section previously claimed the engine telemetry was "paid for
+and thrown away" in host mode. That is false, and it was the largest error in this document.
+`HostDashboard` — the host branch at `app/src/screens/DashboardScreen.tsx:423` — renders
+`CPU {engineCpu}%` and `MEM {engineMemory} GB` at `:289` and `:293`, and drives the Engine chart
+from the `engineHistory` series accumulated only when `isHost`. The samples are used.
 
-Both then decline to render them in host mode: the card shows `"Stats tab"` with both meters
-pinned to `width: 0` (`app/src/components/Shell.tsx:450-460`), and the status bar shows
-`"live metrics on container Stats"` (`:557`). The preview, which has no engine, shows live
-percentages. The cost is being paid and the answer is being thrown away.
+What survives is narrower and still worth fixing. The sampler at
+`app/src/store/useAnchorageStore.ts:1989` justifies never stopping on the grounds that these
+values "are rendered by the sidebar engine card and the status bar — chrome that is on screen
+everywhere." **Those two surfaces are exactly the ones that do not render them in host mode:**
+the card shows `"Stats tab"` with both meters pinned to `width: 0`
+(`app/src/components/Shell.tsx:450-460`) and the status bar shows
+`"live metrics on container Stats"` (`:557`). So either the comment names the wrong
+justification or the chrome is wrong — but nothing is wasted, and the sampler's primary stated
+purpose, the list's CPU and MEMORY columns, is served.
+
+The original claim that "the preview shows live percentages" was also overstated: every stats
+interval is `isHost`-gated, so the preview shows a constant fixture-derived value.
 
 ## Built, wired, and unreachable
 
@@ -67,8 +77,11 @@ Work that is complete on every layer except the one that would let somebody use 
   inside the store's own definition and export. No control calls it.
 - **`networks.action` connect / disconnect** — declared in `protocol/types.ts`, validated in
   `app/electron/contracts.mjs`, implemented against `/networks/{id}/connect|disconnect`. No UI.
-- **Unpause** — `primaryContainerAction` returns `unpause` for a paused container; the detail
-  header's primary toggle handles only `stop` and `start`.
+- **Unpause** — **corrected after review.** The handler is fine: `toggleContainer` branches on
+  `primaryContainerAction` and calls `bridge.containers.unpause`. The defect is in the *label*,
+  and it is worse than "unreachable" — because `disabled` is false for a paused container, the
+  header shows an **enabled button reading "Unavailable" that unpauses the container when
+  clicked**. Mislabelled, not missing.
 
 ## Schema drift
 
@@ -80,11 +93,24 @@ verb anywhere.
 
 ## Not ours
 
-**Environment (6).** Models, Sandboxes, Tools (MCP), Bosun and Agents all need CLI plugins that
-are, on this host, **broken symlinks left by a removed Docker Desktop** — nine of them — rather
-than absent software. "Install the plugin" is the wrong instruction for a dangling symlink, which
-is exactly the distinction `usePluginPresence` exists to make. Also here: secrets create/remove,
-which Docker does expose and we read only.
+**Environment (6).** Models, Sandboxes, Tools (MCP), Bosun and Agents each gate on a CLI plugin
+this host does not have. **Corrected after review:** an earlier version of this paragraph said all
+five were broken symlinks left by a removed Docker Desktop and made that distinction
+load-bearing. It holds for two of them. Checked against the plugin names the screens actually
+gate on:
+
+| Screen | Plugin | State on this host |
+|---|---|---|
+| Tools | `mcp` | dangling symlink — a faulty install |
+| Bosun | `ai` | dangling symlink — a faulty install |
+| Models | `model` | absent; no entry at all |
+| Sandboxes | `sbx` | absent; no entry at all |
+| Agents | `agent` | absent; no entry at all |
+
+The distinction still matters — "install the plugin" is the wrong instruction for a dangling
+symlink, which is what `usePluginPresence` exists to express — but it applies to Tools and Bosun,
+not to all five. There are nine dangling symlinks on this host; only two of them are gated on by
+these screens. Also here: secrets create/remove, which Docker does expose and we read only.
 
 **Docker (4).** Governance is administered in a web console with no local surface. Hardened
 Images is a Hub catalogue with no enumerating verb. Most of Kubernetes has no Docker API at all —
@@ -98,6 +124,12 @@ were both reported as missing capabilities and are neither.
 ## The remaining 46
 
 Recorded as found, not individually verified. Grouped by what they have in common.
+
+**A caveat on the index below.** It has 46 rows, but a handful name the same code as items
+already listed under "Fixed in this pass" — the audit's dimensions overlapped, and
+deduplication was by `file:line`, which does not catch two agents describing one defect at
+different lines. So "46 outstanding" overstates: treat the index as the raw record and the
+Fixed table as authoritative for what is done.
 
 **Failures written but never rendered** — `toggleComposeProject` writes `composeError` under a
 status the screen does not render it in; `refreshBuilds` distinguishes `unavailable` from `error`

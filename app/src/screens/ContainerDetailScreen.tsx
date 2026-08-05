@@ -280,11 +280,20 @@ function DetailHeader({
             disabled={isPending || primaryAction === null}
             onClick={() => void store.toggleContainer(container)}
           >
+            {/*
+              `unpause` was missing here while the handler and the disabled binding both
+              understood it, so a paused container showed an enabled button reading
+              "Unavailable" that unpaused the container when pressed. "Unavailable" is now
+              reachable only when there is genuinely no action, which is also the only case the
+              disabled binding covers.
+            */}
             {isRunning
               ? "Stop"
               : primaryAction === "start"
                 ? "Start"
-                : "Unavailable"}
+                : primaryAction === "unpause"
+                  ? "Resume"
+                  : "Unavailable"}
           </button>
           <button
             className="detail-action"

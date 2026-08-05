@@ -2335,8 +2335,15 @@ export function useAnchorageStore() {
 
   // Load the detail tab's data when it opens. Files, processes and filesystem changes are
   // all read-only, so they refresh on selection rather than on a poll.
+  //
+  // Keyed on the container's id, not the container. `CONTAINER_RENDER_FIELDS` treats `status`,
+  // `cpu` and `memory` as identity, and Docker's status is a relative string — "Up 3 minutes" —
+  // so the object changes on nearly every 2s poll. Depending on it re-ran this effect against an
+  // unchanged container, which reset the panel to its loading message and re-issued the request
+  // continuously, and after the error state was added would have cleared and re-derived that too.
+  const selectedContainerId = selectedContainer?.id ?? null;
   useEffect(() => {
-    if (!isHost || !selectedContainer) return;
+    if (!isHost || !selectedContainerId) return;
     if (detailTab === "files") {
       setFilePath("/");
       void browseFiles("/");
@@ -2344,20 +2351,20 @@ export function useAnchorageStore() {
     }
     if (detailTab === "processes") {
       setProcesses(null);
-      noteDetailError(selectedContainer.id, "processes", null);
+      noteDetailError(selectedContainerId, "processes", null);
       void bridge.containers
-        .top(selectedContainer.id, dockerContextRef.current)
+        .top(selectedContainerId, dockerContextRef.current)
         .then((result) => {
-          if (selectedIdRef.current === selectedContainer.id) setProcesses(result);
+          if (selectedIdRef.current === selectedContainerId) setProcesses(result);
         })
         .catch((reason) => {
           // `docker top` fails routinely rather than exceptionally: the Engine answers 409 for
           // a container that is not running, and the tab is reachable in that state. Swallowing
           // it left the loading message on screen with no terminal state, so a refusal read as
           // a hang.
-          if (selectedIdRef.current !== selectedContainer.id) return;
+          if (selectedIdRef.current !== selectedContainerId) return;
           noteDetailError(
-            selectedContainer.id,
+            selectedContainerId,
             "processes",
             reason instanceof Error ? reason.message : "Could not read the process list.",
           );
@@ -2366,16 +2373,16 @@ export function useAnchorageStore() {
     }
     if (detailTab === "changes") {
       setChanges(null);
-      noteDetailError(selectedContainer.id, "changes", null);
+      noteDetailError(selectedContainerId, "changes", null);
       void bridge.containers
-        .diff(selectedContainer.id, dockerContextRef.current)
+        .diff(selectedContainerId, dockerContextRef.current)
         .then((result) => {
-          if (selectedIdRef.current === selectedContainer.id) setChanges(result);
+          if (selectedIdRef.current === selectedContainerId) setChanges(result);
         })
         .catch((reason) => {
-          if (selectedIdRef.current !== selectedContainer.id) return;
+          if (selectedIdRef.current !== selectedContainerId) return;
           noteDetailError(
-            selectedContainer.id,
+            selectedContainerId,
             "changes",
             reason instanceof Error
               ? reason.message
@@ -2383,15 +2390,7 @@ export function useAnchorageStore() {
           );
         });
     }
-  }, [
-    bridge,
-    browseFiles,
-    detailTab,
-    isHost,
-    noteDetailError,
-    selectedContainer?.id,
-    selectedContainer,
-  ]);
+  }, [bridge, browseFiles, detailTab, isHost, noteDetailError, selectedContainerId]);
 
   const filteredContainers = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();

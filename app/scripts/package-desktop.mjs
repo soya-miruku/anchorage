@@ -1367,10 +1367,14 @@ async function buildAndStage(sourceCounts, packageMetadata) {
   // builds of one commit. That is only worth stating if it is true, and the build flags that
   // make it true (-trimpath, -buildvcs=false, -buildid=, CGO_ENABLED=0) are easy to weaken by
   // accident. A second build costs well under a second because the Go build cache is warm.
-  // Built into a temp directory rather than beside the staged core, because
-  // electron-builder ships `build/core` wholesale via extraResources — so a replay left there
-  // by an interrupted run would be packaged as a second 7.5 MB binary inside the release.
-  // Cleanup alone is not enough to rely on: it does not run if the build or the hash throws.
+  // Built into a temp directory rather than beside the staged core, and removed in a `finally`
+  // so no failure path can leave it behind.
+  //
+  // Corrected justification: an earlier version of this comment claimed a stray replay would be
+  // packaged, because extraResources copies `build/core`. It would not — that entry carries an
+  // explicit `filter: [anchorage-core, manifest.json]`, so the release was never at risk. The
+  // reason to keep this is narrower: build scratch does not belong in the staged payload
+  // directory, and a `finally` is honest where cleanup after the fact can be skipped by a throw.
   const coreReplayDirectory = await mkdtemp(join(tmpdir(), "anchorage-core-replay-"));
   const coreReplayPath = join(coreReplayDirectory, "anchorage-core");
   let coreReplaySha256;
