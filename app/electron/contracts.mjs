@@ -34,6 +34,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "containers.diff",
   "containers.action",
   "containers.create",
+  "containers.rebindPorts",
   "containers.export",
   "images.scout",
   "volumes.files",

@@ -21,6 +21,7 @@ import {
   validateSystemCapabilities,
   validateSystemContexts,
   validateContainersCreate,
+  validateContainersRebindPorts,
   validateContainersExport,
   validateImagesScout,
   validateVolumeFiles,
@@ -263,6 +264,15 @@ test("Electron validators produce requests accepted by protocol v1 schema", () =
         env: ["TZ=Europe/London"],
         restartPolicy: "unless-stopped",
         start: true,
+      }),
+    ),
+    request(
+      "containers.rebindPorts",
+      validateContainersRebindPorts({
+        context: "default",
+        id,
+        ports: { "8080": "80/tcp" },
+        confirmed: true,
       }),
     ),
     request(

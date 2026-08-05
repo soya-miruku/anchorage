@@ -85,11 +85,25 @@ Work that is complete on every layer except the one that would let somebody use 
 
 ## Schema drift
 
-`containers.rebindPorts` is live in the core and **validated at the trust boundary** in
-`contracts.mjs` — so this is not a validation hole — but it appears in neither `protocol/types.ts`
-nor `protocol/v1.schema.json`, which are meant to be the contract of record. `SecretsListRequest`
-is declared and schema'd but missing from the `RPCRequest` union. There is no `networks.inspect`
-verb anywhere.
+**Closed.** `containers.rebindPorts` was live in the core and validated at the trust boundary but
+appeared in neither `protocol/types.ts` nor `protocol/v1.schema.json`, which are meant to be the
+contract of record. It stayed green only because it was omitted from *both* sides of the
+`RENDERER_RPC_METHODS` ↔ schema `deepEqual`, so the lockstep test could not see the gap it was
+built to catch. It is now in the schema, in `protocol/types.ts`, in `RENDERER_RPC_METHODS`, in the
+preload invoke sample, and in the contract test that validates a validator's output against the
+schema. `SecretsListRequest` was declared and schema'd but missing from the `RPCRequest` union;
+it is now in it.
+
+One divergence is recorded rather than fixed, because fixing it changes behaviour: this verb
+accepts a **bounded** container id where every other container verb requires the immutable
+64-character form. The core checks only that it is non-empty (`containers_rebind.go:75`). The
+rule the others follow exists because a shorter reference can resolve to a different container
+between render and act — and this is the verb that destroys and recreates one, so it is the worst
+place to be lax. The schema and `protocol/types.ts` both say so in their descriptions instead of
+describing a strictness that is not there. Tightening it to 64 hex is a one-line change in
+`contracts.mjs` and `containers_rebind.go`, gated on whether any caller passes a short id.
+
+There is no `networks.inspect` verb anywhere.
 
 ## Not ours
 

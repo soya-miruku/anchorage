@@ -604,6 +604,46 @@ export interface ImagesActionRequest {
  * `docker export`: a container's filesystem as a flat tar, written straight to a host file.
  * Distinct from image save, which preserves layers and metadata.
  */
+/**
+ * Republishing a container's ports, which replaces it.
+ *
+ * Docker fixes bindings at creation and `docker update` does not cover them, so there is no such
+ * thing as rebinding a container. The core creates a new one from the original's own `Config` and
+ * `HostConfig` with only the port fields replaced — hand-picking fields to copy would silently
+ * drop whatever the list forgot. Three consequences are reported rather than glossed: the ID
+ * changes, the writable layer is discarded, and the log history goes with it. Hence `confirmed`.
+ *
+ * `id` is bounded rather than pinned to the immutable 64-character form, which is what the core
+ * accepts here. Every other container verb requires the full ID, on the grounds that a shorter
+ * reference can resolve to a different container between render and act; this one is the
+ * exception and is recorded as such rather than quietly described as strict.
+ */
+export interface ContainersRebindPortsRequest {
+  id: RequestId;
+  method: "containers.rebindPorts";
+  params: {
+    context: string;
+    id: string;
+    /** Host port to container port, e.g. `{"8080": "80/tcp"}`. Empty publishes nothing. */
+    ports: Record<string, string>;
+    confirmed: true;
+  };
+}
+
+export interface ContainersRebindPortsResult {
+  context: string;
+  /** The container that was replaced. It no longer exists. */
+  previousId: string;
+  id: string;
+  name: string;
+  warnings: string[];
+  /** What recreating could not carry over, in the operator's terms. */
+  discarded: string[];
+  receipt: Record<string, unknown>;
+  observedAt: string;
+  endpointHash?: string;
+}
+
 export interface ContainersExportRequest {
   id: RequestId;
   method: "containers.export";
@@ -857,6 +897,7 @@ export type RPCRequest =
   | ContainerDiffRequest
   | ContainersActionRequest
   | ContainersCreateRequest
+  | ContainersRebindPortsRequest
   | ContainersExportRequest
   | ComposeListRequest
   | ComposePsRequest
@@ -882,6 +923,7 @@ export type RPCRequest =
   | VolumesActionRequest
   | NetworksListRequest
   | NetworksActionRequest
+  | SecretsListRequest
   | CLIRunRequest
   | SessionStartRequest
   | SessionInputRequest

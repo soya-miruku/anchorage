@@ -366,6 +366,12 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       id: CONTAINER_ID,
       archivePath: "/home/operator/api-filesystem.tar",
     },
+    "containers.rebindPorts": {
+      context: "default",
+      id: CONTAINER_ID,
+      ports: { "8080": "80/tcp" },
+      confirmed: true,
+    },
     "images.scout": {
       context: "default",
       reference: "registry.example/team/api:latest",

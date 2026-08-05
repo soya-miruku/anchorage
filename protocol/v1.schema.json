@@ -44,6 +44,7 @@
         { "$ref": "#/$defs/containerDiffRequest" },
         { "$ref": "#/$defs/actionRequest" },
         { "$ref": "#/$defs/containersCreateRequest" },
+        { "$ref": "#/$defs/containersRebindPortsRequest" },
         { "$ref": "#/$defs/containersExportRequest" },
         { "$ref": "#/$defs/composeListRequest" },
         { "$ref": "#/$defs/composePsRequest" },
@@ -696,6 +697,36 @@
               }
             }
           ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "containersRebindPortsRequest": {
+      "description": "Republishes a container's ports by replacing it. Docker fixes bindings at creation and `docker update` cannot change them, so the core creates a new container from the original's own Config and HostConfig with only the port fields replaced. The container ID changes, the writable layer is discarded, and the log history goes with it — which is why `confirmed` is mandatory. Note that `id` is bounded rather than pinned to a full 64-character ID, matching what the core accepts here; every other container verb requires the immutable form.",
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "containers.rebindPorts" },
+        "params": {
+          "type": "object",
+          "required": ["context", "id", "ports", "confirmed"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "ports": {
+              "description": "Host port to container port, as in containers.create. An empty map publishes nothing.",
+              "type": "object",
+              "maxProperties": 128,
+              "propertyNames": { "pattern": "^[0-9]{1,5}$" },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9]{1,5}(/(tcp|udp|sctp))?$"
+              }
+            },
+            "confirmed": { "const": true }
+          },
           "additionalProperties": false
         }
       },
