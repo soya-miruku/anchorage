@@ -67,6 +67,8 @@ import type {
   BuildBuilder,
   AgentsListResult,
   CapabilityInstallResult,
+  MCPCatalogResult,
+  MCPListResult,
   DockerModel,
   InstallableCapability,
   ModelActionRequest,
@@ -560,6 +562,14 @@ export function useAnchorageStore() {
   >(null);
   const [capabilityInstalled, setCapabilityInstalled] =
     useState<CapabilityInstallResult | null>(null);
+  const [mcpReport, setMcpReport] = useState<MCPListResult | null>(null);
+  const [mcpCatalogDetail, setMcpCatalogDetail] =
+    useState<MCPCatalogResult | null>(null);
+  const [mcpStatus, setMcpStatus] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
+  const [mcpError, setMcpError] = useState<string | null>(null);
+  const [mcpCatalogLoading, setMcpCatalogLoading] = useState<string | null>(null);
   const [agentReport, setAgentReport] = useState<AgentsListResult | null>(null);
   const [agentsStatus, setAgentsStatus] = useState<
     "idle" | "loading" | "ready" | "unavailable" | "error"
@@ -3292,6 +3302,65 @@ export function useAnchorageStore() {
   }, []);
 
   /**
+   * Reads the MCP Toolkit's catalogues and profiles.
+   *
+   * Neither list has a JSON form, so both are parsed from the plugin's own pipe-separated
+   * tables in the core. What the screen shows is deliberately the catalogue *inventory* only —
+   * the servers inside one are a separate, larger read, taken when the operator opens it.
+   */
+  const refreshMcp = useCallback(async () => {
+    if (!isHost) return;
+    setMcpStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.mcp.list(dockerContextRef.current);
+      setMcpReport(result);
+      setMcpStatus("ready");
+      setMcpError(null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "The MCP Toolkit is unavailable";
+      setMcpReport(null);
+      setMcpStatus(
+        /mcp_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
+      );
+      setMcpError(message);
+    }
+  }, [bridge, isHost]);
+
+  /**
+   * Opens one catalogue.
+   *
+   * Separate from the list because it is a different order of magnitude — a catalogue here
+   * carries 52 servers with per-server tool lists — and because reading it can pull an OCI
+   * artifact. Nobody should pay that on arrival at the screen.
+   */
+  const openMcpCatalog = useCallback(
+    async (reference: string) => {
+      if (!isHost) return;
+      setMcpCatalogLoading(reference);
+      setMcpError(null);
+      try {
+        const result = await bridge.mcp.catalog(
+          reference,
+          dockerContextRef.current,
+        );
+        setMcpCatalogDetail(result);
+      } catch (reason) {
+        setMcpError(
+          reason instanceof Error ? reason.message : "That catalog could not be read",
+        );
+      } finally {
+        setMcpCatalogLoading((current) =>
+          current === reference ? null : current,
+        );
+      }
+    },
+    [bridge, isHost],
+  );
+
+  const closeMcpCatalog = useCallback(() => setMcpCatalogDetail(null), []);
+
+  /**
    * Reads what Docker Agent can do on this machine.
    *
    * Not what agents exist — there is no such list, because an agent is a YAML file the operator
@@ -4602,6 +4671,11 @@ export function useAnchorageStore() {
     volumes,
     volumeSummary,
     volumeMutationPending,
+    mcpReport,
+    mcpCatalogDetail,
+    mcpStatus,
+    mcpError,
+    mcpCatalogLoading,
     agentReport,
     agentsStatus,
     agentsError,
@@ -4781,6 +4855,9 @@ export function useAnchorageStore() {
     setSelectedBuildId,
     retryEngine,
     refreshAgents,
+    refreshMcp,
+    openMcpCatalog,
+    closeMcpCatalog,
     installCapability,
     dismissCapabilityInstall,
     refreshModels,

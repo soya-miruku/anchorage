@@ -1922,3 +1922,73 @@ type AgentsListResult struct {
 	TelemetryDisabled bool   `json:"telemetryDisabled"`
 	ObservedAt        string `json:"observedAt"`
 }
+
+/* ── The MCP Toolkit ─────────────────────────────────────────────────────────────────────── */
+
+type MCPCatalog struct {
+	Reference string `json:"reference"`
+	Digest    string `json:"digest,omitempty"`
+	Title     string `json:"title,omitempty"`
+}
+
+type MCPProfile struct {
+	ID    string `json:"id"`
+	Title string `json:"title,omitempty"`
+}
+
+type MCPTool struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// MCPServer is one entry in a catalogue: a container that would grant an agent a set of tools.
+type MCPServer struct {
+	Name        string   `json:"name"`
+	Title       string   `json:"title,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Image       string   `json:"image,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	Tags        []string `json:"tags"`
+	License     string   `json:"license,omitempty"`
+	Owner       string   `json:"owner,omitempty"`
+	GithubStars int      `json:"githubStars,omitempty"`
+	// Tools is what this server would be able to do once enabled, which is the disclosure the
+	// screen exists to make. ToolCount is the real number even when the list is capped.
+	Tools          []MCPTool `json:"tools"`
+	ToolCount      int       `json:"toolCount"`
+	ToolsTruncated bool      `json:"toolsTruncated,omitempty"`
+	// Secrets are the environment variables the server demands before it will run — naming
+	// them is part of the same disclosure.
+	Secrets []string `json:"secrets"`
+}
+
+type MCPListParams struct {
+	Context string `json:"context"`
+}
+
+type MCPListResult struct {
+	ProtocolVersion string       `json:"protocolVersion"`
+	Context         string       `json:"context"`
+	Catalogs        []MCPCatalog `json:"catalogs"`
+	Profiles        []MCPProfile `json:"profiles"`
+	ObservedAt      string       `json:"observedAt"`
+}
+
+type MCPCatalogParams struct {
+	Context   string `json:"context"`
+	Reference string `json:"reference"`
+}
+
+type MCPCatalogResult struct {
+	ProtocolVersion string      `json:"protocolVersion"`
+	Context         string      `json:"context"`
+	Reference       string      `json:"reference"`
+	Source          string      `json:"source,omitempty"`
+	Title           string      `json:"title,omitempty"`
+	Digest          string      `json:"digest,omitempty"`
+	Servers         []MCPServer `json:"servers"`
+	// ServerCount is the catalogue's real size, which stays accurate when Servers is capped.
+	ServerCount int    `json:"serverCount"`
+	Truncated   bool   `json:"truncated,omitempty"`
+	ObservedAt  string `json:"observedAt"`
+}

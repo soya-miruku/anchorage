@@ -369,6 +369,24 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 				nil, map[string]any{"capability": params.Capability})
 		}
 		return s.capabilityInstall(ctx, params)
+	case "mcp.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params MCPListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.mcpList(ctx, params)
+	case "mcp.catalog":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params MCPCatalogParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.mcpCatalog(ctx, params)
 	case "agents.list":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

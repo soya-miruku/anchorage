@@ -422,6 +422,8 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       path: "/config.json",
     },
     "system.capabilityInstall": { capability: "mcp", confirmed: true },
+    "mcp.list": { context: "default" },
+    "mcp.catalog": { context: "default", reference: "local/probe:v1" },
     "agents.list": { context: "default" },
     "models.list": { context: "default" },
     "models.search": { context: "default", query: "smollm", source: "docker-hub" },

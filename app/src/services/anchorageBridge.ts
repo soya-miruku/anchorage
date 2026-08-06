@@ -36,6 +36,8 @@ import type {
   ComposeListResult,
   AgentsListResult,
   BuildsListResult,
+  MCPCatalogResult,
+  MCPListResult,
   CapabilityInstallResult,
   InstallableCapability,
   ModelActionRequest,
@@ -980,6 +982,11 @@ class FixtureBridge implements AnchorageBridge {
     list: async () => fixtureUnsupported("agents.list"),
   };
 
+  readonly mcp = {
+    list: async () => fixtureUnsupported("mcp.list"),
+    catalog: async () => fixtureUnsupported("mcp.catalog"),
+  };
+
   readonly models = {
     list: async () => fixtureUnsupported("models.list"),
     search: async () => fixtureUnsupported("models.search"),
@@ -1683,6 +1690,33 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as CapabilityInstallResult;
   };
+  const mcpList = async (context: string) => {
+    const request = { context };
+    const result = host.mcp
+      ? await host.mcp.list(request)
+      : host.invoke
+        ? await host.invoke("mcp.list", request)
+        : await Promise.reject(new Error("The MCP Toolkit is unavailable"));
+    const raw = requireObjectResult(result, "mcp.list");
+    if (!Array.isArray(raw.catalogs)) {
+      throw new Error("mcp.list returned an incomplete result");
+    }
+    const cloned = structuredClone(raw) as unknown as MCPListResult;
+    return { ...cloned, profiles: cloned.profiles ?? [] };
+  };
+  const mcpCatalog = async (reference: string, context: string) => {
+    const request = { context, reference };
+    const result = host.mcp?.catalog
+      ? await host.mcp.catalog(request)
+      : host.invoke
+        ? await host.invoke("mcp.catalog", request)
+        : await Promise.reject(new Error("The MCP Toolkit is unavailable"));
+    const raw = requireObjectResult(result, "mcp.catalog");
+    if (!Array.isArray(raw.servers)) {
+      throw new Error("mcp.catalog returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as MCPCatalogResult;
+  };
   const agentsList = async (context: string) => {
     const request = { context };
     const result = host.agents
@@ -2116,6 +2150,11 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     agents: {
       list: (context = "default") => agentsList(context),
+    },
+    mcp: {
+      list: (context = "default") => mcpList(context),
+      catalog: (reference: string, context = "default") =>
+        mcpCatalog(reference, context),
     },
     models: {
       list: (context = "default") => modelsList(context),

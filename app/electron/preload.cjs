@@ -36,6 +36,8 @@ const CHANNELS = Object.freeze({
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
   capabilityInstall: "anchorage:system.capabilityInstall",
+  mcpList: "anchorage:mcp.list",
+  mcpCatalog: "anchorage:mcp.catalog",
   agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
@@ -1269,6 +1271,24 @@ const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
 // boundary is what stops one being constructed here in the first place.
 const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
 
+const MCP_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+function mcpList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
+
+function mcpCatalog(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "reference"]), "request");
+  const reference = text(value.reference, "request.reference", 512);
+  if (!MCP_REFERENCE.test(reference)) {
+    fail("request.reference must be a catalog reference");
+  }
+  return { context: context(value.context), reference };
+}
+
 function agentsList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context"]), "request");
@@ -2304,6 +2324,10 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesEmpty, volumeEmpty(payload));
     case "system.capabilityInstall":
       return call(CHANNELS.capabilityInstall, capabilityInstall(payload));
+    case "mcp.list":
+      return call(CHANNELS.mcpList, mcpList(payload));
+    case "mcp.catalog":
+      return call(CHANNELS.mcpCatalog, mcpCatalog(payload));
     case "agents.list":
       return call(CHANNELS.agentsList, agentsList(payload));
     case "models.list":
@@ -2405,6 +2429,10 @@ const api = Object.freeze({
   capabilities: Object.freeze({
     install: (request) =>
       call(CHANNELS.capabilityInstall, capabilityInstall(request)),
+  }),
+  mcp: Object.freeze({
+    list: (request) => call(CHANNELS.mcpList, mcpList(request)),
+    catalog: (request) => call(CHANNELS.mcpCatalog, mcpCatalog(request)),
   }),
   agents: Object.freeze({
     list: (request) => call(CHANNELS.agentsList, agentsList(request)),

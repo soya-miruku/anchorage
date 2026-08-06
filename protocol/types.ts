@@ -900,6 +900,8 @@ export type RPCRequest =
   | ContainersRebindPortsRequest
   | ContainersExportRequest
   | CapabilityInstallRequest
+  | MCPListRequest
+  | MCPCatalogRequest
   | AgentsListRequest
   | ModelsListRequest
   | ModelsSearchRequest
@@ -1885,6 +1887,84 @@ export interface CapabilityInstallResult {
  * with a TUI that changes weekly. This answers what a GUI is actually good at — whether the
  * machine is set up to run an agent at all, and with what.
  */
+/**
+ * The MCP Toolkit.
+ *
+ * `catalog list` and `profile list` emit no JSON at all — they print pipe-separated tables
+ * whose header and data rows use different separators. `catalog show --format json` does emit
+ * JSON, though the command's own usage line does not mention the flag. Every shape here is
+ * bound to output captured from mcp-gateway v0.43.3 rather than to documentation, because
+ * there is none.
+ */
+export interface MCPListRequest {
+  id: RequestId;
+  method: "mcp.list";
+  params: { context: string };
+}
+
+export interface MCPCatalogRequest {
+  id: RequestId;
+  method: "mcp.catalog";
+  params: { context: string; reference: string };
+}
+
+export interface MCPCatalog {
+  reference: string;
+  digest?: string;
+  title?: string;
+}
+
+export interface MCPProfile {
+  id: string;
+  title?: string;
+}
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+}
+
+/** One catalogue entry: a container that would grant an agent a set of tools. */
+export interface MCPServer {
+  name: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  category?: string;
+  tags: string[];
+  license?: string;
+  owner?: string;
+  githubStars?: number;
+  /** What this server could do once enabled — the disclosure the screen exists to make. */
+  tools: MCPTool[];
+  toolCount: number;
+  toolsTruncated?: boolean;
+  /** Environment variables the server demands before it will run. */
+  secrets: string[];
+}
+
+export interface MCPListResult {
+  protocolVersion: "1";
+  context: string;
+  catalogs: MCPCatalog[];
+  profiles: MCPProfile[];
+  observedAt: string;
+}
+
+export interface MCPCatalogResult {
+  protocolVersion: "1";
+  context: string;
+  reference: string;
+  source?: string;
+  title?: string;
+  digest?: string;
+  servers: MCPServer[];
+  /** The catalogue's real size, which stays accurate when `servers` is capped. */
+  serverCount: number;
+  truncated?: boolean;
+  observedAt: string;
+}
+
 export interface AgentsListRequest {
   id: RequestId;
   method: "agents.list";

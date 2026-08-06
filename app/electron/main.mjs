@@ -45,6 +45,8 @@ import {
   validateComposeList,
   validateCapabilityInstall,
   validateAgentsList,
+  validateMcpCatalog,
+  validateMcpList,
   validateModelsAction,
   validateModelsList,
   validateModelsSearch,
@@ -932,6 +934,14 @@ function registerIpcHandlers() {
       { timeoutMs: 600_000 },
     );
   });
+  // Catalogue reads can pull an OCI artifact, and one catalogue is a few hundred kilobytes of
+  // JSON, so both are budgeted well above an ordinary list.
+  registerHandler(IPC_CHANNELS.mcpList, (request) =>
+    core.request("mcp.list", validateMcpList(request), { timeoutMs: 180_000 }),
+  );
+  registerHandler(IPC_CHANNELS.mcpCatalog, (request) =>
+    core.request("mcp.catalog", validateMcpCatalog(request), { timeoutMs: 180_000 }),
+  );
   // Three JSON reads of local config plus a provider table. The plugin prints a first-run
   // banner before answering, which costs nothing, so this is budgeted as an ordinary read.
   registerHandler(IPC_CHANNELS.agentsList, (request) =>

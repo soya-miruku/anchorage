@@ -502,3 +502,241 @@ things to act on, and one card each would push the footer off the first screen.
   line-height: 1.5;
   color: var(--anc-text-faint);
 }
+
+/* ── The MCP Toolkit ──────────────────────────────────────────────────────────────────── */
+
+.tools-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 28px;
+  overflow-y: auto;
+}
+
+.tools-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tools-header h1 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--anc-text-primary);
+}
+
+.tools-header p {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--anc-text-secondary);
+}
+
+.tools-posture {
+  margin: 0;
+  max-width: 88ch;
+  padding: 10px 12px;
+  border-left: 2px solid var(--anc-line-strong);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--anc-text-muted);
+}
+
+.tools-block__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tools-block h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.tools-block__note,
+.tools-footer p {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--anc-text-muted);
+}
+
+.tools-block__note code,
+.tools-footer code,
+.tools-header code,
+.models-empty code {
+  font-family: var(--anc-font-mono);
+  font-size: 0.94em;
+  color: var(--anc-text-mono);
+}
+
+.tools-footer {
+  padding-top: 12px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.mcp-catalogs,
+.mcp-profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-catalogs li,
+.mcp-profiles li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 13px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 8px;
+  background: var(--anc-panel);
+}
+
+.mcp-catalogs__ref,
+.mcp-profiles code {
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+  color: var(--anc-text-primary);
+}
+
+.mcp-catalogs__title,
+.mcp-profiles span {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--anc-text-dimmer);
+}
+
+.mcp-servers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcp-server {
+  padding: 11px 13px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-panel);
+}
+
+.mcp-server__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcp-server__name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--anc-text-primary);
+}
+
+/*
+The counts stay on the closed row on purpose. They are the disclosure in miniature — "10 tools,
+1 secret" is the number that should make someone open the card rather than skim past it.
+*/
+.mcp-server__counts {
+  flex: none;
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer);
+}
+
+.mcp-server__description {
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--anc-text-secondary);
+}
+
+.mcp-server__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.mcp-server__detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.mcp-server__detail h5 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.mcp-server__secrets {
+  margin-bottom: 10px;
+}
+
+.mcp-server__secrets p {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--anc-text-muted);
+}
+
+.mcp-server__secrets ul,
+.mcp-server__tools ul {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-server__secrets li code,
+.mcp-server__tools li code {
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  color: var(--anc-text-secondary);
+}
+
+.mcp-server__tools li span {
+  margin-left: 8px;
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer);
+}
+
+.mcp-server__truncated {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.mcp-server__image {
+  margin: 8px 0 0;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  color: var(--anc-text-faint);
+}

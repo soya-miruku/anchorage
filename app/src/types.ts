@@ -1369,6 +1369,7 @@ export interface AnchorageBridge {
   readonly builds: BuildsOperations;
   readonly models: ModelsOperations;
   readonly agents: AgentsOperations;
+  readonly mcp: MCPOperations;
   readonly capabilities: CapabilityOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
@@ -1490,6 +1491,13 @@ export interface HostAnchorageApi {
   };
   agents?: {
     list: (request: { context: string }) => Promise<unknown>;
+  };
+  mcp?: {
+    list: (request: { context: string }) => Promise<unknown>;
+    catalog: (request: {
+      context: string;
+      reference: string;
+    }) => Promise<unknown>;
   };
   models?: {
     list: (request: { context: string }) => Promise<unknown>;
@@ -2158,6 +2166,67 @@ export interface AgentsListResult {
   configStatus?: string;
   telemetryDisabled: boolean;
   observedAt: string;
+}
+
+export interface MCPCatalog {
+  reference: string;
+  digest?: string;
+  title?: string;
+}
+
+export interface MCPProfile {
+  id: string;
+  title?: string;
+}
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+}
+
+/** One catalogue entry: a container that would grant an agent a set of tools. */
+export interface MCPServer {
+  name: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  category?: string;
+  tags: string[];
+  license?: string;
+  owner?: string;
+  githubStars?: number;
+  /** What this server could do once enabled — the disclosure the screen exists to make. */
+  tools: MCPTool[];
+  toolCount: number;
+  toolsTruncated?: boolean;
+  /** Environment variables the server demands before it will run. */
+  secrets: string[];
+}
+
+export interface MCPListResult {
+  protocolVersion: "1";
+  context: string;
+  catalogs: MCPCatalog[];
+  profiles: MCPProfile[];
+  observedAt: string;
+}
+
+export interface MCPCatalogResult {
+  protocolVersion: "1";
+  context: string;
+  reference: string;
+  source?: string;
+  title?: string;
+  digest?: string;
+  servers: MCPServer[];
+  serverCount: number;
+  truncated?: boolean;
+  observedAt: string;
+}
+
+export interface MCPOperations {
+  list(context?: string): Promise<MCPListResult>;
+  catalog(reference: string, context?: string): Promise<MCPCatalogResult>;
 }
 
 export interface AgentsOperations {

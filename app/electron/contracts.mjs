@@ -49,6 +49,8 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.clone",
   "volumes.empty",
   "system.capabilityInstall",
+  "mcp.list",
+  "mcp.catalog",
   "agents.list",
   "models.list",
   "models.search",
@@ -130,6 +132,8 @@ export const IPC_CHANNELS = Object.freeze({
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
   capabilityInstall: "anchorage:system.capabilityInstall",
+  mcpList: "anchorage:mcp.list",
+  mcpCatalog: "anchorage:mcp.catalog",
   agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
@@ -1238,6 +1242,24 @@ const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
 // A model reference becomes an argv element, so the shapes that would be re-read as a flag are
 // refused here as well as in the core.
 const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+const MCP_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+export function validateMcpList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
+
+export function validateMcpCatalog(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "reference"]), "request");
+  const reference = boundedString(value.reference, "request.reference", 512);
+  if (!MCP_REFERENCE.test(reference)) {
+    fail("request.reference must be a catalog reference");
+  }
+  return { context: validateContext(value.context), reference };
+}
 
 export function validateAgentsList(value) {
   assertPlainObject(value, "request");
