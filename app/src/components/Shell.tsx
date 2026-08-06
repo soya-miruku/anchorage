@@ -31,14 +31,14 @@ interface NavItem {
   icon: AnchorageIconName;
 }
 
-// Group names and ordering follow the v2 handoff nav (Anchorage v2.dc.html:136-236).
+// Group names and ordering follow the v2 handoff nav (Anchorage v2.dc.html:136-236), for the
+// destinations that survived it. The handoff named twenty-two; eight of those could never be
+// served against a standalone Linux Engine and are gone rather than explained — see the ViewId
+// comment in types.ts, which records what each one needed and why it was unreachable.
 //
-// Every destination the handoff names has a row here, but not every row is rendered. The five
-// plugin-backed AI destinations are gated on the plugin they are made of: with no such plugin
-// installed, the row is left out — see data/capabilities.ts for why that stopped being a lie by
-// omission and became the honest answer. The previous policy, that an absent row "says nothing at
-// all", was true while nothing else said anything; Settings → Engine → Capabilities now names
-// every gated capability, whether installed or not, and is where a hidden row is turned back on.
+// The three AI rows are gated on the plugin they are made of: with no such plugin installed, the
+// row is left out — see data/capabilities.ts. Settings → Engine → Capabilities names every gated
+// capability, installed or not, and is where a hidden row is turned back on.
 //
 // A *faulty* plugin keeps its row. Something was installed on this machine and went wrong, and
 // that row is the way into the repair.
@@ -54,32 +54,20 @@ const workspaceNav: NavItem[] = [
   { id: "networks", label: "Networks", icon: "networks" },
   { id: "builds", label: "Builds", icon: "builds" },
   { id: "logs", label: "Logs", icon: "logs" },
-  { id: "kubernetes", label: "Kubernetes", icon: "kubernetes" },
 ];
 
 const aiNav: NavItem[] = [
-  { id: "bosun", label: "Bosun", icon: "bosun" },
   { id: "models", label: "Models", icon: "models" },
   { id: "agents", label: "Agents", icon: "agents" },
   { id: "tools", label: "Tools", icon: "tools" },
-  { id: "sandboxes", label: "Sandboxes", icon: "sandboxes" },
 ];
 
 const securityNav: NavItem[] = [
   { id: "scan", label: "Scan", icon: "scan" },
-  { id: "hardened", label: "Hardened", icon: "hardened" },
   { id: "secrets", label: "Secrets", icon: "secrets" },
-  { id: "governance", label: "Governance", icon: "governance" },
 ];
 
 const platformNav: NavItem[] = [
-  { id: "cloud", label: "Cloud", icon: "cloud" },
-  {
-    id: "devenv",
-    label: "Dev Environments",
-    icon: "dev-environments",
-  },
-  { id: "extensions", label: "Extensions", icon: "extensions" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 

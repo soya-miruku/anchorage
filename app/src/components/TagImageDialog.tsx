@@ -38,7 +38,7 @@ export function TagImageDialog({
   return (
     <div className="dialog-backdrop" role="presentation">
       <form
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tag-image-title"
@@ -49,7 +49,7 @@ export function TagImageDialog({
           onConfirm(trimmed);
         }}
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="tag-image-title">Tag image</h2>
             <p>
@@ -78,7 +78,7 @@ export function TagImageDialog({
             {problem}
           </p>
         )}
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

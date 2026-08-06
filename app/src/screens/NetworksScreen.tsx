@@ -209,14 +209,14 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
       {createOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-network-title"
             data-testid="create-network-dialog"
             onSubmit={submitCreate}
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="create-network-title">Create network</h2>
                 <p>Leave the address fields empty to let Docker allocate a subnet.</p>
@@ -286,7 +286,7 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
                 <small>Containers on this network get no external access.</small>
               </span>
             </label>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -309,13 +309,13 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
       {pendingRemove && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="remove-network-title"
             data-testid="remove-network-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="remove-network-title">Remove network</h2>
                 <p>
@@ -331,7 +331,7 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
                 <XIcon aria-hidden="true" size={15} />
               </button>
             </div>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -359,13 +359,13 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
       {pruneOpen && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="prune-networks-title"
             data-testid="prune-networks-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="prune-networks-title">Clean up networks</h2>
                 <p>
@@ -381,7 +381,7 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
                 <XIcon aria-hidden="true" size={15} />
               </button>
             </div>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

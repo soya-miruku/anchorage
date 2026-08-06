@@ -1,8 +1,30 @@
 /**
- * Every destination in the handoff's nav (Anchorage v2.dc.html:136-236), grouped as it is
- * there. A destination Anchorage cannot serve on this host still gets an id and a row: the
- * product's posture is to say what it cannot do rather than to omit it, and eleven silent
- * absences said nothing at all.
+ * Every destination Anchorage serves.
+ *
+ * This list used to mirror the handoff's nav (Anchorage v2.dc.html:136-236) in full, on the
+ * policy that a destination Anchorage cannot serve still deserves a row saying so — better a
+ * stated limit than a silent absence. That was the right call while the alternative was
+ * silence. It stopped being right once eleven of twenty-two rows led nowhere but an apology:
+ * a nav that is half dead ends does not read as candour, it reads as an unfinished product,
+ * and it buries the destinations that do work.
+ *
+ * So the rows that could never become real are gone rather than explained. Each was checked
+ * against what Docker actually ships for a standalone Linux Engine, not against the handoff:
+ *
+ * - **Gordon** (`docker ai`) needs Docker Desktop 4.74+ and a signed-in account, and Docker
+ *   publishes no standalone binary. Docker Agent covers the same ground and does ship one.
+ * - **Sandboxes** (`sbx`) requires Ubuntu 24.04+, KVM and an OAuth sign-in, and is not a
+ *   Docker Desktop pane either.
+ * - **Cloud/Offload** is a managed cloud service behind a subscription.
+ * - **Extensions** is a Docker Desktop-only framework. Ours rendered a marketplace of
+ *   invented ratings and install counts, which is worse than having no screen.
+ * - **Dev Environments** was removed from Docker Desktop in 4.42 and its repository archived.
+ * - **Hardened images** is a Docker Hub catalogue with no API or CLI verb to enumerate it.
+ * - **Governance** is administered in an admin console the engine cannot read back.
+ * - **Kubernetes** needs cluster state Anchorage does not read; Desktop can offer a cluster
+ *   only because it manages a VM.
+ *
+ * What remains is what a standalone Engine can actually be asked to do.
  */
 export type ViewId =
   // Workspace
@@ -14,22 +36,14 @@ export type ViewId =
   | "networks"
   | "builds"
   | "logs"
-  | "kubernetes"
-  // AI
-  | "bosun"
+  // AI — each one a CLI plugin Docker publishes a Linux binary for
   | "models"
   | "agents"
   | "tools"
-  | "sandboxes"
   // Security
   | "scan"
-  | "hardened"
   | "secrets"
-  | "governance"
   // Platform
-  | "cloud"
-  | "devenv"
-  | "extensions"
   | "settings";
 
 export type ContainerState =
@@ -52,7 +66,6 @@ export type EngineStatus =
   | "disconnected"
   | "permission"
   | "error";
-export type DevEnvironmentState = "running" | "stopped";
 export type SettingsTab =
   | "appearance"
   | "resources"
@@ -60,10 +73,8 @@ export type SettingsTab =
   | "virtualisation"
   | "builders"
   | "engine"
-  | "kubernetes"
   | "updates"
-  | "advanced"
-  | "enterprise";
+  | "advanced";
 export type DetailTab =
   | "logs"
   | "inspect"
@@ -567,22 +578,6 @@ export interface DiskUsageItem {
   tone: "accent" | "warning" | "violet" | "blue";
 }
 
-export interface DevEnvironment {
-  id: string;
-  name: string;
-  repository: string;
-  state: DevEnvironmentState;
-  tags: string[];
-}
-
-export interface AnchorageExtension {
-  name: string;
-  publisher: string;
-  description: string;
-  rating: string;
-  installs: string;
-}
-
 export interface EngineResources {
   cpus: number;
   memoryGb: number;
@@ -591,7 +586,6 @@ export interface EngineResources {
 }
 
 export interface FeatureFlags {
-  kubernetes: boolean;
   automaticUpdates: boolean;
   betaChannel: boolean;
   buildkit: boolean;

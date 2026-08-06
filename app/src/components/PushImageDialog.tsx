@@ -35,13 +35,13 @@ export function PushImageDialog({
   return (
     <div className="dialog-backdrop" role="presentation">
       <div
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="push-image-title"
         data-testid="push-image-dialog"
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="push-image-title">Publish to {registry}</h2>
             <p>
@@ -74,7 +74,7 @@ export function PushImageDialog({
           say so and you can run <code>docker login {registry}</code>.
         </p>
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

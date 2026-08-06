@@ -529,13 +529,13 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
       {cleanUpOpen && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="clean-up-images-title"
             data-testid="clean-up-images-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="clean-up-images-title">Clean up images</h2>
                 <p>Removed image layers cannot be recovered.</p>
@@ -598,7 +598,7 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
               </p>
             </div>
 
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

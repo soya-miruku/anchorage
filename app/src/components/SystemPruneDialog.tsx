@@ -75,14 +75,14 @@ export function SystemPruneDialog({
       }}
     >
       <div
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="system-prune-title"
         aria-describedby="system-prune-description"
         data-testid="system-prune-dialog"
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="system-prune-title">Clean up Docker</h2>
             <p id="system-prune-description">
@@ -142,7 +142,7 @@ export function SystemPruneDialog({
           )}
         </div>
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

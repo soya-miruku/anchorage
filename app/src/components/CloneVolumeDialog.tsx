@@ -80,7 +80,7 @@ export function CloneVolumeDialog({
       }}
     >
       <form
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="clone-volume-title"
@@ -92,7 +92,7 @@ export function CloneVolumeDialog({
           onConfirm(trimmed);
         }}
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="clone-volume-title">Clone {volume}</h2>
             <p id="clone-volume-description">
@@ -131,7 +131,7 @@ export function CloneVolumeDialog({
           </p>
         )}
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

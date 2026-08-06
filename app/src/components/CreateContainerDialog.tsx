@@ -88,14 +88,14 @@ export function CreateContainerDialog({
       }}
     >
       <form
-        className="create-environment-dialog create-container-dialog"
+        className="dialog-panel create-container-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-container-title"
         data-testid="create-container-dialog"
         onSubmit={submit}
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="create-container-title">Run a container</h2>
             <p>Anchorage sends these as validated fields, not as a shell command.</p>
@@ -205,7 +205,7 @@ export function CreateContainerDialog({
           </p>
         )}
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

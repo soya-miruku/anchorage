@@ -478,13 +478,13 @@ export function ContainersScreen({ store }: { store: AnchorageStore }) {
       {bulkDeleteOpen && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="bulk-delete-title"
             data-testid="bulk-delete-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="bulk-delete-title">Delete {selectedCount} containers</h2>
                 <p>
@@ -506,7 +506,7 @@ export function ContainersScreen({ store }: { store: AnchorageStore }) {
                 </p>
               )}
             </div>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

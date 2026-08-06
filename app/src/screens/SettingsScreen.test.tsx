@@ -177,16 +177,19 @@ describe("SettingsScreen engine pane", () => {
   });
 
   it("leaves a real setting operable", () => {
-    const store = createStore("kubernetes", { isHost: false });
+    // This drove the Kubernetes pane, whose one switch went with the destination — Anchorage
+    // reads no cluster state and could never have started a cluster. Software updates is the
+    // same shape: a toggle pane, backed by a real feature flag, in the preview build.
+    const store = createStore("updates", { isHost: false });
     render(<SettingsScreen store={store} />);
 
-    const kubernetes = screen.getByRole("switch", {
-      name: "Enable Kubernetes",
+    const automaticUpdates = screen.getByRole("switch", {
+      name: "Automatic updates",
     });
-    expect(kubernetes).toBeEnabled();
+    expect(automaticUpdates).toBeEnabled();
 
-    fireEvent.click(kubernetes);
-    expect(store.toggleFeatureFlag).toHaveBeenCalledWith("kubernetes");
+    fireEvent.click(automaticUpdates);
+    expect(store.toggleFeatureFlag).toHaveBeenCalledWith("automaticUpdates");
   });
 });
 
@@ -387,14 +390,6 @@ describe("SettingsScreen host-shaped panes", () => {
     expect(screen.queryByTestId("virtualisation-native")).toBeNull();
   });
 
-  it("says Enterprise policy is unreadable rather than showing an empty list", () => {
-    // An empty list would read as "no policies apply", which is a different claim.
-    render(<SettingsScreen store={createStore("enterprise")} />);
-    expect(screen.getByTestId("enterprise-unavailable")).toHaveTextContent(
-      /cannot read what is in force/i,
-    );
-  });
-
   it("calls the engine pane what the handoff calls it", () => {
     render(<SettingsScreen store={createStore("engine")} />);
     const rail = screen.getByTestId("settings-navigation");
@@ -444,8 +439,13 @@ describe("SettingsScreen capabilities", () => {
     const pane = screen.getByTestId("settings-capabilities");
     // Including the ones with nothing installed: an absent row in the sidebar is only tolerable
     // because the capability is still listed here.
-    for (const plugin of ["ai", "model", "agent", "mcp", "sbx", "compose", "buildx", "scout"]) {
+    for (const plugin of ["model", "agent", "mcp", "compose", "buildx", "scout"]) {
       expect(screen.getByTestId(`capability-row-${plugin}`), plugin).toBeInTheDocument();
+    }
+    // `ai` and `sbx` were listed here too. Neither can be installed against this engine at any
+    // price, so a row offering to help was an advertisement rather than a capability.
+    for (const plugin of ["ai", "sbx"]) {
+      expect(screen.queryByTestId(`capability-row-${plugin}`), plugin).toBeNull();
     }
     expect(pane).toHaveTextContent("Anchorage does not install these");
     expect(screen.getByTestId("capability-row-compose")).toHaveTextContent("v5.3.1");

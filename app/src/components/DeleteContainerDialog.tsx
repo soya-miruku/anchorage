@@ -50,14 +50,14 @@ export function DeleteContainerDialog({
       }}
     >
       <div
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="delete-container-title"
         aria-describedby="delete-container-description"
         data-testid="delete-container-dialog"
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="delete-container-title">
               Delete {needsForce ? "running " : ""}container
@@ -90,7 +90,7 @@ export function DeleteContainerDialog({
           </span>
         </label>
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

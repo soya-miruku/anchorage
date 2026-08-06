@@ -197,26 +197,6 @@
       }
     },
     {
-      "state": "dev-environments",
-      "path": "final-actual/dev-environments.png",
-      "sha256": "1736417f96206926495179c0bf323e3e532c6fa877411c497b255bb07c9e087a",
-      "bytes": 100234,
-      "dimensions": {
-        "width": 1656,
-        "height": 1056
-      }
-    },
-    {
-      "state": "extensions",
-      "path": "final-actual/extensions.png",
-      "sha256": "36d9fc85f7eea006f46e0988621776a584915880a24af3947d6ad9d0f04f5034",
-      "bytes": 135272,
-      "dimensions": {
-        "width": 1656,
-        "height": 1056
-      }
-    },
-    {
       "state": "settings-resources",
       "path": "final-actual/settings-resources.png",
       "sha256": "3aa681b7b2d89d9056c6247c6f5cb281cb6ecd608cf4fe50228790de7350b9ce",
@@ -231,16 +211,6 @@
       "path": "final-actual/settings-engine.png",
       "sha256": "1b168f98d3a0aaa85a9809a272050151adb69c5c6f752184f279157e89631655",
       "bytes": 94290,
-      "dimensions": {
-        "width": 1656,
-        "height": 1056
-      }
-    },
-    {
-      "state": "settings-kubernetes",
-      "path": "final-actual/settings-kubernetes.png",
-      "sha256": "ac681df162caddaca6df971441a677903f99c3ac3bed16524c26029a3e88f7a0",
-      "bytes": 69961,
       "dimensions": {
         "width": 1656,
         "height": 1056

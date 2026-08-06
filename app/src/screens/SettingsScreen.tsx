@@ -45,11 +45,10 @@ type TogglePaneId = Exclude<
   | "resources"
   | "engine"
   | "builders"
-  // These three describe what this engine cannot be asked to change rather than listing
+  // These two describe what this engine cannot be asked to change rather than listing
   // switches, so they are panes of their own.
   | "fileSharing"
   | "virtualisation"
-  | "enterprise"
 >;
 
 const settingsNavigation: Array<{ id: SettingsPaneId; label: string }> = [
@@ -64,10 +63,8 @@ const settingsNavigation: Array<{ id: SettingsPaneId; label: string }> = [
   { id: "builders", label: "Builders" },
   // The handoff calls this "Engine"; "Docker Engine" was ours.
   { id: "engine", label: "Engine" },
-  { id: "kubernetes", label: "Kubernetes" },
   { id: "updates", label: "Software updates" },
   { id: "advanced", label: "Advanced" },
-  { id: "enterprise", label: "Enterprise" },
 ];
 
 const themeSwatches: Record<ThemeFamily, readonly [string, string, string]> = {
@@ -232,17 +229,6 @@ const toggleDefinitions: Record<
     rows: ToggleDefinition[];
   }
 > = {
-  kubernetes: {
-    title: "Kubernetes",
-    subtitle: "A local cluster that shares the engine image store.",
-    rows: [
-      {
-        key: "kubernetes",
-        label: "Enable Kubernetes",
-        description: "Run a single-node k3s cluster alongside the engine.",
-      },
-    ],
-  },
   updates: {
     title: "Software updates",
     subtitle: "Control how Anchorage keeps itself current.",
@@ -718,36 +704,6 @@ function VirtualisationSettings({ store }: { store: AnchorageStore }) {
   );
 }
 
-/**
- * Organisation policy, which is administered somewhere this build cannot read.
- *
- * Docker Business settings are enforced by an admin console and delivered to a machine as
- * configuration the engine applies rather than reports. There is no command that reads back what
- * is in force, so the honest surface states that rather than showing an empty policy list, which
- * would read as "no policies apply".
- */
-function EnterpriseSettings() {
-  return (
-    <div className="settings-pane" data-testid="settings-enterprise">
-      <h2>Enterprise</h2>
-      <p className="settings-pane__lede">
-        Organisation-wide policy for Docker Business subscriptions.
-      </p>
-      <div className="compose-notice" data-testid="enterprise-unavailable">
-        <strong>Anchorage cannot read what is in force</strong>
-        <p>
-          These settings are administered outside the engine, in the Docker Business admin
-          console, and reach a machine as configuration rather than as something it reports.
-          Docker exposes no command that reads the applied policy back, so Anchorage has nothing
-          to show — which is different from there being no policy.
-        </p>
-        <p className="resource-dim">
-          An empty list here would claim the second. It says the first instead.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 /**
  * Which optional capabilities this installation has, and which it does not.
@@ -1496,33 +1452,6 @@ function ToggleSettings({
   );
 }
 
-/**
- * Kubernetes.
- *
- * Docker Desktop can start a single-node cluster because it already runs a VM and can put one
- * inside it. A native Linux engine has no VM, and Anchorage does not install software on the
- * host, so there is nothing here for a toggle to switch. The previous switch changed a local
- * boolean and nothing else.
- */
-function HostKubernetesSettings() {
-  return (
-    <div className="settings-pane settings-pane--unavailable" data-testid="kubernetes-native-note">
-      <h2>Kubernetes</h2>
-      <p>
-        Anchorage does not bundle a Kubernetes distribution. Docker Desktop can
-        offer one because it manages a virtual machine; this engine runs directly
-        on the host, so a cluster is a separate installation rather than a
-        setting.
-      </p>
-      <p className="resource-dim">
-        <code>k3s</code>, <code>kind</code> and <code>minikube</code> all run
-        against this machine. Containers a local cluster starts appear on the
-        Containers screen like any other, so Anchorage stays useful alongside
-        one.
-      </p>
-    </div>
-  );
-}
 
 /**
  * Software updates.
@@ -1643,8 +1572,6 @@ export function SettingsScreen({ store }: { store: AnchorageStore }) {
   let content;
   if (activeTab === "appearance") {
     content = <AppearanceSettings store={store} />;
-  } else if (store.isHost && activeTab === "kubernetes") {
-    content = <HostKubernetesSettings />;
   } else if (store.isHost && activeTab === "updates") {
     content = <HostUpdatesSettings />;
   } else if (store.isHost && activeTab === "advanced") {
@@ -1659,8 +1586,6 @@ export function SettingsScreen({ store }: { store: AnchorageStore }) {
     content = <FileSharingSettings store={store} />;
   } else if (activeTab === "virtualisation") {
     content = <VirtualisationSettings store={store} />;
-  } else if (activeTab === "enterprise") {
-    content = <EnterpriseSettings />;
   } else {
     content = <ToggleSettings store={store} tab={activeTab} />;
   }

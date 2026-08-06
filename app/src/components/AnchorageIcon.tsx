@@ -46,21 +46,14 @@ import type { ComponentPropsWithoutRef } from "react";
 export type AnchorageIconName =
   | "agents"
   | "back"
-  | "bosun"
   | "builds"
-  | "cloud"
   | "compose"
   | "containers"
   | "dashboard"
   | "delete"
-  | "dev-environments"
   | "disclose"
   | "empty"
-  | "extensions"
-  | "governance"
-  | "hardened"
   | "images"
-  | "kubernetes"
   | "logs"
   | "mode-dark"
   | "mode-light"
@@ -69,10 +62,8 @@ export type AnchorageIconName =
   | "pause"
   | "pause-freeze"
   | "play"
-  | "rating"
   | "models"
   | "restart"
-  | "sandboxes"
   | "scan"
   | "search"
   | "secrets"
@@ -88,11 +79,14 @@ interface PhosphorIconDefinition {
   weight: IconWeight;
 }
 
+// There was a `rotation?: 90` here, carried by exactly one glyph: the Extensions tile, whose
+// library orientation did not match the handoff's. That destination is gone, and with it the
+// only reason any icon needed reorienting — so the field, the data attribute and the transform
+// went too rather than waiting for a second user that may never arrive.
 interface LucideIconDefinition {
   component: LucideIcon;
   family: "lucide";
   libraryName: string;
-  rotation?: 90;
   strokeWidth: number;
 }
 
@@ -140,12 +134,6 @@ const iconDefinitions: Record<
     libraryName: "Trash",
     strokeWidth: 2.1,
   },
-  "dev-environments": {
-    component: AppWindowIcon,
-    family: "phosphor",
-    libraryName: "AppWindow",
-    weight: "bold",
-  },
   disclose: {
     component: ChevronRight,
     family: "lucide",
@@ -157,13 +145,6 @@ const iconDefinitions: Record<
     family: "phosphor",
     libraryName: "Square",
     weight: "fill",
-  },
-  extensions: {
-    component: Blocks,
-    family: "lucide",
-    libraryName: "Blocks",
-    rotation: 90,
-    strokeWidth: 2.1,
   },
   images: {
     component: Copy,
@@ -221,12 +202,6 @@ const iconDefinitions: Record<
     libraryName: "Play",
     weight: "fill",
   },
-  rating: {
-    component: StarIcon,
-    family: "phosphor",
-    libraryName: "Star",
-    weight: "fill",
-  },
   restart: {
     component: RotateCw,
     family: "lucide",
@@ -259,36 +234,6 @@ const iconDefinitions: Record<
     libraryName: "Bot",
     strokeWidth: 1.9,
   },
-  "bosun": {
-    component: MessagesSquare,
-    family: "lucide",
-    libraryName: "MessagesSquare",
-    strokeWidth: 1.9,
-  },
-  "cloud": {
-    component: Cloud,
-    family: "lucide",
-    libraryName: "Cloud",
-    strokeWidth: 1.9,
-  },
-  "governance": {
-    component: Scale,
-    family: "lucide",
-    libraryName: "Scale",
-    strokeWidth: 1.9,
-  },
-  "hardened": {
-    component: ShieldCheck,
-    family: "lucide",
-    libraryName: "ShieldCheck",
-    strokeWidth: 1.9,
-  },
-  "kubernetes": {
-    component: Ship,
-    family: "lucide",
-    libraryName: "Ship",
-    strokeWidth: 1.9,
-  },
   "logs": {
     component: ScrollText,
     family: "lucide",
@@ -299,12 +244,6 @@ const iconDefinitions: Record<
     component: Brain,
     family: "lucide",
     libraryName: "Brain",
-    strokeWidth: 1.9,
-  },
-  "sandboxes": {
-    component: Box,
-    family: "lucide",
-    libraryName: "Box",
     strokeWidth: 1.9,
   },
   "scan": {
@@ -333,6 +272,18 @@ const iconDefinitions: Record<
   },
 };
 
+/**
+ * Every glyph the set defines, at runtime.
+ *
+ * `AnchorageIconName` says the same thing to the compiler, but `npm test` does not typecheck —
+ * `typecheck:renderer` is a separate script nobody's gate runs — so a type-level claim about
+ * this set is a claim nothing checks. This lets a test assert membership for real, which is how
+ * the icons belonging to removed destinations are kept from drifting back in.
+ */
+export const anchorageIconNames = Object.keys(
+  iconDefinitions,
+) as AnchorageIconName[];
+
 type AnchorageIconProps = Omit<
   ComponentPropsWithoutRef<"svg">,
   "aria-hidden" | "focusable" | "role" | "strokeWidth"
@@ -359,18 +310,10 @@ export function AnchorageIcon({
     return (
       <IconComponent
         {...commonProps}
-        data-icon-rotation={definition.rotation}
         data-icon-stroke-width={definition.strokeWidth}
         strokeWidth={definition.strokeWidth}
         {...props}
-        style={
-          definition.rotation
-            ? {
-                ...props.style,
-                transform: `rotate(${definition.rotation}deg)`,
-              }
-            : props.style
-        }
+        style={props.style}
       />
     );
   }

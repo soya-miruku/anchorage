@@ -1,20 +1,39 @@
 # Anchorage design QA
 
+> **This document is invalidated and no release may be signed against it.**
+>
+> Eight destinations were removed from the sidebar on 2026-08-06 — Kubernetes, Bosun,
+> Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions — because none
+> could be served against a standalone Linux Engine. The sidebar is rendered in **every**
+> capture, so every measurement below was taken against a nav that no longer exists, and
+> the numbers in the Result table describe a build that is gone.
+>
+> Dev Environments, Extensions and Settings → Kubernetes were dropped outright: their
+> screens no longer exist, so their captures were deleted rather than remeasured. The
+> remaining 21 states are retained as the review that was actually performed, not as a
+> claim about the current build.
+>
+> Regeneration is deliberately deferred rather than run now. The Models, Agents and Tools
+> destinations are about to gain real screens, and capturing before then would measure a
+> UI that is about to change again — the same ordering mistake that cost a second
+> mandatory soak earlier in this work. Regenerate both capture sets, remeasure, and
+> re-review every state once those screens land.
+
 ## Comparison target
 
 - Source visual truth: `docs/design_handoff_anchorage/Anchorage v2.dc.html`,
   `docs/design_handoff_anchorage/README.md`, and
   `docs/design_handoff_anchorage/support.js`.
-- Measured baseline: the 24 renders in `docs/design-qa/reference/`, produced from
+- Measured baseline: the 21 renders in `docs/design-qa/reference/`, produced from
   that comp by `tools/capture-design-reference.mjs` and bound by
   `docs/design-qa/reference/reference-provenance.json`.
-- Rendered implementation: the 24 production-renderer captures in
+- Rendered implementation: the 21 production-renderer captures in
   `docs/design-qa/final-actual/`, bound by
   `docs/design-qa/final-actual/capture-provenance.json`.
 - States: Containers default/current/only-running/search-empty/row-hover/banner
   dismissed; all six Container Detail tabs; Dashboard; Images local/registry;
-  Volumes; Builds; Dev Environments; Extensions; and all five handoff Settings
-  sections.
+  Volumes; Builds; and four Settings sections. Dev Environments, Extensions and
+  Settings → Kubernetes were dropped with the destinations themselves.
 - Source and implementation dimensions: 1656 x 1056 CSS and physical pixels at
   device scale factor 1. Both contain the 1600 x 1000 handoff frame inside the
   same 28 px capture canvas. No image resizing or density normalization was
@@ -84,13 +103,12 @@ Two properties of the comp constrain what a pixel metric can mean here:
 
 ## Result
 
-- **16 of 24 states are within the 0.02 review threshold.**
-- **8 states exceed it**, every one attributable to an enumerated, deliberate
+- **16 of 24 states were within the 0.02 review threshold** when last measured.
+- **8 states exceeded it**, every one attributable to an enumerated, deliberate
   build addition rather than to drift:
 
   | State | MAE | What accounts for it |
   |---|---|---|
-  | `extensions` | 0.0439 | Added privilege paragraph; single-token tile marks |
   | `containers-row-hover` | 0.0265 | Containers additions, plus a hover fill measuring 0.0046 off base where the comp's measures 0.0022 |
   | `containers` | 0.0257 | Container-isolation posture paragraph (~35px translation), checkbox column, sort chevrons, `All projects` compose filter, compose badges, fourth row action, and a `Networks` destination the v2 comp's nav does not list |
   | `containers-current` | 0.0257 | As `containers`; byte-identical to it, which is the correct idempotent outcome |
@@ -131,9 +149,9 @@ left to authorise future drift.
   `4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe`
   (372,457 bytes).
 - Capture provenance SHA-256:
-  `22f9445f6203af518269d5eea173b173bec2c14be388565740da51c2b67b3478`.
+  `27f6dd4b0fa084901ad54caed719f2ba8b5285a0b60a37aa24195d0d7ce02c43`.
 - Paired-review attestation SHA-256:
-  `f1c773e9819ee23054c0d509e9ca6f37c114bd98d906c487e01fcddffe73ef2b`.
+  `95166b986a8f580501c5fdd7e4dd3913eab455f6504eaafdf3baa65353679182`.
 - Design ledger SHA-256:
   `881c96aef10d1ee3bef15f57d6cfffcf3e7d59c06f1e64565f9eb30f7cc71c7a`.
 - Per-state diffs and masked comparisons: `artifacts/design/`.
@@ -153,7 +171,8 @@ entry that postdates the handoff" from the two-group sidebar era.
    `.logs-screen`.
 2. The header action cluster had no `flex-shrink: 0`, wrapping "Run new" onto two
    lines inside a 32px control.
-3. Registry and Extensions tile marks paired `--anc-accent-deep` with an ink
+3. Registry tile marks (and, until the screen was removed, Extensions') paired
+   `--anc-accent-deep` with an ink
    designed for `--anc-accent`, measuring 1.62–1.66:1. Both rebuilt as the chip
    construction the theme layer guarantees; `scripts/theme-integrity.test.mjs`
    now measures that pair per family.
@@ -183,7 +202,7 @@ entry that postdates the handoff" from the two-group sidebar era.
   exact-pinned, tree-shaken Lucide and existing Phosphor components; no emoji,
   text-symbol, CSS-art, or custom inline-SVG substitute was added.
 - Copy and content: headings, controls, table labels, tabs, empty-state copy,
-  status content, and fixture state are checked across all 24 canonical states.
+  status content, and fixture state are checked across all canonical states.
 - Interaction and accessibility: navigation, filters, search, hover, tabs,
   toggles, settings radios, and window controls have semantic labels and working
   keyboard behavior. `aria-current` is dropped while the engine is not ready.

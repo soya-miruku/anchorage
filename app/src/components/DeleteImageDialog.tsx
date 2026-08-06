@@ -46,14 +46,14 @@ export function DeleteImageDialog({
       }}
     >
       <div
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="delete-image-title"
         aria-describedby="delete-image-description"
         data-testid="delete-image-dialog"
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id="delete-image-title">
               {image.inUse ? "Force remove image" : "Remove image"}
@@ -75,7 +75,7 @@ export function DeleteImageDialog({
           {dangling ? image.imageId : image.reference} · {image.size}
         </p>
 
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

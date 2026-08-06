@@ -15,8 +15,15 @@ A list of gaps is not useful until each one says who is holding it up.
 | | Count | Meaning |
 |---|---|---|
 | **Us** | 54 | Docker exposes it, nothing external is missing, we have not built it. The real backlog. |
-| **Environment** | 6 | The capability exists but needs a plugin or cluster this host lacks. Buildable, unverifiable here. |
-| **Docker** | 4 | No API or CLI exists. Correctly unimplemented; the honest surface is a statement, not a view. |
+| **Environment** | 6 → 3 | The capability exists but needs a plugin this host lacks. Buildable, unverifiable here. |
+| **Docker** | 4 → 1 | No API or CLI exists. Correctly unimplemented; the honest surface is a statement, not a view. |
+
+**The two right-hand columns shrank on 2026-08-06, and not by being built.** Eight destinations
+were removed — Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and
+Extensions — after each was checked against what Docker actually ships for a standalone Linux
+Engine. Nine of those findings were gaps only in the sense that a screen existed to have a gap
+in. The classification below still stands for everything that remains; the counts do not, and are
+shown as they moved rather than silently restated.
 
 Of the 54, **8 were adversarially verified**: 6 confirmed and fixed, 2 rejected as not gaps at
 all. The remaining 46 are recorded below as found. They are evidence-backed and quote real code,
@@ -108,19 +115,22 @@ There is no `networks.inspect` verb anywhere.
 
 ## Not ours
 
-**Environment (6).** Models, Sandboxes, Tools (MCP), Bosun and Agents each gate on a CLI plugin
-this host does not have. **Corrected after review:** an earlier version of this paragraph said all
-five were broken symlinks left by a removed Docker Desktop and made that distinction
-load-bearing. It holds for two of them. Checked against the plugin names the screens actually
-gate on:
+**Environment (3).** Models, Tools (MCP) and Agents each gate on a CLI plugin. **Corrected after
+review:** an earlier version of this paragraph said all of them were broken symlinks left by a
+removed Docker Desktop and made that distinction load-bearing. It holds for some. Checked against
+the plugin names the screens actually gate on:
 
 | Screen | Plugin | State on this host | What the screen now offers |
 |---|---|---|---|
 | Tools | `mcp` | dangling symlink — a faulty install | row kept; **Remove this entry** |
-| Bosun | `ai` | dangling symlink — a faulty install | row kept; **Remove this entry** |
-| Models | `model` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
-| Sandboxes | `sbx` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
+| Models | `model` | installed, v1.2.6 — `llama.cpp` backend running | row shown; real screen pending |
 | Agents | `agent` | absent; no entry at all | row hidden; listed in Settings → Engine → Capabilities |
+
+**Two former entries are gone rather than pending.** Bosun (`docker ai`) and Sandboxes (`sbx`)
+were removed on 2026-08-06 along with six other destinations. Neither could be obtained for a
+standalone Linux Engine at any price: Docker publishes no standalone Gordon binary, and Sandboxes
+requires Ubuntu 24.04+, KVM and an OAuth sign-in. A capability whose install instructions cannot
+be followed is not a backlog item. `app/src/types.ts` records each removal and what it needed.
 
 The distinction still matters and is now what decides the sidebar: an absent plugin removes the
 row, a faulty one keeps it, because that row is the route to the repair. `data/capabilities.ts`
@@ -148,11 +158,13 @@ Also here: secrets create/remove, which Docker does expose and we read only. And
 active builder, which stays absent by decision — `docker buildx use` rewrites the CLI
 configuration every tool on the machine reads.
 
-**Docker (4).** Governance is administered in a web console with no local surface. Hardened
-Images is a Hub catalogue with no enumerating verb. Most of Kubernetes has no Docker API at all —
-and the screen's own copy **overstates our culpability**, attributing to Anchorage a blocker that
-is really the absence of any engine surface for cluster state. The remaining `nativeTransportRequired`
-refusals in the core were checked and are correct.
+**Docker (was 4, now 1).** Governance, Hardened Images and Kubernetes were each filed here as
+correctly-unimplemented-with-a-statement: a web console with no local surface, a Hub catalogue
+with no enumerating verb, and cluster state no engine API exposes. All three destinations have
+since been removed. The reasoning was sound but the conclusion was not — a screen whose entire
+content is "Docker offers no way to do this" is a statement that did not need a nav row, and
+eleven such rows read as an unfinished product rather than as candour. The remaining
+`nativeTransportRequired` refusals in the core were checked and are correct.
 
 **Rejected on verification (2).** The Shell update banner and the Settings toggle "locked" state
 were both reported as missing capabilities and are neither.

@@ -69,11 +69,8 @@ const states = [
   { id: "images-registry", click: ["Images", "Registry search"] },
   { id: "volumes", click: ["Volumes"] },
   { id: "builds", click: ["Builds"] },
-  { id: "dev-environments", click: ["Dev Environments"] },
-  { id: "extensions", click: ["Extensions"] },
   { id: "settings-resources", click: ["Settings", "Resources"] },
   { id: "settings-engine", click: ["Settings", "Engine"] },
-  { id: "settings-kubernetes", click: ["Settings", "Kubernetes"] },
   { id: "settings-updates", click: ["Settings", "Software updates"] },
   { id: "settings-advanced", click: ["Settings", "Advanced"] },
 ];

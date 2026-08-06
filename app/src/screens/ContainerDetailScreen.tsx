@@ -376,7 +376,7 @@ function DetailHeader({
       {commitOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="container-commit-title"
@@ -394,7 +394,7 @@ function DetailHeader({
               });
             }}
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="container-commit-title">Commit to an image</h2>
                 <p>
@@ -433,7 +433,7 @@ function DetailHeader({
                 spellCheck={false}
               />
             </label>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -456,7 +456,7 @@ function DetailHeader({
       {limitsOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="container-limits-title"
@@ -468,7 +468,7 @@ function DetailHeader({
               void store.updateContainer(container, limitsPatch);
             }}
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="container-limits-title">Resources</h2>
                 <p>
@@ -513,7 +513,7 @@ function DetailHeader({
                 <option value="always">Always</option>
               </select>
             </label>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

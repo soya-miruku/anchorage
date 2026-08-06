@@ -91,8 +91,6 @@ const states = [
   },
   { id: "volumes", expression: clickTestId("nav-volumes") },
   { id: "builds", expression: clickTestId("nav-builds") },
-  { id: "dev-environments", expression: clickTestId("nav-devenv") },
-  { id: "extensions", expression: clickTestId("nav-extensions") },
   {
     id: "settings-resources",
     steps: settingsSteps("Resources"),
@@ -102,10 +100,6 @@ const states = [
     // The handoff calls this pane "Engine"; the build followed suit, and this harness drives
     // the rail by its visible label.
     steps: settingsSteps("Engine"),
-  },
-  {
-    id: "settings-kubernetes",
-    steps: settingsSteps("Kubernetes"),
   },
   {
     id: "settings-updates",

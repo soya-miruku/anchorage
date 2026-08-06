@@ -62,7 +62,7 @@ export function ArchivePathDialog({
   return (
     <div className="dialog-backdrop" role="presentation">
       <form
-        className="create-environment-dialog"
+        className="dialog-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${testId}-title`}
@@ -73,7 +73,7 @@ export function ArchivePathDialog({
           onConfirm(trimmed, overwrite);
         }}
       >
-        <div className="create-environment-dialog__heading">
+        <div className="dialog-panel__heading">
           <div>
             <h2 id={`${testId}-title`}>{title}</h2>
             <p>{description}</p>
@@ -119,7 +119,7 @@ export function ArchivePathDialog({
             </span>
           </label>
         )}
-        <div className="create-environment-dialog__actions">
+        <div className="dialog-panel__actions">
           <button className="ghost-button" type="button" onClick={onCancel}>
             Cancel
           </button>

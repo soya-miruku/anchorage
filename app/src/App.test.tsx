@@ -391,118 +391,6 @@ describe("Anchorage containers workspace", () => {
     expect(screen.getByText("RUN npm run build")).toBeInTheDocument();
   });
 
-  it("operates populated and empty Dev Environment creation flows", async () => {
-    await renderReady();
-    fireEvent.click(screen.getByTestId("nav-devenv"));
-
-    expect(screen.getByTestId("devenv-acme-platform")).toBeInTheDocument();
-    expect(screen.getByTestId("devenv-ml-pipeline")).toBeInTheDocument();
-    expect(screen.getByTestId("devenv-docs-site")).toBeInTheDocument();
-
-    const acme = screen.getByTestId("devenv-acme-platform");
-    fireEvent.click(
-      within(acme).getByRole("button", {
-        name: "More actions for acme-platform",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
-    expect(within(acme).getByText("Stopped")).toBeInTheDocument();
-
-    fireEvent.click(within(acme).getByRole("button", { name: "Open in editor" }));
-    expect(within(acme).getByRole("button", { name: "Opened" }))
-      .toBeInTheDocument();
-
-    const ml = screen.getByTestId("devenv-ml-pipeline");
-    fireEvent.click(
-      within(ml).getByRole("button", {
-        name: "More actions for ml-pipeline",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Start" }));
-    expect(within(ml).getByText("Running")).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create environment" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close create environment" }),
-    );
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create environment" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    for (const id of ["acme-platform", "ml-pipeline", "docs-site"]) {
-      const card = screen.getByTestId(`devenv-${id}`);
-      fireEvent.click(
-        within(card).getByRole("button", {
-          name: `More actions for ${
-            id === "ml-pipeline" ? "ml-pipeline" : id === "docs-site" ? "docs-site" : "acme-platform"
-          }`,
-        }),
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    }
-
-    expect(screen.getByTestId("devenv-empty")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create from repository" }),
-    );
-    expect(
-      screen.getByRole("dialog", { name: "Create environment" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Name"), {
-      target: { value: "payments-dev" },
-    });
-    fireEvent.change(screen.getByLabelText("Repository"), {
-      target: { value: "https://github.com/acme/payments" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
-
-    expect(screen.getByTestId("devenv-payments-dev")).toBeInTheDocument();
-    expect(screen.getByText("github.com/acme/payments")).toBeInTheDocument();
-  });
-
-  it("installs and uninstalls Extensions while keeping the summary exact", async () => {
-    await renderReady();
-    fireEvent.click(screen.getByTestId("nav-extensions"));
-
-    expect(
-      screen.getByText("2 installed · 6 available in the marketplace"),
-    ).toBeInTheDocument();
-
-    const diskUsage = screen
-      .getByRole("heading", { name: "Disk Usage" })
-      .closest("article");
-    expect(diskUsage).not.toBeNull();
-    fireEvent.click(
-      within(diskUsage as HTMLElement).getByRole("button", {
-        name: "Installed",
-      }),
-    );
-    expect(
-      screen.getByText("1 installed · 6 available in the marketplace"),
-    ).toBeInTheDocument();
-
-    const trivy = screen
-      .getByRole("heading", { name: "Trivy Scanner" })
-      .closest("article");
-    expect(trivy).not.toBeNull();
-    fireEvent.click(
-      within(trivy as HTMLElement).getByRole("button", { name: "Install" }),
-    );
-    expect(
-      screen.getByText("2 installed · 6 available in the marketplace"),
-    ).toBeInTheDocument();
-    expect(
-      within(trivy as HTMLElement).getByRole("button", { name: "Installed" }),
-    ).toHaveAttribute("aria-pressed", "true");
-  });
-
   it("supports every Resources control and the Docker Engine projection", async () => {
     await renderReady();
     fireEvent.click(screen.getByTestId("nav-settings"));
@@ -552,23 +440,9 @@ describe("Anchorage containers workspace", () => {
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("controls Kubernetes, update, and Advanced switches independently", async () => {
+  it("controls the update and Advanced switches independently", async () => {
     await renderReady();
     fireEvent.click(screen.getByTestId("nav-settings"));
-
-    // Scoped: the sidebar now carries a Kubernetes destination of its own, so the bare
-    // name matches both it and the Settings pane tab.
-    fireEvent.click(
-      within(screen.getByTestId("settings-navigation")).getByRole("button", {
-        name: "Kubernetes",
-      }),
-    );
-    const kubernetes = screen.getByRole("switch", {
-      name: "Enable Kubernetes",
-    });
-    expect(kubernetes).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(kubernetes);
-    expect(kubernetes).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(
       screen.getByRole("button", { name: "Software updates" }),

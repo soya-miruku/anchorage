@@ -9,8 +9,6 @@ import {
   BUILD_FIXTURES,
   DEFAULT_ENGINE_RESOURCES,
   DEFAULT_FEATURE_FLAGS,
-  DEV_ENVIRONMENT_FIXTURES,
-  EXTENSION_FIXTURES,
   IMAGE_FIXTURES,
   REGISTRY_FIXTURES,
   VOLUME_FIXTURES,
@@ -650,20 +648,6 @@ export function useAnchorageStore() {
   } | null>(null);
   const [selectedBuildId, setSelectedBuildId] = useState(
     BUILD_FIXTURES[0]?.id ?? "",
-  );
-  const [devEnvironments, setDevEnvironments] = useState(() =>
-    isHost
-      ? []
-      : DEV_ENVIRONMENT_FIXTURES.map((environment) => ({
-          ...environment,
-          tags: [...environment.tags],
-        })),
-  );
-  const [openedEnvironmentId, setOpenedEnvironmentId] = useState<string | null>(
-    null,
-  );
-  const [installedExtensions, setInstalledExtensions] = useState<Set<string>>(
-    () => (isHost ? new Set() : new Set(["Disk Usage", "Logs Explorer"])),
   );
   const transferCleanupRef = useRef<(() => void) | null>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(() =>
@@ -4262,79 +4246,6 @@ export function useAnchorageStore() {
     [isHost, selectedBuildId],
   );
 
-  const createDevEnvironment = useCallback(
-    (name: string, repository: string) => {
-      if (isHost) return false;
-      const cleanName = name.trim();
-      const cleanRepository = repository.trim().replace(/^https?:\/\//u, "");
-      if (!cleanName || !cleanRepository) return false;
-      const baseId =
-        cleanName
-          .toLocaleLowerCase()
-          .replace(/[^a-z0-9]+/gu, "-")
-          .replace(/^-|-$/gu, "") || "environment";
-      setDevEnvironments((current) => {
-        let id = baseId;
-        let suffix = 2;
-        while (current.some((environment) => environment.id === id)) {
-          id = `${baseId}-${suffix}`;
-          suffix += 1;
-        }
-        return [
-          ...current,
-          {
-            id,
-            name: cleanName,
-            repository: cleanRepository,
-            state: "stopped",
-            tags: ["devcontainer", "docker"],
-          },
-        ];
-      });
-      return true;
-    },
-    [isHost],
-  );
-
-  const toggleDevEnvironment = useCallback((id: string) => {
-    if (isHost) return;
-    setDevEnvironments((current) =>
-      current.map((environment) =>
-        environment.id === id
-          ? {
-              ...environment,
-              state:
-                environment.state === "running"
-                  ? ("stopped" as const)
-                  : ("running" as const),
-            }
-          : environment,
-      ),
-    );
-  }, [isHost]);
-
-  const deleteDevEnvironment = useCallback((id: string) => {
-    if (isHost) return;
-    setDevEnvironments((current) =>
-      current.filter((environment) => environment.id !== id),
-    );
-    setOpenedEnvironmentId((current) => (current === id ? null : current));
-  }, [isHost]);
-
-  const toggleExtension = useCallback((name: string) => {
-    if (isHost) return;
-    setInstalledExtensions((current) => {
-      const next = new Set(current);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  }, [isHost]);
-
-  const extensionSummary = isHost
-    ? "Unavailable in this build"
-    : `${installedExtensions.size} installed · ${EXTENSION_FIXTURES.length} available in the marketplace`;
-
   const updateResource = useCallback(
     (key: keyof EngineResources, value: number) => {
       setResources((current) => ({ ...current, [key]: value }));
@@ -4483,11 +4394,6 @@ export function useAnchorageStore() {
     volumeMutationPending,
     builds: isHost ? [] : BUILD_FIXTURES,
     selectedBuild,
-    devEnvironments,
-    openedEnvironmentId,
-    extensions: isHost ? [] : EXTENSION_FIXTURES,
-    installedExtensions,
-    extensionSummary,
     settingsTab,
     resources,
     appliedResources,
@@ -4649,11 +4555,6 @@ export function useAnchorageStore() {
     pruneVolumes,
     setSelectedBuildId,
     retryEngine,
-    createDevEnvironment,
-    toggleDevEnvironment,
-    deleteDevEnvironment,
-    setOpenedEnvironmentId,
-    toggleExtension,
     setSettingsTab,
     updateResource,
     resetResources,

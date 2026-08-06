@@ -260,7 +260,26 @@ describe("installCommandFor", () => {
   });
 
   it("says nothing for a capability Docker does not package", () => {
-    const bosun = capabilityForView("bosun");
-    expect(installCommandFor(bosun!, { name: "apt-get" })).toBeNull();
+    // Agents ships as a plugin binary from a GitHub release and no distribution carries it, so
+    // there is no command to print on any host. This used to ask the same of Bosun, which is
+    // gone: a capability with no install route at all was removed rather than described.
+    const agents = capabilityForView("agents");
+    expect(agents?.install.kind).toBe("plugin-binary");
+    expect(installCommandFor(agents!, { name: "apt-get" })).toBeNull();
+    expect(installCommandFor(agents!, { name: "pacman", helper: "paru" })).toBeNull();
+  });
+
+  it("lists only capabilities a standalone Linux engine can actually obtain", () => {
+    // The catalogue is what Settings renders as "install this", so an entry that cannot be
+    // installed is an advertisement for Docker Desktop sitting inside Anchorage's own settings.
+    const views = capabilityCatalogue.map((capability) => capability.view);
+    expect(views).not.toContain("bosun");
+    expect(views).not.toContain("sandboxes");
+    for (const capability of capabilityCatalogue) {
+      expect(
+        capability.install.kind,
+        `${capability.view} has no obtainable install route`,
+      ).toMatch(/^(package|plugin-binary)$/u);
+    }
   });
 });

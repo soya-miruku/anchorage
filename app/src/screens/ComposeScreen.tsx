@@ -880,13 +880,13 @@ export function ComposeScreen({ store }: { store: AnchorageStore }) {
       {pendingDown && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="compose-down-title"
             data-testid="compose-down-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="compose-down-title">
                   Take down {pendingDown.name}
@@ -919,7 +919,7 @@ export function ComposeScreen({ store }: { store: AnchorageStore }) {
                 </small>
               </span>
             </label>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

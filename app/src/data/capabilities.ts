@@ -8,12 +8,18 @@ import type {
 /*
 Which destinations are gated on a Docker CLI plugin, and what to do when one is missing.
 
-Five screens — Bosun, Models, Agents, Tools, Sandboxes — are nothing but a plugin. Each stated
-its absence in fixed copy, offered a link to the Command Center, and left the operator with a
-dead row: no way to see whether the plugin was missing or broken, no way to clear a faulty one,
-and no way to tell Anchorage to look again after installing it. On the reference host two of the
-five are dangling symlinks from a removed Docker Desktop, so the honest answer was not "install
-this" at all.
+Three screens — Models, Agents, Tools — are nothing but a plugin. Each stated its absence in
+fixed copy, offered a link to the Command Center, and left the operator with a dead row: no way
+to see whether the plugin was missing or broken, no way to clear a faulty one, and no way to tell
+Anchorage to look again after installing it. On the reference host several plugin entries are
+dangling symlinks from a removed Docker Desktop, so the honest answer was not "install this" at
+all.
+
+There were five. Bosun (`docker ai`) and Sandboxes (`sbx`) are gone, because no install advice
+could have been true: Docker publishes no standalone binary for Gordon at any price, and
+Sandboxes wants Ubuntu 24.04+, KVM and an OAuth sign-in. A capability whose install instructions
+cannot be followed is not a capability, it is an advertisement. The three that remain each have
+a Linux binary Docker actually publishes.
 
 Two decisions are recorded here.
 
@@ -32,8 +38,14 @@ Docker publishes a package, the plugin directory mechanics where it does not, an
 notices the moment it lands.
 */
 
-/** How a capability arrives on this machine, as far as Docker documents it. */
-export type CapabilityInstallKind = "package" | "desktop" | "plugin-binary";
+/**
+ * How a capability arrives on this machine, as far as Docker documents it.
+ *
+ * There was a third kind, `desktop`, for capabilities obtainable only by installing Docker
+ * Desktop. Nothing carries it now: a capability that cannot be installed against the engine in
+ * front of the operator was removed rather than described, so the kind has no members left.
+ */
+export type CapabilityInstallKind = "package" | "plugin-binary";
 
 /**
  * How a package reaches this machine, keyed by the manager the host actually has.
@@ -98,18 +110,6 @@ export const PLUGIN_DIRECTORY_MECHANICS =
 
 export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
   {
-    view: "bosun",
-    label: "Bosun",
-    plugin: "ai",
-    summary:
-      "Docker's own assistant, which Docker ships as docker ai and calls Gordon.",
-    gatesSidebar: true,
-    install: {
-      kind: "desktop",
-      note: "Docker publishes this with Docker Desktop and does not package it for a standalone Engine, so there is no command to run against this installation.",
-    },
-  },
-  {
     view: "models",
     label: "Models",
     plugin: "model",
@@ -137,7 +137,7 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
     gatesSidebar: true,
     install: {
       kind: "plugin-binary",
-      note: "Docker distributes this as a plugin binary rather than a distribution package, so it is installed by placing it in a plugin directory.",
+      note: "Docker publishes a Linux plugin binary for each release of docker/docker-agent (formerly cagent), though no distribution packages it. Running an agent additionally needs a model to talk to — either a local one through Model Runner, or an API key for a hosted provider.",
     },
   },
   {
@@ -148,20 +148,12 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
       "The MCP Toolkit, which manages Model Context Protocol servers through the MCP Gateway.",
     gatesSidebar: true,
     install: {
-      kind: "desktop",
-      note: "The Toolkit ships with Docker Desktop. The Gateway underneath it is open source and runs against a standalone Engine, but Docker does not package the plugin for one.",
-    },
-  },
-  {
-    view: "sandboxes",
-    label: "Sandboxes",
-    plugin: "sbx",
-    summary:
-      "Docker Sandboxes, which run one microVM per agent and no longer require Docker Desktop on Linux.",
-    gatesSidebar: true,
-    install: {
       kind: "plugin-binary",
-      note: "Docker distributes this as a plugin binary rather than a distribution package, so it is installed by placing it in a plugin directory.",
+      // Previously recorded as Desktop-only, which was wrong and was checked rather than
+      // reasoned about: docker/mcp-gateway publishes a linux-amd64 plugin binary per release,
+      // and it answers `catalog ls` against a standalone Engine with no Desktop present.
+      // Docker's own docs still list Desktop as a prerequisite; the binary does not enforce it.
+      note: "Docker publishes a Linux plugin binary for each MCP Gateway release, though no distribution packages it. It runs against a standalone Engine — the Desktop prerequisite in Docker's documentation is not enforced by the binary.",
     },
   },
   // Below here the row stays whatever the plugin's state: these are Docker workflows with real

@@ -8,12 +8,15 @@ import { UnsupportedSurface } from "./UnsupportedSurface";
 
 afterEach(cleanup);
 
+// Networks in browser preview, which is a real caller. This drove Extensions until that
+// destination was removed — leaving a component test the only place in the codebase still
+// describing a marketplace the product does not have.
 function renderSurface(commandQuery = "") {
   render(
     <UnsupportedSurface
-      testId="extensions-screen"
-      title="Extensions"
-      description="The desktop host does not expose an extension marketplace or installed-extension provider."
+      testId="networks-screen"
+      title="Networks"
+      description="Network management needs a live Docker engine. The browser preview uses deterministic fixtures and never connects to a daemon."
       commandQuery={commandQuery}
       onOpenCommand={() => undefined}
     />,
@@ -52,7 +55,7 @@ describe("UnsupportedSurface", () => {
     expect(
       screen.getByRole("heading", {
         level: 2,
-        name: "Extensions is unavailable in this build",
+        name: "Networks is unavailable in this build",
       }),
     ).toBeInTheDocument();
     expect(document.querySelector('[role="status"]')).toBeNull();

@@ -525,30 +525,23 @@ describe("host renderer integration", () => {
     expect(listVolumes.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("renders explicit actionable host-only unsupported states without fixture data", async () => {
+  /**
+   * This began as "renders explicit actionable host-only unsupported states without fixture
+   * data", and walked Dev Environments and Extensions checking each said "unavailable" and
+   * offered a route onward. There is no such state left to walk. Both destinations are gone —
+   * Docker deleted Dev Environments in Desktop 4.42, and the Extensions framework is Desktop
+   * only — and they were the only two surfaces that declared themselves unavailable *on a live
+   * host*. Every remaining UnsupportedSurface is a browser-preview branch, covered elsewhere.
+   *
+   * What is left of the original is what always mattered more: that against a real engine the
+   * settings panes report the machine rather than fixtures, and offer no control that would do
+   * nothing if pressed.
+   */
+  it("drives host settings off the engine rather than off fixtures", async () => {
     const harness = createHost();
     window.anchorage = harness.host;
     render(<App />);
     await screen.findByTestId("containers-screen");
-
-    // Builds left this list when buildx-backed history landed: it now renders real records
-    // rather than declaring itself unsupported, and is covered by its own tests below.
-    for (const view of ["devenv", "extensions"]) {
-      fireEvent.click(screen.getByTestId(`nav-${view}`));
-      const surface = screen.getByTestId(`${view}-screen`);
-      expect(
-        within(surface).getAllByText(
-          /unavailable in this build|unavailable/u,
-        ).length,
-      ).toBeGreaterThan(0);
-      expect(
-        // The label depends on whether the surface has a command worth seeding: devenv
-        // opens the palette on `compose`, extensions has none and browses the inventory.
-        within(surface).getByRole("button", {
-          name: /Open Command Center|Browse installed commands/u,
-        }),
-      ).toBeInTheDocument();
-    }
 
     fireEvent.click(screen.getByTestId("nav-settings"));
     const settings = screen.getByTestId("settings-screen");
@@ -671,16 +664,6 @@ describe("host renderer integration", () => {
     expect(facts).toHaveTextContent("28.0.0");
     expect(facts).toHaveTextContent("1.55");
     expect(facts).toHaveTextContent("Linux");
-
-    fireEvent.click(
-      within(settings).getByRole("button", { name: "Kubernetes" }),
-    );
-    expect(
-      within(settings).getByTestId("kubernetes-native-note"),
-    ).toHaveTextContent("does not bundle");
-    expect(
-      within(settings).queryByRole("switch", { name: "Enable Kubernetes" }),
-    ).not.toBeInTheDocument();
 
     fireEvent.click(
       within(settings).getByRole("button", { name: "Software updates" }),

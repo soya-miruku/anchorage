@@ -358,14 +358,14 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
           }}
         >
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="empty-volume-title"
             aria-describedby="empty-volume-description"
             data-testid="empty-volume-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="empty-volume-title">Empty {emptyTarget.name}</h2>
                 <p id="empty-volume-description">
@@ -409,7 +409,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
               </p>
             )}
 
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -443,13 +443,13 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
       {store.volumeInUseRestore && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="volume-restore-inuse-title"
             data-testid="volume-restore-in-use"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="volume-restore-inuse-title">
                   {store.volumeInUseRestore.volume} is in use
@@ -460,7 +460,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                 </p>
               </div>
             </div>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -517,14 +517,14 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
       {createOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-volume-title"
             data-testid="create-volume-dialog"
             onSubmit={submitCreate}
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="create-volume-title">Create volume</h2>
                 <p>Anchorage passes the name to Docker without shell interpolation.</p>
@@ -560,7 +560,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                 spellCheck={false}
               />
             </label>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"
@@ -583,13 +583,13 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
       {pruneOpen && (
         <div className="dialog-backdrop" role="presentation">
           <div
-            className="create-environment-dialog"
+            className="dialog-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="prune-volumes-title"
             data-testid="prune-volumes-dialog"
           >
-            <div className="create-environment-dialog__heading">
+            <div className="dialog-panel__heading">
               <div>
                 <h2 id="prune-volumes-title">Clean up volumes</h2>
                 <p>Volume data cannot be recovered.</p>
@@ -652,7 +652,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                 </>
               )}
             </div>
-            <div className="create-environment-dialog__actions">
+            <div className="dialog-panel__actions">
               <button
                 className="ghost-button"
                 type="button"

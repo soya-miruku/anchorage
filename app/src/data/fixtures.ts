@@ -1,12 +1,10 @@
 import type {
   AnchorageBuild,
   AnchorageContainer,
-  AnchorageExtension,
   AnchorageImage,
   AnchorageVolume,
   BuildStep,
   DashboardActivity,
-  DevEnvironment,
   DiskUsageItem,
   EngineResources,
   FeatureFlags,
@@ -565,79 +563,6 @@ export const DISK_USAGE_FIXTURES: DiskUsageItem[] = [
   },
 ];
 
-export const DEV_ENVIRONMENT_FIXTURES: DevEnvironment[] = [
-  {
-    id: "acme-platform",
-    name: "acme-platform",
-    repository: "github.com/acme/platform",
-    state: "running",
-    tags: ["node 20", "pnpm", "postgres"],
-  },
-  {
-    id: "ml-pipeline",
-    name: "ml-pipeline",
-    repository: "github.com/acme/ml-pipeline",
-    state: "stopped",
-    tags: ["python 3.12", "cuda 12.4"],
-  },
-  {
-    id: "docs-site",
-    name: "docs-site",
-    repository: "github.com/acme/docs",
-    state: "running",
-    tags: ["bun 1.1", "astro"],
-  },
-];
-
-export const EXTENSION_FIXTURES: AnchorageExtension[] = [
-  {
-    name: "Disk Usage",
-    publisher: "Anchorage Labs",
-    description:
-      "Break down image, volume and build-cache footprint layer by layer.",
-    rating: "4.8",
-    installs: "2.1M",
-  },
-  {
-    name: "Logs Explorer",
-    publisher: "Anchorage Labs",
-    description:
-      "Query and correlate logs across every running container at once.",
-    rating: "4.6",
-    installs: "1.4M",
-  },
-  {
-    name: "Trivy Scanner",
-    publisher: "Aqua Security",
-    description:
-      "Scan images for CVEs, misconfigurations and leaked secrets.",
-    rating: "4.9",
-    installs: "3.8M",
-  },
-  {
-    name: "Compose Watch",
-    publisher: "Community",
-    description: "Hot-reload services when files in the build context change.",
-    rating: "4.3",
-    installs: "640k",
-  },
-  {
-    name: "Registry Mirror",
-    publisher: "Harbor",
-    description: "Pull-through cache for private and upstream registries.",
-    rating: "4.1",
-    installs: "310k",
-  },
-  {
-    name: "k3s Sandbox",
-    publisher: "Rancher",
-    description:
-      "Single-node Kubernetes wired to the local engine socket.",
-    rating: "4.7",
-    installs: "980k",
-  },
-];
-
 export const DEFAULT_ENGINE_RESOURCES: EngineResources = {
   cpus: 8,
   memoryGb: 16,
@@ -646,7 +571,6 @@ export const DEFAULT_ENGINE_RESOURCES: EngineResources = {
 };
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
-  kubernetes: false,
   automaticUpdates: true,
   betaChannel: false,
   buildkit: true,

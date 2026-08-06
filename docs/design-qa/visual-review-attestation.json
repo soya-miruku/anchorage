@@ -605,91 +605,6 @@
       }
     },
     {
-      "state": "dev-environments",
-      "status": "approved",
-      "reviewer": {
-        "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
-      },
-      "criteria": [
-        "geometry",
-        "typography",
-        "colour",
-        "borders-and-radii",
-        "spacing",
-        "iconography",
-        "layer-order",
-        "clipping",
-        "scroll-behavior",
-        "state-specific-content"
-      ],
-      "notes": "0.01607 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold. The card grid matches the comp with chips, dividers and both controls in place. The blue running dot was nearly filed as a missed green and then verified against v2, which explicitly assigns accent to dev-environment state; the build is therefore correct even though it leaves 'Running' meaning two colours across the product, which is inherited from the handoff rather than introduced here. The defect found on this screen \u2014 the active destination sat below the fold with no active nav row rendered anywhere \u2014 was fixed before this record by scrolling the active row into view and marking the list when it continues past its edge.",
-      "reference": {
-        "path": "docs/design-qa/reference/dev-environments.png",
-        "sha256": "cde688aab74283a3aa84a1feb22aef35d01d362d7e9d2977b57a6002b7e82143",
-        "bytes": 104624,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      },
-      "actual": {
-        "path": "docs/design-qa/final-actual/dev-environments.png",
-        "sha256": "1736417f96206926495179c0bf323e3e532c6fa877411c497b255bb07c9e087a",
-        "bytes": 100234,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      }
-    },
-    {
-      "state": "extensions",
-      "status": "approved",
-      "reviewer": {
-        "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
-      },
-      "criteria": [
-        "geometry",
-        "typography",
-        "colour",
-        "borders-and-radii",
-        "spacing",
-        "iconography",
-        "layer-order",
-        "clipping",
-        "scroll-behavior",
-        "state-specific-content"
-      ],
-      "notes": "0.04377 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: the largest of the 24 and the only state materially above the rest. The cause is three stacked intended changes \u2014 nous palette, single-token tile marks, and an added privilege paragraph \u2014 with the layout surviving all three: card height 184px on both sides, 14px gutters, the grid's right edge in the same place, the whole grid translated by the paragraph. A defect found here was fixed before this record: the tile initial measured 1.62:1 because the mark paired accent-deep with an ink designed for accent, and no theme test covered that pair. The header comment claiming the paragraph is one line was also corrected \u2014 it wraps to two at this width.",
-      "divergence": {
-        "budget": 0.046,
-        "reasons": [
-          "Added privilege paragraph, translating the card grid down; card height, gutters and the grid's right edge all still agree with the comp.",
-          "Tile marks reduced to a single theme token so every family and mode can retint them; the comp assigns a per-item colour that no theme can reach."
-        ]
-      },
-      "reference": {
-        "path": "docs/design-qa/reference/extensions.png",
-        "sha256": "684d625ba5d67be3150f53ae6cfa3f63e4633126a14b64b4ecff66c290d381be",
-        "bytes": 121895,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      },
-      "actual": {
-        "path": "docs/design-qa/final-actual/extensions.png",
-        "sha256": "36d9fc85f7eea006f46e0988621776a584915880a24af3947d6ad9d0f04f5034",
-        "bytes": 135272,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      }
-    },
-    {
       "state": "images-local",
       "status": "approved",
       "reviewer": {
@@ -846,45 +761,6 @@
       }
     },
     {
-      "state": "settings-kubernetes",
-      "status": "approved",
-      "reviewer": {
-        "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
-      },
-      "criteria": [
-        "geometry",
-        "typography",
-        "colour",
-        "borders-and-radii",
-        "spacing",
-        "iconography",
-        "layer-order",
-        "clipping",
-        "scroll-behavior",
-        "state-specific-content"
-      ],
-      "notes": "0.00740 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0165) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.00740. The figure above is the tool's, and reproduces. Carried forward: under threshold, and effectively a pure palette re-render. The single toggle row, its description and the divider all land together, and at magnification the switch is geometrically identical: 38x21 track, 11px radius, 17px knob inset 2px. The active rail row correctly tracks to slot four after the Builders insertion. Only the off state is exercised here, so the on state and its transition remain unverified and are not claimed.",
-      "reference": {
-        "path": "docs/design-qa/reference/settings-kubernetes.png",
-        "sha256": "3b0d65abdd0e787f245e7569363a3615de4a406bca5d3e413eb1acf6b6beb8eb",
-        "bytes": 75388,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      },
-      "actual": {
-        "path": "docs/design-qa/final-actual/settings-kubernetes.png",
-        "sha256": "ac681df162caddaca6df971441a677903f99c3ac3bed16524c26029a3e88f7a0",
-        "bytes": 69961,
-        "dimensions": {
-          "width": 1656,
-          "height": 1056
-        }
-      }
-    },
-    {
       "state": "settings-resources",
       "status": "approved",
       "reviewer": {
@@ -1001,5 +877,15 @@
         }
       }
     }
-  ]
+  ],
+  "invalidated": {
+    "at": "2026-08-06",
+    "reason": "Eight destinations were removed from the sidebar \u2014 Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions \u2014 so every capture below was taken against a nav that no longer exists. The three states whose own screens were deleted have been dropped outright; the rest are retained as the review that was actually performed, not as a claim about the current build.",
+    "consequence": "No release may be signed against this file. Both capture sets and every per-state measurement must be regenerated, and each state re-reviewed, once the AI destinations behind Models, Agents and Tools are built \u2014 regenerating before then would measure a UI that is about to change again.",
+    "regenerateWith": [
+      "tools/capture-design-reference.mjs",
+      "tools/capture-design-parity.mjs",
+      "tools/measure-design-parity.mjs"
+    ]
+  }
 }

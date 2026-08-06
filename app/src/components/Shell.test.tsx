@@ -279,7 +279,6 @@ describe("Sidebar navigation grouping", () => {
       "nav-networks",
       "nav-builds",
       "nav-logs",
-      "nav-kubernetes",
     ]);
   });
 
@@ -290,12 +289,10 @@ describe("Sidebar navigation grouping", () => {
       </Shell>,
     );
 
-    expect(navOrder("platform")).toEqual([
-      "nav-cloud",
-      "nav-devenv",
-      "nav-extensions",
-      "nav-settings",
-    ]);
+    // Cloud, Dev Environments and Extensions used to sit above Settings here. All three were
+    // removed rather than explained — a managed cloud service, a Desktop-only framework, and a
+    // feature Docker itself deleted in Desktop 4.42 — so Platform is Settings alone.
+    expect(navOrder("platform")).toEqual(["nav-settings"]);
     expect(
       screen.queryByRole("navigation", { name: "develop navigation" }),
     ).toBeNull();
@@ -331,12 +328,14 @@ describe("Sidebar navigation grouping", () => {
   });
 
   it("scrolls the active destination into view when it sits below the fold", () => {
-    // Twenty-two destinations do not fit the shortest supported window, so the PLATFORM
-    // group is off-screen at rest. Without this the primary nav shows no active row at all
-    // down there, which reads as "nothing selected" rather than "scroll down".
+    // A long destination list does not fit the shortest supported window, so the lower groups
+    // are off-screen at rest. Without this the primary nav shows no active row at all down
+    // there, which reads as "nothing selected" rather than "scroll down". The list is shorter
+    // than it was — fourteen rows, not twenty-two — but the window can still be shorter still,
+    // and the offsets below are forced rather than measured.
     //
-    // Extensions rather than Settings: since v2.5 the Settings rail replaces the main nav, so
-    // there is no nav row to scroll to in that view.
+    // Scan rather than Settings: since v2.5 the Settings rail replaces the main nav, so there
+    // is no nav row to scroll to in that view. It was Extensions until that row was removed.
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     // jsdom performs no layout, so every offset is 0 and the guard would correctly decline.
@@ -361,12 +360,12 @@ describe("Sidebar navigation grouping", () => {
     });
 
     render(
-      <Shell store={{ ...createStore(), view: "extensions" }}>
+      <Shell store={{ ...createStore(), view: "scan" }}>
         <div>Content</div>
       </Shell>,
     );
 
-    const active = screen.getByTestId("nav-extensions");
+    const active = screen.getByTestId("nav-scan");
     expect(active).toHaveClass("nav-item--active");
     expect(scrollIntoView).toHaveBeenCalled();
 
@@ -377,8 +376,8 @@ describe("Sidebar navigation grouping", () => {
 
   it("marks the destination list when it continues past its own bottom edge", () => {
     // The cut lands on a row boundary, so a clipped list is indistinguishable from a complete
-    // one. Two independent reviews of the design captures read the sidebar as ending at
-    // Governance rather than scrolling.
+    // one. Two independent reviews of the design captures read the sidebar as ending at its
+    // last visible row rather than scrolling.
     Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
       configurable: true,
       get() {
@@ -393,7 +392,7 @@ describe("Sidebar navigation grouping", () => {
     });
 
     render(
-      <Shell store={{ ...createStore(), view: "extensions" }}>
+      <Shell store={{ ...createStore(), view: "scan" }}>
         <div>Content</div>
       </Shell>,
     );
@@ -421,7 +420,7 @@ describe("Sidebar navigation grouping", () => {
  * that row is the only route to the repair.
  */
 describe("Shell capability-gated navigation", () => {
-  const AI_ROWS = ["bosun", "models", "agents", "tools", "sandboxes"] as const;
+  const AI_ROWS = ["models", "agents", "tools"] as const;
 
   const withPlugins = (
     plugins: Array<{ name: string; status: string }>,
@@ -463,7 +462,7 @@ describe("Shell capability-gated navigation", () => {
     // Everything not gated on a plugin is untouched.
     expect(screen.getByTestId("nav-containers")).toBeInTheDocument();
     expect(screen.getByTestId("nav-compose")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-kubernetes")).toBeInTheDocument();
+    expect(screen.getByTestId("nav-scan")).toBeInTheDocument();
   });
 
   it("keeps the row for a plugin that is installed and broken", () => {
@@ -472,7 +471,7 @@ describe("Shell capability-gated navigation", () => {
       <Shell
         store={withPlugins([
           { name: "mcp", status: "broken" },
-          { name: "ai", status: "broken" },
+          { name: "agent", status: "broken" },
         ])}
       >
         <div />
@@ -480,10 +479,9 @@ describe("Shell capability-gated navigation", () => {
     );
 
     expect(screen.getByTestId("nav-tools")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-bosun")).toBeInTheDocument();
-    // The three with no entry at all are still absent, so this is not simply showing everything.
+    expect(screen.getByTestId("nav-agents")).toBeInTheDocument();
+    // The one with no entry at all is still absent, so this is not simply showing everything.
     expect(screen.queryByTestId("nav-models")).toBeNull();
-    expect(screen.queryByTestId("nav-sandboxes")).toBeNull();
   });
 
   it("keeps every row until the installation has been read", () => {

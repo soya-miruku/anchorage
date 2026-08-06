@@ -269,34 +269,6 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
       entitlement: "Paid plans",
     },
   ],
-  devenv: [
-    {
-      name: "Dev Environments",
-      level: "deprecated",
-      description:
-        "Superseded by Sandboxes; scheduled for removal in a future release.",
-    },
-  ],
-  extensions: [
-    {
-      name: "Extension runtime",
-      level: "ga",
-      description:
-        "Extensions ship as images with a UI and optional backend container. An extension may be granted the Docker socket and host executables.",
-    },
-    {
-      name: "Private marketplace",
-      level: "ga",
-      description:
-        "Organisations can publish an internal, curated catalogue.",
-    },
-    {
-      name: "Public marketplace",
-      level: "beta",
-      description:
-        "New public submissions are paused pending a security review.",
-    },
-  ],
   logs: [
     // Every row here grades Docker Desktop's unified Logs view (docker-features.md:527-537).
     // Anchorage streams one container at a time and has no merged view, so the rows a reader
@@ -327,61 +299,6 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
       level: "beta",
       description:
         "Roughly 100,000 entries in that view; forward to a real log system for more.",
-    },
-  ],
-  kubernetes: [
-    {
-      name: "kubeadm cluster",
-      level: "ga",
-      description: "Single node at a fixed version, sharing the engine image store.",
-    },
-    {
-      name: "kind cluster",
-      level: "ga",
-      description: "Configurable version and multiple nodes.",
-    },
-    {
-      // Same subject problem as Logs: this is the Desktop UI reading cluster state
-      // (docker-features.md:548), and Anchorage projects no state from a cluster at all.
-      name: "Object browser",
-      level: "early-access",
-      description:
-        "Docker Desktop's UI reads cluster state without dropping to kubectl.",
-    },
-    {
-      name: "Compose bridge deployment",
-      level: "beta",
-      description: "Applies generated manifests to this cluster.",
-    },
-  ],
-  bosun: [
-    {
-      // Bosun is Anchorage's name for a Docker capability, so the level has to be
-      // traceable to Docker's: Gordon / `docker ai`, GA in the source table
-      // (docker-features.md:52) since Docker Desktop 4.74 (:1009).
-      name: "Bosun assistant (Docker Gordon)",
-      level: "ga",
-      description: "Docker-aware chat that can inspect and, with approval, act.",
-    },
-    {
-      name: "Command approval",
-      level: "ga",
-      description: "Per-action, per-session or bypassed — your choice, per thread.",
-    },
-    {
-      name: "File editing",
-      level: "ga",
-      description: "Writes inside the working directory, which is context and not a boundary.",
-    },
-    {
-      name: "Web access",
-      level: "beta",
-      description: "Off by default; when on, prompts may leave the machine.",
-    },
-    {
-      name: "Secret redaction",
-      level: "beta",
-      description: "Defence in depth, not a guarantee the model never sees a value.",
     },
   ],
   models: [
@@ -484,44 +401,6 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
       description: "Agents pick tools at runtime; code-execution mode is very early.",
     },
   ],
-  sandboxes: [
-    // The source table records Sandboxes as current with several subfeatures still Experimental or Early Access (docker-features.md:60), which is what these levels reflect rather than the handoff GA.
-    {
-      name: "Sandbox microVMs",
-      level: "ga",
-      description: "One kernel and one daemon per sandbox.",
-    },
-    {
-      name: "Clone workspaces",
-      level: "ga",
-      description: "Read-only host source plus a private writable clone inside the VM.",
-    },
-    {
-      name: "Network policy presets",
-      level: "ga",
-      description: "Enforced at the host proxy, outside the agent’s control.",
-    },
-    {
-      name: "Templates",
-      level: "early-access",
-      description: "Reusable sandbox images shared across a team.",
-    },
-    {
-      name: "Shared skills store",
-      level: "early-access",
-      description: "Convenient, but a writable share bridges trust between sandboxes.",
-    },
-    {
-      name: "SSH access",
-      level: "experimental",
-      description: "Editor integration over sandbox-name.sbx; credentials are not forwarded.",
-    },
-    {
-      name: "Kits",
-      level: "experimental",
-      description: "Declarative setup bundles — review them like an installer.",
-    },
-  ],
   scan: [
     // Third-party composition analysis is omitted: docker-features.md:2370-2374 files the
     // Black Duck integration under what is genuinely upcoming. Same rule as semantic
@@ -551,35 +430,6 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
       name: "Background analysis",
       level: "early-access",
       description: "Scans local images as they are pulled or built.",
-    },
-  ],
-  hardened: [
-    // Hardened Images have no row in the source table, so the qualifiers come from §21.2:
-    // only the community catalogue is open and free, and the higher-assurance tiers are
-    // commercial (docker-features.md:2026-2027, :2031). They are image tiers rather than
-    // Docker subscription plans, which is why they are not worded like "Business".
-    {
-      name: "Community catalogue",
-      level: "ga",
-      description: "Minimal, non-root, signed images with SLSA Build Level 3 provenance.",
-    },
-    {
-      name: "FIPS variants",
-      level: "ga",
-      description: "Validated cryptographic modules for regulated workloads.",
-      entitlement: "Paid tier",
-    },
-    {
-      name: "STIG variants",
-      level: "early-access",
-      description: "Hardening baselines for government deployment.",
-      entitlement: "Paid tier",
-    },
-    {
-      name: "Enterprise customisation",
-      level: "early-access",
-      description: "Your own packages and policies on a hardened base.",
-      entitlement: "Enterprise tier",
     },
   ],
   secrets: [
@@ -618,61 +468,6 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
       name: "Community engine support",
       level: "experimental",
       description: "Standalone Linux packages lag the integrated experience.",
-    },
-  ],
-  governance: [
-    // Only SAML/SCIM is a Docker Business entitlement. The AI-governance rows are a separate
-    // product the source records as "Limited enterprise availability" (docker-features.md:68,
-    // :1871) — an availability statement, not a plan, so they must not read as "buy Business
-    // and you have this".
-    {
-      name: "SAML and SCIM",
-      level: "ga",
-      description: "Identity federation and automated provisioning.",
-      entitlement: "Business",
-    },
-    {
-      name: "Sandbox policy",
-      level: "early-access",
-      description: "Central network, filesystem and credential rules.",
-      entitlement: "Enterprise (limited availability)",
-    },
-    {
-      name: "MCP policy",
-      level: "early-access",
-      description: "Server and tool allowlists enforced at the gateway.",
-      entitlement: "Enterprise (limited availability)",
-    },
-    {
-      // Handoff says "90-day retention" (Anchorage v2.dc.html:2724). §18 records audit
-      // records (docker-features.md:1866) and SIEM-oriented visibility (:1869) with no
-      // retention period; the only retention figure in the source is Gordon's five days
-      // (:1056), which is a different product. The figure goes.
-      name: "Audit stream",
-      level: "early-access",
-      description: "Events exported to a SIEM.",
-      entitlement: "Enterprise (limited availability)",
-    },
-    {
-      name: "Policy inheritance",
-      level: "experimental",
-      description: "Organisation policy replaces local policy; merge order is changing.",
-      entitlement: "Enterprise (limited availability)",
-    },
-  ],
-  cloud: [
-    // GPU instances, bring-your-own-cloud and CI integration are omitted: docker-features.md:2255-2287 files all three under what is genuinely upcoming, with no announced availability. The drawer exists to stop pre-release reading as settled, so it may not itself assign them a shipped level.
-    {
-      name: "Remote engine session",
-      level: "ga",
-      description: "Builds, containers, Compose and volumes on a managed runner.",
-      entitlement: "Business add-on",
-    },
-    {
-      name: "Cloud builders",
-      level: "ga",
-      description: "Remote BuildKit with a persistent shared cache.",
-      entitlement: "Paid plans",
     },
   ],
   settings: [
@@ -718,8 +513,8 @@ export function maturityFor(view: ViewId): MaturityEntry[] {
 /**
  * Entries a user should not treat as settled — every level that is not GA. Deprecated is
  * one of them, which is why this counts distance from GA in either direction rather than
- * calling itself pre-GA: Dev Environments is a single Deprecated entry, and that is past
- * GA, not before it.
+ * calling itself pre-GA: a Deprecated capability is past GA, not before it, and both
+ * directions are reasons to hesitate.
  */
 export function notGaCount(entries: MaturityEntry[]) {
   return entries.filter((entry) => entry.level !== "ga").length;
