@@ -813,3 +813,33 @@ The counts stay on the closed row on purpose. They are the disclosure in miniatu
   display: flex;
   gap: 6px;
 }
+
+/*
+The volume name as the way into its filesystem.
+
+Styled as the row's own text rather than as a link or a button: it is the primary target, so it
+should read as the thing itself and reveal that it is clickable on approach, not compete with
+the four secondary actions sitting to its right.
+*/
+.volume-row__open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/*
+Underline, not a colour change. `--anc-accent` as ink clears AA on panel in eleven of the twelve
+theme and mode combinations and fails in y2k light at 2.86, which is the whole reason
+theme-integrity refuses a raw status token as text — and it refused this. An underline is the
+stronger affordance in a dense table regardless: the name keeps the row's own ink and stops
+competing with the four secondary actions beside it.
+*/
+.volume-row__open:hover,
+.volume-row__open:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

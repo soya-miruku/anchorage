@@ -13,6 +13,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 )
 
 // The volume is mounted here inside the helper container. The name is deliberately
@@ -173,6 +174,18 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 	if err := s.requireExistingVolume(ctx, client, volume); err != nil {
 		return err
 	}
+	// A parked helper skips the whole create path, which is where the time goes.
+	key := volumeHelperKey(volume, writable)
+	if containerID, release, ok := s.takeVolumeHelper(ctx, client, key); ok {
+		defer func() {
+			release()
+			if s.parkVolumeHelper(key, containerID, client) {
+				return
+			}
+			s.removeVolumeHelper(context.WithoutCancel(ctx), client, containerID)
+		}()
+		return fn(containerID)
+	}
 	image, err := s.volumeHelperImage(ctx, client)
 	if err != nil {
 		return err
@@ -225,14 +238,147 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 	// block its removal.
 	defer func() {
 		release()
-		removeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), domainReadTimeout)
-		defer cancel()
-		values := url.Values{}
-		values.Set("force", "true")
-		_, _, _ = client.request(removeCtx, http.MethodDelete,
-			"/v"+client.apiVersion+"/containers/"+url.PathEscape(created.ID)+"?"+values.Encode(), nil)
+		if s.parkVolumeHelper(key, created.ID, client) {
+			// Parked for the next request against this volume rather than destroyed. It is
+			// still labelled, still swept, and still removed on idle — see reapVolumeHelpers.
+			return
+		}
+		s.removeVolumeHelper(context.WithoutCancel(ctx), client, created.ID)
 	}()
 	return fn(created.ID)
+}
+
+/*
+Keeping one helper alive between requests.
+
+Every listing used to create a container and destroy it again. The listing itself is an archive
+read and takes about ten milliseconds; the container create takes **eight seconds** on the
+reference host. So the cost of browsing was almost entirely the cost of building somewhere to
+browse from, paid again on every directory the operator opened — five levels deep was forty
+seconds of pure container churn, which is what "two minutes and I still cannot get into a
+folder" actually was.
+
+A helper is now parked after use and reused by the next request for the same volume and
+mount mode, which is the difference between eight seconds a hop and roughly none. The
+properties that made the create-per-request version safe are all kept:
+
+  - **Mount mode is part of the key.** A read-only helper is never handed to a writer, because
+    the bind was established at create time and cannot be changed afterwards.
+  - **A parked helper is still held.** `liveHelpers` still lists it, so a concurrent sweep will
+    not force-remove a container another request is about to use.
+  - **It is still labelled**, so a helper that outlives this process is still found by the
+    sweep rather than leaking a reference that blocks `docker volume rm`.
+  - **It is removed on idle**, so a browse does not leave a container sitting on the volume
+    indefinitely — which would block exactly the removal the sweep exists to protect.
+
+Only one helper is parked per key, and only one key at a time is parked in total: a browse is
+something an operator does in one place, and holding a container open per volume they happened
+to glance at would trade the problem for a different one.
+*/
+const volumeHelperIdle = 90 * time.Second
+
+type parkedVolumeHelper struct {
+	containerID string
+	release     func()
+	timer       *time.Timer
+}
+
+func volumeHelperKey(volume string, writable bool) string {
+	if writable {
+		return volume + "\x00rw"
+	}
+	return volume + "\x00ro"
+}
+
+// takeVolumeHelper returns a parked helper for this key, if one is waiting, and confirms with
+// the daemon that it still exists — a container removed behind our back (a `docker rm`, a
+// prune, a daemon restart) must not be handed out as though it were usable.
+func (s *Service) takeVolumeHelper(ctx context.Context, client *engineClient, key string) (string, func(), bool) {
+	s.helperMu.Lock()
+	parked, ok := s.parkedHelpers[key]
+	if ok {
+		delete(s.parkedHelpers, key)
+		parked.timer.Stop()
+	}
+	s.helperMu.Unlock()
+	if !ok {
+		return "", nil, false
+	}
+	status, _, err := client.request(ctx, http.MethodGet,
+		"/v"+client.apiVersion+"/containers/"+url.PathEscape(parked.containerID)+"/json", nil)
+	if err != nil || status < 200 || status >= 300 {
+		parked.release()
+		return "", nil, false
+	}
+	return parked.containerID, parked.release, true
+}
+
+// parkVolumeHelper keeps a helper for the next request. It reports whether it took ownership;
+// when it declines, the caller removes the container as before.
+func (s *Service) parkVolumeHelper(key, containerID string, client *engineClient) bool {
+	s.helperMu.Lock()
+	defer s.helperMu.Unlock()
+	if s.parkedHelpers == nil {
+		s.parkedHelpers = map[string]*parkedVolumeHelper{}
+	}
+	// One at a time. Anything already parked under a different key is dropped rather than
+	// accumulated, so a session that walks several volumes cannot pin a container on each.
+	for existing, helper := range s.parkedHelpers {
+		if existing == key {
+			continue
+		}
+		helper.timer.Stop()
+		delete(s.parkedHelpers, existing)
+		go func(id string, done func()) {
+			done()
+			removeCtx, cancel := context.WithTimeout(context.Background(), domainReadTimeout)
+			defer cancel()
+			s.removeVolumeHelper(removeCtx, client, id)
+		}(helper.containerID, helper.release)
+	}
+	if _, taken := s.parkedHelpers[key]; taken {
+		return false
+	}
+	// The hold is re-taken for the parked lifetime so a sweep cannot claim it while it waits.
+	// Taken inline rather than through holdVolumeHelper: this function already owns helperMu,
+	// and that one locks it too — a self-deadlock on a mutex Go will not let you re-enter.
+	if s.liveHelpers == nil {
+		s.liveHelpers = map[string]bool{}
+	}
+	s.liveHelpers[containerID] = true
+	hold := func() {
+		s.helperMu.Lock()
+		delete(s.liveHelpers, containerID)
+		s.helperMu.Unlock()
+	}
+	helper := &parkedVolumeHelper{containerID: containerID, release: hold}
+	helper.timer = time.AfterFunc(volumeHelperIdle, func() {
+		s.helperMu.Lock()
+		current, still := s.parkedHelpers[key]
+		if still && current.containerID == containerID {
+			delete(s.parkedHelpers, key)
+		}
+		s.helperMu.Unlock()
+		hold()
+		removeCtx, cancel := context.WithTimeout(context.Background(), domainReadTimeout)
+		defer cancel()
+		s.removeVolumeHelper(removeCtx, client, containerID)
+	})
+	s.parkedHelpers[key] = helper
+	return true
+}
+
+func (s *Service) removeVolumeHelper(ctx context.Context, client *engineClient, containerID string) {
+	// Guarded because two of the three callers run on a goroutine — the idle timer and the
+	// eviction below — and a panic there takes the whole core down rather than one request.
+	// The sweep still finds anything this declines to remove, by label.
+	if client == nil || containerID == "" {
+		return
+	}
+	values := url.Values{}
+	values.Set("force", "true")
+	_, _, _ = client.request(ctx, http.MethodDelete,
+		"/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+"?"+values.Encode(), nil)
 }
 
 // volumeInternalPath maps a path the operator sees inside the volume onto its location in the

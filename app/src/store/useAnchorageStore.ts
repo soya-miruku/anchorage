@@ -701,6 +701,8 @@ export function useAnchorageStore() {
     BUILD_FIXTURES[0]?.id ?? "",
   );
   const transferCleanupRef = useRef<(() => void) | null>(null);
+  // Monotonic, so a superseded volume listing can be recognised and dropped.
+  const volumeBrowseTicket = useRef(0);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(() =>
     isHost && !captureAppearance ? "appearance" : "resources",
   );
@@ -3922,9 +3924,25 @@ export function useAnchorageStore() {
    * this is deliberately driven by navigation rather than polled — a poll would churn
    * containers for a surface that changes only when the operator moves.
    */
+  /**
+   * Latest click wins.
+   *
+   * The core allows two volume reads at once and refuses the third with
+   * `volume_browse_busy`. While every hop cost eight seconds that was easy to hit — click a
+   * folder, see nothing happen, click again — and the operator's reward for impatience was an
+   * error that reads as a broken feature rather than as "you are early". Helper reuse makes a
+   * hop fast enough that this is rare, but a double-click still fires twice, and two in-flight
+   * listings can also land out of order and show the wrong directory.
+   *
+   * So each browse takes a ticket and only the newest one is allowed to write. A superseded
+   * response is dropped rather than rendered, and a superseded *failure* is dropped too — it
+   * describes a request the operator has already moved on from.
+   */
   const browseVolume = useCallback(
     async (name: string, targetPath = "/") => {
       if (!isHost) return;
+      const ticket = volumeBrowseTicket.current + 1;
+      volumeBrowseTicket.current = ticket;
       setBrowsedVolume(name);
       setVolumePath(targetPath);
       setVolumePreview(null);
@@ -3936,8 +3954,10 @@ export function useAnchorageStore() {
           targetPath,
           dockerContextRef.current,
         );
+        if (volumeBrowseTicket.current !== ticket) return;
         setVolumeListing(result);
       } catch (reason) {
+        if (volumeBrowseTicket.current !== ticket) return;
         setVolumeBrowseError(
           reason instanceof Error ? reason.message : "Volume browse failed",
         );

@@ -193,7 +193,27 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
             key={volume.name}
             data-testid={`volume-${volume.name}`}
           >
-            <span className="resource-mono volume-row__name">{volume.name}</span>
+            {/*
+              The name is the way in. Browsing was a button among five in the row's action
+              cluster, so the obvious gesture — click the volume you want to look at — did
+              nothing, and the one control that worked was the same size and weight as "Empty"
+              and "Delete" sitting beside it. On the host the name is now the browse control;
+              in the browser preview there is nothing to browse, so it stays plain text rather
+              than becoming a button that cannot act.
+            */}
+            {store.isHost ? (
+              <button
+                type="button"
+                className="resource-mono volume-row__name volume-row__open"
+                data-testid={`volume-open-${volume.name}`}
+                title="Browse this volume's contents"
+                onClick={() => void store.browseVolume(volume.name)}
+              >
+                {volume.name}
+              </button>
+            ) : (
+              <span className="resource-mono volume-row__name">{volume.name}</span>
+            )}
             <span className="resource-muted">{volume.driver}</span>
             <span className="resource-mono resource-secondary">{volume.size}</span>
             <span className={volume.usedBy ? "resource-secondary" : "resource-faint"}>
@@ -229,7 +249,7 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                     className="volume-row__browse"
                     type="button"
                     aria-label={`Browse volume ${volume.name}`}
-                    title="Browse this volume's contents"
+                    title="Browse this volume's contents — or click its name"
                     onClick={() => void store.browseVolume(volume.name)}
                   >
                     Browse

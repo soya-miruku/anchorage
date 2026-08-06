@@ -366,4 +366,36 @@ describe("VolumesScreen transfer in flight", () => {
     expect(screen.getByLabelText("Back up volume data")).toBeDisabled();
     expect(screen.getByLabelText("Restore volume data")).toBeDisabled();
   });
+
+  it("opens the file browser from the volume's own name", () => {
+    /*
+      Browsing used to be one button among five in the row's action cluster, the same size and
+      weight as Empty and Delete, so the obvious gesture — click the volume you want to look
+      at — did nothing at all. The name is the primary target now; the action stays for
+      discoverability.
+    */
+    const browseVolume = vi.fn();
+    renderVolumes({
+      isHost: true,
+      volumes: [volume("project_data")],
+      filteredVolumes: [volume("project_data")],
+      browseVolume,
+    });
+
+    fireEvent.click(screen.getByTestId("volume-open-project_data"));
+    expect(browseVolume).toHaveBeenCalledWith("project_data");
+  });
+
+  it("leaves the name inert where there is nothing to browse", () => {
+    // The browser preview reaches no daemon, so a clickable name would be a control that
+    // cannot act — the same lie as an install button on a machine that cannot install.
+    renderVolumes({
+      isHost: false,
+      volumes: [volume("project_data")],
+      filteredVolumes: [volume("project_data")],
+    });
+    expect(screen.queryByTestId("volume-open-project_data")).toBeNull();
+    // Still listed, just not a control.
+    expect(screen.getByTestId("volume-project_data")).toBeInTheDocument();
+  });
 });

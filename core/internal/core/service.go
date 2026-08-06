@@ -43,6 +43,7 @@ type Service struct {
 	// leaked helpers finds them by label, which matches live ones too; see holdVolumeHelper.
 	helperMu       sync.Mutex
 	liveHelpers    map[string]bool
+	parkedHelpers  map[string]*parkedVolumeHelper
 	inventoryMu    sync.Mutex
 	inventoryCache map[string]CommandInventory
 	// One walk per key, shared by everyone waiting on it: the warm start and the renderer's
