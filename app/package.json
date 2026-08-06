@@ -10,7 +10,13 @@
   "private": true,
   "type": "module",
   "main": "electron/main.mjs",
+  "packageManager": "bun@1.3.14",
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=20.11"
+  },
   "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
     "dev": "vite",
     "dev:desktop": "node scripts/dev-desktop.mjs",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
@@ -22,7 +28,7 @@
     "package:linux:dir": "node scripts/package-desktop.mjs --dir",
     "package:linux": "node scripts/package-desktop.mjs --linux",
     "preview": "vite preview",
-    "test": "npm run test:renderer && npm run test:protocol && npm run test:security-evidence && npm run test:package-evidence && npm run test:theme-integrity && npm run test:theme-surface && npm run test:core-freshness && npm run test:design-doc && npm run test:theme-desk && npm run test:dev-desktop && npm run test:electron && npm run test:sites",
+    "test": "bun run test:renderer && bun run test:protocol && bun run test:security-evidence && bun run test:package-evidence && bun run test:theme-integrity && bun run test:theme-surface && bun run test:core-freshness && bun run test:design-doc && bun run test:theme-desk && bun run test:dev-desktop && bun run test:electron && bun run test:sites",
     "test:electron": "node --test electron/*.test.mjs",
     "test:protocol": "tsc -p ../protocol/tsconfig.json && node --test ../protocol/schema.test.mjs",
     "test:package-evidence": "node --test scripts/package-evidence-policy.test.mjs",

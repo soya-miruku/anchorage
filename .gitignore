@@ -62,3 +62,8 @@ docs/design_handoff_anchorage/
 # tools/measure-design-parity.mjs reads them); neither runs in `npm test`. The captures of
 # Anchorage itself under docs/design-qa/final-actual/ are ours and stay tracked.
 docs/design-qa/reference/
+
+# npm's lockfile. Bun is the package runtime and `bun.lock` is the committed one; two lockfiles
+# for one dependency set is two answers to the same question, and they drift silently. `npm ci`
+# still works from a lockfile you generate locally — this only keeps one from being committed.
+app/package-lock.json

@@ -203,23 +203,56 @@ More detail: [docs/architecture.md](docs/architecture.md) ·
 For development, additionally:
 
 - Go 1.25 or newer
-- Node.js 20.11 or newer, and npm
+- Bun 1.3 or newer
+- Node.js 20.11 or newer. Bun runs the scripts; several of them run `node --test`,
+  and the Go core is launched by Node in development
 
 ## Running it
 
 ```bash
 cd app
-npm install
-npm run dev:desktop     # development
-
-npm run package:linux   # build the AppImage
+bun install
+bun run dev:desktop     # development
 ```
 
-A packaged build is a release candidate only once
-`app/release/release-verification.json` reports `"status": "passed"`. That
-receipt ties together the exact AppImage, renderer, core binary, Electron runtime
-and release evidence. An electron-builder output without it is an intermediate
-file, not a release.
+Bun is the package runtime. `bun install` is what produces a working tree: the
+Electron binary is not in the npm tarball and Electron 43 dropped its own
+postinstall for an `install-electron` bin, so a root `postinstall` fetches it and
+neither package manager gets it otherwise.
+
+**`bun run test`, not `bun test`.** The second runs Bun's own test runner over
+whatever it finds; the first runs the gate.
+
+## Packaging
+
+```bash
+cd app
+bun run package:linux
+```
+
+**This does not currently succeed from a clean checkout.** `package-desktop.mjs`
+refuses to build without the release evidence bundle under `artifacts/` — mutation
+conformance, the capability ledger, performance results, the host-candidate
+captures — and that bundle is generated against a live Docker daemon rather than
+committed. It has not been in the tree for some time; the first thing the build
+says is which file it wants:
+
+```
+[anchorage-package] Error: mutation conformance evidence is missing:
+artifacts/docker/conformance-results.json
+```
+
+The generators are in `tools/` — `run-core-acceptance.mjs`,
+`generate-capability-ledger.mjs`, `run-performance-evidence.mjs`,
+`generate-security-evidence.mjs`, `capture-host-candidate.mjs`. Regenerating the
+bundle is the prerequisite, and it is a real piece of work rather than a flag.
+
+That refusal is the design working. A packaged build is a release candidate only
+once `app/release/release-verification.json` reports `"status": "passed"`, and
+that receipt ties together the exact AppImage, renderer, core binary, Electron
+runtime and release evidence. An electron-builder output without it is an
+intermediate file, not a release — so a build that cannot prove itself does not
+produce one.
 
 ## Verifying a download
 
@@ -236,8 +269,8 @@ the release that was published, whatever the file happens to be called.
 ## Testing
 
 ```bash
-cd app  && npm test                  # the full gate
-cd app  && npm run typecheck:renderer # NOT part of npm test — run it separately
+cd app  && bun run test                  # the full gate
+cd app  && bun run typecheck:renderer     # NOT part of the gate — run it separately
 cd core && go test -race ./...
 ```
 

@@ -25,7 +25,7 @@ document and 21 renders of it, and the renders show it more completely than the
 HTML does — every screen, including the eight the product does not ship. Both are
 ignored, both stay on the machines that do design work, and `capture-design-
 reference.mjs` regenerates `reference/` from the comp in a few seconds. Nothing in
-`npm test` reads either: the theme gate compares against
+`bun run test` reads either: the theme gate compares against
 `app/scripts/handoff-tokens.json`, the comp's colour block and nothing else, and
 the two checks that do hash the comp skip out loud when it is absent. Parity
 measurement is therefore a design-machine task rather than a clean-checkout one.
