@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { CommandNode } from "../types";
+import type {
+  CommandNode,
+  DockerCliPlugin,
+  SystemPlugins,
+} from "../types";
 import {
   flattenAvailableCommandLeaves,
   isDestructiveArgv,
   secretArgumentIndices,
+  searchUnavailablePlugins,
 } from "./commandCenterModel";
 
 const node = (
@@ -114,5 +119,58 @@ describe("Command Center model", () => {
       .toEqual(new Set([1]));
     expect(secretArgumentIndices(["run", "--env=PORT=8080", "app"]))
       .toEqual(new Set());
+  });
+});
+
+describe("searchUnavailablePlugins", () => {
+  const report = (plugins: Array<Partial<DockerCliPlugin>>): SystemPlugins => ({
+    protocolVersion: "1",
+    plugins: plugins.map((p) => ({
+      name: "x",
+      status: "broken" as const,
+      discoverySource: "cli-plugins-dir",
+      ...p,
+    })) as DockerCliPlugin[],
+    searchPath: ["/home/tester/.docker/cli-plugins"],
+    warnings: [],
+    observedAt: "2026-08-06T00:00:00.000Z",
+  });
+
+  const INSTALLATION = report([
+    { name: "mcp", status: "broken", fault: "dangling-link", availabilityNote: "A symbolic link pointing at /gone, which does not exist." },
+    { name: "ai", status: "broken", fault: "dangling-link", availabilityNote: "A symbolic link pointing at /gone, which does not exist." },
+    { name: "model", status: "degraded", fault: "handshake", availabilityNote: "Executable but not loaded by the Docker CLI." },
+    { name: "compose", status: "available", version: "5.3.1" },
+    { name: "buildx", status: "available" },
+  ]);
+
+  it("finds an installed plugin the command walk cannot see", () => {
+    // The case that returned "No installed command leaf matches this query" while the plugin
+    // sat on disk: a dangling symlink cannot answer `--help`, so it is absent from the
+    // inventory, and Docker's own ListPlugins skips it too.
+    const hits = searchUnavailablePlugins(INSTALLATION, "mcp");
+    expect(hits.map((p) => p.name)).toEqual(["mcp"]);
+    expect(hits[0].availabilityNote).toContain("does not exist");
+  });
+
+  it("matches how an operator types it, not the file name", () => {
+    expect(searchUnavailablePlugins(INSTALLATION, "docker mcp").map((p) => p.name)).toEqual(["mcp"]);
+    // Never shown as `docker-mcp`, so never searched for that way.
+    expect(searchUnavailablePlugins(INSTALLATION, "zzz")).toEqual([]);
+  });
+
+  it("never offers a plugin that works — those belong in the runnable list", () => {
+    expect(searchUnavailablePlugins(INSTALLATION, "compose")).toEqual([]);
+    expect(searchUnavailablePlugins(INSTALLATION, "buildx")).toEqual([]);
+  });
+
+  it("covers both faulty classes, since neither can be run", () => {
+    // `degraded` is a version-mismatch handshake failure; the command is just as unrunnable.
+    expect(searchUnavailablePlugins(INSTALLATION, "model").map((p) => p.name)).toEqual(["model"]);
+  });
+
+  it("says nothing without a report or a query", () => {
+    expect(searchUnavailablePlugins(null, "mcp")).toEqual([]);
+    expect(searchUnavailablePlugins(INSTALLATION, "   ")).toEqual([]);
   });
 });

@@ -638,3 +638,53 @@
   color: var(--anc-text-faint);
   font-size: 11px;
 }
+
+/* Installed, on disk, and not runnable. Outside the results listbox because nothing here can be
+   selected — the palette's contract is that a row runs something. */
+.command-unavailable {
+  padding: 12px 14px;
+  margin-top: 10px;
+  border: 1px solid rgb(var(--anc-warning-rgb) / 32%);
+  border-radius: 9px;
+  background: rgb(var(--anc-warning-rgb) / 7%);
+}
+
+.command-unavailable__lede {
+  color: var(--anc-warning-fg);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.command-unavailable__row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 9px;
+  margin-top: 9px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.command-unavailable__row code {
+  color: var(--anc-text-primary);
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+}
+
+.command-unavailable__reason {
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.command-unavailable__path {
+  color: var(--anc-text-faint);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.command-unavailable__route {
+  margin-top: 10px;
+  color: var(--anc-text-muted);
+  font-size: 11px;
+}

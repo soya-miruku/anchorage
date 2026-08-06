@@ -21,6 +21,7 @@ import type {
 import {
   decodeSessionOutput,
   flattenAvailableCommandLeaves,
+  searchUnavailablePlugins,
   isDestructiveArgv,
   isSecretName,
   searchCommandLeaves,
@@ -335,6 +336,18 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
   const commandMatches = useMemo(
     () => searchCommandLeaves(availableCommands, query),
     [availableCommands, query],
+  );
+  /*
+   * Installed plugins that cannot be offered, and why.
+   *
+   * Kept apart from `commandMatches` on purpose: those are runnable and these are not, and the
+   * palette's whole contract is that selecting a row runs something. Read from the plugin report
+   * the store already holds, which is a walk of the operator's own plugin directories — so this
+   * finds whatever is installed rather than a list of names known when this was written.
+   */
+  const unavailablePluginMatches = useMemo(
+    () => searchUnavailablePlugins(store.pluginReport, query),
+    [store.pluginReport, query],
   );
   const commandResults = useMemo(
     () => commandMatches.slice(0, COMMAND_RESULT_LIMIT),
@@ -1016,11 +1029,52 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
                   matching commands. Narrow the search to see the rest.
                 </p>
               )}
-              {!capabilitiesLoading && commandResults.length === 0 && (
-                <p className="command-results__empty">
-                  No installed command leaf matches this query.
+              {!capabilitiesLoading &&
+                commandResults.length === 0 &&
+                unavailablePluginMatches.length === 0 && (
+                  <p className="command-results__empty">
+                    No installed command leaf matches this query.
+                  </p>
+                )}
+            </div>
+
+            {/* Installed, found on disk, and not runnable. Outside the listbox above because
+                nothing here can be selected and run — presenting it as an option would be a
+                worse answer than the "no match" this replaces. */}
+            {unavailablePluginMatches.length > 0 && (
+              <div
+                className="command-unavailable"
+                data-testid="command-center-unavailable"
+              >
+                <p className="command-unavailable__lede">
+                  {unavailablePluginMatches.length === 1
+                    ? "One installed plugin matches but cannot run:"
+                    : `${unavailablePluginMatches.length} installed plugins match but cannot run:`}
                 </p>
-              )}
+                {unavailablePluginMatches.map((plugin) => (
+                  <div
+                    className="command-unavailable__row"
+                    key={plugin.path ?? plugin.name}
+                    data-testid={`command-center-unavailable-${plugin.name}`}
+                  >
+                    <code>docker {plugin.name}</code>
+                    <span className="command-unavailable__reason">
+                      {plugin.availabilityNote ??
+                        "The Docker CLI found it and would not load it."}
+                    </span>
+                    {plugin.path && (
+                      <span className="command-unavailable__path resource-mono">
+                        {plugin.path}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                <p className="command-unavailable__route">
+                  Settings → Engine → CLI plugins can remove or repair these.
+                </p>
+              </div>
+            )}
+            <div hidden>
             </div>
           </section>
 

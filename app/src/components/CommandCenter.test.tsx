@@ -43,7 +43,9 @@ const projection = {
   ],
 };
 
-function createHostHarness() {
+function createHostHarness(
+  options: { plugins?: unknown } = {},
+) {
   const eventListeners = new Map<
     string,
     Set<(payload: unknown) => void>
@@ -113,8 +115,15 @@ function createHostHarness() {
       return () => listeners.delete(listener);
     },
   );
+  const plugins = vi.fn(async () => options.plugins ?? {
+    protocolVersion: "1",
+    plugins: [],
+    searchPath: [],
+    warnings: [],
+    observedAt: "2026-08-06T00:00:00.000Z",
+  });
   const host: HostAnchorageApi = {
-    system: { capabilities },
+    system: { capabilities, plugins },
     containers: { list, action },
     cli: { run: cliRun },
     session: { start, input, resize, signal, cancel, ack },
@@ -132,6 +141,7 @@ function createHostHarness() {
   return {
     host,
     capabilities,
+    plugins,
     list,
     action,
     cliRun,
@@ -896,5 +906,100 @@ describe("Docker Command Center", () => {
     });
     expect(writes.join("")).toBe("early-outputlater-output");
     expect(acknowledgements).toEqual([1, 2]);
+  });
+});
+
+/**
+ * Searching for a plugin that is installed but broken.
+ *
+ * The palette is built from a recursive `--help` walk, and a dangling symlink cannot answer
+ * `--help` — Docker's own `cli-plugins/manager.ListPlugins` skips invalid candidates for the same
+ * reason. So searching for `mcp` on a host with nine Docker Desktop leftovers returned "No
+ * installed command leaf matches this query", which is the one answer that is actively wrong:
+ * the plugin is on disk, and Settings can repair it.
+ */
+describe("CommandCenter unavailable plugins", () => {
+  const INSTALLATION = {
+    protocolVersion: "1",
+    plugins: [
+      {
+        name: "mcp",
+        status: "broken",
+        fault: "dangling-link",
+        discoverySource: "cli-plugins-dir",
+        path: "/home/tester/.docker/cli-plugins/docker-mcp",
+        availabilityNote:
+          "A symbolic link pointing at /usr/lib/docker/cli-plugins/docker-mcp, which does not exist.",
+      },
+    ],
+    searchPath: ["/home/tester/.docker/cli-plugins"],
+    warnings: [],
+    observedAt: "2026-08-06T00:00:00.000Z",
+  };
+
+  it("names the installed plugin instead of claiming nothing matches", async () => {
+    const harness = createHostHarness({ plugins: INSTALLATION });
+    window.anchorage = harness.host;
+    render(<App />);
+    const dialog = await openCommandCenter();
+
+    fireEvent.change(
+      within(dialog).getByLabelText(/find an installed command/iu),
+      { target: { value: "mcp" } },
+    );
+
+    const unavailable = await within(dialog).findByTestId(
+      "command-center-unavailable-mcp",
+    );
+    expect(unavailable).toHaveTextContent("docker mcp");
+    // The core's own diagnosis, not a restatement.
+    expect(unavailable).toHaveTextContent("which does not exist");
+    expect(unavailable).toHaveTextContent(
+      "/home/tester/.docker/cli-plugins/docker-mcp",
+    );
+    // The misleading answer is gone, and there is somewhere to go.
+    expect(dialog).not.toHaveTextContent(
+      "No installed command leaf matches this query",
+    );
+    expect(dialog).toHaveTextContent("Settings → Engine → CLI plugins");
+  });
+
+  it("does not offer it as something that can be run", async () => {
+    // Selecting a row in the palette runs it. A broken plugin has to sit outside that listbox
+    // or the palette promises something it cannot do.
+    const harness = createHostHarness({ plugins: INSTALLATION });
+    window.anchorage = harness.host;
+    render(<App />);
+    const dialog = await openCommandCenter();
+
+    fireEvent.change(
+      within(dialog).getByLabelText(/find an installed command/iu),
+      { target: { value: "mcp" } },
+    );
+    await within(dialog).findByTestId("command-center-unavailable-mcp");
+
+    const listbox = within(dialog).getByRole("listbox", {
+      name: /installed docker commands/iu,
+    });
+    expect(within(listbox).queryByText(/docker mcp/iu)).toBeNull();
+  });
+
+  it("stays quiet when the query matches nothing on disk either", async () => {
+    const harness = createHostHarness({ plugins: INSTALLATION });
+    window.anchorage = harness.host;
+    render(<App />);
+    const dialog = await openCommandCenter();
+
+    fireEvent.change(
+      within(dialog).getByLabelText(/find an installed command/iu),
+      { target: { value: "zzzznotathing" } },
+    );
+
+    expect(
+      within(dialog).queryByTestId("command-center-unavailable"),
+    ).toBeNull();
+    expect(dialog).toHaveTextContent(
+      "No installed command leaf matches this query",
+    );
   });
 });

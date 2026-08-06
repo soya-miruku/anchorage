@@ -42,23 +42,85 @@ func systemPluginDirs() []string {
 	}
 }
 
-func userPluginDir() string {
+// dockerConfigDir is the directory the CLI keeps config.json in, honouring DOCKER_CONFIG the
+// same way the CLI does.
+func dockerConfigDir() string {
 	if configured := strings.TrimSpace(os.Getenv("DOCKER_CONFIG")); configured != "" {
-		return filepath.Join(configured, "cli-plugins")
+		return configured
 	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
 	}
-	return filepath.Join(home, ".docker", "cli-plugins")
+	return filepath.Join(home, ".docker")
 }
 
+func userPluginDir() string {
+	root := dockerConfigDir()
+	if root == "" {
+		return ""
+	}
+	return filepath.Join(root, "cli-plugins")
+}
+
+// extraPluginDirs reads the operator's own `cliPluginsExtraDirs`, which the CLI honours and this
+// did not — so a plugin installed anywhere but the two conventional trees was invisible here
+// while `docker` ran it perfectly well. The field is documented on the CLI's ConfigFile as
+// `cliPluginsExtraDirs`, and cli-plugins/manager places these ahead of the user directory, so a
+// plugin found here shadows one of the same name below it.
+//
+// Unreadable or malformed config is not an error. The CLI treats a broken config.json as no
+// extra directories rather than refusing to run, and a plugin report that failed because a
+// stray file could not be parsed would be worse than one that lists the conventional trees.
+func extraPluginDirs() []string {
+	root := dockerConfigDir()
+	if root == "" {
+		return nil
+	}
+	contents, err := os.ReadFile(filepath.Join(root, "config.json"))
+	if err != nil {
+		return nil
+	}
+	var config struct {
+		CLIPluginsExtraDirs []string `json:"cliPluginsExtraDirs"`
+	}
+	if err := json.Unmarshal(contents, &config); err != nil {
+		return nil
+	}
+	dirs := make([]string, 0, len(config.CLIPluginsExtraDirs))
+	for _, dir := range config.CLIPluginsExtraDirs {
+		dir = strings.TrimSpace(dir)
+		// Absolute only. A relative entry would resolve against whatever working directory the
+		// core happens to hold, which is not what the operator wrote it against.
+		if dir == "" || !filepath.IsAbs(dir) {
+			continue
+		}
+		dirs = append(dirs, filepath.Clean(dir))
+	}
+	return dirs
+}
+
+// pluginSearchDirs is the CLI's own search order: configured extra directories, then the user
+// directory, then the system trees. Order is load-bearing — an entry in an earlier directory
+// shadows the same name later, and the CLI applies that even when the winner is faulty.
 func pluginSearchDirs() []string {
-	dirs := make([]string, 0, 5)
+	dirs := make([]string, 0, 6)
+	dirs = append(dirs, extraPluginDirs()...)
 	if user := userPluginDir(); user != "" {
 		dirs = append(dirs, user)
 	}
-	return append(dirs, systemPluginDirs()...)
+	dirs = append(dirs, systemPluginDirs()...)
+	// A directory named twice would report every plugin in it twice.
+	seen := make(map[string]bool, len(dirs))
+	unique := dirs[:0]
+	for _, dir := range dirs {
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		unique = append(unique, dir)
+	}
+	return unique
 }
 
 // inspectPluginInstallation reports entries in `dirs` that the CLI did not load. `loaded` is

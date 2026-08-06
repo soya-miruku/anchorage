@@ -1,4 +1,9 @@
-import type { CommandNode, SessionOutputPayload } from "../types";
+import type {
+  CommandNode,
+  DockerCliPlugin,
+  SessionOutputPayload,
+  SystemPlugins,
+} from "../types";
 
 const SECRET_NAME =
   /(?:password|passwd|passphrase|token|secret|api[-_]?key|auth|credential|private[-_]?key)/iu;
@@ -193,4 +198,39 @@ export function decodeSessionOutput(payload: SessionOutputPayload): string {
   } catch {
     return "\n[Anchorage could not decode base64 session output]\n";
   }
+}
+
+/**
+ * Installed plugins the palette cannot offer, and why.
+ *
+ * The command inventory is a recursive `--help` walk, and a plugin that cannot run cannot answer
+ * `--help`. Docker's own `cli-plugins/manager.ListPlugins` silently skips invalid candidates for
+ * the same reason, so `docker --help` never mentions them either — which means searching this
+ * palette for a plugin that is installed but broken returned "No installed command leaf matches
+ * this query", the one answer that is actively misleading. The plugin is right there on disk.
+ *
+ * Anchorage already knows better: it walks the plugin directories itself, so `system.plugins`
+ * carries every entry the CLI skipped along with the reason it skipped it. This is that knowledge
+ * reaching the surface where the question gets asked. Nothing here is a list of known plugin
+ * names — the names come from the operator's own directories, so a plugin Docker ships next year
+ * is found the same way.
+ *
+ * These are never mixed into the runnable results. The palette runs commands; an entry here
+ * cannot be run, and offering it as though it could would be a worse lie than omitting it.
+ */
+export function searchUnavailablePlugins(
+  report: SystemPlugins | null,
+  query: string,
+): DockerCliPlugin[] {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean);
+  if (!report || terms.length === 0) return [];
+  return report.plugins
+    .filter((plugin) => plugin.status === "broken" || plugin.status === "degraded")
+    .filter((plugin) => {
+      // Matched against what the operator would type — `mcp`, or `docker mcp` — rather than the
+      // file name, which they never see.
+      const haystack = `docker ${plugin.name} ${plugin.name}`.toLocaleLowerCase();
+      return terms.every((term) => haystack.includes(term));
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
 }

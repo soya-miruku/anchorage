@@ -384,3 +384,61 @@ func TestAnEntryThatIsFineCarriesNoFault(t *testing.T) {
 		t.Fatalf("a working plugin was reported as faulty: %+v", reported)
 	}
 }
+
+/*
+The operator's own plugin directories.
+
+`cliPluginsExtraDirs` is a documented field on the CLI's ConfigFile, and cli-plugins/manager
+searches those directories ahead of the user tree. This walked the two conventional trees only,
+so a plugin installed anywhere else was absent from the report while `docker` ran it perfectly
+well — reported as "we do not find all the plugins", and correct.
+*/
+func TestSearchPathHonoursTheOperatorsExtraDirectories(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("DOCKER_CONFIG", root)
+	extra := filepath.Join(root, "vendor-plugins")
+	if err := os.MkdirAll(extra, 0o755); err != nil {
+		t.Fatalf("staging extra dir: %v", err)
+	}
+	config := `{"cliPluginsExtraDirs":["` + extra + `"],"auths":{}}`
+	if err := os.WriteFile(filepath.Join(root, "config.json"), []byte(config), 0o600); err != nil {
+		t.Fatalf("writing config: %v", err)
+	}
+
+	dirs := pluginSearchDirs()
+	if len(dirs) == 0 || dirs[0] != extra {
+		t.Fatalf("an extra directory must be searched first, as the CLI searches it: %v", dirs)
+	}
+	if dirs[1] != filepath.Join(root, "cli-plugins") {
+		t.Fatalf("the user directory must follow the extra ones: %v", dirs)
+	}
+
+	// And a plugin living there is actually found.
+	writePlugin(t, extra, "docker-vendorthing", 0o644)
+	reported := inspectPluginInstallation(pluginSearchDirs(), nil)
+	entry := findPlugin(reported, "vendorthing")
+	if entry == nil {
+		t.Fatalf("a plugin in an extra directory was not reported: %+v", reported)
+	}
+	if entry.Fault != "not-executable" {
+		t.Fatalf("it must be classified like any other entry, got %q", entry.Fault)
+	}
+}
+
+func TestSearchPathSurvivesAnUnusableDockerConfig(t *testing.T) {
+	// The CLI treats a broken config.json as no extra directories rather than refusing to run.
+	// A plugin report that failed because a stray file would not parse would be worse than one
+	// that lists the conventional trees.
+	root := t.TempDir()
+	t.Setenv("DOCKER_CONFIG", root)
+	for _, contents := range []string{"", "not json", `{"cliPluginsExtraDirs":"not-a-list"}`,
+		`{"cliPluginsExtraDirs":["relative/path","",".."]}`} {
+		if err := os.WriteFile(filepath.Join(root, "config.json"), []byte(contents), 0o600); err != nil {
+			t.Fatalf("writing config: %v", err)
+		}
+		dirs := pluginSearchDirs()
+		if len(dirs) == 0 || dirs[0] != filepath.Join(root, "cli-plugins") {
+			t.Fatalf("config %q left the search path wrong: %v", contents, dirs)
+		}
+	}
+}
