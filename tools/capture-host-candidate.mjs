@@ -871,7 +871,7 @@ try {
       id: "host-containers-fixture-banner-absent",
       name: "fixture update banner absent in host mode",
       expression:
-        `!document.querySelector('[data-testid="update-banner"]')`,
+        `!document.querySelector('[data-testid="preview-banner"]')`,
     },
   ]);
 

@@ -361,22 +361,35 @@ function TitleBar({
   );
 }
 
-function UpdateBanner({ store }: { store: AnchorageStore }) {
+/**
+ * What the browser preview is.
+ *
+ * This slot shipped a fabricated update notice — "Anchorage 4.32.0 is available", beside an
+ * "Update now" button with no handler — from a build whose version is 0.1.0 and which has no
+ * update channel, no publish target and no released artifact to update to. It came from the
+ * comp, where it is a mockup `<span>`; rendering it as a real `<button>` turned a placeholder
+ * into a claim, and the claim was false in three ways at once.
+ *
+ * The slot now carries what the preview was actually missing. `docs/unimplemented.md` records
+ * that the status bar and engine card "assert a connected engine with no preview indicator" —
+ * this is that indicator, in the one place the comp already reserves for a banner. Everything
+ * behind it is fixture data, which is the single most useful thing to say about this mode.
+ *
+ * Dismiss survives because a permanent bar is worse than an honest one, and because the design
+ * captures include a dismissed state.
+ */
+function PreviewBanner({ store }: { store: AnchorageStore }) {
   if (store.isHost || !store.bannerVisible) return null;
 
   return (
-    <section className="update-banner" data-testid="update-banner">
-      <span className="update-banner__dot" aria-hidden="true" />
+    <section className="preview-banner" data-testid="preview-banner">
+      <span className="preview-banner__dot" aria-hidden="true" />
       <span>
-        Anchorage 4.32.0 is available — includes faster BuildKit cache and
-        Compose watch improvements.
+        Browser preview — no Docker engine is connected. Every container, image and
+        measurement on screen is fixture data.
       </span>
-      <div className="update-banner__actions">
-        <button type="button">Update now</button>
-        <button
-          type="button"
-          onClick={() => store.setBannerVisible(false)}
-        >
+      <div className="preview-banner__actions">
+        <button type="button" onClick={() => store.setBannerVisible(false)}>
           Dismiss
         </button>
       </div>
@@ -608,7 +621,7 @@ export function Shell({
           captureSurface={captureSurface}
           onOpenMaturity={() => setMaturityOpen(true)}
         />
-        <UpdateBanner store={store} />
+        <PreviewBanner store={store} />
         <div className="anchorage-body">
           {/* v2.5 gives Settings the sidebar slot: its own rail replaces the main nav rather
               than sitting beside it, so the screen is not two navigation columns wide. The

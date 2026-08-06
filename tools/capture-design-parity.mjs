@@ -53,7 +53,7 @@ const states = [
   },
   {
     id: "containers-banner-dismissed",
-    expression: clickButtonText('[data-testid="update-banner"] button', "Dismiss"),
+    expression: clickButtonText('[data-testid="preview-banner"] button', "Dismiss"),
   },
   ...[
     ["container-detail-logs", "Logs"],

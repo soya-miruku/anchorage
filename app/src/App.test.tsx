@@ -278,13 +278,20 @@ describe("Anchorage containers workspace", () => {
     expect(await screen.findByTestId("container-logs")).toBeInTheDocument();
   });
 
-  it("dismisses the update banner without disturbing the shell", async () => {
+  it("says the preview has no engine, and can be dismissed without disturbing the shell", async () => {
     await renderReady();
-    expect(screen.getByTestId("update-banner")).toBeInTheDocument();
+    const banner = screen.getByTestId("preview-banner");
+    // The claim this replaced was "Anchorage 4.32.0 is available" beside an inert "Update now",
+    // in a 0.1.0 build with no update channel. What the mode needs said is that nothing here
+    // came from a daemon.
+    expect(banner).toHaveTextContent("no Docker engine is connected");
+    expect(banner).toHaveTextContent("fixture data");
+    expect(banner).not.toHaveTextContent("available");
+    expect(screen.queryByRole("button", { name: "Update now" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
-    expect(screen.queryByTestId("update-banner")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("preview-banner")).not.toBeInTheDocument();
     expect(screen.getByTestId("shell")).toBeInTheDocument();
   });
 

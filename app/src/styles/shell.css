@@ -271,7 +271,7 @@
   height: 13px;
 }
 
-.update-banner {
+.preview-banner {
   display: flex;
   flex: none;
   align-items: center;
@@ -288,7 +288,7 @@
   font-size: 12px;
 }
 
-.update-banner__dot {
+.preview-banner__dot {
   width: 6px;
   height: 6px;
   flex: none;
@@ -296,26 +296,21 @@
   background: var(--anc-accent);
 }
 
-.update-banner__actions {
+.preview-banner__actions {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-left: auto;
 }
 
-.update-banner__actions button {
+.preview-banner__actions button {
   padding: 0;
   background: transparent;
   color: var(--anc-text-dimmer);
   font-size: 12px;
 }
 
-.update-banner__actions button:first-child {
-  color: var(--anc-accent-fg);
-  font-weight: 600;
-}
-
-.update-banner__actions button:hover {
+.preview-banner__actions button:hover {
   color: var(--anc-text-primary);
 }
 
