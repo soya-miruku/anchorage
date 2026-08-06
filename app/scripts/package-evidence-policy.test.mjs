@@ -370,7 +370,13 @@ test("design ledger requires recorded review and every measured state passed", (
       },
       states,
     },
-    summary: { total: 24, passed: 24 },
+    summary: {
+      // Derived, not literal: this fixture's rows come from
+      // DESIGN_PARITY_STATE_IDS, and a hardcoded total silently disagreed with them the
+      // moment three destinations were removed from the product.
+      total: DESIGN_PARITY_STATE_IDS.length,
+      passed: DESIGN_PARITY_STATE_IDS.length,
+    },
     rows: states.map((capture, index) => {
       const state = capture.state;
       return {
@@ -473,7 +479,11 @@ test("design ledger requires recorded review and every measured state passed", (
   );
   budgetedRow.status = "budgeted";
   budgetedRow.mae = { absolute: 40, normalized: 0.03 };
-  ledger.summary = { total: 24, passed: 23, budgeted: 1 };
+  ledger.summary = {
+    total: DESIGN_PARITY_STATE_IDS.length,
+    passed: DESIGN_PARITY_STATE_IDS.length - 1,
+    budgeted: 1,
+  };
   budgetedRow.divergence = {
     budget: 0.035,
     reasons: ["A posture paragraph the comp does not carry translates the table."],
@@ -519,14 +529,21 @@ test("design ledger requires recorded review and every measured state passed", (
     budget: 0.035,
     reasons: ["A posture paragraph the comp does not carry translates the table."],
   };
-  ledger.summary = { total: 24, passed: 22, budgeted: 1 };
+  ledger.summary = {
+    total: DESIGN_PARITY_STATE_IDS.length,
+    passed: DESIGN_PARITY_STATE_IDS.length - 2,
+    budgeted: 1,
+  };
   assert.throws(
     () => validateDesignLedger(ledger, options),
     /either passed or budgeted/u,
     "the summary still has to account for every state",
   );
 
-  ledger.summary = { total: 24, passed: 24 };
+  ledger.summary = {
+    total: DESIGN_PARITY_STATE_IDS.length,
+    passed: DESIGN_PARITY_STATE_IDS.length,
+  };
   budgetedRow.status = "passed";
   budgetedRow.mae = { absolute: 12, normalized: 0.012 };
   delete budgetedRow.divergence;

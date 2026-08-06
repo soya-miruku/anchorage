@@ -114,11 +114,13 @@ export const DESIGN_PARITY_STATE_IDS = Object.freeze([
   "images-registry",
   "volumes",
   "builds",
-  "dev-environments",
-  "extensions",
+  // Dev Environments, Extensions and Settings → Kubernetes were removed from the product, so
+  // there is nothing left to capture for them. This list is the single definition the capture
+  // harness, the measurement and the packaging policy all read; it was missed when the screens
+  // went, and nothing noticed because the policy's own test builds its fixtures from this list
+  // and so stayed self-consistent with a list describing screens that no longer exist.
   "settings-resources",
   "settings-engine",
-  "settings-kubernetes",
   "settings-updates",
   "settings-advanced",
 ]);

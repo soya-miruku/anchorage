@@ -304,7 +304,7 @@ const captureStates = new Map(
 assert(
   captureStates.size === states.length &&
     states.every((state) => captureStates.has(state)),
-  "Capture provenance must contain exactly the 24 canonical states",
+  "Capture provenance must contain exactly the canonical states",
 );
 
 const reviewAttestationContent = await readFile(reviewAttestationPath);
@@ -337,7 +337,7 @@ assert(
     reviewAttestation.states.length === states.length &&
     reviewStates.size === states.length &&
     states.every((state) => reviewStates.has(state)),
-  "Visual review attestation must contain exactly the 24 canonical states",
+  "Visual review attestation must contain exactly the canonical states",
 );
 for (const state of states) {
   const review = reviewStates.get(state);

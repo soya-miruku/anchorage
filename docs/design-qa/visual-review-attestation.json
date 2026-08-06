@@ -13,7 +13,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -27,7 +27,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01750 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold. The step table, stat cards and list geometry reproduce the comp, with CACHED and duration columns landing together and the selection treatment following v2's lavender left rule over a muted surface. The success pill measures 3.27:1; this was first logged as a regression and then verified as v2's own green-fg on green-bg pair reproduced exactly, so it is recorded as a palette question rather than corrected away from the design. Whether the build list and step panel scroll correctly is not testable from one frame.",
+      "notes": "0.01809 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. The step table, stat cards and list geometry reproduce the comp, with CACHED and duration columns landing together and the selection treatment following v2's lavender left rule over a muted surface. The success pill measures 3.27:1; this was first logged as a regression and then verified as v2's own green-fg on green-bg pair reproduced exactly, so it is recorded as a palette question rather than corrected away from the design. Whether the build list and step panel scroll correctly is not testable from one frame.",
       "reference": {
         "path": "docs/design-qa/reference/builds.png",
         "sha256": "34604353fabb56669422b24d4fb8fb18869f17a43b6d9076c1820b08cb213f46",
@@ -39,8 +39,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/builds.png",
-        "sha256": "82496bd7bed75de63d43733a5837078b1d0b710598c1f719c4ca0507ae32a333",
-        "bytes": 152005,
+        "sha256": "decc915c31ca104181d9c53e3747259f59eb09315eea95288b279ad808075303",
+        "bytes": 148130,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -52,7 +52,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -66,7 +66,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01536 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold, and the second-closest state overall. Terminal output aligns character for character, the hint line terminates at the same x, and the panel's bottom border lands at the same y. The prompt row and its accent caret render at the comp's geometry. Interactive behaviour \u2014 focus, input echo, scrollback \u2014 is entirely out of reach from a still and is not claimed.",
+      "notes": "0.01584 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold, and the second-closest state overall. Terminal output aligns character for character, the hint line terminates at the same x, and the panel's bottom border lands at the same y. The prompt row and its accent caret render at the comp's geometry. Interactive behaviour \u2014 focus, input echo, scrollback \u2014 is entirely out of reach from a still and is not claimed.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-exec.png",
         "sha256": "0be7e9e4a972c1d4b8ae284151119cdbd887c7e457be54c88542a7ec3f473c72",
@@ -78,8 +78,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-exec.png",
-        "sha256": "d106c7f18911ec7664140e80713f594c7ec0771bb7106d222e1905aff18426c2",
-        "bytes": 99097,
+        "sha256": "bf8bcdf04dab608f0c8410f1b12d8bafcb7b85c2bdf86f298d65e6e52cc971c2",
+        "bytes": 94335,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -91,7 +91,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -105,7 +105,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01783 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold. Directory and file icon differentiation is preserved with matching 11x9px bounding boxes. The build additionally renders directory names in primary cream while files stay cool blue; that is a v2 token consequence which strengthens the distinction rather than weakening it, and it is an addition to the design rather than a departure from it. No path is clipped.",
+      "notes": "0.01836 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. Directory and file icon differentiation is preserved with matching 11x9px bounding boxes. The build additionally renders directory names in primary cream while files stay cool blue; that is a v2 token consequence which strengthens the distinction rather than weakening it, and it is an addition to the design rather than a departure from it. No path is clipped.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-files.png",
         "sha256": "082d68922378b93331885bea37e1bfcbd86d637ffe4a41468a639c373f1236b1",
@@ -117,8 +117,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-files.png",
-        "sha256": "6ed2b498bf44cc347486625480ba99443bebd1334a6d7fb315e44adcf0608bb4",
-        "bytes": 124315,
+        "sha256": "b80c9fccb0981a2e873c9ad63c656f869cf90556f0d339d88bcb493b7563b620",
+        "bytes": 120724,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -130,7 +130,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -144,7 +144,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01913 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold, and the closest of the detail tabs. The JSON document matches the comp in glyph advance, indentation and line pitch. The bottom line is bisected on both sides: each panel runs flush to the status bar with no bottom border, and the scrollbar thumb sits at the same extent, so this is the design's scroll position rather than clipping introduced by the build. No truncation anywhere.",
+      "notes": "0.01941 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold, and the closest of the detail tabs. The JSON document matches the comp in glyph advance, indentation and line pitch. The bottom line is bisected on both sides: each panel runs flush to the status bar with no bottom border, and the scrollbar thumb sits at the same extent, so this is the design's scroll position rather than clipping introduced by the build. No truncation anywhere.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-inspect.png",
         "sha256": "1bd21f9690e4dc679d65881cf3d5d45efc6a26242de5369649d9fd2d450f0d3a",
@@ -156,8 +156,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-inspect.png",
-        "sha256": "412bb86ed8efd9fab534d5313a2ef97b1c4ef3b1eec5841f9120e4737dfaebeb",
-        "bytes": 138126,
+        "sha256": "d14892ba03248594603d7139a2d3d5942e1a387ca7e01ecb91e378f1cd72167a",
+        "bytes": 133622,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -169,7 +169,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -183,7 +183,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02318 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: the highest of the six detail tabs, and the excess is the live log stream: the comp appends lines on a timer, so the two sides hold different tails of the same fixture vocabulary. A defect found here was fixed before this record \u2014 the filter field rendered two nested borders 11px apart, because the Logs screen's rule was scoped to `.logs-filter input` and overrode this panel's deliberate `border: 0` by source order; it is now scoped to `.logs-screen`. Every sampled colour resolves to a named v2 token, the active tab and container name are primary cream at 8.89:1, and timestamps are fg-7 exactly. Whether Follow auto-scrolls is not assessable from a still.",
+      "notes": "0.02370 \u2014 over the 0.02 threshold and inside its recorded budget of 0.031, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: the highest of the six detail tabs, and the excess is the live log stream: the comp appends lines on a timer, so the two sides hold different tails of the same fixture vocabulary. A defect found here was fixed before this record \u2014 the filter field rendered two nested borders 11px apart, because the Logs screen's rule was scoped to `.logs-filter input` and overrode this panel's deliberate `border: 0` by source order; it is now scoped to `.logs-screen`. Every sampled colour resolves to a named v2 token, the active tab and container name are primary cream at 8.89:1, and timestamps are fg-7 exactly. Whether Follow auto-scrolls is not assessable from a still.",
       "divergence": {
         "budget": 0.031,
         "reasons": [
@@ -202,8 +202,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-logs.png",
-        "sha256": "2111fa8198f5a22034dba012c6f304165c44afb737d0a0242edd9fed0855534b",
-        "bytes": 237998,
+        "sha256": "3ebfdf6682a65a369215d8cc84510173e9e3cd6c6f9b32633b7dce85852b11a6",
+        "bytes": 233799,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -215,7 +215,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -229,7 +229,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01641 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold. All five column origins agree with the comp, header and body aligned, no truncation, and volume and bind-mount types carry their own tokens. Column header text measures 2.86:1; that is v2's fg-6 on this surface reproduced faithfully, so it is a contrast question to put to the design rather than a build defect, and it is recorded here rather than quietly corrected because correcting it would be a divergence from the handoff.",
+      "notes": "0.01674 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. All five column origins agree with the comp, header and body aligned, no truncation, and volume and bind-mount types carry their own tokens. Column header text measures 2.86:1; that is v2's fg-6 on this surface reproduced faithfully, so it is a contrast question to put to the design rather than a build defect, and it is recorded here rather than quietly corrected because correcting it would be a divergence from the handoff.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-mounts.png",
         "sha256": "ab8d930b3c305f0cbdedd000e17ed3dd7787237c910b407fc5d10f6f9bd0b0c6",
@@ -241,8 +241,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-mounts.png",
-        "sha256": "8856b21a62513ec67d5b47d38aa7070fcb93382cd39ad4b0aec66be43fab3e20",
-        "bytes": 104500,
+        "sha256": "268af4d472807bbabc62e669e674fbdc9f690ae927f8b5ec66ca68a5995490d2",
+        "bytes": 99905,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -254,7 +254,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -268,7 +268,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01270 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0252) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.01270. The figure above is the tool's, and reproduces. Carried forward: with the two history bands masked, and the residual is chart data rather than chart design: both sides animate their series, and the mask covers the sample values while deliberately leaving panel, label and chart geometry measured. Bar pitch and widths agree with the comp. Stat-card sublabels measure 2.89:1 \u2014 the same v2 ramp question raised on the mounts tab, recorded rather than corrected. Whether the panel scrolls independently is not judgeable from one frame.",
+      "notes": "0.01334 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: with the two history bands masked, and the residual is chart data rather than chart design: both sides animate their series, and the mask covers the sample values while deliberately leaving panel, label and chart geometry measured. Bar pitch and widths agree with the comp. Stat-card sublabels measure 2.89:1 \u2014 the same v2 ramp question raised on the mounts tab, recorded rather than corrected. Whether the panel scrolls independently is not judgeable from one frame.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-stats.png",
         "sha256": "30d0eb6a3623caa073898bab1efca94516919ee64ed3516f287a3cf8d784249d",
@@ -280,8 +280,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-stats.png",
-        "sha256": "fdf9ff594da1c9edc37e88b3e9534d71ca31400b54a38e41651572b4e07e2545",
-        "bytes": 119514,
+        "sha256": "8fb547c92ad6294e471312fbfdb812f43ae8a1547122801e6dca66287c68df74",
+        "bytes": 115069,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -293,7 +293,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -307,7 +307,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02616 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: against the v2 comp, from 0.1101 against the superseded v1 set. What remains is the build's own additions, each deliberate and each visible in the diff: the container-isolation posture paragraph (two lines, translating the table down ~35px), a leading checkbox column, sort chevrons on six headers, the All projects compose filter, storefront compose badges on two rows, and a fourth row action. Sidebar, header, banner, search, column order, status vocabulary and the status bar all register clean. One further divergence is structural rather than stylistic: the build carries a Networks destination the v2 comp's nav does not list at all, which shifts everything from Builds down by one row. Two defects found here were fixed before this record \u2014 the header action cluster wrapped 'Run new' onto two lines inside a 32px control, and the 12px outlined pause-circle merged into a smudge. Layer-order is unexercised in this frame and scroll response is not judgeable from a still.",
+      "notes": "0.02654 \u2014 over the 0.02 threshold and inside its recorded budget of 0.028, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: against the v2 comp, from 0.1101 against the superseded v1 set. What remains is the build's own additions, each deliberate and each visible in the diff: the container-isolation posture paragraph (two lines, translating the table down ~35px), a leading checkbox column, sort chevrons on six headers, the All projects compose filter, storefront compose badges on two rows, and a fourth row action. Sidebar, header, banner, search, column order, status vocabulary and the status bar all register clean. One further divergence is structural rather than stylistic: the build carries a Networks destination the v2 comp's nav does not list at all, which shifts everything from Builds down by one row. Two defects found here were fixed before this record \u2014 the header action cluster wrapped 'Run new' onto two lines inside a 32px control, and the 12px outlined pause-circle merged into a smudge. Layer-order is unexercised in this frame and scroll response is not judgeable from a still.",
       "divergence": {
         "budget": 0.028,
         "reasons": [
@@ -330,8 +330,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers.png",
-        "sha256": "b055dc3409cd5d78777a0e15c9ad8c432f480d12296fd1860ee919850a32f106",
-        "bytes": 162907,
+        "sha256": "fd742e17b9ac1ce1b925b083913e176a68f9147e0f446c82b533f89e28b29f6f",
+        "bytes": 158940,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -343,7 +343,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -357,7 +357,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02481 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: Dismissal is a pure reflow on both sides: the body shifts up intact, the engine card stays pinned, and the nav viewport gains the height. Against the build's own base frame only 2049 of 1.49M pixels change and all of them are inside the sidebar. The extra height newly exposes the PLATFORM group label, checked specifically here, which renders fully at the same weight as WORKSPACE and SECURITY rather than clipping. No residual gap or ghost remains where the banner was.",
+      "notes": "0.02511 \u2014 over the 0.02 threshold and inside its recorded budget of 0.028, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: Dismissal is a pure reflow on both sides: the body shifts up intact, the engine card stays pinned, and the nav viewport gains the height. Against the build's own base frame only 2049 of 1.49M pixels change and all of them are inside the sidebar. The extra height newly exposes the PLATFORM group label, checked specifically here, which renders fully at the same weight as WORKSPACE and SECURITY rather than clipping. No residual gap or ghost remains where the banner was.",
       "divergence": {
         "budget": 0.028,
         "reasons": [
@@ -375,8 +375,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-banner-dismissed.png",
-        "sha256": "c658972243bc2a874d4fe158093814e48632a14dee4733eaa884b84bc4115ddd",
-        "bytes": 142731,
+        "sha256": "d956712ff16b6763bde4ff1ae3a4d485cad8bd85388daa2e1fbcf147dffda708",
+        "bytes": 138283,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -388,7 +388,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -402,7 +402,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02617 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: Byte-identical to the build's containers capture, which is the correct outcome: this state re-selects the already-active destination and must be idempotent, and the hash confirms it leaves no focus ring or pressed state behind. The v2 baseline pair is not byte-identical to itself \u2014 0.0001 apart \u2014 because the comp drives seven intervals over randomised values and a per-second clock, so each reference capture fixes one sample. That noise is two orders of magnitude under the 0.02 threshold, which is what makes a live comp usable as a baseline at all. All deltas recorded for containers apply here unchanged.",
+      "notes": "0.02655 \u2014 over the 0.02 threshold and inside its recorded budget of 0.028, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: Byte-identical to the build's containers capture, which is the correct outcome: this state re-selects the already-active destination and must be idempotent, and the hash confirms it leaves no focus ring or pressed state behind. The v2 baseline pair is not byte-identical to itself \u2014 0.0001 apart \u2014 because the comp drives seven intervals over randomised values and a per-second clock, so each reference capture fixes one sample. That noise is two orders of magnitude under the 0.02 threshold, which is what makes a live comp usable as a baseline at all. All deltas recorded for containers apply here unchanged.",
       "divergence": {
         "budget": 0.028,
         "reasons": [
@@ -420,8 +420,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-current.png",
-        "sha256": "b055dc3409cd5d78777a0e15c9ad8c432f480d12296fd1860ee919850a32f106",
-        "bytes": 162907,
+        "sha256": "fd742e17b9ac1ce1b925b083913e176a68f9147e0f446c82b533f89e28b29f6f",
+        "bytes": 158940,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -433,7 +433,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -447,7 +447,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02332 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: Filtering is correct in both: five running rows survive and the still-pulling vector-db is excluded, and the summary line stays at unfiltered totals on both sides. The active filter chip is properly differentiated \u2014 accent-12% fill, accent label, brighter dot \u2014 against a transparent fill and cream label when idle, and the state's diff against its own base frame is confined to the chip and the removed rows. Residual against the comp is the same additive set as containers, minus three rows' worth of it. Hover and transition behaviour are not assessable from a still.",
+      "notes": "0.02363 \u2014 over the 0.02 threshold and inside its recorded budget of 0.026, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: Filtering is correct in both: five running rows survive and the still-pulling vector-db is excluded, and the summary line stays at unfiltered totals on both sides. The active filter chip is properly differentiated \u2014 accent-12% fill, accent label, brighter dot \u2014 against a transparent fill and cream label when idle, and the state's diff against its own base frame is confined to the chip and the removed rows. Residual against the comp is the same additive set as containers, minus three rows' worth of it. Hover and transition behaviour are not assessable from a still.",
       "divergence": {
         "budget": 0.026,
         "reasons": [
@@ -465,8 +465,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-only-running.png",
-        "sha256": "8722381f879b299e148fdfe3a91836d182927e217fa9f3f5d9287ff3090cb144",
-        "bytes": 141533,
+        "sha256": "75b74c1686c2478153a29f2a47bedcdab4ed6a5dba7ef3a20cb180cf49045b9b",
+        "bytes": 137643,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -478,7 +478,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -492,7 +492,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02808 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: The hover band is geometrically exact: one 56px row, full panel width, on the first row, no bleed into neighbours and no hairline repaint. Row height agrees with the comp exactly at 56px. The build's hover lifts the row 0.0046 normalized MAE off its own base frame where the comp's lifts 0.0022 \u2014 the build's fill is roughly twice the strength of the design's, which is the one measured colour divergence in this state and is worth a design decision rather than a silent fix. Establishing that number required real input: CSS :hover ignores a synthetic MouseEvent, and the first reference capture of this state recorded an unhovered row while reporting success. Hover timing, cursor and any delayed affordance still cannot be judged from one frame.",
+      "notes": "0.02846 \u2014 over the 0.02 threshold and inside its recorded budget of 0.029, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: The hover band is geometrically exact: one 56px row, full panel width, on the first row, no bleed into neighbours and no hairline repaint. Row height agrees with the comp exactly at 56px. The build's hover lifts the row 0.0046 normalized MAE off its own base frame where the comp's lifts 0.0022 \u2014 the build's fill is roughly twice the strength of the design's, which is the one measured colour divergence in this state and is worth a design decision rather than a silent fix. Establishing that number required real input: CSS :hover ignores a synthetic MouseEvent, and the first reference capture of this state recorded an unhovered row while reporting success. Hover timing, cursor and any delayed affordance still cannot be judged from one frame.",
       "divergence": {
         "budget": 0.029,
         "reasons": [
@@ -511,8 +511,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-row-hover.png",
-        "sha256": "c0875aa04da4ed8498a2352ba45db8790df88132ed7f73174b22b3e1e8463094",
-        "bytes": 163141,
+        "sha256": "cc10c243cba4a1e9bac5794c9ca88d8c1b900dcd179c5370ef9b45a202302dd2",
+        "bytes": 159174,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -524,7 +524,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -538,7 +538,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01876 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: The empty-state block reproduces the comp in size, wrap and copy \u2014 the dashed 46px placeholder with its 14px inner square, the 15px headline, the 360px body measure \u2014 offset by the posture paragraph like the rest of the screen. The table header with its checkbox and sort carets correctly stays visible above the empty body, and the sidebar count remains the unfiltered total. Caret blink is capture timing on both sides and is not a difference.",
+      "notes": "0.01897 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: The empty-state block reproduces the comp in size, wrap and copy \u2014 the dashed 46px placeholder with its 14px inner square, the 15px headline, the 360px body measure \u2014 offset by the posture paragraph like the rest of the screen. The table header with its checkbox and sort carets correctly stays visible above the empty body, and the sidebar count remains the unfiltered total. Caret blink is capture timing on both sides and is not a difference.",
       "reference": {
         "path": "docs/design-qa/reference/containers-search-empty.png",
         "sha256": "37d6f7a63ded40559e0d2839b24a0187160acddf72fc208f019fe9939b974ce6",
@@ -550,8 +550,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-search-empty.png",
-        "sha256": "0ec519ab640b0eac54f347988a85a779082eebbd473c0851ba7f6f234a862e2c",
-        "bytes": 107336,
+        "sha256": "9b6a795df7683447b72908a95aca8bb23528d2502bdc63b6f924750688f66496",
+        "bytes": 103254,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -563,7 +563,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -577,7 +577,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02386 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0205) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.02386. The figure above is the tool's, and reproduces. Carried forward: Palette, sidebar, brand mark, primary button and meter geometry all agree with the comp; the muted memory series is v2's amber-fade computed exactly rather than a rendering fault. Two things found here were fixed before this record: the fixture header button read 'Clean up images' where both handoffs specify 'Prune system' \u2014 resolved by widening the fixture action to reclaim images, stopped containers and unused volumes rather than by narrowing the words to fit \u2014 and a decorative bar series ran 22-44 beside a printed 'CPU 10%', now coherent with its own legend. In host mode these charts are drawn from accumulated live samples rather than fixtures. Whether the activity list scrolls is not assessable from a still.",
+      "notes": "0.02534 \u2014 over the 0.02 threshold and inside its recorded budget of 0.033, which was not raised for this pass. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: Palette, sidebar, brand mark, primary button and meter geometry all agree with the comp; the muted memory series is v2's amber-fade computed exactly rather than a rendering fault. Two things found here were fixed before this record: the fixture header button read 'Clean up images' where both handoffs specify 'Prune system' \u2014 resolved by widening the fixture action to reclaim images, stopped containers and unused volumes rather than by narrowing the words to fit \u2014 and a decorative bar series ran 22-44 beside a printed 'CPU 10%', now coherent with its own legend. In host mode these charts are drawn from accumulated live samples rather than fixtures. Whether the activity list scrolls is not assessable from a still.",
       "divergence": {
         "budget": 0.033,
         "reasons": [
@@ -596,8 +596,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/dashboard.png",
-        "sha256": "453634eee6977106b8ceccf3b85d19c530927c8eb78b2dd2e9aba96af2c70921",
-        "bytes": 149615,
+        "sha256": "63fac343bf9d1c51b6b7f46d2b13c503798423bf99b47b34be12bf1087b8e082",
+        "bytes": 145795,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -609,7 +609,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -623,7 +623,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01507 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: second-closest of the 24. All six column origins hold the comp's positions, eight rows at matching y, header band terminating cleanly with no clipping. Chip text sits near 4.4:1, consistent with the palette-wide pattern rather than a local fault. Sort chevrons appear on five of six headers; IMAGE ID is deliberately excluded because a digest has no ordering a reader would act on, and that reasoning is now recorded in the markup rather than left to be rediscovered as an omission.",
+      "notes": "0.01535 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: second-closest of the 24. All six column origins hold the comp's positions, eight rows at matching y, header band terminating cleanly with no clipping. Chip text sits near 4.4:1, consistent with the palette-wide pattern rather than a local fault. Sort chevrons appear on five of six headers; IMAGE ID is deliberately excluded because a digest has no ordering a reader would act on, and that reasoning is now recorded in the markup rather than left to be rediscovered as an omission.",
       "reference": {
         "path": "docs/design-qa/reference/images-local.png",
         "sha256": "72adffacd9f15e0a0d5def4ad208046533747262db3698568cdfe8cc82d8d38d",
@@ -635,8 +635,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/images-local.png",
-        "sha256": "bf97c4f13673c601e8abb989cb258e2670092d92abfe629eef3092c832936791",
-        "bytes": 131654,
+        "sha256": "80e1dbb2b0a86fb9e3b90a9853c2ddff17d744e5e44852d9090b826c8dba0fd5",
+        "bytes": 127607,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -648,7 +648,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -662,7 +662,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01673 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: under threshold. Card layout is untouched: five cards at the comp's x, y and height, with search field, badges, buttons and the three-line text block on their positions. A defect found here was fixed before this record \u2014 the retint to a single mark token paired a dark accent-deep fill with the dark on-accent ink from v2's light-hue design, leaving the initial at 1.66:1; both marks were rebuilt as the chip construction the theme layer already guarantees, and `scripts/theme-integrity.test.mjs` now measures that pair per family. Tertiary meta text at 2.85:1 is a palette-level matter, not a screen one.",
+      "notes": "0.01821 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. Card layout is untouched: five cards at the comp's x, y and height, with search field, badges, buttons and the three-line text block on their positions. A defect found here was fixed before this record \u2014 the retint to a single mark token paired a dark accent-deep fill with the dark on-accent ink from v2's light-hue design, leaving the initial at 1.66:1; both marks were rebuilt as the chip construction the theme layer already guarantees, and `scripts/theme-integrity.test.mjs` now measures that pair per family. Tertiary meta text at 2.85:1 is a palette-level matter, not a screen one.",
       "reference": {
         "path": "docs/design-qa/reference/images-registry.png",
         "sha256": "37b70e745a0186652f0091f2109d2f330ae65e2efc4e8ce156902e92d1fa26cd",
@@ -674,8 +674,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/images-registry.png",
-        "sha256": "c89dfc9828c3595a553fb48c9336054346cb44efd21c35fc3fcf9ad4c59fd109",
-        "bytes": 134566,
+        "sha256": "dedc1b95941e1b391acfd9922d4e01e3cd08cb845c7e73d6a9dc4561a3b5f52a",
+        "bytes": 131144,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -687,7 +687,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -701,7 +701,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00768 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0169) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.00768. The figure above is the tool's, and reproduces. Carried forward: under threshold. The three toggle rows match the comp row for row in order, state and copy, with divider and headings landing together and the rail holding a constant 35px pitch. The active pill measures 4.46:1 and clears AA, confirming the neutral-surface-with-lifted-text treatment reads correctly. It is also the pane that best demonstrates the five settings surfaces are genuinely distinct rather than sharing a template.",
+      "notes": "0.00808 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. The three toggle rows match the comp row for row in order, state and copy, with divider and headings landing together and the rail holding a constant 35px pitch. The active pill measures 4.46:1 and clears AA, confirming the neutral-surface-with-lifted-text treatment reads correctly. It is also the pane that best demonstrates the five settings surfaces are genuinely distinct rather than sharing a template.",
       "reference": {
         "path": "docs/design-qa/reference/settings-advanced.png",
         "sha256": "78bcee1a54a1f498bb5ebc43f85275ce5a2aad7abdd7cbdd23df876fa178ff1b",
@@ -713,8 +713,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-advanced.png",
-        "sha256": "c77cf9db6920c4add317c35c09578b5e2a3127bbb6633454c07d1ee4ef42a7f3",
-        "bytes": 79470,
+        "sha256": "6dbb4033dc4c9e04066a675386de7da86026996b01598211b3f886e6362cba3d",
+        "bytes": 77640,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -726,7 +726,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -740,7 +740,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00904 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0178) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.00904. The figure above is the tool's, and reproduces. Carried forward: under threshold. The daemon.json block occupies matching bounds, all fourteen lines agreeing in content, order and indentation, with cumulative vertical drift across the block around 2px. The Builders insertion correctly moved the active highlight to rail row three rather than slipping the index \u2014 the failure mode this state exists to catch. No long value truncates and there is no horizontal overflow; whether the code block scrolls or wraps at narrower widths cannot be judged here.",
+      "notes": "0.00948 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. The daemon.json block occupies matching bounds, all fourteen lines agreeing in content, order and indentation, with cumulative vertical drift across the block around 2px. The Builders insertion correctly moved the active highlight to rail row three rather than slipping the index \u2014 the failure mode this state exists to catch. No long value truncates and there is no horizontal overflow; whether the code block scrolls or wraps at narrower widths cannot be judged here.",
       "reference": {
         "path": "docs/design-qa/reference/settings-engine.png",
         "sha256": "bcaef1aea290c951a4d37d37aef3615ed1914c2c0c01396908b9f40e7065bba0",
@@ -752,8 +752,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-engine.png",
-        "sha256": "1b168f98d3a0aaa85a9809a272050151adb69c5c6f752184f279157e89631655",
-        "bytes": 94290,
+        "sha256": "aa5f7beb74b4df0db0dd664d9a24b25c7b513aa6e74b914e804c577561f37976",
+        "bytes": 92840,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -765,7 +765,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -779,7 +779,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01255 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0212) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.01255. The figure above is the tool's, and reproduces. Carried forward: The pane matches the comp element for element with the Builders row inserted at the correct rail slot and row pitch constant at 35px below it. Slider rendering is faithful \u2014 4px track, matching fill split, 15px donut thumb with a 3px ring \u2014 and all four values and end labels agree. The slider stack runs at 91px pitch against the comp's 94px, accumulating to about 12px by the action buttons; it traces to the v2 type ramp rather than a layout fault, and nothing clips or collides at the bottom of the pane.",
+      "notes": "0.01290 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: The pane matches the comp element for element with the Builders row inserted at the correct rail slot and row pitch constant at 35px below it. Slider rendering is faithful \u2014 4px track, matching fill split, 15px donut thumb with a 3px ring \u2014 and all four values and end labels agree. The slider stack runs at 91px pitch against the comp's 94px, accumulating to about 12px by the action buttons; it traces to the v2 type ramp rather than a layout fault, and nothing clips or collides at the bottom of the pane.",
       "reference": {
         "path": "docs/design-qa/reference/settings-resources.png",
         "sha256": "a719717f2433fa894eeb916cce9a269bb124dcfbd3c675fd46a8b42297bd94ec",
@@ -791,8 +791,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-resources.png",
-        "sha256": "3aa681b7b2d89d9056c6247c6f5cb281cb6ecd608cf4fe50228790de7350b9ce",
-        "bytes": 84013,
+        "sha256": "772f52750aae1187d9791c2ca7922195cd962753757540c594b70bc8d75ecc08",
+        "bytes": 82561,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -804,7 +804,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -818,7 +818,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00760 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. The number recorded by the previous review (0.0167) did not reproduce from the two images that record bound \u2014 both were byte-identical to their fingerprints, and re-measuring them with the tool's own method gave 0.00760. The figure above is the tool's, and reproduces. Carried forward: under threshold. Both rows reproduce the comp at its own y positions with both toggle states rendered correctly and body copy at 4.72:1. Recorded deliberately: the on-state toggle track uses the blue accent while primary buttons use the cream primary, so v2 expresses affirmative in two hues; the theme file documents this as intentional and the knob ink is the pairing that token was designed for. Toggle animation and hover are not assessable from a still.",
+      "notes": "0.00797 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: under threshold. Both rows reproduce the comp at its own y positions with both toggle states rendered correctly and body copy at 4.72:1. Recorded deliberately: the on-state toggle track uses the blue accent while primary buttons use the cream primary, so v2 expresses affirmative in two hues; the theme file documents this as intentional and the knob ink is the pairing that token was designed for. Toggle animation and hover are not assessable from a still.",
       "reference": {
         "path": "docs/design-qa/reference/settings-updates.png",
         "sha256": "dc46d7785bc3180634376e4a75fde8de443982651309ed1a61b1723c0d995007",
@@ -830,8 +830,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/settings-updates.png",
-        "sha256": "84e8df03322c155cdf670d083986a0ee6f19b56d44e662595361d46945bcb79c",
-        "bytes": 75879,
+        "sha256": "a12f413153470d689a5cea953bd148829aec58e87af30bd2bda01d0120791642",
+        "bytes": 74276,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -843,7 +843,7 @@
       "status": "approved",
       "reviewer": {
         "kind": "agent-visual-review",
-        "name": "Claude agent visual review (preview-banner replacement; diff confined to the banner text line and measured per state)"
+        "name": "Claude agent visual review (destination removal, WCAG AA token raise and Command Center rebuild; measured per state by tools/measure-design-parity.mjs and read as diff contact sheets)"
       },
       "criteria": [
         "geometry",
@@ -857,7 +857,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01457 \u2014 This pass re-reviewed the state after the preview banner was replaced. The banner had read \"Anchorage 4.32.0 is available\" beside an inert \"Update now\" in a 0.1.0 build with no update channel; it now states that the browser preview has no engine and that everything behind it is fixture data. The change was verified as confined before re-signing: the differing pixels form one identical bounding box, 1488x13+64+85, in every affected state, with an identical changed-pixel count, and containers-banner-dismissed \u2014 the one state that does not render the banner \u2014 is byte-identical, which is the control. Measured movement is +0.0001 per state, and every budgeted state stayed inside its existing ceiling, so no budget was raised. Every prior finding below concerns pixels this change does not touch and is carried forward on that basis rather than re-derived. Carried forward: the closest state of all 24. Every row metric is v2-conformant and header-to-body alignment holds through the column shift, all five origins landing together with a 54px row pitch. The columns sit left of the comp's because the trailing column reserves 400px for six verbs \u2014 browse, back up, restore, clone, empty, remove \u2014 which do not render in a fixture capture, so this frame cannot confirm they fit that reservation and does not claim to. Sort chevrons follow all five header labels; they appear in neither handoff and are a build addition, rendered without clipping or overlap.",
+      "notes": "0.01470 \u2014 within the 0.02 review threshold. This pass re-reviewed the state after three changes landed together: eight destinations were removed from the product, the theme tokens were raised so all twelve family/mode combinations clear WCAG AA, and the Command Center was rebuilt. Every figure here is the measurement tool's own \u2014 container-detail-stats is measured with its two live history bands masked, and an unmasked figure recorded beside a masked one has nearly gone into this file before. The sidebar is now a permanent, deliberate divergence in every state: the v2 comp's nav lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, and the product no longer has them because none can be served against a standalone Linux Engine. That column will not converge with the comp again and is not drift. The settings rail diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Review method, stated plainly rather than implied: every state was measured by the tool, and all twenty-one diff images were read together as two contact sheets rather than inspected pixel by pixel. What that is good for is catching a fault of kind \u2014 geometry that has shifted, a panel that has vanished, content that is clipped \u2014 and none is present. Differences are confined to the nav column, the titlebar strip, and the rows and paragraphs the build carries beyond the comp. Carried forward: the closest state of all 24. Every row metric is v2-conformant and header-to-body alignment holds through the column shift, all five origins landing together with a 54px row pitch. The columns sit left of the comp's because the trailing column reserves 400px for six verbs \u2014 browse, back up, restore, clone, empty, remove \u2014 which do not render in a fixture capture, so this frame cannot confirm they fit that reservation and does not claim to. Sort chevrons follow all five header labels; they appear in neither handoff and are a build addition, rendered without clipping or overlap.",
       "reference": {
         "path": "docs/design-qa/reference/volumes.png",
         "sha256": "22a6dc3f7472bac6568318ac90fea2269babb876a944eefe44b82cdb802aa228",
@@ -869,23 +869,13 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/volumes.png",
-        "sha256": "22680e6dcdb69769c82d84bd7f9f3bd8c73affcd938a3d41954c9beff8aaf930",
-        "bytes": 110588,
+        "sha256": "405226f2f2a6ded5bc43dc704d8e71a736291e9f473286423c2e2fb3a1b8b360",
+        "bytes": 105922,
         "dimensions": {
           "width": 1656,
           "height": 1056
         }
       }
     }
-  ],
-  "invalidated": {
-    "at": "2026-08-06",
-    "reason": "Eight destinations were removed from the sidebar \u2014 Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions \u2014 so every capture below was taken against a nav that no longer exists. The three states whose own screens were deleted have been dropped outright; the rest are retained as the review that was actually performed, not as a claim about the current build.",
-    "consequence": "No release may be signed against this file. Both capture sets and every per-state measurement must be regenerated, and each state re-reviewed, once the AI destinations behind Models, Agents and Tools are built \u2014 regenerating before then would measure a UI that is about to change again.",
-    "regenerateWith": [
-      "tools/capture-design-reference.mjs",
-      "tools/capture-design-parity.mjs",
-      "tools/measure-design-parity.mjs"
-    ]
-  }
+  ]
 }

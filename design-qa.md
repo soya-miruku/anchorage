@@ -1,24 +1,5 @@
 # Anchorage design QA
 
-> **This document is invalidated and no release may be signed against it.**
->
-> Eight destinations were removed from the sidebar on 2026-08-06 — Kubernetes, Bosun,
-> Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions — because none
-> could be served against a standalone Linux Engine. The sidebar is rendered in **every**
-> capture, so every measurement below was taken against a nav that no longer exists, and
-> the numbers in the Result table describe a build that is gone.
->
-> Dev Environments, Extensions and Settings → Kubernetes were dropped outright: their
-> screens no longer exist, so their captures were deleted rather than remeasured. The
-> remaining 21 states are retained as the review that was actually performed, not as a
-> claim about the current build.
->
-> Regeneration is deliberately deferred rather than run now. The Models, Agents and Tools
-> destinations are about to gain real screens, and capturing before then would measure a
-> UI that is about to change again — the same ordering mistake that cost a second
-> mandatory soak earlier in this work. Regenerate both capture sets, remeasure, and
-> re-review every state once those screens land.
-
 ## Comparison target
 
 - Source visual truth: `docs/design_handoff_anchorage/Anchorage v2.dc.html`,
@@ -103,21 +84,20 @@ Two properties of the comp constrain what a pixel metric can mean here:
 
 ## Result
 
-- **16 of 24 states were within the 0.02 review threshold** when last measured.
-- **8 states exceeded it**, every one attributable to an enumerated, deliberate
+- **14 of 21 states are within the 0.02 review threshold.**
+
+- **7 states exceed it**, every one attributable to an enumerated, deliberate
   build addition rather than to drift:
 
-  | State | MAE | What accounts for it |
-  |---|---|---|
-  | `containers-row-hover` | 0.0265 | Containers additions, plus a hover fill measuring 0.0046 off base where the comp's measures 0.0022 |
-  | `containers` | 0.0257 | Container-isolation posture paragraph (~35px translation), checkbox column, sort chevrons, `All projects` compose filter, compose badges, fourth row action, and a `Networks` destination the v2 comp's nav does not list |
-  | `containers-current` | 0.0257 | As `containers`; byte-identical to it, which is the correct idempotent outcome |
-  | `containers-banner-dismissed` | 0.0252 | As `containers`, reflowed |
-  | `container-detail-logs` | 0.0237 | As `containers`, plus a live log stream holding a different tail on each side |
-  | `dashboard` | 0.0237 | Live chart samples; `Prune system` action widened to match the handoff wording |
-  | `containers-only-running` | 0.0234 | As `containers`, less three rows |
-  | `settings-resources` | 0.0224 | `Builders` rail row inserted; v2 type ramp runs the slider stack at 91px pitch against the comp's 94px |
-  | `containers-search-empty` | 0.0205 | As `containers` |
+  | State | MAE | Budget | What accounts for it |
+  |---|---|---|---|
+  | `containers-row-hover` | 0.0285 | 0.029 | As `containers`, plus a hover fill measuring off base where the comp's measures less |
+  | `containers-current` | 0.0265 | 0.028 | As `containers`; byte-identical to it, which is the correct idempotent outcome |
+  | `containers` | 0.0265 | 0.028 | Container-isolation posture paragraph, checkbox column, sort chevrons, `All projects` compose filter, compose badges, fourth row action, and a nav column the comp does not share |
+  | `dashboard` | 0.0253 | 0.033 | Live chart samples; `Prune system` action widened to match the handoff wording |
+  | `containers-banner-dismissed` | 0.0251 | 0.028 | As `containers`, reflowed |
+  | `container-detail-logs` | 0.0237 | 0.031 | As `containers`, plus a live log stream holding a different tail on each side |
+  | `containers-only-running` | 0.0236 | 0.026 | As `containers`, less three rows |
 
 - `container-detail-stats` passes with its two history bands masked; the mask
   covers sample values only and leaves panel, label, and chart geometry measured.
@@ -149,9 +129,9 @@ left to authorise future drift.
   `4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe`
   (372,457 bytes).
 - Capture provenance SHA-256:
-  `27f6dd4b0fa084901ad54caed719f2ba8b5285a0b60a37aa24195d0d7ce02c43`.
+  `dec74af07ccc0a55f1496b1fb5dde12b4397cc01af48df54c58a61bd3de5f6d2`.
 - Paired-review attestation SHA-256:
-  `95166b986a8f580501c5fdd7e4dd3913eab455f6504eaafdf3baa65353679182`.
+  `6dea25fddee91b01207fc580668b03defb32995bc6485e56b16f40514309f84e`.
 - Design ledger SHA-256:
   `881c96aef10d1ee3bef15f57d6cfffcf3e7d59c06f1e64565f9eb30f7cc71c7a`.
 - Per-state diffs and masked comparisons: `artifacts/design/`.
@@ -163,6 +143,16 @@ either side invalidates it rather than letting an approval outlive what it
 approved. The previous attestation is a worked example of why that matters: it
 carried one boilerplate sentence across six states, still describing "a Networks
 entry that postdates the handoff" from the two-group sidebar era.
+
+### The nav column will not converge again
+
+Eight destinations the v2 comp lists — Kubernetes, Bosun, Sandboxes, Hardened, Governance,
+Cloud, Dev Environments and Extensions — are gone from the product, because none can be served
+against a standalone Linux Engine. The sidebar renders in every captured state, so that column
+now differs from the comp everywhere, by decision rather than by drift. The settings rail
+diverges for the same reason, having lost its Kubernetes and Enterprise tabs. Neither will be
+brought back into line, and a future pass measuring these states should read that difference as
+expected rather than as regression.
 
 ## Defects found and fixed during this review
 
