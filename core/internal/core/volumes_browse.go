@@ -4,9 +4,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -33,10 +36,14 @@ func mountMode(writable bool) string {
 
 // volumeHelperImage picks an image to instantiate the helper from.
 //
-// The helper is created and never started, so the image's contents are irrelevant — Docker
-// only needs a valid image to build a container filesystem around the mount. Any local image
-// therefore works, and using one avoids a network pull for what is meant to be a read. The
-// smallest is preferred purely so the choice is deterministic.
+// Any local image works, which avoids a network pull for what is meant to be a read, and the
+// smallest is preferred so the choice is deterministic.
+//
+// The image's contents used to be irrelevant, because the helper was never started. They matter
+// slightly now: the fast listing path needs `/bin/sh` to exec `ls` into. An image without one
+// still produces a usable helper — the start simply fails and the caller falls back to the
+// archive walk — so this stays a preference rather than a requirement, and no image is ever
+// pulled to satisfy it.
 func (s *Service) volumeHelperImage(ctx context.Context, client *engineClient) (string, error) {
 	status, body, err := client.request(ctx, http.MethodGet,
 		"/v"+client.apiVersion+"/images/json", nil)
@@ -192,6 +199,10 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 	}
 	payload, err := json.Marshal(map[string]any{
 		"Image": image,
+		// The image's own program never runs: the entrypoint is overridden and the container
+		// executes nothing but a sleep loop, which exists so `ls` can be exec-ed into it.
+		"Entrypoint": []string{"/bin/sh"},
+		"Cmd":        []string{"-c", volumeHelperIdleCommand},
 		"Labels": map[string]string{
 			// Labelled so an operator can identify a helper that outlived its request, and so
 			// a future sweep can find one without guessing from the name.
@@ -201,6 +212,13 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		"HostConfig": map[string]any{
 			"Binds":      []string{volume + ":" + volumeHelperMount + mountMode(writable)},
 			"AutoRemove": false,
+			// A helper that runs a process is a helper that could do more than read, so it is
+			// given nothing to do it with: no network, every capability dropped, and no route
+			// to regain privileges.
+			"NetworkMode":    "none",
+			"CapDrop":        []string{"ALL"},
+			"SecurityOpt":    []string{"no-new-privileges"},
+			"ReadonlyRootfs": !writable,
 		},
 	})
 	if err != nil {
@@ -232,6 +250,14 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		return opError("volume_browse_failed",
 			"Docker Engine returned no identity for the volume helper.", err, nil)
 	}
+	// Started so `ls` can be exec-ed into it. If this fails — an image with no /bin/sh, a
+	// daemon that refuses — the helper is still usable for the archive walk, so the error is
+	// recorded on the container rather than returned.
+	startStatus, startBody, startErr := client.request(ctx, http.MethodPost,
+		"/v"+client.apiVersion+"/containers/"+url.PathEscape(created.ID)+"/start", nil)
+	started := startErr == nil && startStatus >= 200 && startStatus < 300
+	_ = startBody
+
 	release := s.holdVolumeHelper(created.ID)
 	// Removal uses a context detached from the caller's so a cancelled or timed-out browse
 	// still cleans up; a leaked helper would hold a reference on the volume and silently
@@ -245,6 +271,7 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		}
 		s.removeVolumeHelper(context.WithoutCancel(ctx), client, created.ID)
 	}()
+	s.recordHelperStarted(created.ID, started)
 	return fn(created.ID)
 }
 
@@ -431,12 +458,13 @@ func (s *Service) volumeFiles(parent context.Context, params VolumeFilesParams) 
 
 	var entries []ContainerFileEntry
 	truncated := false
+	source := "archive"
 	if err := s.withVolumeHelper(ctx, client, params.Name, false, func(containerID string) error {
-		listed, cut, listErr := listArchiveChildren(ctx, client, containerID, internal)
+		listed, cut, used, listErr := s.listVolumeChildren(ctx, client, containerID, internal)
 		if listErr != nil {
 			return listErr
 		}
-		entries, truncated = listed, cut
+		entries, truncated, source = listed, cut, used
 		return nil
 	}); err != nil {
 		return VolumeFilesResult{}, err
@@ -456,10 +484,17 @@ func (s *Service) volumeFiles(parent context.Context, params VolumeFilesParams) 
 		limitations = append(limitations,
 			"Listing stopped at the entry cap; this directory contains more.")
 	}
+	// Which instrument answered is reported rather than hidden, because the two have different
+	// properties and the panel tells the operator what was done on their behalf: `exec` runs a
+	// shell in the helper, `archive` does not but cannot list a large directory.
+	if source == "archive" {
+		limitations = append(limitations,
+			"Listed by reading the volume's archive stream, because the helper could not be started. Large directories cannot be listed this way.")
+	}
 	return VolumeFilesResult{
 		Context: contextName, Volume: params.Name, Source: "engine-api",
 		Path: volumeVisiblePath(internal), Entries: entries, Truncated: truncated,
-		ObservedAt: nowUTC(), Limitations: limitations,
+		Listing: source, ObservedAt: nowUTC(), Limitations: limitations,
 	}, nil
 }
 
@@ -835,4 +870,290 @@ func (s *Service) volumeRestore(parent context.Context, params VolumeRestorePara
 		Context: contextName, Volume: params.Name, ArchivePath: archivePath,
 		ObservedAt: nowUTC(),
 	}, nil
+}
+
+/*
+Listing a directory by running `ls` in the helper, rather than tarring the volume.
+
+The archive endpoint returns a directory's whole subtree, depth-first, so listing the root of a
+625 GB volume meant streaming hundreds of gigabytes to find the second entry. Measured: 1,053 MB
+in two seconds, one entry found. That is not a slow listing, it is the wrong instrument.
+
+Running `ls` in the helper is the right one. Measured on the same volume: 0.043 seconds. Each
+name is then stat-ed with `HEAD /archive`, which answers with a header carrying exactly the
+fields a listing needs — size, mode, mtime, link target — and never tars anything.
+
+This is why the helper is now started. It was created and never started, which was a real
+property worth having, and it is given up deliberately rather than by accident:
+
+  - The entrypoint is overridden, so the image's own program never runs. The container executes
+    `/bin/sh -c 'while :; do sleep …; done'` and nothing else.
+  - It has no network, drops every capability, and cannot gain privileges. A read mounts the
+    volume read-only, exactly as before.
+  - If any of that fails — no shell in the image, a daemon that refuses the start — the caller
+    falls back to the archive walk, which still works for small directories. Nothing regresses.
+
+The panel says which one answered, because "created and never started" was on screen and is no
+longer true for the fast path.
+*/
+
+const volumeHelperIdleCommand = "while :; do sleep 3600; done"
+
+// execListNames runs `ls -A` in a started helper and returns the direct children by name.
+//
+// Names only. Parsing `ls -l` means parsing a date format that differs between GNU coreutils
+// and busybox, and a filename column that can contain spaces; one name per line has neither
+// problem, and `HEAD /archive` supplies the metadata exactly.
+func execListNames(ctx context.Context, client *engineClient, containerID, target string) ([]string, error) {
+	payload, err := json.Marshal(map[string]any{
+		"AttachStdout": true,
+		"AttachStderr": false,
+		/*
+			No TTY, deliberately, and this was got wrong first.
+
+			With `Tty: true` the output arrives raw and needs no demultiplexing, which is why it
+			was tempting. But `ls` then believes it is talking to a terminal: it prints in
+			columns and wraps every name in ANSI colour, so the first run came back with one
+			"entry" reading "\x1b[1;34mlive-capture\x1b[m  \x1b[1;34mregistry\x1b[m". Without a
+			TTY it prints one plain name per line, and the eight-byte frame header that comes
+			with that is trivial to strip.
+		*/
+		"Tty": false,
+		// `-1` as well as no TTY: belt and braces against an image whose ls is wrapped.
+		"Cmd": []string{"/bin/sh", "-c", "ls -1A -- " + quoteForShell(target)},
+	})
+	if err != nil {
+		return nil, opError("volume_browse_failed", "The listing command could not be built.", err, nil)
+	}
+	status, body, err := client.request(ctx, http.MethodPost,
+		"/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+"/exec",
+		bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, engineHTTPError("volume_exec_failed",
+			"Docker Engine refused the listing command.", status, body)
+	}
+	var created struct {
+		ID string `json:"Id"`
+	}
+	if err := json.Unmarshal(body, &created); err != nil || created.ID == "" {
+		return nil, opError("volume_exec_failed",
+			"Docker Engine returned no identity for the listing command.", err, nil)
+	}
+
+	startPayload, err := json.Marshal(map[string]any{"Detach": false, "Tty": false})
+	if err != nil {
+		return nil, opError("volume_browse_failed", "The listing start could not be built.", err, nil)
+	}
+	stream, startStatus, err := client.streamWithBody(ctx, http.MethodPost,
+		"/v"+client.apiVersion+"/exec/"+url.PathEscape(created.ID)+"/start",
+		bytes.NewReader(startPayload))
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+	if startStatus < 200 || startStatus >= 300 {
+		return nil, opError("volume_exec_failed",
+			"Docker Engine refused to run the listing command.", nil,
+			map[string]any{"status": startStatus})
+	}
+	// Bounded like every other read here: a directory with a million names must not be able to
+	// buffer a million names.
+	raw, err := io.ReadAll(io.LimitReader(stream, 4*1024*1024))
+	if err != nil {
+		return nil, opError("volume_exec_failed", "The listing output could not be read.", err, nil)
+	}
+
+	names := []string{}
+	for _, line := range strings.Split(demultiplex(raw), "\n") {
+		name := strings.TrimRight(line, "\r")
+		// `.` and `..` are not returned by `ls -A`, but a defensive skip costs nothing and a
+		// name containing a slash is not a direct child whatever produced it.
+		if name == "" || name == "." || name == ".." || strings.Contains(name, "/") {
+			continue
+		}
+		names = append(names, name)
+		if len(names) >= maxFileEntries {
+			break
+		}
+	}
+	return names, nil
+}
+
+// shellQuote wraps a path for `sh -c`. The path is derived from a validated request rather than
+// taken raw, but it still reaches a shell, so it is quoted rather than trusted.
+func quoteForShell(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
+}
+
+// statArchiveEntry reads one path's metadata from the header `HEAD /archive` answers with. It
+// stats the path and tars nothing, which is the whole reason this is not the GET.
+func statArchiveEntry(ctx context.Context, client *engineClient, containerID, target string) (ContainerFileEntry, bool) {
+	values := url.Values{}
+	values.Set("path", target)
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead,
+		"http://docker/v"+client.apiVersion+"/containers/"+url.PathEscape(containerID)+
+			"/archive?"+values.Encode(), nil)
+	if err != nil {
+		return ContainerFileEntry{}, false
+	}
+	response, err := client.httpClient.Do(request)
+	if err != nil {
+		return ContainerFileEntry{}, false
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1024))
+		_ = response.Body.Close()
+	}()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return ContainerFileEntry{}, false
+	}
+	encoded := response.Header.Get("X-Docker-Container-Path-Stat")
+	if encoded == "" {
+		return ContainerFileEntry{}, false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return ContainerFileEntry{}, false
+	}
+	var stat struct {
+		Name       string `json:"name"`
+		Size       int64  `json:"size"`
+		Mode       uint32 `json:"mode"`
+		MTime      string `json:"mtime"`
+		LinkTarget string `json:"linkTarget"`
+	}
+	if err := json.Unmarshal(decoded, &stat); err != nil {
+		return ContainerFileEntry{}, false
+	}
+	mode := fs.FileMode(stat.Mode)
+	entry := ContainerFileEntry{
+		Name:       stat.Name,
+		Path:       target,
+		IsDir:      mode.IsDir(),
+		SizeBytes:  stat.Size,
+		Mode:       mode.String(),
+		LinkTarget: stat.LinkTarget,
+	}
+	if parsed, err := time.Parse(time.RFC3339Nano, stat.MTime); err == nil {
+		entry.ModifiedAt = parsed.UTC().Format(time.RFC3339)
+	}
+	return entry, true
+}
+
+// recordHelperStarted remembers whether a helper is running, so a listing knows whether the
+// fast path is available without asking the daemon again on every hop.
+func (s *Service) recordHelperStarted(containerID string, started bool) {
+	s.helperMu.Lock()
+	defer s.helperMu.Unlock()
+	if s.startedHelpers == nil {
+		s.startedHelpers = map[string]bool{}
+	}
+	s.startedHelpers[containerID] = started
+}
+
+func (s *Service) helperIsStarted(containerID string) bool {
+	s.helperMu.Lock()
+	defer s.helperMu.Unlock()
+	return s.startedHelpers[containerID]
+}
+
+/*
+listVolumeChildren picks the instrument that suits the directory.
+
+`ls` in a started helper, stat-ed per entry, is correct at any size. The archive walk is the
+fallback for a helper that would not start, and remains subject to its own bounds — it is the
+one that cannot list a large directory at all.
+*/
+func (s *Service) listVolumeChildren(ctx context.Context, client *engineClient,
+	containerID, internal string) ([]ContainerFileEntry, bool, string, error) {
+	if s.helperIsStarted(containerID) {
+		names, err := execListNames(ctx, client, containerID, internal)
+		if err == nil {
+			entries := make([]ContainerFileEntry, 0, len(names))
+			for _, name := range names {
+				// A name that cannot be stat-ed is still listed. A broken symlink or a file
+				// removed between the listing and the stat is a real thing to see, and
+				// dropping it would make the directory look emptier than it is.
+				if entry, ok := statArchiveEntry(ctx, client, containerID, path.Join(internal, name)); ok {
+					entries = append(entries, entry)
+					continue
+				}
+				entries = append(entries, ContainerFileEntry{
+					Name: name, Path: path.Join(internal, name), Mode: "?",
+				})
+			}
+			return entries, len(names) >= maxFileEntries, "exec", nil
+		}
+	}
+	entries, truncated, err := listArchiveChildren(ctx, client, containerID, internal)
+	return entries, truncated, "archive", err
+}
+
+/*
+demultiplex strips Docker's stream framing from an attached exec's output.
+
+Without a TTY the daemon frames each chunk with eight bytes — one for the stream, three unused,
+then a big-endian length. Dropping to a TTY to avoid this is what produced columnar, ANSI-
+coloured output the first time, so the framing is parsed instead.
+
+A frame whose header is short or whose length runs past the buffer means the stream was cut, and
+what has been read so far is returned rather than discarded: a truncated listing is still a
+listing, and the caller bounds it either way.
+*/
+func demultiplex(raw []byte) string {
+	var out strings.Builder
+	for len(raw) >= 8 {
+		size := int(binary.BigEndian.Uint32(raw[4:8]))
+		raw = raw[8:]
+		if size > len(raw) {
+			size = len(raw)
+		}
+		out.Write(raw[:size])
+		raw = raw[size:]
+	}
+	return out.String()
+}
+
+/*
+ReleaseVolumeHelpers removes any helper this process is holding.
+
+A parked helper is kept alive by an idle timer, and a timer dies with the process. Before the
+helper was started that left a created-but-not-running container, which is untidy; now it would
+leave a *running* one holding a reference on the volume, which silently blocks `docker volume
+rm` until something sweeps it.
+
+The sweep before each create still catches these, so this is not the only line of defence — it
+is the one that means a clean shutdown does not need a later browse to tidy up after it.
+*/
+func (s *Service) ReleaseVolumeHelpers(ctx context.Context) {
+	s.helperMu.Lock()
+	parked := make([]*parkedVolumeHelper, 0, len(s.parkedHelpers))
+	for key, helper := range s.parkedHelpers {
+		helper.timer.Stop()
+		parked = append(parked, helper)
+		delete(s.parkedHelpers, key)
+	}
+	s.helperMu.Unlock()
+	if len(parked) == 0 {
+		return
+	}
+	// Resolved against the default context: a helper is removed by ID, and the ID is unique to
+	// the daemon that made it.
+	endpoint, err := s.resolveEngineEndpoint(ctx, "default")
+	if err != nil {
+		return
+	}
+	client, err := s.engineClient(ctx, endpoint)
+	if err != nil {
+		// Nothing to remove them with. The next browse sweeps by label, which is exactly the
+		// case that mechanism exists for.
+		return
+	}
+	for _, helper := range parked {
+		helper.release()
+		s.removeVolumeHelper(ctx, client, helper.containerID)
+	}
 }

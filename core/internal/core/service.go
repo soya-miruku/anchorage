@@ -44,6 +44,7 @@ type Service struct {
 	helperMu       sync.Mutex
 	liveHelpers    map[string]bool
 	parkedHelpers  map[string]*parkedVolumeHelper
+	startedHelpers map[string]bool
 	inventoryMu    sync.Mutex
 	inventoryCache map[string]CommandInventory
 	// One walk per key, shared by everyone waiting on it: the warm start and the renderer's

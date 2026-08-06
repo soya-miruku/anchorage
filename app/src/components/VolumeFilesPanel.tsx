@@ -28,7 +28,7 @@ const crumbsFor = (target: string) => {
  * A volume's contents.
  *
  * Docker exposes no way to read a volume directly, so the core mounts it into a helper
- * container that is created and never started, then walks tar headers from the archive
+ * container mounted read-only, listing it with `ls` and stat-ing each entry, then reads
  * endpoint — the same mechanism the container file browser uses. Nothing is executed, and the
  * helper is removed even if the request is cancelled.
  *
@@ -66,8 +66,10 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
         <div>
           <h2 id="volume-browser-title">{volume}</h2>
           <p className="resource-dim">
-            Read through a helper container that is created and never started.
-            Uploads mount it writable for that request alone.
+            Read through a helper container with the volume mounted read-only. It
+            runs nothing but a sleep loop — the image&rsquo;s own program is
+            overridden — with no network and every capability dropped. Uploads
+            mount it writable for that request alone.
           </p>
         </div>
         <button

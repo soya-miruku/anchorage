@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"anchorage/core/internal/core"
 	"anchorage/core/internal/rpc"
@@ -63,6 +64,14 @@ func main() {
 	go func() {
 		<-ctx.Done()
 		_ = os.Stdin.Close()
+	}()
+	// A parked volume helper is a running container held open by an idle timer, and a timer
+	// dies with the process. Removing them on the way out means a clean shutdown does not
+	// leave one holding a reference on a volume until the next browse sweeps it.
+	defer func() {
+		releaseCtx, releaseCancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		defer releaseCancel()
+		service.ReleaseVolumeHelpers(releaseCtx)
 	}()
 
 	server := rpc.NewServer(service, os.Stdin, os.Stdout)

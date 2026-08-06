@@ -1307,14 +1307,18 @@ type VolumeFilesParams struct {
 }
 
 type VolumeFilesResult struct {
-	Context     string               `json:"context"`
-	Volume      string               `json:"volume"`
-	Source      string               `json:"source"`
-	Path        string               `json:"path"`
-	Entries     []ContainerFileEntry `json:"entries"`
-	Truncated   bool                 `json:"truncated"`
-	ObservedAt  string               `json:"observedAt"`
-	Limitations []string             `json:"limitations"`
+	Context   string               `json:"context"`
+	Volume    string               `json:"volume"`
+	Source    string               `json:"source"`
+	Path      string               `json:"path"`
+	Entries   []ContainerFileEntry `json:"entries"`
+	Truncated bool                 `json:"truncated"`
+	// Listing is "exec" or "archive": which instrument produced this. They have different
+	// properties — exec runs a shell in the helper and works at any size; archive does not run
+	// anything but cannot list a large directory — so the surface says which one answered.
+	Listing     string   `json:"listing,omitempty"`
+	ObservedAt  string   `json:"observedAt"`
+	Limitations []string `json:"limitations"`
 }
 
 type VolumeFileReadParams struct {

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/binary"
 	"strings"
 	"testing"
 	"time"
@@ -150,5 +151,51 @@ func TestVolumeArchiveTooLargeNamesTheMechanism(t *testing.T) {
 	// of the problem obvious without reading any code.
 	if err.Details["entriesFound"] != 1 || err.Details["bytesScanned"] != int64(1_053_000_000) {
 		t.Fatalf("details = %v", err.Details)
+	}
+}
+
+func TestDemultiplexStripsDockerStreamFraming(t *testing.T) {
+	/*
+		Got wrong first, and visibly. `Tty: true` avoids this framing entirely, which is why it
+		was the first choice — but `ls` then believes it is on a terminal and answers in
+		columns wrapped in ANSI colour, so a whole directory came back as one "entry" reading
+		"\x1b[1;34mlive-capture\x1b[m  \x1b[1;34mregistry\x1b[m". Parsing eight bytes is the
+		cheaper problem.
+	*/
+	frame := func(payload string) []byte {
+		header := []byte{1, 0, 0, 0, 0, 0, 0, 0}
+		binary.BigEndian.PutUint32(header[4:8], uint32(len(payload)))
+		return append(header, payload...)
+	}
+	raw := append(frame("live-capture\n"), frame("registry\n")...)
+	if got := demultiplex(raw); got != "live-capture\nregistry\n" {
+		t.Fatalf("demultiplex = %q", got)
+	}
+
+	// A stream cut mid-frame returns what arrived rather than nothing: a truncated listing is
+	// still a listing, and the caller bounds it either way.
+	cut := frame("live-capture\n")
+	cut = append(cut, 1, 0, 0, 0, 0, 0, 0, 99)
+	if got := demultiplex(cut); got != "live-capture\n" {
+		t.Fatalf("a cut stream should keep what it had, got %q", got)
+	}
+	if got := demultiplex([]byte{1, 2, 3}); got != "" {
+		t.Fatalf("a fragment shorter than a header has no payload, got %q", got)
+	}
+}
+
+func TestQuoteForShellClosesTheInjection(t *testing.T) {
+	// The path is derived from a validated request rather than taken raw, but it still reaches
+	// `sh -c`, so it is quoted rather than trusted.
+	if got := quoteForShell("/anchorage-volume/ok"); got != "'/anchorage-volume/ok'" {
+		t.Fatalf("quoteForShell = %s", got)
+	}
+	got := quoteForShell("/vol/'; rm -rf /; echo '")
+	if strings.Contains(got, "'; rm") && !strings.Contains(got, `'\''`) {
+		t.Fatalf("a quote in the path escaped its own quoting: %s", got)
+	}
+	// Every embedded quote is closed, escaped and reopened, so the shell sees one word.
+	if !strings.HasPrefix(got, "'") || !strings.HasSuffix(got, "'") {
+		t.Fatalf("not a single quoted word: %s", got)
 	}
 }

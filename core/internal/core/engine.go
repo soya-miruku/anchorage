@@ -987,6 +987,31 @@ func parseCLILabels(raw string) map[string]string {
 // the headers it needs and abandons the rest, which buffering would make impossible.
 //
 // The caller owns the returned ReadCloser and must close it.
+/*
+streamWithBody is `stream` for a request that carries one.
+
+Exec needs it: starting an exec is a POST whose response is the command's output, so the body
+goes up and the stream comes back on the same call. The `Accept` header is JSON rather than tar
+because this is not the archive endpoint, and the content type it answers with is Docker's own
+stream format.
+*/
+func (c *engineClient) streamWithBody(ctx context.Context, method, path string, body io.Reader) (io.ReadCloser, int, error) {
+	request, err := http.NewRequestWithContext(ctx, method, "http://docker"+path, body)
+	if err != nil {
+		return nil, 0, opError("engine_request_invalid", "Docker Engine request could not be created.", err, nil)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		code, message := "engine_unreachable", "Docker Engine could not be reached."
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			code, message = "engine_timeout", "Docker Engine did not respond in time."
+		}
+		return nil, 0, opError(code, message, err, nil)
+	}
+	return response.Body, response.StatusCode, nil
+}
+
 func (c *engineClient) stream(ctx context.Context, method, path string) (io.ReadCloser, int, error) {
 	request, err := http.NewRequestWithContext(ctx, method, "http://docker"+path, nil)
 	if err != nil {

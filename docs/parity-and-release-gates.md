@@ -106,8 +106,17 @@ from a no-op, and then requires the restored reference to land on the same
 immutable image ID.
 
 `volume-file-browse` exercises the browse path end to end, including its most
-important property: the helper container is created and never started, and must
-not survive the read. A leaked helper holds a reference on the volume and
+important property: the helper container must not survive the read.
+
+The helper *is* now started, which it was not before. Listing through the
+archive endpoint returns a directory's whole subtree, so a 625 GB volume could
+not be listed at all — measured, it streamed 1,053 MB in two seconds and found
+one entry. Listing with `ls` in a started helper takes 0.04 seconds. What the
+start gives up is bounded deliberately: the entrypoint is overridden so the
+image's own program never runs, the container has no network, every capability
+is dropped, privileges cannot be regained, and the mount stays read-only. A
+helper that will not start falls back to the archive walk and the surface says
+so. A leaked helper holds a reference on the volume and
 silently blocks its removal, so the check counts helpers by label afterwards and
 requires zero. It also requires that the helper's internal mount point never
 appears in a reported path.
