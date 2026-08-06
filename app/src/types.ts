@@ -1128,11 +1128,20 @@ export interface SystemContexts {
  * reason this exists: `docker info` omits them, so a link with no target is invisible from
  * the CLI — the command simply prints root help as though it were misspelled.
  */
+/** How this machine installs software, detected locally by the core. */
+export interface HostPackageManager {
+  name: "pacman" | "apt-get" | "dnf" | "zypper" | "apk";
+  /** An AUR helper, where one is installed. pacman alone cannot install an AUR package. */
+  helper?: string;
+}
+
 export interface SystemPlugins {
   protocolVersion: "1";
   plugins: DockerCliPlugin[];
   /** Directories searched, in the CLI's own order. */
   searchPath: string[];
+  /** Absent when the host runs a manager the core does not recognise. */
+  packageManager?: HostPackageManager;
   warnings: string[];
   observedAt: string;
 }

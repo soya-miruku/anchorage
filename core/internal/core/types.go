@@ -1628,8 +1628,11 @@ type PluginsResult struct {
 	BinaryError     *OpError           `json:"binaryError,omitempty"`
 	Plugins         []Plugin           `json:"plugins"`
 	SearchPath      []string           `json:"searchPath"`
-	Warnings        []string           `json:"warnings"`
-	ObservedAt      string             `json:"observedAt"`
+	// PackageManager is how this machine installs software, detected locally: a CLI plugin is a
+	// client-side executable and lands here regardless of which daemon a context points at.
+	PackageManager *hostPackageManager `json:"packageManager,omitempty"`
+	Warnings       []string            `json:"warnings"`
+	ObservedAt     string              `json:"observedAt"`
 }
 
 // PluginActionParams repairs one faulty entry in a Docker CLI plugin directory.

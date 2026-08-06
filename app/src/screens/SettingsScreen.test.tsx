@@ -672,3 +672,44 @@ describe("SettingsScreen managed plugins", () => {
     expect(screen.getByTestId("engine-plugins")).toHaveTextContent("permission denied");
   });
 });
+
+describe("SettingsScreen install commands", () => {
+  const withManager = (manager: unknown) =>
+    createStore("engine", {
+      pluginReport: {
+        protocolVersion: "1",
+        plugins: [],
+        packageManager: manager,
+        searchPath: ["/home/tester/.docker/cli-plugins"],
+        warnings: [],
+        observedAt: "2026-08-06T00:00:00.000Z",
+      },
+    } as unknown as Partial<AnchorageStore>);
+
+  it("shows the command this host would actually run", () => {
+    // Reported from a CachyOS machine that was being told to run `sudo apt-get install`.
+    render(<SettingsScreen store={withManager({ name: "pacman", helper: "paru" })} />);
+    const row = screen.getByTestId("capability-install-model");
+    expect(row).toHaveTextContent("paru -S docker-model-plugin");
+    expect(row).toHaveTextContent("Third-party build recipe");
+  });
+
+  it("shows a Debian host the Debian command", () => {
+    render(<SettingsScreen store={withManager({ name: "apt-get" })} />);
+    expect(screen.getByTestId("capability-install-model")).toHaveTextContent(
+      "sudo apt-get install docker-model-plugin",
+    );
+  });
+
+  it("offers no command where the host is unknown", () => {
+    render(<SettingsScreen store={withManager(undefined)} />);
+    expect(screen.queryByTestId("capability-install-model")).toBeNull();
+  });
+
+  it("offers no command for a capability Docker does not package", () => {
+    // Bosun ships with Docker Desktop and has no standalone package; inventing one would send
+    // the operator to a command that cannot work.
+    render(<SettingsScreen store={withManager({ name: "apt-get" })} />);
+    expect(screen.queryByTestId("capability-install-ai")).toBeNull();
+  });
+});

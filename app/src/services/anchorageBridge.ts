@@ -13,6 +13,7 @@ import type {
   SystemContexts,
   SystemPlugins,
   DockerVersions,
+  HostPackageManager,
   DockerVersionSide,
   PluginFault,
   PluginRepair,
@@ -436,6 +437,23 @@ const PLUGIN_FAULTS: ReadonlySet<string> = new Set([
   "handshake",
 ]);
 
+const PACKAGE_MANAGERS: ReadonlySet<string> = new Set([
+  "pacman",
+  "apt-get",
+  "dnf",
+  "zypper",
+  "apk",
+]);
+
+/** Unrecognised means unknown, never a guess: the surface prints no command rather than a wrong one. */
+function normalizePackageManager(value: unknown): HostPackageManager | undefined {
+  const raw = asRecord(value);
+  const name = String(raw.name ?? "");
+  if (!PACKAGE_MANAGERS.has(name)) return undefined;
+  const helper = typeof raw.helper === "string" && raw.helper ? raw.helper : undefined;
+  return { name: name as HostPackageManager["name"], helper };
+}
+
 function normalizePlugins(value: unknown): SystemPlugins {
   const raw = asRecord(value);
   const protocolVersion = String(raw.protocolVersion ?? "");
@@ -476,6 +494,7 @@ function normalizePlugins(value: unknown): SystemPlugins {
               : undefined,
         };
       }),
+    packageManager: normalizePackageManager(raw.packageManager),
     searchPath: Array.isArray(raw.searchPath)
       ? raw.searchPath.filter((entry): entry is string => typeof entry === "string")
       : [],

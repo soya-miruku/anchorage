@@ -21,6 +21,8 @@ import type { DockerCliPlugin, SystemPlugins } from "../types";
 const report = (plugins: DockerCliPlugin[]): SystemPlugins => ({
   protocolVersion: "1",
   plugins,
+  // Detected by the core; without it no command is offered, which is its own test below.
+  packageManager: { name: "apt-get" },
   searchPath: ["/home/tester/.docker/cli-plugins", "/usr/lib/docker/cli-plugins"],
   warnings: [],
   observedAt: "2026-08-05T00:00:00.000Z",
@@ -127,6 +129,40 @@ describe("CapabilitySetup install guidance", () => {
 
     fireEvent.click(screen.getByTestId("capability-reveal-model"));
     expect(store.revealPath).toHaveBeenCalledWith("/home/tester/.docker/cli-plugins");
+  });
+
+  it("offers no command at all when the host's package manager is unknown", () => {
+    // A fallback would look authoritative and fail. The directory route is true everywhere and
+    // is what the screen leans on instead.
+    renderModels({
+      pluginReport: {
+        protocolVersion: "1",
+        plugins: [],
+        searchPath: ["/home/tester/.docker/cli-plugins"],
+        warnings: [],
+        observedAt: "2026-08-06T00:00:00.000Z",
+      } as SystemPlugins,
+    });
+    expect(screen.getByTestId("models-screen")).not.toHaveTextContent("apt-get");
+    expect(screen.getByTestId("models-screen")).toHaveTextContent("docker-<name>");
+  });
+
+  it("gives an Arch host its own command, not a Debian one", () => {
+    renderModels({
+      pluginReport: {
+        protocolVersion: "1",
+        plugins: [],
+        packageManager: { name: "pacman", helper: "paru" },
+        searchPath: ["/home/tester/.docker/cli-plugins"],
+        warnings: [],
+        observedAt: "2026-08-06T00:00:00.000Z",
+      } as SystemPlugins,
+    });
+    const node = screen.getByTestId("models-screen");
+    expect(node).toHaveTextContent("paru -S docker-model-plugin");
+    expect(node).not.toHaveTextContent("apt-get");
+    // The recipe is third-party even where the source it builds is Docker's own.
+    expect(node).toHaveTextContent("maintained outside Docker");
   });
 
   it("re-reads the installation on demand", () => {

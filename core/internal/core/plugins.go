@@ -249,6 +249,7 @@ func (s *Service) pluginInstallation(ctx context.Context, params PluginsParams) 
 		ProtocolVersion: ProtocolVersion,
 		Plugins:         []Plugin{},
 		SearchPath:      pluginSearchDirs(),
+		PackageManager:  detectHostPackageManager(),
 		ObservedAt:      nowUTC(),
 	}
 	if s.docker == nil {
@@ -486,4 +487,55 @@ func (s *Service) pluginAction(ctx context.Context, params PluginActionParams) (
 		Plugins:         after,
 		ObservedAt:      nowUTC(),
 	}, nil
+}
+
+/*
+How this machine installs software.
+
+A CLI plugin is a client-side executable, so it is installed on the machine running Anchorage —
+not on whatever daemon a context points at. The engine snapshot cannot answer this: against a
+remote context it describes the daemon's operating system, and the plugin still has to land here.
+
+The lookup below is of package manager names, not of plugins. That distinction matters: a list of
+plugin names would go stale every time Docker shipped one, while `pacman`, `apt-get`, `dnf`,
+`zypper` and `apk` have named themselves the same way for decades. An unrecognised host reports
+nothing rather than guessing, and the surface then says it does not know rather than printing a
+command that will fail.
+*/
+type hostPackageManager struct {
+	// Name is the manager itself: pacman, apt-get, dnf, zypper, apk.
+	Name string `json:"name"`
+	// Helper is an AUR helper where one is installed, because packages that live in the AUR
+	// cannot be installed by pacman alone and telling an operator otherwise wastes their time.
+	Helper string `json:"helper,omitempty"`
+}
+
+func detectHostPackageManager() *hostPackageManager {
+	binaryDirs := []string{"/usr/bin", "/bin", "/usr/local/bin", "/opt/homebrew/bin"}
+	found := func(name string) bool {
+		for _, dir := range binaryDirs {
+			info, err := os.Stat(filepath.Join(dir, name))
+			if err == nil && !info.IsDir() && info.Mode().Perm()&0o111 != 0 {
+				return true
+			}
+		}
+		return false
+	}
+	// Ordered so a derivative that ships two managers reports the one that owns its packages.
+	for _, name := range []string{"pacman", "apt-get", "dnf", "zypper", "apk"} {
+		if !found(name) {
+			continue
+		}
+		manager := &hostPackageManager{Name: name}
+		if name == "pacman" {
+			for _, helper := range []string{"paru", "yay"} {
+				if found(helper) {
+					manager.Helper = helper
+					break
+				}
+			}
+		}
+		return manager
+	}
+	return nil
 }

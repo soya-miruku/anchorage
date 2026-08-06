@@ -6,6 +6,8 @@ import {
   capabilityCatalogue,
   capabilityEntry,
   capabilityState,
+  installCommandFor,
+  type PluginCapability,
 } from "../data/capabilities";
 import { describeVersionSkew, type VersionSkew } from "../data/engineVersions";
 import type { CSSProperties, KeyboardEvent } from "react";
@@ -20,6 +22,7 @@ import {
 import type {
   BuildBuilder,
   EnginePlugin,
+  HostPackageManager,
   EngineResources,
   FeatureFlags,
   SettingsTab,
@@ -806,6 +809,51 @@ function EngineVersionSkew({ skew }: { skew: VersionSkew }) {
  * networking and a bind of `/` looks identical to one holding nothing. That is exactly the kind
  * of thing this application exists to show.
  */
+/**
+ * The install command for this machine, with one click to copy it.
+ *
+ * Not a button that installs. That would need root, and the core cannot execute anything but the
+ * fingerprinted Docker binary — a package manager is out of reach by construction, which is the
+ * same reason the pane says Anchorage does not install these. What it can do is stop making the
+ * operator work out what their own distribution calls the package.
+ */
+function CapabilityInstallCommand({
+  capability,
+  manager,
+}: {
+  capability: PluginCapability;
+  manager?: HostPackageManager;
+}) {
+  const [copied, setCopied] = useState(false);
+  const install = installCommandFor(capability, manager);
+  if (!install) return null;
+  return (
+    <div
+      className="capabilities-row__install"
+      data-testid={`capability-install-${capability.plugin}`}
+    >
+      <code className="resource-mono">{install.command}</code>
+      <button
+        type="button"
+        className="ghost-button"
+        onClick={() => {
+          void navigator.clipboard
+            .writeText(install.command)
+            .then(() => setCopied(true))
+            .catch(() => setCopied(false));
+        }}
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+      {install.thirdParty && (
+        <span className="resource-dim">
+          Third-party build recipe — worth reading before running.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function EnginePluginsSettings({ store }: { store: AnchorageStore }) {
   const refresh = store.refreshEnginePlugins;
   useEffect(() => {
@@ -966,6 +1014,16 @@ function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
                   </span>
                 )}
               </div>
+              {/* The command for this host, where one exists. Anchorage still does not run it —
+                  installing needs root and the core can execute nothing but the fingerprinted
+                  Docker binary — but the operator should not have to go and find out what their
+                  own distribution calls the package. */}
+              {state === "absent" && (
+                <CapabilityInstallCommand
+                  capability={capability}
+                  manager={store.pluginReport?.packageManager}
+                />
+              )}
               {hideable && (
                 <div className="capabilities-row__actions">
                   <button

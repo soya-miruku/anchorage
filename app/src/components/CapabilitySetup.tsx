@@ -5,6 +5,7 @@ import {
   PLUGIN_DIRECTORY_MECHANICS,
   capabilityEntry,
   capabilityState,
+  installCommandFor,
   type CapabilityState,
   type PluginCapability,
 } from "../data/capabilities";
@@ -164,13 +165,32 @@ export function CapabilityInstallGuidance({
   // The directory the CLI reads first, which is where a manually installed plugin belongs. Taken
   // from the report rather than assembled here: it honours DOCKER_CONFIG, which this cannot see.
   const pluginDirectory = store.pluginReport?.searchPath[0];
+  // One command, for the manager this host actually has — see installCommandFor for why a
+  // fallback would be worse than nothing.
+  const install = installCommandFor(capability, store.pluginReport?.packageManager);
   return (
     <div className="capability-install">
       <h4>Installing it</h4>
       <p>{capability.install.note}</p>
-      {capability.install.commands?.map((command) => (
-        <CopyableCommand key={command} command={command} />
-      ))}
+      {install ? (
+        <>
+          <CopyableCommand command={install.command} />
+          {install.thirdParty && (
+            <p className="capability-install__thirdparty">
+              This recipe is maintained outside Docker. It builds Docker&rsquo;s own source
+              against a pinned checksum, but the build script itself is third-party — worth
+              reading before running, since a CLI plugin executes with your Docker access.
+            </p>
+          )}
+        </>
+      ) : (
+        capability.install.commands && (
+          <p className="capability-install__unknown">
+            No published package is known for this machine&rsquo;s package manager, so the
+            directory route below is the reliable one.
+          </p>
+        )
+      )}
       <p className="capability-install__mechanics">{PLUGIN_DIRECTORY_MECHANICS}</p>
       {pluginDirectory && (
         <p className="capability-install__directory">

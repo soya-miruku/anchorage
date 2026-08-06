@@ -44,9 +44,43 @@ test("refuses a null byte, which truncates the path for whatever reads it next",
 test("refuses anything that is not a file or directory", () => {
   // A socket or device is not something a file manager can show, and handing one to the desktop
   // is a good way to discover what it does instead.
-  const fake = () => ({ isFile: () => false, isDirectory: () => false });
+  const fake = () => ({
+    isFile: () => false,
+    isDirectory: () => false,
+    isSymbolicLink: () => false,
+  });
   assert.throws(
     () => validateRevealPath("/dev/null", { stat: fake }),
     /file or directory/u,
   );
+});
+
+test("reveals a symlink whose target is gone, which is the case it is most needed for", () => {
+  // The bug this fixes, reported from the running app: revealing a broken plugin entry answered
+  // "That path does not exist on this machine" while the entry sat plainly in the directory the
+  // operator was trying to open. `statSync` follows the link and the target had been deleted by
+  // a package manager; the link itself is real, and is exactly what needs showing.
+  const danglingLink = () => ({
+    isFile: () => false,
+    isDirectory: () => false,
+    isSymbolicLink: () => true,
+  });
+  assert.equal(
+    validateRevealPath("/home/operator/.docker/cli-plugins/docker-mcp", {
+      stat: danglingLink,
+    }),
+    "/home/operator/.docker/cli-plugins/docker-mcp",
+  );
+});
+
+test("decides on the path it was given rather than on what it points at", () => {
+  // lstat rather than stat, so a symlink cannot lead the type check somewhere else. Revealing
+  // selects an item in a file manager; it never opens the target.
+  let statted = null;
+  const record = (path) => {
+    statted = path;
+    return { isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false };
+  };
+  validateRevealPath("/srv/data/report.txt", { stat: record });
+  assert.equal(statted, "/srv/data/report.txt");
 });

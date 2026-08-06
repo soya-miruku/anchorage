@@ -1,4 +1,9 @@
-import type { DockerCliPlugin, SystemPlugins, ViewId } from "../types";
+import type {
+  DockerCliPlugin,
+  HostPackageManager,
+  SystemPlugins,
+  ViewId,
+} from "../types";
 
 /*
 Which destinations are gated on a Docker CLI plugin, and what to do when one is missing.
@@ -30,14 +35,37 @@ notices the moment it lands.
 /** How a capability arrives on this machine, as far as Docker documents it. */
 export type CapabilityInstallKind = "package" | "desktop" | "plugin-binary";
 
+/**
+ * How a package reaches this machine, keyed by the manager the host actually has.
+ *
+ * This replaced a flat pair of apt and dnf lines, which were shown to every operator regardless
+ * of their distribution — so an Arch host was told to run `sudo apt-get install`, a command that
+ * cannot work there. The host's manager is detected by the core and the matching entry is the
+ * only one rendered.
+ *
+ * `aur` is separate from `pacman` because the two are not interchangeable: a package in the AUR
+ * cannot be installed by pacman alone, and the PKGBUILD is third-party even when the source it
+ * builds is Docker's own. That distinction belongs in front of the operator, not buried.
+ */
+export interface CapabilityInstallCommands {
+  "apt-get"?: string;
+  dnf?: string;
+  zypper?: string;
+  apk?: string;
+  pacman?: string;
+  aur?: string;
+}
+
 export interface CapabilityInstall {
   kind: CapabilityInstallKind;
   /** The distribution package, where Docker publishes one. */
   package?: string;
-  /** Commands for the operator to run. Anchorage never runs them. */
-  commands?: string[];
+  /** Commands for the operator to run, by package manager. Anchorage never runs them. */
+  commands?: CapabilityInstallCommands;
   /** What the commands do not say on their own. */
   note: string;
+  /** Set when the only route is a third-party build recipe rather than a published package. */
+  thirdParty?: boolean;
 }
 
 export interface PluginCapability {
@@ -91,11 +119,13 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
     install: {
       kind: "package",
       package: "docker-model-plugin",
-      commands: [
-        "sudo apt-get install docker-model-plugin",
-        "sudo dnf install docker-model-plugin",
-      ],
-      note: "Packaged separately from the Engine and available from the same Docker repository. Use whichever of these matches this distribution.",
+      commands: {
+        "apt-get": "sudo apt-get install docker-model-plugin",
+        dnf: "sudo dnf install docker-model-plugin",
+        aur: "paru -S docker-model-plugin",
+      },
+      thirdParty: true,
+      note: "Packaged separately from the Engine, from the same Docker repository as the Engine itself. On Arch it is not in the official repositories; the AUR recipe builds Docker's own source (github.com/docker/model-runner) with a pinned checksum and installs to a directory the CLI already searches.",
     },
   },
   {
@@ -145,10 +175,11 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
     install: {
       kind: "package",
       package: "docker-compose-plugin",
-      commands: [
-        "sudo apt-get install docker-compose-plugin",
-        "sudo dnf install docker-compose-plugin",
-      ],
+      commands: {
+        "apt-get": "sudo apt-get install docker-compose-plugin",
+        dnf: "sudo dnf install docker-compose-plugin",
+        pacman: "sudo pacman -S docker-compose",
+      },
       note: "Part of Docker's standard Engine installation, from the same repository as the Engine itself.",
     },
   },
@@ -161,10 +192,11 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
     install: {
       kind: "package",
       package: "docker-buildx-plugin",
-      commands: [
-        "sudo apt-get install docker-buildx-plugin",
-        "sudo dnf install docker-buildx-plugin",
-      ],
+      commands: {
+        "apt-get": "sudo apt-get install docker-buildx-plugin",
+        dnf: "sudo dnf install docker-buildx-plugin",
+        pacman: "sudo pacman -S docker-buildx",
+      },
       note: "Part of Docker's standard Engine installation, from the same repository as the Engine itself.",
     },
   },
@@ -364,4 +396,38 @@ export function persistCapabilityPreference(
   } catch {
     return false;
   }
+}
+
+/**
+ * The one install command that applies to this machine.
+ *
+ * Returns null rather than a fallback. Printing an apt line on an Arch host is worse than
+ * printing nothing: it looks authoritative, fails, and sends the operator looking for the fault
+ * in their own setup. Where the host is unknown or the capability has no packaged route, the
+ * surface says so and falls back to the plugin-directory mechanics, which are true everywhere.
+ */
+export function installCommandFor(
+  capability: PluginCapability,
+  manager: HostPackageManager | null | undefined,
+): { command: string; thirdParty: boolean } | null {
+  const commands = capability.install.commands;
+  if (!commands || !manager) return null;
+  // An AUR recipe needs a helper; pacman alone cannot install one, so it is only offered when a
+  // helper is actually present and is rendered with the helper the host has.
+  if (manager.name === "pacman") {
+    if (commands.pacman) {
+      return { command: commands.pacman, thirdParty: false };
+    }
+    if (commands.aur && manager.helper) {
+      return {
+        command: commands.aur.replace(/^(paru|yay)\b/u, manager.helper),
+        thirdParty: true,
+      };
+    }
+    return null;
+  }
+  const command = commands[manager.name];
+  return command
+    ? { command, thirdParty: capability.install.thirdParty === true }
+    : null;
 }

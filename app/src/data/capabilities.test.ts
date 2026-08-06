@@ -4,6 +4,8 @@ import {
   CAPABILITY_STORAGE_KEY,
   capabilityCatalogue,
   capabilityForPlugin,
+  capabilityForView,
+  installCommandFor,
   capabilityState,
   isViewVisible,
   persistCapabilityPreference,
@@ -127,11 +129,17 @@ describe("the catalogue itself", () => {
       expect(capability.install.note.length, capability.plugin).toBeGreaterThan(20);
       if (capability.install.kind === "package") {
         expect(capability.install.package, capability.plugin).toBeTruthy();
-        expect(capability.install.commands?.length, capability.plugin).toBeGreaterThan(0);
-        // The package name has to appear in the command, or the two disagree about what to
-        // install and the copy button hands over something that does not match the prose.
-        for (const command of capability.install.commands ?? []) {
-          expect(command).toContain(capability.install.package as string);
+        const commands = capability.install.commands ?? {};
+        expect(Object.values(commands).length, capability.plugin).toBeGreaterThan(0);
+        // The package name has to appear in the commands that use Docker's own naming, or the
+        // two disagree and the copy button hands over something the prose does not describe.
+        // Distribution commands are exempt on purpose: Arch calls the same plugin
+        // `docker-compose`, not `docker-compose-plugin`, and forcing one name across all of
+        // them would put a package that does not exist in front of an operator.
+        for (const key of ["apt-get", "dnf"] as const) {
+          if (commands[key]) {
+            expect(commands[key]).toContain(capability.install.package as string);
+          }
         }
       }
     }
@@ -212,5 +220,47 @@ describe("which hidden destinations the operator asked for", () => {
     expect(
       persistCapabilityPreference({ revealed: ["models"] }, { storage: hostile, search: "" }),
     ).toBe(false);
+  });
+});
+
+describe("installCommandFor", () => {
+  const models = capabilityForView("models");
+
+  it("gives an Arch host its own command rather than an apt line", () => {
+    // The bug this fixes, seen in the running app: a CachyOS machine was told to run
+    // `sudo apt-get install`, which reads as authoritative and cannot work.
+    const install = installCommandFor(models!, { name: "pacman", helper: "paru" });
+    expect(install?.command).toBe("paru -S docker-model-plugin");
+    // The AUR recipe is third-party even though the source it builds is Docker's own.
+    expect(install?.thirdParty).toBe(true);
+  });
+
+  it("uses the helper the host actually has", () => {
+    expect(
+      installCommandFor(models!, { name: "pacman", helper: "yay" })?.command,
+    ).toBe("yay -S docker-model-plugin");
+  });
+
+  it("offers nothing on Arch without a helper, because pacman cannot install an AUR package", () => {
+    expect(installCommandFor(models!, { name: "pacman" })).toBeNull();
+  });
+
+  it("prefers an official package over the AUR where one exists", () => {
+    const compose = capabilityForView("compose");
+    const install = installCommandFor(compose!, { name: "pacman", helper: "paru" });
+    expect(install?.command).toBe("sudo pacman -S docker-compose");
+    expect(install?.thirdParty).toBe(false);
+  });
+
+  it("says nothing at all for an unknown host", () => {
+    // Printing a fallback would look authoritative, fail, and send the operator looking for the
+    // fault in their own setup.
+    expect(installCommandFor(models!, null)).toBeNull();
+    expect(installCommandFor(models!, undefined)).toBeNull();
+  });
+
+  it("says nothing for a capability Docker does not package", () => {
+    const bosun = capabilityForView("bosun");
+    expect(installCommandFor(bosun!, { name: "apt-get" })).toBeNull();
   });
 });
