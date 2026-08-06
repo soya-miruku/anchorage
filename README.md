@@ -10,11 +10,11 @@
 ![Engine](https://img.shields.io/badge/Docker-Engine%20API-2496ED)
 ![Core](https://img.shields.io/badge/core-Go%20·%20zero%20dependencies-00ADD8)
 ![UI](https://img.shields.io/badge/UI-Electron%20·%20React-47848F)
-![Tests](https://img.shields.io/badge/tests-609%20renderer%20·%20Go%20race-success)
+![Tests](https://img.shields.io/badge/tests-610%20renderer%20·%20Go%20race-success)
 
 <img src="docs/media/containers-docker-light.png" width="820" alt="The Containers screen: a list of containers with live CPU and memory, status, ports, and per-row actions">
 
-<sub>Containers, in the Docker light theme. The shots further down are the shipped default, Nous dark.</sub>
+<sub>Containers in Docker Light. A fresh install opens on Docker Dark, which is what the shots further down show.</sub>
 
 </div>
 
@@ -243,20 +243,23 @@ cd core && go test -race ./...
 
 The gate covers more than unit tests:
 
-- **609 renderer tests** across 47 files
+- **610 renderer tests** across 47 files
 - **Protocol conformance** — the JSON schema, the TypeScript types and the Go
   structs must agree, or the build fails
 - **Theme integrity** — every colour is a token, and every text-on-surface pair
-  clears WCAG AA in all twelve theme-and-mode combinations
-- **Surface contrast** — a ratchet: surfaces may become more distinct, never less
+  clears WCAG AA in all ten theme-and-mode combinations
+- **Theme fidelity** — the design handoff is in the repository and is parsed on
+  every run: surfaces, lines and palette must equal it, and the two places the
+  app deviates are listed by name with the reason
 - **Design parity** — 21 canonical screens measured against the design comp, with
   every divergence budgeted and explained
 - **Core binary freshness** — the packaged core cannot be older than its sources
 
 ## Appearance
 
-Six theme families — Nous, Docker, GitHub, Monochrome, Magnetic and Y2K — each in
-light and dark. Colours come from one semantic token contract rather than being
+Five theme families — Nous, Docker, GitHub, Monochrome and Magnetic — each in
+light and dark, and each in rounded or square corners. A fresh install opens on
+Docker Dark. Colours come from one semantic token contract rather than being
 written into components, which is what makes the contrast checks above possible
 at all.
 

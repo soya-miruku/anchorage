@@ -4,14 +4,13 @@ export const THEME_FAMILIES = [
   "github",
   "mono",
   "magnetic",
-  "y2k",
 ] as const;
 export type ThemeFamily = (typeof THEME_FAMILIES)[number];
 
 /**
  * How corners are drawn, independent of the palette.
  *
- * v2.5 separates shape from colour: a family suggests a default — Magnetic and Y2K are drawn
+ * v2.5 separates shape from colour: a family suggests a default — Magnetic is the one drawn
  * square — and the operator may override it for any family.
  */
 export const CORNER_STYLES = ["rounded", "square"] as const;
@@ -71,11 +70,6 @@ export const THEME_OPTIONS = Object.freeze([
     label: "Magnetic",
     description: "Warm charcoal with an amber accent and crimson primary. Square by default.",
   },
-  {
-    id: "y2k",
-    label: "Y2K",
-    description: "Hard offset shadows, acid green, ink borders. Square by default.",
-  },
 ] satisfies ReadonlyArray<{
   id: ThemeFamily;
   label: string;
@@ -102,18 +96,26 @@ export const COLOR_MODE_OPTIONS = Object.freeze([
 /**
  * What a fresh install looks like.
  *
- * Y2K per the v2.5 handoff, which draws it square. This is only the default: a stored preference
- * always wins, so nobody who has already chosen a theme is moved off it. The comp goes further —
- * `pickTheme()` writes a `pack` marker and overwrites the stored theme once — and that part is
- * deliberately not reproduced, because overwriting a choice the operator made is not a default.
+ * Docker, dark, rounded. The app drives a Docker Engine, so opening on the family that carries
+ * Docker's own blue is the one palette a new operator does not have to be told about. Nous is
+ * the house theme and was the obvious alternative; it was rejected precisely because it is
+ * house identity rather than product identity, and the first screen is not where to spend that.
+ *
+ * The v2.5 handoff opens on a family this app no longer ships, so there is nothing to follow
+ * there any more. `:root` in styles/themes/docker.css is the CSS half of this and moves with it.
+ *
+ * This is only the default: a stored preference always wins, so nobody who has already chosen a
+ * theme is moved off it. The comp goes further — `pickTheme()` writes a `pack` marker and
+ * overwrites the stored theme once — and that part is deliberately not reproduced, because
+ * overwriting a choice the operator made is not a default.
  *
  * `corners` follows `themeCornerDefault(family)` and must stay consistent with it; a test in
  * theme/appearance.test.ts asserts that rather than trusting the two to be edited together.
  */
 export const DEFAULT_APPEARANCE: Readonly<AppearancePreference> = Object.freeze({
-  family: "y2k",
+  family: "docker",
   mode: "dark",
-  corners: "square",
+  corners: "rounded",
   cornersChosen: false,
 });
 
@@ -124,7 +126,7 @@ export const DEFAULT_APPEARANCE: Readonly<AppearancePreference> = Object.freeze(
  * inferring it from a radius value would make it an accident of whichever rule was measured.
  */
 export function themeCornerDefault(family: ThemeFamily): CornerStyle {
-  return family === "magnetic" || family === "y2k" ? "square" : "rounded";
+  return family === "magnetic" ? "square" : "rounded";
 }
 
 /**
@@ -216,6 +218,12 @@ export function isDesignCaptureRequest(search = ""): boolean {
  * `default` became `nous` when the house palette was brought onto the handoff's own colours.
  * It is the same slot under a different name, so a stored `default` is a preference the user
  * still holds — dropping it to the fallback would silently discard a choice they made.
+ *
+ * A family that was *removed* gets no entry, and that asymmetry is the point. There is no
+ * surviving slot to carry the preference into, so `isThemeFamily` rejects it and the record
+ * fails the strict check into DEFAULT_APPEARANCE. Aliasing it onto some neighbouring palette
+ * would be a guess presented as the user's own choice, and the alternative — letting the value
+ * through — stamps a `data-theme` no stylesheet matches, which is the app with no palette at all.
  */
 const RENAMED_FAMILIES: Record<string, ThemeFamily> = { default: "nous" };
 

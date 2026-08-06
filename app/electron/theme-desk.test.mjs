@@ -10,7 +10,7 @@ import { DEFAULT_FAMILY, DESK_COLORS, defaultDeskColor } from "./theme-desk.mjs"
  * The main process paints a background before the renderer exists, so it needs the default
  * family's desk colour without being able to read the stylesheets. These assert the mirror still
  * matches its source — the failure being guarded is the window flashing one colour and settling
- * on another, which is exactly what happened when the default moved from Nous to Y2K and the
+ * on another, which is exactly what happened when the default first moved off Nous and the
  * literal stayed blue.
  */
 const readTheme = (family) =>
@@ -46,7 +46,7 @@ test("a desk colour is recorded for every family the app can start in", () => {
   const declared = /export const THEME_FAMILIES = \[([^\]]*)\]/u.exec(appearance);
   assert.ok(declared, "THEME_FAMILIES not found");
   const families = Array.from(declared[1].matchAll(/"([a-z0-9]+)"/gu), (m) => m[1]);
-  assert.ok(families.length >= 6, `expected every family, parsed ${families.join(", ")}`);
+  assert.ok(families.length >= 5, `expected every family, parsed ${families.join(", ")}`);
   for (const family of families) {
     assert.ok(
       DESK_COLORS[family],

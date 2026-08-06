@@ -83,6 +83,7 @@
   --anc-update-text: #d4d4d4;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #262626;
   --anc-line-border: #333333;
   --anc-line-strong: #454545;
   --anc-line-control: #454545;
@@ -173,6 +174,7 @@
   --anc-update-text: #2a2a2a;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #e8e8e8;
   --anc-line-border: #dcdcdc;
   --anc-line-strong: #c4c4c4;
   --anc-line-control: #c4c4c4;

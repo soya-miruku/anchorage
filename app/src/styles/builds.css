@@ -241,13 +241,22 @@
   padding: 0 18px 12px;
 }
 
+/*
+ * The handoff's tag register: 10.5px, `--fg-2` on `--muted`, 3px 8px, 5px radius.
+ *
+ * It was a 999px pill on an 8% white wash. Neither is in the design language. The handoff never
+ * draws a fully round rectangle — the only 50% radius in it is a status dot — and the wash is
+ * the same mistake the hairline was, a neutral alpha standing in for a token that already
+ * exists: `--anc-surface-elevated` is the family's own step above the panel, so it stays a
+ * surface in all ten combinations instead of being 8% of whatever happens to be behind it.
+ */
 .builder-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  border-radius: 999px;
-  background: rgb(var(--anc-overlay-rgb) / 8%);
+  border-radius: 5px;
+  background: var(--anc-surface-elevated);
   color: var(--anc-text-secondary);
   font-size: 10.5px;
 }

@@ -15,7 +15,7 @@
   border: 1px solid var(--anc-line-control);
   border-radius: 11px;
   background: var(--anc-panel);
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+  box-shadow: var(--anc-elevation-high);
 }
 
 .dialog-panel__heading {
@@ -71,7 +71,7 @@
   width: 100%;
   height: 34px;
   padding: 0 11px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-border);
   border-radius: 8px;
   outline: 0;
   background: var(--anc-input);
@@ -94,11 +94,6 @@
   gap: 9px;
   margin-top: 20px;
 }
-
-/* The privilege disclosure absorbs most of the gap the header already reserved rather than
-   pushing the marketplace down a full row. It wraps to two lines at the canonical 1656px
-   width, so the card grid does sit ~17px below the handoff's y-position — the trade is
-   deliberate: the warning has to read as the last thing before the cards it is about, and
 
 /* Destructive confirmation dialogs (container delete, volume prune). */
 .primary-button--danger {
@@ -155,7 +150,7 @@ label.prune-option > span {
 .prune-preview {
   margin-top: 14px;
   padding: 11px 12px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-soft);
   border-radius: 8px;
   background: var(--anc-input);
   color: var(--anc-text-body);
@@ -204,7 +199,7 @@ label.prune-option > span {
   gap: 14px;
   margin-top: 18px;
   padding: 13px 15px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-soft);
   border-radius: 10px;
   background: var(--anc-input);
   color: var(--anc-text-body);
@@ -303,7 +298,7 @@ label.prune-option > span {
   gap: 9px;
   margin-bottom: 10px;
   padding: 9px 13px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-soft);
   border-radius: 9px;
   background: var(--anc-input);
   font-size: 12.5px;
@@ -437,7 +432,7 @@ label.prune-option > span {
 .create-container-dialog textarea {
   width: 100%;
   padding: 8px 11px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-border);
   border-radius: 8px;
   outline: 0;
   background: var(--anc-input);
@@ -861,7 +856,7 @@ select option {
 
 .file-preview {
   margin-top: 14px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-soft);
   border-radius: 9px;
   background: var(--anc-input);
 }
@@ -1330,8 +1325,8 @@ select option {
   align-items: center;
   gap: 5px;
   padding: 2px 8px;
-  border-radius: 999px;
-  background: rgb(var(--anc-overlay-rgb) / 7%);
+  border-radius: 5px;
+  background: var(--anc-surface-elevated);
   color: var(--anc-text-secondary);
   font-size: 10.5px;
   white-space: nowrap;
@@ -1479,8 +1474,8 @@ select option {
 
 .compose-dep-chip {
   padding: 2px 7px;
-  border-radius: 999px;
-  background: rgb(var(--anc-overlay-rgb) / 7%);
+  border-radius: 5px;
+  background: var(--anc-surface-elevated);
   color: var(--anc-text-secondary);
   font-size: 10.5px;
   white-space: nowrap;
@@ -1653,7 +1648,7 @@ select option {
   overflow-y: auto;
   border-left: 1px solid var(--anc-line-strong);
   background: var(--anc-panel);
-  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.34);
+  box-shadow: -18px 0 44px rgb(var(--anc-shadow-rgb) / var(--anc-elevation-alpha));
 }
 
 .volume-browser__header {
@@ -1724,7 +1719,7 @@ select option {
   align-items: center;
   gap: 5px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 5px;
   font-size: 10.5px;
   letter-spacing: 0.2px;
   white-space: nowrap;
@@ -1893,7 +1888,7 @@ select option {
   border: 1px solid var(--anc-line-control);
   border-radius: 10px;
   background: var(--anc-surface-elevated);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
+  box-shadow: var(--anc-elevation);
   color: var(--anc-text-secondary);
   font-size: 11.5px;
 }
@@ -1974,23 +1969,36 @@ select option {
   outline-offset: 1px;
 }
 
-/* The count sits on the bell rather than beside it so the control keeps one hit target. */
+/*
+ * The count sits on the bell rather than beside it so the control keeps one hit target.
+ *
+ * Shaped as the handoff's micro badge — 9.5px, 600, 0.4px tracking, 4px radius — and not as a
+ * pill. A 7px radius on a 14px box is a circle, which is the one shape in this design language
+ * that means "status dot"; a circle carrying a number read as a dot someone had typed into.
+ */
 .activity-inbox__badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 14px;
+  top: -4px;
+  right: -4px;
+  min-width: 15px;
   height: 14px;
-  padding: 0 3px;
-  border-radius: 7px;
+  padding: 0 4px;
+  border-radius: 4px;
   background: var(--anc-danger);
   color: var(--anc-on-danger);
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 600;
+  letter-spacing: 0.4px;
   line-height: 14px;
   text-align: center;
 }
 
+/*
+ * The inbox is a card that floats: the handoff's card geometry (11px radius, `--panel`, a
+ * `--bd` edge) plus elevation, rather than a heavier border standing in for depth. It used
+ * `--anc-line-strong` and a literal `rgba(0, 0, 0, 0.32)`, which in a light family drew a hard
+ * grey rectangle with a black shadow under it.
+ */
 .activity-inbox__panel {
   position: absolute;
   top: calc(100% + 8px);
@@ -2000,10 +2008,10 @@ select option {
   max-height: 420px;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--anc-line-strong);
-  border-radius: 10px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
   background: var(--anc-panel);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 32%);
+  box-shadow: var(--anc-elevation);
   overflow: hidden;
 }
 
@@ -2012,14 +2020,14 @@ select option {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 13px;
   border-bottom: 1px solid var(--anc-line-border);
   font-size: 12px;
 }
 
 .activity-inbox__empty {
   margin: 0;
-  padding: 16px 12px;
+  padding: 16px 13px;
   color: var(--anc-text-muted);
   font-size: 11.5px;
   line-height: 1.5;
@@ -2041,35 +2049,57 @@ select option {
   pointer-events: none;
 }
 
+/*
+ * A toast is one object, so it highlights as one.
+ *
+ * The close button used to be a flex sibling holding its own column. Hovering the toast lit the
+ * row and left a dark 30px gutter beside it — reported as "when we hover over the toast
+ * notification it only highlights one part". Lifting the close button out of flow lets the row
+ * be the whole card, so the hover covers what the pointer is actually over, and the button keeps
+ * a hover of its own for the thing it does instead.
+ */
 .activity-toast {
   position: relative;
   display: flex;
   align-items: flex-start;
-  border: 1px solid var(--anc-line-strong);
-  border-radius: 9px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 11px;
   background: var(--anc-panel);
-  box-shadow: 0 10px 26px rgb(0 0 0 / 34%);
+  box-shadow: var(--anc-elevation);
   pointer-events: auto;
+  overflow: hidden;
 }
 
 .activity-toast--failed {
-  border-color: rgb(var(--anc-danger-rgb) / 55%);
+  border-color: rgb(var(--anc-danger-rgb) / 45%);
 }
 
 .activity-toast__close {
-  flex: none;
-  align-self: stretch;
-  padding: 0 10px;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: grid;
+  place-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: 0;
+  border-radius: 6px;
   background: transparent;
   color: var(--anc-text-faint);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
 
 .activity-toast__close:hover {
+  background: rgb(var(--anc-overlay-rgb) / 8%);
   color: var(--anc-text-primary);
+}
+
+.activity-toast .activity-row--open:hover,
+.activity-toast .activity-row--open:focus-visible {
+  background: var(--anc-row-hover);
 }
 
 .activity-row {
@@ -2080,8 +2110,18 @@ select option {
   flex: 1;
 }
 
+/* Room for the close button, which now sits over the row rather than beside it. */
+.activity-toast .activity-row {
+  padding-right: 30px;
+}
+
+/*
+ * The softest seam there is, because this is a dense stack of short entries. `--anc-line-border`
+ * is the register for separating regions; used between every row of a six-item list it draws a
+ * grid, and the entries stop reading as one list.
+ */
 .activity-inbox__list .activity-row + .activity-row {
-  border-top: 1px solid var(--anc-line-border);
+  border-top: 1px solid var(--anc-line-hairline);
 }
 
 /* Colour reinforces the state; the title says it. Monochrome ships, so nothing may rest on hue. */

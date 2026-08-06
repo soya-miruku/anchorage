@@ -81,6 +81,7 @@
   --anc-update-text: #a8a29a;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #24211f;
   --anc-line-border: #302d2b;
   --anc-line-strong: #45403c;
   --anc-line-control: #45403c;
@@ -108,7 +109,7 @@
   --anc-terminal-cyan: #3ba7d9;
   --anc-terminal-white: #ece4d6;
 
-  /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
+  /* v2.5 makes the app frame's shadow a theme decision rather than one value for everyone. */
   --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.09);
 }
 
@@ -181,6 +182,7 @@
   --anc-update-text: #4a453e;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #e5dfd0;
   --anc-line-border: #d8d1c0;
   --anc-line-strong: #bdb5a2;
   --anc-line-control: #bdb5a2;
@@ -208,6 +210,6 @@
   --anc-terminal-cyan: #17708f;
   --anc-terminal-white: #171614;
 
-  /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
+  /* v2.5 makes the app frame's shadow a theme decision rather than one value for everyone. */
   --anc-frame-shadow: 0 30px 70px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.07);
 }

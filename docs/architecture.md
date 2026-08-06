@@ -90,23 +90,26 @@ chrome:
   semantic application background. Resizing therefore expands the application
   surface rather than exposing a separate native backing colour.
 
-Appearance is the product of two independent choices:
+Appearance is the product of three independent choices:
 
-- family: Default, Docker, or GitHub;
-- mode: Light or Dark.
+- family: Nous, Docker, GitHub, Monochrome, or Magnetic;
+- mode: Light or Dark;
+- corners: Rounded or Square.
 
-All six combinations implement the same semantic CSS-token contract. The
-renderer selects a palette with `data-theme` and `data-color-mode`, and sets
-the native `color-scheme` for browser-provided controls. The versioned
-`anchorage.appearance.v1` preference is strictly validated before use. Invalid
-or missing data falls back to Default/Dark. If local storage cannot be read or
-written, changes still apply to the in-memory renderer state for that session
-and Settings reports the session-only status.
+All ten family-and-mode combinations implement the same semantic CSS-token
+contract, and corners is a blanket override on top of any of them. The
+renderer selects a palette with `data-theme` and `data-color-mode`, a shape with
+`data-corners`, and sets the native `color-scheme` for browser-provided
+controls. The versioned `anchorage.appearance.v1` preference is strictly
+validated before use. Invalid or missing data — including a family that was
+once selectable and has since been retired — falls back to Docker/Dark. If
+local storage cannot be read or written, changes still apply to the in-memory
+renderer state for that session and Settings reports the session-only status.
 
 Any URL containing the `capture` query parameter deliberately takes a separate
 path: it uses the fixed 1656 x 1056 canvas with a 28px desk around the
-1600 x 1000 shell, forces Default/Dark without reading or writing the stored
-preference, and removes the Appearance navigation row. This keeps the 24
+1600 x 1000 shell, forces the shipped default without reading or writing the
+stored preference, and removes the Appearance navigation row. This keeps the
 source-defined handoff states stable while normal runtime remains resizable.
 
 ### Electron boundary

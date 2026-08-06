@@ -16,7 +16,6 @@
  * hue on a white surface that reads as primary without shouting.
  */
 
-:root,
 :root[data-theme="nous"][data-color-mode="dark"] {
   color-scheme: dark;
 
@@ -95,6 +94,7 @@
   --anc-update-text: #b5c7f3;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #1b45a4;
   --anc-line-border: #234a9c;
   --anc-line-strong: #3158ad;
   --anc-line-control: #3158ad;
@@ -186,6 +186,7 @@
   --anc-update-text: #1a48d0;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #e8eefb;
   --anc-line-border: #dbe4f7;
   --anc-line-strong: #c7d5f0;
   --anc-line-control: #c7d5f0;

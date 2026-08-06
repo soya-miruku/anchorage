@@ -6,8 +6,16 @@
  * are different colours. Light mode collapses them onto the brand blue, which is the
  * handoff's choice rather than an omission — on a white surface a second blue reads as
  * indecision.
+ *
+ * The bare `:root` on the dark block is the whole app's fallback, and it is here because Docker
+ * is the shipped default. It matters before `initializeAppearance()` has stamped `data-theme` on
+ * the document and whenever an attribute selector cannot match — a family nobody defines, an
+ * unstyled first paint — and without it those cases render on no palette at all. It is attached
+ * to the default family's own block rather than written out a second time so the two cannot
+ * disagree; whichever family becomes the default has to take it with them.
  */
 
+:root,
 :root[data-theme="docker"][data-color-mode="dark"] {
   color-scheme: dark;
 
@@ -75,6 +83,7 @@
   --anc-update-text: #8ba3bd;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #16304f;
   --anc-line-border: #1e3a5f;
   --anc-line-strong: #2a5285;
   --anc-line-control: #2a5285;
@@ -164,6 +173,7 @@
   --anc-update-text: #0b4ecb;
 
   --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-soft: #e0e9f5;
   --anc-line-border: #cddcf0;
   --anc-line-strong: #b3c9e6;
   --anc-line-control: #b3c9e6;

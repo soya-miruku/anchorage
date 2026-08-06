@@ -20,11 +20,14 @@
   same 28 px capture canvas. No image resizing or density normalization was
   applied.
 - Capture runtime: deterministic FixtureBridge data rendered from the exact
-  production build through Electron/Chromium. The capture-only route locks
-  the renderer's shipped default appearance — Y2K Dark, square — hides the added
-  Appearance row, and suppresses the maturity chip so the handoff states remain
-  structurally comparable. The reference harness reads that same default rather than
-  naming a family, so the rig always measures the configuration people actually see.
+  production build through Electron/Chromium. The capture-only route locks the
+  renderer's shipped default appearance, hides the added Appearance row, and
+  suppresses the maturity chip so the handoff states remain structurally
+  comparable. The reference harness reads that same default rather than naming a
+  family, so the rig always measures the configuration people actually see. The
+  captures committed here therefore carry the default that was shipping when they
+  were taken, recorded in each set's provenance file; the default has moved since,
+  so regenerating re-renders both sides in the current one.
 
 ## The baseline moved, and that is the headline
 

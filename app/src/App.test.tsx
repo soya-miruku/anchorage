@@ -482,8 +482,8 @@ describe("Anchorage containers workspace", () => {
     fireEvent.click(screen.getByTestId("nav-settings"));
     fireEvent.click(screen.getByRole("button", { name: "Appearance" }));
 
-    // Whichever family ships as the default, not a literal: v2.5 moved it from Nous to Y2K and
-    // a hard-coded name here would have to be chased every time that happens.
+    // Whichever family ships as the default, not a literal: the default has already moved twice
+    // and a hard-coded name here would have to be chased every time that happens.
     expect(
       screen.getByRole("radio", { name: new RegExp(defaultThemeLabel(), "u") }),
     ).toHaveAttribute("aria-checked", "true");
@@ -491,10 +491,12 @@ describe("Anchorage containers workspace", () => {
       screen.getByRole("radio", { name: /Dark/u }),
     ).toHaveAttribute("aria-checked", "true");
 
-    fireEvent.click(screen.getByRole("radio", { name: /Docker/u }));
+    // Switched to a family that is *not* the default. Picking the default would leave every
+    // assertion below true whether or not the click did anything at all.
+    fireEvent.click(screen.getByRole("radio", { name: /GitHub/u }));
     fireEvent.click(screen.getByRole("radio", { name: /^Light/u }));
 
-    expect(document.documentElement).toHaveAttribute("data-theme", "docker");
+    expect(document.documentElement).toHaveAttribute("data-theme", "github");
     expect(document.documentElement).toHaveAttribute(
       "data-color-mode",
       "light",
@@ -502,13 +504,13 @@ describe("Anchorage containers workspace", () => {
     expect(
       JSON.parse(window.localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "{}"),
     ).toEqual({
-      family: "docker",
+      family: "github",
       mode: "light",
       corners: "rounded",
       cornersChosen: false,
     });
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Using Docker · Light · Rounded corners · Saved on this device",
+      "Using GitHub · Light · Rounded corners · Saved on this device",
     );
   });
 

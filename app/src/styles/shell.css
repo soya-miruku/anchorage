@@ -44,8 +44,8 @@
   height: var(--anc-window-height);
   flex: none;
   border-radius: 13px;
-  /* v2.5 makes this a theme decision: Y2K draws a hard offset shadow rather than a blur, and
-     a family that cannot set it would be drawn with another family's depth. */
+  /* v2.5 makes this a theme decision rather than one value for everyone: a family that cannot
+     set its own frame depth would be drawn with another family's. */
   box-shadow:
     var(--anc-frame-shadow),
     0 0 0 1px rgb(var(--anc-overlay-rgb) / 9%);
@@ -116,7 +116,7 @@
   width: 440px;
   height: 29px;
   padding: 0 11px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-border);
   border-radius: 8px;
   background: var(--anc-input);
   color: var(--anc-text-dimmer);
@@ -652,7 +652,7 @@
   background: var(--anc-error-surface);
   color: var(--anc-error-text);
   font-size: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--anc-elevation-low);
 }
 
 @media (prefers-reduced-motion: reduce) {

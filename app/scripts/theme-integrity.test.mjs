@@ -17,7 +17,7 @@ import test from "node:test";
 
 // Every family the app can be set to. A family that ships without being measured here is a
 // family whose contrast nobody has checked.
-const THEMES = ["nous", "docker", "github", "mono", "magnetic", "y2k"];
+const THEMES = ["nous", "docker", "github", "mono", "magnetic"];
 const STATUSES = ["success", "danger", "warning", "violet", "accent"];
 
 /** The strongest fill any chip paints, which is the worst case for text over it. */
@@ -232,5 +232,48 @@ test("no stylesheet paints status text with a raw status token", () => {
     offenders,
     [],
     `status text must use the -fg token so light and dark both clear AA:\n${offenders.join("\n")}`,
+  );
+});
+
+test("no badge inks a status colour onto its own solid fill", () => {
+  /*
+   * The inverse of the check above, and the one that actually shipped. `--anc-success-fg` is the
+   * success colour adjusted to be readable *on a 16% tint of itself*; in the dark families it is
+   * aliased straight to `--anc-success`, because on a dark panel the base already reads. Put it
+   * on the solid fill instead and the two are the same colour.
+   *
+   * `.agent-models__default` did exactly that — `background: var(--anc-success)` with
+   * `color: var(--anc-success-fg)` — and measured 1.0:1 in five of six families. The label was
+   * present, correct and invisible. `.model-hit__official` was the same pair on accent.
+   *
+   * Neither is reachable by measurement here: the ratio depends on which two declarations sit in
+   * one rule, not on any token's value, so every theme test passed while the badge could not be
+   * read. Matching the pair in the stylesheet text is the only way to see it.
+   */
+  const sheets = readFileSync(new URL("../src/main.jsx", import.meta.url), "utf8")
+    .split("\n")
+    .flatMap((line) => /import "\.\/styles\/(.+\.css)"/u.exec(line)?.[1] ?? []);
+
+  const offenders = [];
+  for (const sheet of sheets) {
+    const css = readFileSync(new URL(`../src/styles/${sheet}`, import.meta.url), "utf8").replace(
+      /\/\*[\s\S]*?\*\//gu,
+      "",
+    );
+    for (const [, body] of css.matchAll(/\{([^{}]*)\}/gu)) {
+      const fill = /background(?:-color)?:\s*var\(--anc-(success|danger|warning|violet|accent)\)/u.exec(
+        body,
+      );
+      if (!fill) continue;
+      if (new RegExp(`color:\\s*var\\(--anc-${fill[1]}-fg\\)`, "u").test(body)) {
+        offenders.push(`--anc-${fill[1]} filled and inked with --anc-${fill[1]}-fg in ${sheet}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    "a -fg token belongs on a tint of its own colour, not on the colour itself",
   );
 });

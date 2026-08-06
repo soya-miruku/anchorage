@@ -3,8 +3,8 @@
  *
  * Electron needs a background before the first frame exists, and getting it wrong is visible:
  * the window flashes one colour and then becomes another. It used to be a literal Nous blue,
- * which was right while Nous was the default and became a blue flash in front of a near-black
- * UI the moment v2.5 made Y2K the default.
+ * which was right while Nous was the default and became a bright flash in front of a much
+ * darker UI the moment the default moved off it.
  *
  * So it is derived from whichever family is the default rather than written down twice. The main
  * process cannot read the stylesheets — it has no DOM and the CSS is bundled — so the values are
@@ -23,11 +23,10 @@ export const DESK_COLORS = Object.freeze({
   github: "#010409",
   mono: "#0a0a0a",
   magnetic: "#0b0a09",
-  y2k: "#06060a",
 });
 
 /** Must equal `DEFAULT_APPEARANCE.family` in src/theme/appearance.ts. */
-export const DEFAULT_FAMILY = "y2k";
+export const DEFAULT_FAMILY = "docker";
 
 export function defaultDeskColor() {
   const color = DESK_COLORS[DEFAULT_FAMILY];

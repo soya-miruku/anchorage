@@ -64,16 +64,34 @@ describe("appearance preferences", () => {
     '{"family":"unknown","mode":"dark"}',
     '{"family":"default","mode":"system"}',
     '{"family":"default","mode":"dark","extra":true}',
-  ])("fails malformed storage closed to Nous Dark: %s", (serialized) => {
+  ])("fails malformed storage closed to the shipped default: %s", (serialized) => {
     expect(resolveAppearancePreference(serialized)).toEqual(
       DEFAULT_APPEARANCE,
     );
   });
 
+  it("lands a retired family on the default rather than on no palette at all", () => {
+    // `y2k` shipped, was selectable, and was then removed. Anyone who chose it has it in
+    // localStorage, and letting the value through would stamp `data-theme="y2k"` on a document
+    // whose stylesheets no longer define it — every surface, line and ink token unresolved, an
+    // app drawn in nothing. Falling back is a visible reset; passing it through is a broken app.
+    //
+    // The record below is otherwise complete and well-formed — all four keys, a valid corner
+    // style, an explicit corner choice — so nothing but the family name can reject it.
+    const stored = JSON.stringify({
+      family: "y2k",
+      mode: "dark",
+      corners: "square",
+      cornersChosen: true,
+    });
+    expect(isThemeFamily("y2k")).toBe(false);
+    expect(resolveAppearancePreference(stored)).toEqual(DEFAULT_APPEARANCE);
+  });
+
   it("carries a stored `default` forward as `nous` rather than discarding it", () => {
     // The house family was renamed, not removed. Treating the old name as unknown would
-    // quietly reset a choice the user made, and quietly is the problem — falling back to
-    // Nous Dark from a stored Nous Light looks like the setting simply does not stick.
+    // quietly reset a choice the user made, and quietly is the problem — falling back to the
+    // shipped default from a stored Nous Light looks like the setting simply does not stick.
     expect(
       resolveAppearancePreference('{"family":"default","mode":"light"}'),
     ).toEqual({
@@ -202,8 +220,10 @@ describe("appearance preferences", () => {
   });
 
   it("initializes from valid storage but still applies capture Default Dark", () => {
+    // Not the default family: reading storage and ignoring it look identical when the stored
+    // value is what would have been used anyway.
     const { storage } = memoryStorage(
-      '{"family":"docker","mode":"light"}',
+      '{"family":"github","mode":"light"}',
     );
     expect(
       initializeAppearance({
@@ -211,7 +231,7 @@ describe("appearance preferences", () => {
         search: "",
         root: document.documentElement,
       }),
-    ).toEqual({ family: "docker", mode: "light", corners: "rounded", cornersChosen: false });
+    ).toEqual({ family: "github", mode: "light", corners: "rounded", cornersChosen: false });
 
     expect(
       initializeAppearance({
@@ -239,10 +259,10 @@ describe("appearance preferences", () => {
 });
 
 /**
- * v2.5 adds a third appearance axis and two families.
+ * v2.5 adds a third appearance axis.
  *
- * Corners is independent of the palette: a theme *suggests* a default (Magnetic and Y2K are drawn
- * square, the others rounded) and the operator can override it. Once they have chosen explicitly,
+ * Corners is independent of the palette: a theme *suggests* a default (Magnetic is drawn square,
+ * the others rounded) and the operator can override it. Once they have chosen explicitly,
  * switching theme must stop moving it — otherwise picking a new palette silently undoes a
  * decision they made.
  *
@@ -250,9 +270,8 @@ describe("appearance preferences", () => {
  * than fall back: dropping it would reset the appearance of everyone who had already chosen.
  */
 describe("corner style", () => {
-  it("suggests square for the families drawn that way, rounded for the rest", () => {
+  it("suggests square for the family drawn that way, rounded for the rest", () => {
     expect(themeCornerDefault("magnetic")).toBe("square");
-    expect(themeCornerDefault("y2k")).toBe("square");
     expect(themeCornerDefault("nous")).toBe("rounded");
     expect(themeCornerDefault("docker")).toBe("rounded");
     expect(themeCornerDefault("github")).toBe("rounded");
@@ -284,13 +303,13 @@ describe("corner style", () => {
   it("moves corners with the theme only while the operator has not chosen", () => {
     const following = withFamily(
       { family: "nous", mode: "dark", corners: "rounded", cornersChosen: false },
-      "y2k",
+      "magnetic",
     );
     expect(following.corners).toBe("square");
 
     const chosen = withFamily(
       { family: "nous", mode: "dark", corners: "rounded", cornersChosen: true },
-      "y2k",
+      "magnetic",
     );
     expect(chosen.corners).toBe("rounded");
   });
@@ -298,10 +317,10 @@ describe("corner style", () => {
   it("stamps the axis on the root so CSS can square everything", () => {
     const root = document.createElement("div");
     applyAppearancePreference(
-      { family: "y2k", mode: "dark", corners: "square", cornersChosen: true },
+      { family: "magnetic", mode: "dark", corners: "square", cornersChosen: true },
       root,
     );
-    expect(root.getAttribute("data-theme")).toBe("y2k");
+    expect(root.getAttribute("data-theme")).toBe("magnetic");
     expect(root.getAttribute("data-corners")).toBe("square");
   });
 
@@ -311,10 +330,9 @@ describe("corner style", () => {
   });
 });
 
-describe("the families v2.5 adds", () => {
-  it("accepts magnetic and y2k as stored preferences", () => {
+describe("the family v2.5 adds", () => {
+  it("accepts magnetic as a stored preference", () => {
     expect(isThemeFamily("magnetic")).toBe(true);
-    expect(isThemeFamily("y2k")).toBe(true);
   });
 
   it("offers every family it accepts, so nothing is selectable-but-unlisted", () => {
@@ -327,12 +345,12 @@ describe("the families v2.5 adds", () => {
 /**
  * The default is a fresh-install value, not a migration.
  *
- * v2.5 ships Y2K as the default. The comp also force-overwrites any stored theme once, via a
- * `pack` marker; that is not reproduced here, so a preference someone already chose survives.
+ * The app opens on Docker. The comp force-overwrites any stored theme once, via a `pack` marker;
+ * that is not reproduced here, so a preference someone already chose survives.
  */
 describe("the shipped default", () => {
-  it("is the family and shape v2.5 draws first", () => {
-    expect(DEFAULT_APPEARANCE.family).toBe("y2k");
+  it("is the family the app opens on", () => {
+    expect(DEFAULT_APPEARANCE.family).toBe("docker");
     expect(DEFAULT_APPEARANCE.mode).toBe("dark");
   });
 
@@ -345,14 +363,17 @@ describe("the shipped default", () => {
   });
 
   it("never overrides a preference the operator already stored", () => {
+    // Every axis differs from DEFAULT_APPEARANCE on purpose. A stored value that happens to
+    // match the default proves nothing about whether it was honoured or simply replaced.
     const stored = JSON.stringify({
-      family: "docker",
+      family: "github",
       mode: "light",
-      corners: "rounded",
+      corners: "square",
       cornersChosen: true,
     });
     const resolved = resolveAppearancePreference(stored);
-    expect(resolved.family).toBe("docker");
-    expect(resolved.corners).toBe("rounded");
+    expect(resolved.family).toBe("github");
+    expect(resolved.mode).toBe("light");
+    expect(resolved.corners).toBe("square");
   });
 });

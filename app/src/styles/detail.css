@@ -637,7 +637,7 @@
   width: 240px;
   height: 29px;
   padding: 0 11px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-border);
   border-radius: 8px;
   outline: 0;
   background: var(--anc-input);
@@ -986,7 +986,7 @@
 
 .rebind-dialog__row input {
   padding: 5px 8px;
-  border: 1px solid var(--anc-line-strong);
+  border: 1px solid var(--anc-line-border);
   border-radius: 5px;
   background: var(--anc-input);
   color: var(--anc-text-primary);

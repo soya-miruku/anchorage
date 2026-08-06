@@ -6,9 +6,11 @@ decision — the design absorbs the addition, or the build drops it — because 
 closes is how a threshold stops meaning anything.
 
 Measured against `docs/design_handoff_anchorage/Anchorage v2.dc.html` (v2.5), both sides rendered
-in Y2K Dark with square corners, which is what a fresh install ships. Threshold **0.02**, ceiling
-**0.05**. Numbers are normalized mean absolute pixel error. Regenerate with
-`node tools/measure-design-parity.mjs`; the live figures are in `artifacts/design/design-ledger.json`.
+in the same appearance — whatever a fresh install ships, which the rig reads from the renderer's
+own source rather than naming; the appearance each recorded run used is in its provenance file.
+Threshold **0.02**, ceiling **0.05**. Numbers are normalized mean absolute pixel error.
+Regenerate with `node tools/measure-design-parity.mjs`; the live figures are in
+`artifacts/design/design-ledger.json`.
 
 ## The eight are really three questions
 
@@ -72,7 +74,7 @@ Two causes:
   card height 184px on both sides, 14px gutters, the grid's right edge in the same place.
 - **Tile marks reduced to a single theme token.** The comp assigns each extension its own colour,
   which no theme can retint — so on Monochrome a coloured tile sat on a greyscale surface. The
-  single token is what lets all six families and both modes stay coherent.
+  single token is what lets all five families and both modes stay coherent.
 
 This is the one to watch. 0.0024 of headroom means almost any further change to that screen trips
 the gate. Not a problem today; it is the first one that will bite.
@@ -90,7 +92,8 @@ Two divergences are recorded but do not hold a budget, because they measure unde
 
 ## A caveat on the numbers
 
-These budgets were derived when the measurement rig ran in Nous. It now runs in Y2K, following the
-shipped default, and the budgets were not re-derived — every state still measures under, so they
-hold, but the headroom figures are less considered than they look. Tightening them to the current
-basis is a short pass and worth doing before treating any headroom figure as a margin.
+These budgets were derived when the measurement rig ran in Nous. The rig follows the shipped
+default, that default has moved twice since, and the budgets were not re-derived either time —
+every state still measured under on the last run, so they hold, but the headroom figures are less
+considered than they look and the current basis has not been measured at all. Re-deriving them is
+a short pass and worth doing before treating any headroom figure as a margin.

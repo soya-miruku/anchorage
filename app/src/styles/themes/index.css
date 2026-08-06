@@ -3,7 +3,6 @@
 @import "./github.css";
 @import "./mono.css";
 @import "./magnetic.css";
-@import "./y2k.css";
 
 /*
  * Theme contract
@@ -11,12 +10,15 @@
  * Families own colour only. Typography, spacing, geometry, and component
  * anatomy remain in tokens.css and the component stylesheets.
  *
- * The default/dark fallback deliberately reproduces the canonical Anchorage
- * handoff. Runtime code selects a family and mode with data-theme and
- * data-color-mode on the document element, and a corner style with data-corners — v2.5
- * separates shape from palette, so a family suggests a default that the operator can override.
+ * The bare-:root fallback lives in docker.css, because Docker is what a fresh
+ * install ships. It is written into that family's own dark block rather than
+ * copied here so the two cannot say different things.
  *
- * Every surface, line and palette value in the six families below is the handoff's, verbatim.
+ * Runtime code selects a family and mode with data-theme and data-color-mode on
+ * the document element, and a corner style with data-corners — v2.5 separates
+ * shape from palette, so a family suggests a default the operator can override.
+ *
+ * Every surface, line and palette value in the five families below is the handoff's, verbatim.
  * Two groups are not, and both are deliberate:
  *
  * LINES. The handoff draws four registers — `--hairline`, `--bd-soft`, `--bd`, `--bd-strong` —
@@ -48,7 +50,7 @@
 /*
  * Corner style, independent of the palette.
  *
- * v2.5 separates shape from colour: a family suggests a default — Magnetic and Y2K are drawn
+ * v2.5 separates shape from colour: a family suggests a default — Magnetic is the one drawn
  * square — and the operator overrides it for any family. Applied as a blanket override rather
  * than by retokenising every radius, which is what the handoff does and what keeps the two axes
  * genuinely independent: a family does not have to know the shape it will be drawn with.

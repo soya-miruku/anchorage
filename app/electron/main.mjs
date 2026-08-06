@@ -110,8 +110,8 @@ const APP_DIRECTORY = resolve(ELECTRON_DIRECTORY, "..");
 const CLIENT_DIRECTORY = resolve(APP_DIRECTORY, "dist", "client");
 const CLIENT_ENTRY = resolve(CLIENT_DIRECTORY, "index.html");
 // Derived from whichever family is the default, not written down again. A literal here was a
-// Nous blue, which became a blue flash in front of a near-black UI the moment the default moved
-// to Y2K. See electron/theme-desk.mjs.
+// Nous blue, which became a bright flash in front of a much darker UI the moment the default
+// moved off Nous. See electron/theme-desk.mjs.
 const BACKGROUND_COLOR = defaultDeskColor();
 const WINDOW_REVEAL_FALLBACK_MS = 1_500;
 const DESKTOP_SMOKE_GEOMETRY_TIMEOUT_MS = 5_000;

@@ -74,7 +74,6 @@ const themeSwatches: Record<ThemeFamily, readonly [string, string, string]> = {
   mono: ["#141414", "#fafafa", "#bebebe"],
   // chrome, panel, accent — taken from the v2.5 comp's own theme table.
   magnetic: ["#0d0c0c", "#fffdf8", "#ecb52f"],
-  y2k: ["#08080a", "#f6f1e6", "#c8ff32"],
 };
 
 const themeFamilies = THEME_OPTIONS.map((theme) => ({
@@ -389,7 +388,7 @@ function AppearanceSettings({ store }: { store: AnchorageStore }) {
 
       <fieldset className="appearance-fieldset appearance-fieldset--mode">
         <legend>Corners</legend>
-        {/* Independent of the palette: a family suggests a default — Magnetic and Y2K are drawn
+        {/* Independent of the palette: a family suggests a default — Magnetic is the one drawn
             square — and this overrides it. Once chosen, switching family stops moving it, so a
             new palette never silently undoes a shape decision. */}
         <p className="appearance-hint">

@@ -9,9 +9,10 @@ import test from "node:test";
  * This file used to be a contrast ratchet: it recorded what every surface and edge measured and
  * failed if any of them got flatter. The intent was right and the standard was wrong. It read
  * WCAG 1.4.11 as asking 3:1 of any visible boundary, so it drove `--anc-line-border` and
- * `--anc-line-strong` from the handoff's 1.28-1.50 against the panel up to 2.2-3.0 in all twelve
- * combinations. 1.4.11 does not ask that. It covers the boundary of a control where that boundary
- * is what identifies the control — not a separator between two regions, and not a card edge.
+ * `--anc-line-strong` from the handoff's 1.28-1.50 against the panel up to 2.2-3.0 in every
+ * family and mode at once. 1.4.11 does not ask that. It covers the boundary of a control where
+ * that boundary is what identifies the control — not a separator between two regions, and not a
+ * card edge.
  *
  * What the ratchet actually produced was a hard grey rule everywhere the design wanted a tinted
  * hairline, in every family and both modes at once, reported as "our separation lines, border
@@ -164,10 +165,8 @@ function contrast(left, right) {
 /**
  * Handoff token -> app token, for everything copied across unchanged.
  *
- * `--bd-soft` is absent on purpose: the app has no consumer for a fourth solid edge, and the
- * register it would occupy is filled by `--anc-line-hairline`, which is the handoff's own
- * `--hairline` instead. `--fg-4` through `--fg-7` are absent because they are the lifted tail;
- * the ink ramp test below covers them.
+ * `--fg-4` through `--fg-7` are absent because they are the lifted tail; the ink ramp test below
+ * covers them. Everything else the handoff defines is here.
  */
 const HANDOFF_EQUIVALENTS = {
   shadow: "frame-shadow",
@@ -178,6 +177,7 @@ const HANDOFF_EQUIVALENTS = {
   well: "input",
   muted: "surface-elevated",
   header: "table-head",
+  "bd-soft": "line-soft",
   bd: "line-border",
   "bd-strong": "line-strong",
   fg: "text-primary",
@@ -303,18 +303,37 @@ test("every mode keeps its edges in the order their names imply", () => {
    * dashed wells with — so this holds by equality rather than by margin, which is why it is
    * `>=`. They stay two names because they carry different intent; if one ever needs to move,
    * this is what stops it moving the wrong way.
+   *
+   * `soft` is what the handoff draws a card with, `border` a table separator or an input,
+   * `strong` and `control` a button, toggle or dashed well. Getting that order wrong is not a
+   * contrast bug, it is a hierarchy one: a card outlined more heavily than the button inside it
+   * reads as the more important object.
+   *
+   * `hairline` and `soft` are asserted against `border` rather than against each other, because
+   * they are not a ladder — they are two ways of being the faintest edge, and which one wins is
+   * a per-family accident. In docker dark the hairline measures 1.23 and `--bd-soft` 1.21;
+   * in nous light it is the other way round. Ordering them would be asserting a coincidence.
    */
   for (const [combination, tokens] of readThemeTokens()) {
     const panel = resolve(tokens.get("--anc-panel"), tokens);
-    const edge = (token) => contrast(resolve(tokens.get(token), tokens, panel), panel);
-    const hairline = edge("--anc-line-hairline");
-    const border = edge("--anc-line-border");
-    const control = edge("--anc-line-control");
-    const strong = edge("--anc-line-strong");
-    assert.ok(
-      strong >= control && control >= border && border >= hairline,
-      `${combination}: edges are out of order — hairline ${hairline.toFixed(2)}, border ${border.toFixed(2)}, control ${control.toFixed(2)}, strong ${strong.toFixed(2)}`,
+    const edge = (name) => contrast(resolve(tokens.get(`--anc-line-${name}`), tokens, panel), panel);
+    const measured = Object.fromEntries(
+      ["hairline", "soft", "border", "control", "strong"].map((name) => [name, edge(name)]),
     );
+    const report = Object.entries(measured)
+      .map(([name, value]) => `${name} ${value.toFixed(2)}`)
+      .join(", ");
+    for (const [weaker, stronger] of [
+      ["hairline", "border"],
+      ["soft", "border"],
+      ["border", "control"],
+      ["control", "strong"],
+    ]) {
+      assert.ok(
+        measured[stronger] >= measured[weaker],
+        `${combination}: ${stronger} is not stronger than ${weaker} — ${report}`,
+      );
+    }
   }
 });
 
@@ -367,9 +386,10 @@ test("no stylesheet names a custom property nothing defines", () => {
 
 test("every filled control can be read in every theme and mode", () => {
   /*
-   * The primary button's label measured 1.05 against its own fill in y2k light — white on lime,
-   * invisible — and the danger button sat at 3.62-4.03 in four more, because each theme inked it
-   * with its own warm paper colour and that costs the half point that clears AA on a mid-red.
+   * The primary button's label once measured 1.05 against its own fill — ink and fill within a
+   * rounding error of each other, so the label was simply not there — and the danger button sat
+   * at 3.62-4.03 in four families, because each theme inked it with its own warm paper colour
+   * and that costs the half point that clears AA on a mid-red.
    *
    * The button ink is also why `--anc-on-action` exists. `--anc-on-accent` was doing two jobs:
    * ink on the primary action fill, and fill for the knob, tick and dot that sit on an accent
@@ -435,6 +455,43 @@ test("the de-emphasis ramp stays readable, and stays a ramp", () => {
     assert.ok(
       new Set(measured.map((value) => value.toFixed(2))).size >= 4,
       `${combination}: the ramp has collapsed — ${measured.map((value) => value.toFixed(2)).join(", ")}`,
+    );
+  }
+});
+
+test("a clickable activity row keeps the padding the row it replaces had", () => {
+  /*
+   * `.activity-row` sets `padding: 10px 12px` in development.css. `.activity-row--open` — the
+   * same row when it has somewhere to navigate to — resets what a `<button>` brings with it in
+   * models.css, and `padding: 0` was in that reset, reading as part of it. Both selectors are
+   * one class deep and models.css is imported after development.css, so the reset won: every
+   * notification with a destination rendered flush against the panel edge, beside notifications
+   * without one that kept their padding. Reported as the notification centre looking "very ugly".
+   *
+   * jsdom does no layout and neither stylesheet is wrong on its own, so nothing else in the gate
+   * can see this. What is checkable is the ordering hazard itself: the override may unset the
+   * button's chrome, and must not unset the row's box.
+   */
+  const styles = new URL("../src/styles/", import.meta.url);
+  const order = readFileSync(new URL("../src/main.jsx", import.meta.url), "utf8")
+    .split("\n")
+    .flatMap((line) => /import "\.\/styles\/(.+\.css)"/u.exec(line)?.[1] ?? []);
+
+  const base = order.find((sheet) =>
+    /^\.activity-row \{[^}]*padding:/mu.test(
+      stripComments(readFileSync(new URL(sheet, styles), "utf8")),
+    ),
+  );
+  assert.ok(base, "expected some stylesheet to give .activity-row its padding");
+
+  for (const sheet of order.slice(order.indexOf(base))) {
+    const css = stripComments(readFileSync(new URL(sheet, styles), "utf8"));
+    const rule = /^\.activity-row--open \{([^}]*)\}/mu.exec(css);
+    if (!rule) continue;
+    assert.doesNotMatch(
+      rule[1],
+      /(?<![a-z-])padding\s*:/u,
+      `${sheet} loads after ${base} and resets padding on .activity-row--open, which erases the row's own`,
     );
   }
 });

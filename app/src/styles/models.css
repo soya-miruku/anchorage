@@ -277,12 +277,22 @@ none. The models list underneath says what that means in practice.
 accent-tinted background fails AA in at least one mode of at least one family, which is what
 `scripts/theme-integrity.test.mjs` exists to catch — and did catch here.
 */
+/*
+ * Ink on a tint, which is the only combination that works.
+ *
+ * This was `background: var(--anc-accent)` with `color: var(--anc-accent-fg)`, and the two
+ * tokens are not opposites — `-fg` is the status colour adjusted to be *readable on a 16% tint
+ * of itself*, so putting it on the solid fill is the status colour on the status colour. In the
+ * dark families where `--anc-success-fg` is aliased straight to `--anc-success`, the sibling
+ * badge below measured exactly 1.0:1: the label was there, and invisible.
+ */
 .model-hit__official {
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--anc-accent);
+  background: rgb(var(--anc-accent-rgb) / 16%);
   font-family: var(--anc-font-sans);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--anc-accent-fg);
@@ -446,8 +456,9 @@ accent-tinted background fails AA in at least one mode of at least one family, w
   margin-left: auto;
   padding: 1px 6px;
   border-radius: 4px;
-  background: var(--anc-success);
+  background: rgb(var(--anc-success-rgb) / 16%);
   font-size: 9.5px;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--anc-success-fg);
@@ -863,10 +874,16 @@ An activity row that goes somewhere.
 Styled as the row it already was rather than as a button: it sits in a dense stack, and giving
 each entry a button's chrome would turn the inbox into a wall of controls. The affordance is the
 hover and the pointer.
+
+Everything a `<button>` brings with it is unset except the padding, and that exception is the
+whole reason this comment is here. This block once reset `padding: 0` alongside the border and
+the background, which reads as part of the same reset and is not — `.activity-row` sets
+`padding: 10px 12px` in development.css, models.css loads after it, and both are one class deep,
+so the reset won. Every notification with somewhere to go rendered flush against the panel edge
+while every notification without one kept its padding, in the same stack.
 */
 .activity-row--open {
   width: 100%;
-  padding: 0;
   border: 0;
   background: none;
   font: inherit;
@@ -875,8 +892,8 @@ hover and the pointer.
   cursor: pointer;
 }
 
-.activity-row--open:hover,
-.activity-row--open:focus-visible {
+.activity-inbox__list .activity-row--open:hover,
+.activity-inbox__list .activity-row--open:focus-visible {
   background: var(--anc-row-hover);
 }
 

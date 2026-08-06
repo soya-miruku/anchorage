@@ -27,4 +27,28 @@
    * here rather than per theme because it derives entirely from each theme's own accent.
    */
   --anc-row-hover: rgb(var(--anc-accent-rgb) / 10%);
+
+  /*
+   * Elevation for anything that floats above the app: popovers, toasts, the engine error.
+   *
+   * Defined here rather than per family because it derives entirely from `--anc-shadow-rgb`,
+   * which every theme already sets — black in dark mode, its own ink in light. Before this,
+   * ten call sites each wrote their own `rgba(0, 0, 0, 0.32)`, so a light theme dropped a
+   * hard black shadow onto near-white paper and a floating panel read as a sticker.
+   *
+   * The alpha is the only part that is not shared. The handoff halves it for light
+   * (`0 40px 90px rgba(0,0,0,0.6)` against `0 30px 70px rgba(0,0,0,0.16)`) because equal
+   * darkness reads far heavier at high luminance, and the same holds two orders of magnitude
+   * down at popover scale.
+   */
+  --anc-elevation-alpha: 34%;
+  --anc-elevation-low: 0 6px 18px rgb(var(--anc-shadow-rgb) / 26%);
+  --anc-elevation: 0 12px 30px rgb(var(--anc-shadow-rgb) / var(--anc-elevation-alpha));
+  --anc-elevation-high: 0 22px 60px rgb(var(--anc-shadow-rgb) / 46%);
+}
+
+:root[data-color-mode="light"] {
+  --anc-elevation-alpha: 14%;
+  --anc-elevation-low: 0 6px 18px rgb(var(--anc-shadow-rgb) / 10%);
+  --anc-elevation-high: 0 22px 60px rgb(var(--anc-shadow-rgb) / 20%);
 }

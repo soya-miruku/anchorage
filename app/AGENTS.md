@@ -10,8 +10,9 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Durable appearance decisions
 
-- Keep the original Anchorage palette as the `Default` theme.
-- Offer `Default`, `Docker`, and `GitHub` theme families, each with explicit `Light` and `Dark` modes, from Settings.
+- Keep the original Anchorage palette. It is the `Nous` family, renamed from `Default` when it was brought onto the handoff's own colours; a stored `Default` still resolves to it.
+- Offer `Nous`, `Docker`, `GitHub`, `Monochrome`, and `Magnetic` theme families from Settings, each with explicit `Light` and `Dark` modes and a `Rounded`/`Square` corner style. The `Y2K` family the v2.5 handoff adds was shipped and then removed at the user's request; it stays in the handoff, not in the app.
+- A fresh install opens on `Docker` `Dark`, rounded. The default is a fresh-install value only — a stored preference always wins.
 - Treat theme colors as semantic tokens and persist the selected family and mode locally.
 - In the real browser/Electron surface, the application fills and resizes with the viewport; the blue presentation desk is not part of the native app window.
 - Preserve the fixed 1656 × 1056 presentation desk only for deterministic `?capture=...` design-parity fixtures.
