@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -13,11 +13,16 @@ import test from "node:test";
  * Every hash in it was individually plausible and collectively describing a release that no
  * longer existed, and nothing in the repository disagreed.
  *
- * A recorded SHA-256 is only evidence while it still matches the file it names. The three inputs
- * checked here are the ones that are version-controlled, so they can be verified from a clean
- * checkout: the comp the whole comparison is against, the attestation that carries the per-state
+ * A recorded SHA-256 is only evidence while it still matches the file it names. Three inputs are
+ * checked: the comp the whole comparison is against, the attestation that carries the per-state
  * review, and the provenance binding the captures. The renderer and ledger digests are generated
  * into `artifacts/`, which is not committed, so they are checked only when present.
+ *
+ * The comp is now in that second category too. It is a full 21-screen design document, kept out
+ * of the published repository on purpose, so its digest can no longer be verified from a clean
+ * checkout — only on a machine that has it. That is a real reduction and it is skipped out loud
+ * rather than dropped, because the hash in `design-qa.md` still means something to anyone
+ * holding the file, and a check that quietly stops running is worse than one that says why.
  */
 
 const repositoryRoot = new URL("../../", import.meta.url);
@@ -43,6 +48,7 @@ const TRACKED_INPUTS = [
     label: "the v2 design comp",
     path: "docs/design_handoff_anchorage/Anchorage v2.dc.html",
     why: "the comp every state is measured against; a stale digest here means the document describes a superseded handoff",
+    onlyWhenPresent: true,
   },
   {
     label: "the visual review attestation",
@@ -57,7 +63,11 @@ const TRACKED_INPUTS = [
 ];
 
 for (const input of TRACKED_INPUTS) {
-  test(`design-qa.md cites the current digest for ${input.label}`, () => {
+  test(`design-qa.md cites the current digest for ${input.label}`, (context) => {
+    if (input.onlyWhenPresent && !existsSync(fileURLToPath(new URL(input.path, repositoryRoot)))) {
+      context.skip(`${input.path} is not in this checkout`);
+      return;
+    }
     const expected = sha256(input.path);
     assert.ok(
       evidenceSection().includes(expected),

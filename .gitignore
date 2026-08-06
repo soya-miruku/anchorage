@@ -40,3 +40,10 @@ private-key*.asc
 
 # Signed release output. The AppImage and its signature are published, not versioned.
 app/release/
+
+# The design handoff. A complete 21-screen design document, kept on the machines doing design
+# work rather than in the published repository. Two committed things stand in for it: the
+# colour block, extracted into app/scripts/handoff-tokens.json by tools/extract-handoff-tokens.mjs
+# and asserted by the theme gate, and the SHA-256 in design-qa.md, which stays meaningful to
+# anyone holding the file. The checks that read the comp itself skip out loud when it is absent.
+docs/design_handoff_anchorage/

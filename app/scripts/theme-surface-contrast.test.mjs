@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+
+import {
+  HANDOFF_PATH,
+  extractHandoffTokens,
+} from "../../tools/extract-handoff-tokens.mjs";
 
 /**
  * Whether each theme is still the theme the handoff describes.
@@ -21,18 +26,24 @@ import test from "node:test";
  * — with a flat white or black wash, and lifted six steps of the recessive ink ramp onto so few
  * distinct values that github/light collapsed `--fg-2` through `--fg-7` onto one colour.
  *
- * So the check is now fidelity rather than measurement: the handoff HTML is in the repository,
- * it is parsed here, and the surfaces, lines and palette must equal it. A number cannot drift
- * from a source of truth that is read on every run. The genuinely measured properties that
- * remain are the ones the handoff does not settle — the AA floor on ink and on filled controls —
- * and they are stated as what they are, deviations from the handoff with a reason.
+ * So the check is now fidelity rather than measurement: the surfaces, lines and palette must
+ * equal the handoff's. A number cannot drift from a source of truth that is read on every run.
+ * The genuinely measured properties that remain are the ones the handoff does not settle — the
+ * AA floor on ink and on filled controls — and they are stated as what they are, deviations from
+ * the handoff with a reason.
+ *
+ * The comp itself is not in the repository. It is a complete 21-screen design document and is
+ * deliberately not published, so what is committed is `handoff-tokens.json`: the colour block,
+ * and nothing else, extracted by `tools/extract-handoff-tokens.mjs`. That discloses nothing the
+ * theme stylesheets do not already state verbatim — matching them is the entire job here. When
+ * the comp *is* on disk the snapshot is re-extracted and diffed against it first, so on a
+ * developer machine the full chain is still checked and the snapshot cannot quietly become a
+ * copy of nothing.
  */
 
 const themeDirectory = new URL("../src/styles/themes/", import.meta.url);
-const handoffPath = new URL(
-  "../../docs/design_handoff_anchorage/v2.5/Anchorage v2.dc.html",
-  import.meta.url,
-);
+const handoffPath = new URL(`../../${HANDOFF_PATH}`, import.meta.url);
+const snapshotPath = new URL("./handoff-tokens.json", import.meta.url);
 
 /**
  * Comments are stripped before anything is parsed.
@@ -73,20 +84,15 @@ function readThemeTokens() {
   return combinations;
 }
 
-/** The handoff's own `.anc[data-theme][data-mode]` blocks, same shape. */
+/** The committed snapshot of the handoff's token block, same shape as readThemeTokens(). */
 function readHandoffTokens() {
-  const combinations = new Map();
-  const html = readFileSync(fileURLToPath(handoffPath), "utf8");
-  for (const [, family, mode, body] of html.matchAll(
-    /\.anc\[data-theme="([a-z0-9]+)"\]\[data-mode="(dark|light)"\]\s*\{([^}]*)\}/gu,
-  )) {
-    const tokens = new Map();
-    for (const [, name, value] of body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;}]+)/gu)) {
-      tokens.set(name, value.trim());
-    }
-    combinations.set(`${family}/${mode}`, tokens);
-  }
-  return combinations;
+  const snapshot = JSON.parse(readFileSync(fileURLToPath(snapshotPath), "utf8"));
+  return new Map(
+    Object.entries(snapshot).map(([combination, tokens]) => [
+      combination,
+      new Map(Object.entries(tokens)),
+    ]),
+  );
 }
 
 function composite(colour, alpha, backdrop) {
@@ -200,6 +206,27 @@ const HANDOFF_EQUIVALENTS = {
 };
 
 const normalise = (value) => value.toLowerCase().replace(/\s+/gu, "");
+
+test("the committed token snapshot still matches the comp it was taken from", (context) => {
+  /*
+   * Only runs where the comp exists, which is any machine doing design work and no clean
+   * checkout. Skipping is stated rather than silent: a snapshot nobody can re-derive is a
+   * hand-maintained list wearing the word "extracted", and the difference matters enough to
+   * print. Everything downstream reads the snapshot either way, so this is the one place the
+   * two can be observed to disagree.
+   */
+  if (!existsSync(fileURLToPath(handoffPath))) {
+    context.skip(`${HANDOFF_PATH} is not present — the snapshot is unverifiable here`);
+    return;
+  }
+  const extracted = extractHandoffTokens(readFileSync(fileURLToPath(handoffPath), "utf8"));
+  const committed = JSON.parse(readFileSync(fileURLToPath(snapshotPath), "utf8"));
+  assert.deepEqual(
+    committed,
+    extracted,
+    "handoff-tokens.json is out of date — re-run `node tools/extract-handoff-tokens.mjs`",
+  );
+});
 
 test("every theme and mode the app ships is one the handoff defines", () => {
   const combinations = readThemeTokens();
