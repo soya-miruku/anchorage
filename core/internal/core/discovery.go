@@ -240,6 +240,30 @@ func (s *Service) contexts(ctx context.Context, params ContextsParams) (Contexts
 	result.CurrentContext = resolved.current
 	result.SelectedContext = resolved.selected
 	result.Warnings = append(result.Warnings, resolved.warnings...)
+
+	// One `docker version` against the resolved context. It cannot run alongside the context
+	// resolution above because it needs the selected context to name, and it must name it: a
+	// version read from whatever context happens to be current would describe a different daemon
+	// than the rest of this result. Measured at 17-19 ms on the reference machine, against 13-15
+	// ms for the `context ls` this path already pays — so it stays on the launch path, unlike
+	// the capability walk that was moved off it for costing ~3.1 s.
+	//
+	// A failure is a warning rather than an error. The contexts are what the launch needs; the
+	// versions are what a settings pane reports later, and losing them must not stop the window.
+	versionResult, versionErr := s.runDiscovery(
+		ctx, nil, withContext(resolved.selected, "version", "--format", "{{json .}}")...,
+	)
+	switch {
+	case versionErr != nil:
+		result.Warnings = append(result.Warnings, "Docker version failed to start: "+versionErr.Error())
+	case versionResult.exitCode != 0 || versionResult.timedOut:
+		result.Warnings = append(result.Warnings, evidenceFailure("docker version", versionResult))
+	default:
+		if err := parseVersion(versionResult.stdout, &result.Versions); err != nil {
+			result.Warnings = append(result.Warnings, "Docker version output was not valid JSON: "+err.Error())
+		}
+	}
+
 	sort.Slice(result.Contexts, func(i, j int) bool { return result.Contexts[i].Name < result.Contexts[j].Name })
 	return result, nil
 }

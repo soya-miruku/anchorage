@@ -1002,3 +1002,21 @@
   padding: 0 9px;
   font-size: 11px;
 }
+
+/* A version difference is worth reading and is not a fault; the incompatible case reuses
+   .capability-error, which already carries the danger tone. */
+.engine-version-skew {
+  padding: 10px 12px;
+  margin-top: 12px;
+  border: 1px solid rgb(var(--anc-warning-rgb) / 35%);
+  border-radius: 8px;
+  background: rgb(var(--anc-warning-rgb) / 8%);
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.engine-version-skew strong {
+  color: var(--anc-warning-fg);
+}

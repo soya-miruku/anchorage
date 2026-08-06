@@ -493,3 +493,85 @@ describe("SettingsScreen capabilities", () => {
     expect(screen.queryAllByRole("switch")).toHaveLength(0);
   });
 });
+
+/**
+ * The half of `docker version` the Engine API cannot answer.
+ *
+ * Settings reported `serverVersion` alone, which is exactly the half that cannot tell you the
+ * two sides disagree. On Linux they drift routinely — `docker-ce-cli` and `docker-ce` are
+ * separate packages — and the symptom is flags that silently do nothing.
+ */
+describe("SettingsScreen engine versions", () => {
+  const withVersions = (client: object, server: object) =>
+    createStore("engine", {
+      dockerVersions: { client, server },
+    } as Partial<AnchorageStore>);
+
+  it("reports the client version beside the server's", () => {
+    render(
+      <SettingsScreen
+        store={withVersions(
+          { version: "29.7.1", apiVersion: "1.51" },
+          { version: "29.7.1", apiVersion: "1.51" },
+        )}
+      />,
+    );
+    expect(screen.getByTestId("engine-client-version")).toHaveTextContent("29.7.1");
+  });
+
+  it("stays quiet when the two agree", () => {
+    // A notice on every healthy machine is noise, and would train the operator to ignore the
+    // one that matters.
+    render(
+      <SettingsScreen
+        store={withVersions(
+          { version: "29.7.1", apiVersion: "1.51" },
+          { version: "29.7.1", apiVersion: "1.51" },
+        )}
+      />,
+    );
+    expect(screen.queryByTestId("engine-version-skewed")).toBeNull();
+    expect(screen.queryByTestId("engine-version-incompatible")).toBeNull();
+  });
+
+  it("names the negotiated API when the versions differ", () => {
+    render(
+      <SettingsScreen
+        store={withVersions(
+          { version: "29.7.1", apiVersion: "1.51", minApiVersion: "1.24" },
+          { version: "28.0.4", apiVersion: "1.48", minApiVersion: "1.24" },
+        )}
+      />,
+    );
+    const notice = screen.getByTestId("engine-version-skewed");
+    expect(notice).toHaveTextContent("different versions");
+    expect(notice).toHaveTextContent("1.48");
+  });
+
+  it("distinguishes a daemon below the client's floor from a mere difference", () => {
+    render(
+      <SettingsScreen
+        store={withVersions(
+          { version: "29.7.1", apiVersion: "1.51", minApiVersion: "1.44" },
+          { version: "19.03.0", apiVersion: "1.40" },
+        )}
+      />,
+    );
+    // Every call fails in this state, so it must not be worded like a version that merely
+    // differs — and it carries the danger tone rather than the advisory one.
+    const notice = screen.getByTestId("engine-version-incompatible");
+    expect(notice).toHaveTextContent("cannot drive this daemon");
+    expect(notice.className).toContain("capability-error");
+  });
+
+  it("says nothing at all when no version was read", () => {
+    // Browser preview, or a `docker version` that failed. Silence is correct; "aligned" would
+    // be a claim about a machine nobody looked at.
+    render(<SettingsScreen store={createStore("engine")} />);
+    expect(screen.queryByTestId("engine-version-skewed")).toBeNull();
+    expect(screen.queryByTestId("engine-version-incompatible")).toBeNull();
+    expect(screen.getByTestId("engine-client-version")).toHaveTextContent(
+      "Not reported",
+    );
+  });
+});

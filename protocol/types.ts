@@ -1069,6 +1069,34 @@ export interface SystemPluginsResult {
   observedAt: string;
 }
 
+/**
+ * What `system.contexts` answers.
+ *
+ * Declared late: the request has been in this file since v1 and its result never was, so a field
+ * could be added to it without the contract of record noticing — the same class of gap as the
+ * `containers.rebindPorts` drift, found the same way.
+ *
+ * `versions` carries both sides of `docker version`. The Engine API cannot supply the client
+ * half — `/version` describes the daemon — so a client/server skew is invisible to every read the
+ * application makes over the socket, and this is the only place it surfaces. It costs one
+ * subprocess (measured 17-19 ms) on the launch path, which is why it lives here rather than on
+ * `system.capabilities`, whose recursive walk was moved off that path for costing ~3.1 s.
+ */
+export interface SystemContextsResult {
+  protocolVersion: "1";
+  binary?: BinaryFingerprint;
+  binaryError?: RPCError;
+  selectedContext?: string;
+  currentContext?: string;
+  contexts: DockerContext[];
+  versions: {
+    client: DockerVersionSide;
+    server: DockerVersionSide;
+  };
+  warnings: string[];
+  observedAt: string;
+}
+
 export interface SystemCapabilitiesResult {
   protocolVersion: "1";
   binary?: BinaryFingerprint;

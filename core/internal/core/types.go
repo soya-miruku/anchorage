@@ -148,8 +148,12 @@ type ContextsResult struct {
 	SelectedContext string             `json:"selectedContext,omitempty"`
 	CurrentContext  string             `json:"currentContext,omitempty"`
 	Contexts        []DockerContext    `json:"contexts"`
-	Warnings        []string           `json:"warnings"`
-	ObservedAt      string             `json:"observedAt"`
+	// Versions carries both sides of `docker version`. The CLI's own version is not available
+	// from the Engine API at all — `/version` describes the daemon — so a client/server skew,
+	// which is the thing that actually breaks an operator, can only be seen from here.
+	Versions   DockerVersions `json:"versions"`
+	Warnings   []string       `json:"warnings"`
+	ObservedAt string         `json:"observedAt"`
 }
 
 type CapabilitiesResult struct {

@@ -85,6 +85,7 @@ import type {
   SystemSnapshot,
   ViewId,
   SystemPlugins,
+  DockerVersions,
   PluginRepair,
   BuilderAction,
   ImageProjection,
@@ -434,6 +435,10 @@ export function useAnchorageStore() {
     null,
   );
   const [dockerContext, setDockerContext] = useState("default");
+  // Both halves of `docker version`, read on the same call that resolves the contexts. Held
+  // rather than re-fetched: it changes only when the daemon or the CLI is replaced, and the one
+  // surface that reports it should not pay a subprocess to open.
+  const [dockerVersions, setDockerVersions] = useState<DockerVersions | null>(null);
   const [availableContexts, setAvailableContexts] = useState<
     Array<{ name: string; current: boolean; description?: string }>
   >([]);
@@ -952,6 +957,7 @@ export function useAnchorageStore() {
       // plugin, which measured ~3.1s on the reference machine and held the first paint for all
       // of it. Nothing on this path reads a capability or an inventory.
       const capabilities = await bridge.system.contexts();
+      setDockerVersions(capabilities.versions ?? null);
       setAvailableContexts(
         capabilities.contexts.map((candidate) => ({
           name: candidate.name,
@@ -4585,6 +4591,7 @@ export function useAnchorageStore() {
     builderActionError,
     // The plugin installation, which the sidebar reads to decide which rows exist and every
     // capability screen reads to decide what it can offer.
+    dockerVersions,
     pluginReport,
     pluginReportStatus,
     pluginReportError,

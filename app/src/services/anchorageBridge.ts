@@ -12,6 +12,8 @@ import type {
   CommandInventory,
   SystemContexts,
   SystemPlugins,
+  DockerVersions,
+  DockerVersionSide,
   PluginFault,
   PluginRepair,
   PluginRepairResult,
@@ -482,6 +484,30 @@ function normalizePlugins(value: unknown): SystemPlugins {
   };
 }
 
+/** Absent stays absent: an empty string here would read as "reported, and blank". */
+function normalizeVersionSide(value: unknown): DockerVersionSide {
+  const raw = asRecord(value);
+  const text = (key: string) =>
+    typeof raw[key] === "string" && raw[key] ? (raw[key] as string) : undefined;
+  return {
+    version: text("version"),
+    apiVersion: text("apiVersion"),
+    minApiVersion: text("minApiVersion"),
+    goVersion: text("goVersion"),
+    gitCommit: text("gitCommit"),
+    os: text("os"),
+    arch: text("arch"),
+  };
+}
+
+function normalizeVersions(value: unknown): DockerVersions {
+  const raw = asRecord(value);
+  return {
+    client: normalizeVersionSide(raw.client),
+    server: normalizeVersionSide(raw.server),
+  };
+}
+
 function normalizeContexts(value: unknown): SystemContexts {
   const raw = asRecord(value);
   const protocolVersion = String(raw.protocolVersion ?? "");
@@ -501,6 +527,7 @@ function normalizeContexts(value: unknown): SystemContexts {
     contexts: Array.isArray(raw.contexts)
       ? raw.contexts.map(normalizeContext).filter((context) => context.name)
       : [],
+    versions: normalizeVersions(raw.versions),
     warnings: stringArray(raw.warnings),
     observedAt: String(raw.observedAt ?? ""),
   };
@@ -892,6 +919,9 @@ class FixtureBridge implements AnchorageBridge {
         selectedContext: capabilities.selectedContext,
         currentContext: capabilities.currentContext,
         contexts: capabilities.contexts,
+        // Empty rather than fabricated: the browser preview has no CLI to ask, and a version
+        // invented here would be indistinguishable from one read off a real machine.
+        versions: { client: {}, server: {} },
         warnings: capabilities.warnings,
         observedAt: capabilities.observedAt,
       };
@@ -1246,6 +1276,10 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       selectedContext: capabilities.selectedContext,
       currentContext: capabilities.currentContext,
       contexts: capabilities.contexts,
+      // Empty, not invented. This arm is only reached by a host with no `system.contexts` at
+      // all, and the renderer's capabilities projection does not carry versions either — so the
+      // honest answer is that nothing read them, which every consumer already handles.
+      versions: { client: {}, server: {} },
       warnings: capabilities.warnings,
       observedAt: capabilities.observedAt,
     };

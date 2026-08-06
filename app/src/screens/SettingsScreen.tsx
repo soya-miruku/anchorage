@@ -7,6 +7,7 @@ import {
   capabilityEntry,
   capabilityState,
 } from "../data/capabilities";
+import { describeVersionSkew, type VersionSkew } from "../data/engineVersions";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { DAEMON_JSON_FIXTURE } from "../data/fixtures";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -758,6 +759,38 @@ function EnterpriseSettings() {
  * preference — but the gate is mechanical, and the Appearance pane already expresses real
  * preferences as pressed buttons, so this follows it rather than carving out an exception.
  */
+/**
+ * What the CLI and the daemon say about each other.
+ *
+ * Silent when they agree, because a sentence on every healthy machine is noise. The two cases
+ * worth interrupting for are different in kind and are not given the same tone: a version
+ * difference costs newer flags, while a daemon below the client's API floor fails every call.
+ *
+ * There is no "update" button, and there cannot be. Docker Engine is a distribution package and
+ * upgrading it needs root; the core executes only the fingerprinted `docker` binary and could
+ * not invoke a package manager if asked. So this states the position and leaves the remedy with
+ * the operator, exactly as a missing CLI plugin does.
+ */
+function EngineVersionSkew({ skew }: { skew: VersionSkew }) {
+  if (skew.kind === "aligned" || skew.kind === "unknown") return null;
+  return (
+    <p
+      className={
+        skew.kind === "incompatible" ? "capability-error" : "engine-version-skew"
+      }
+      role="status"
+      data-testid={`engine-version-${skew.kind}`}
+    >
+      <strong>
+        {skew.kind === "incompatible"
+          ? "This CLI cannot drive this daemon."
+          : "The CLI and the daemon are different versions."}
+      </strong>{" "}
+      {skew.detail}
+    </p>
+  );
+}
+
 function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
   return (
     <section className="capabilities-settings" data-testid="settings-capabilities">
@@ -853,6 +886,7 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
     );
   }
   const engine = snapshot.engine;
+  const skew = describeVersionSkew(store.dockerVersions ?? undefined);
   return (
     <div className="settings-pane settings-pane--engine">
       <h2>Engine</h2>
@@ -864,6 +898,12 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
       <dl className="engine-facts" data-testid="engine-facts">
         <dt>Server version</dt>
         <dd>{engine.serverVersion ?? "Unknown"}</dd>
+        {/* The half the Engine API cannot answer. Reported beside the server's so the two can
+            be compared at a glance, which is the whole reason it is read. */}
+        <dt>Client version</dt>
+        <dd data-testid="engine-client-version">
+          {skew.clientVersion ?? "Not reported"}
+        </dd>
         <dt>API version</dt>
         <dd>{snapshot.apiVersion}</dd>
         <dt>Storage driver</dt>
@@ -893,6 +933,7 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
           <span className="engine-facts__source">daemon.json · experimental</span>
         </dd>
       </dl>
+      <EngineVersionSkew skew={skew} />
       <CapabilitiesSettings store={store} />
       <CliPluginHealth store={store} />
       {engine.warnings.length > 0 && (

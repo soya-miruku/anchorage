@@ -1091,11 +1091,32 @@ export interface SystemCapabilities {
  * Carries no command inventory and no plugin capabilities, because the verb behind it does not
  * look for them. Anything that needs those asks `capabilities` and waits for the walk.
  */
+/** One side of `docker version`. Absent fields mean the read did not answer, never zero. */
+export interface DockerVersionSide {
+  version?: string;
+  apiVersion?: string;
+  minApiVersion?: string;
+  goVersion?: string;
+  gitCommit?: string;
+  os?: string;
+  arch?: string;
+}
+
+export interface DockerVersions {
+  client: DockerVersionSide;
+  server: DockerVersionSide;
+}
+
 export interface SystemContexts {
   protocolVersion: "1";
   selectedContext?: string;
   currentContext?: string;
   contexts: DockerContext[];
+  /**
+   * Both sides of `docker version`. The Engine API cannot supply the client half — `/version`
+   * describes the daemon — so this is the only place a client/server skew is visible.
+   */
+  versions: DockerVersions;
   warnings: string[];
   observedAt: string;
 }
