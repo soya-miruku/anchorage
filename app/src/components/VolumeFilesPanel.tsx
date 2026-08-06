@@ -158,7 +158,11 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
         </p>
       )}
 
-      <div className="files-table" data-testid="volume-files-table">
+      <div
+        className="files-table"
+        data-testid="volume-files-table"
+        data-busy={store.volumeBrowsing && listing ? "true" : undefined}
+      >
         <div className="files-table__head">
           <span>NAME</span>
           <span>SIZE</span>
@@ -207,12 +211,13 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
           </div>
         ))}
         {listing && listing.entries.length === 0 && (
-          <div className="empty-state">
-            <strong>Empty directory</strong>
-          </div>
+          <p className="files-table__state">Empty directory</p>
         )}
         {!listing && !store.volumeBrowseError && (
-          <p className="resource-dim" role="status">
+          <p className="files-table__state" role="status">
+            {/* First open only. Creating the helper container is the slow part — about six
+                seconds — and every hop after it reuses that container, so this says what is
+                actually happening rather than implying it recurs. */}
             Mounting the volume…
           </p>
         )}

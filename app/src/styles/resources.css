@@ -383,10 +383,9 @@
   cursor: pointer;
 }
 
-/* `> span, > button` rather than `> span`. The name cell became a button when it became the
-   way into the file browser, and a grid item that is not covered by this clips nothing — a
-   64-character volume name then overflowed its column and rendered on top of DRIVER, which is
-   what "duplicated and glitchy" was. */
+/* Both, because the row carries spans and the action cluster carries buttons. A grid item this
+   does not reach clips nothing: when the name cell was briefly a button it fell outside a
+   `> span` rule and a 64-character volume name rendered on top of DRIVER. */
 .volume-row > span,
 .volume-row > button {
   overflow: hidden;

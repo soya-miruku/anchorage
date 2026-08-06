@@ -680,6 +680,7 @@ export function useAnchorageStore() {
     null,
   );
   const [volumeBrowseError, setVolumeBrowseError] = useState<string | null>(null);
+  const [volumeBrowsing, setVolumeBrowsing] = useState(false);
   // Set when the core refused an upload because a running container holds the volume. Held
   // as state rather than an error so the operator can decide, then retry deliberately.
   const [volumeInUseUpload, setVolumeInUseUpload] = useState<{
@@ -703,6 +704,9 @@ export function useAnchorageStore() {
   const transferCleanupRef = useRef<(() => void) | null>(null);
   // Monotonic, so a superseded volume listing can be recognised and dropped.
   const volumeBrowseTicket = useRef(0);
+  // Which volume the current listing describes, so a hop inside one can keep its entries on
+  // screen while a switch to another cannot.
+  const browsedVolumeRef = useRef<string | null>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(() =>
     isHost && !captureAppearance ? "appearance" : "resources",
   );
@@ -3946,7 +3950,23 @@ export function useAnchorageStore() {
       setBrowsedVolume(name);
       setVolumePath(targetPath);
       setVolumePreview(null);
-      setVolumeListing(null);
+      /*
+        The listing is kept while navigating inside the same volume.
+
+        Clearing it on every hop replaced the whole table with "Mounting the volume…", so
+        stepping into a folder and back out again looked exactly like mounting from scratch —
+        reported as "it does the whole mounting again". It never did: the helper is reused and
+        the hop takes about 150ms. The panel was simply throwing away what it had and
+        redrawing from nothing, which also collapsed its height and made the border jump.
+
+        Switching volumes does clear it, because then the old entries genuinely describe
+        somewhere else.
+      */
+      if (browsedVolumeRef.current !== name) {
+        setVolumeListing(null);
+      }
+      browsedVolumeRef.current = name;
+      setVolumeBrowsing(true);
       setVolumeBrowseError(null);
       try {
         const result = await bridge.volumes.files(
@@ -3956,8 +3976,10 @@ export function useAnchorageStore() {
         );
         if (volumeBrowseTicket.current !== ticket) return;
         setVolumeListing(result);
+        setVolumeBrowsing(false);
       } catch (reason) {
         if (volumeBrowseTicket.current !== ticket) return;
+        setVolumeBrowsing(false);
         setVolumeBrowseError(
           reason instanceof Error ? reason.message : "Volume browse failed",
         );
@@ -4904,6 +4926,7 @@ export function useAnchorageStore() {
     volumeListing,
     volumePreview,
     volumeBrowseError,
+    volumeBrowsing,
     browseVolume,
     uploadVolumeFile,
     backupVolume,

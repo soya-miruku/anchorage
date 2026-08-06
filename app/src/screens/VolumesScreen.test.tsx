@@ -367,12 +367,12 @@ describe("VolumesScreen transfer in flight", () => {
     expect(screen.getByLabelText("Restore volume data")).toBeDisabled();
   });
 
-  it("opens the file browser from the volume's own name", () => {
+  it("opens the file browser from anywhere on the row", () => {
     /*
-      Browsing used to be one button among five in the row's action cluster, the same size and
-      weight as Empty and Delete, so the obvious gesture — click the volume you want to look
-      at — did nothing at all. The name is the primary target now; the action stays for
-      discoverability.
+      Reported as having to "literally press the text of the list item". The name was the only
+      target, so most of a 54px row looked identical and did nothing. The row is the control
+      now — `role="button"` on the div rather than a real button, because the row contains five
+      action buttons and a button cannot nest inside a button.
     */
     const browseVolume = vi.fn();
     renderVolumes({
@@ -382,20 +382,68 @@ describe("VolumesScreen transfer in flight", () => {
       browseVolume,
     });
 
-    fireEvent.click(screen.getByTestId("volume-open-project_data"));
+    const row = screen.getByTestId("volume-project_data");
+    expect(row).toHaveAttribute("role", "button");
+    fireEvent.click(row);
     expect(browseVolume).toHaveBeenCalledWith("project_data");
   });
 
-  it("leaves the name inert where there is nothing to browse", () => {
-    // The browser preview reaches no daemon, so a clickable name would be a control that
+  it("reaches the browser from the keyboard too", () => {
+    // A div with role="button" gets no key handling for free, so Enter and Space are wired
+    // explicitly — without them the row would be focusable and inert.
+    const browseVolume = vi.fn();
+    renderVolumes({
+      isHost: true,
+      volumes: [volume("project_data")],
+      filteredVolumes: [volume("project_data")],
+      browseVolume,
+    });
+
+    const row = screen.getByTestId("volume-project_data");
+    expect(row).toHaveAttribute("tabIndex", "0");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(browseVolume).toHaveBeenCalledWith("project_data");
+  });
+
+  it("does not open the browser behind a row action", () => {
+    // Back up, Restore, Clone, Empty and Delete all live inside the row. Without stopping
+    // propagation each would open the file browser behind its own dialog.
+    const browseVolume = vi.fn();
+    renderVolumes({
+      isHost: true,
+      volumes: [volume("project_data")],
+      filteredVolumes: [volume("project_data")],
+      browseVolume,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back up volume project_data" }));
+    expect(browseVolume).not.toHaveBeenCalled();
+  });
+
+  it("no longer carries a Browse action, because the row is one", () => {
+    renderVolumes({
+      isHost: true,
+      volumes: [volume("project_data")],
+      filteredVolumes: [volume("project_data")],
+    });
+    // Queried by its visible text rather than its accessible name: the row itself is now
+    // labelled "Browse volume project_data", which is correct and would match either way.
+    expect(screen.queryByText("Browse")).toBeNull();
+    // The other four row actions are untouched.
+    for (const label of ["Back up", "Restore", "Clone", "Empty"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it("leaves the row inert where there is nothing to browse", () => {
+    // The browser preview reaches no daemon, so a clickable row would be a control that
     // cannot act — the same lie as an install button on a machine that cannot install.
     renderVolumes({
       isHost: false,
       volumes: [volume("project_data")],
       filteredVolumes: [volume("project_data")],
     });
-    expect(screen.queryByTestId("volume-open-project_data")).toBeNull();
-    // Still listed, just not a control.
-    expect(screen.getByTestId("volume-project_data")).toBeInTheDocument();
+    const row = screen.getByTestId("volume-project_data");
+    expect(row).not.toHaveAttribute("role", "button");
   });
 });

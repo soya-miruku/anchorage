@@ -1,5 +1,11 @@
 import { XIcon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 
 import { AnchorageIcon } from "../components/AnchorageIcon";
 import { ArchivePathDialog } from "../components/ArchivePathDialog";
@@ -192,28 +198,34 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
             className="volume-row"
             key={volume.name}
             data-testid={`volume-${volume.name}`}
+            /*
+              The whole row, not just the name. Making only the text clickable meant hitting a
+              64-character target that happened to be the one part of the row already dense
+              with text — the rest of the row looked identical and did nothing.
+
+              `role="button"` on a div rather than an actual button, because the row contains
+              five action buttons and a button cannot nest inside a button. The action cluster
+              stops propagation so Back up does not also open the browser. Same shape as
+              ContainersScreen, which solved this first.
+            */
+            {...(store.isHost
+              ? {
+                  role: "button",
+                  tabIndex: 0,
+                  "aria-label": `Browse volume ${volume.name}`,
+                  onClick: () => void store.browseVolume(volume.name),
+                  onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void store.browseVolume(volume.name);
+                    }
+                  },
+                }
+              : {})}
           >
-            {/*
-              The name is the way in. Browsing was a button among five in the row's action
-              cluster, so the obvious gesture — click the volume you want to look at — did
-              nothing, and the one control that worked was the same size and weight as "Empty"
-              and "Delete" sitting beside it. On the host the name is now the browse control;
-              in the browser preview there is nothing to browse, so it stays plain text rather
-              than becoming a button that cannot act.
-            */}
-            {store.isHost ? (
-              <button
-                type="button"
-                className="resource-mono volume-row__name volume-row__open"
-                data-testid={`volume-open-${volume.name}`}
-                title="Browse this volume's contents"
-                onClick={() => void store.browseVolume(volume.name)}
-              >
-                {volume.name}
-              </button>
-            ) : (
-              <span className="resource-mono volume-row__name">{volume.name}</span>
-            )}
+            {/* Plain text again: the row itself is the control, and a button here would be a
+                second control for the same action nested inside it. */}
+            <span className="resource-mono volume-row__name">{volume.name}</span>
             <span className="resource-muted">{volume.driver}</span>
             <span className="resource-mono resource-secondary">{volume.size}</span>
             <span className={volume.usedBy ? "resource-secondary" : "resource-faint"}>
@@ -224,7 +236,12 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
             <span className="resource-dim volume-row__created">
               <span className="volume-row__created-at">{volume.created}</span>
               {store.isHost && (
-                <span className="volume-row__actions">
+                <span
+                  className="volume-row__actions"
+                  /* Otherwise Back up, Restore, Clone, Empty and Delete would each also open
+                     the file browser behind their own dialog. */
+                  onClick={(event) => event.stopPropagation()}
+                >
                   <button
                     className="volume-row__browse"
                     type="button"
@@ -244,15 +261,6 @@ export function VolumesScreen({ store }: { store: AnchorageStore }) {
                     onClick={() => setRestoreTarget(volume)}
                   >
                     Restore
-                  </button>
-                  <button
-                    className="volume-row__browse"
-                    type="button"
-                    aria-label={`Browse volume ${volume.name}`}
-                    title="Browse this volume's contents — or click its name"
-                    onClick={() => void store.browseVolume(volume.name)}
-                  >
-                    Browse
                   </button>
                   <button
                     className="volume-row__browse"
