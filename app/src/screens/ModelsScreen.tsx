@@ -448,9 +448,11 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
               <SearchHit
                 key={hit.name}
                 hit={hit}
-                busy={pulling || modelsBusy === hit.name}
+                busy={pulling || modelsBusy === hit.reference}
                 onPull={() =>
-                  void modelAction({ action: "pull", reference: hit.name })
+                  // `hit.reference`, never `hit.name`. They differ for every Hugging Face
+                  // result, and sending the name pulls from Docker Hub, where it is not.
+                  void modelAction({ action: "pull", reference: hit.reference })
                 }
               />
             ))}

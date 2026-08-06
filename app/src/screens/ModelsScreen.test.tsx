@@ -183,12 +183,53 @@ describe("ModelsScreen", () => {
     expect(store.searchModels).toHaveBeenCalledWith("smollm");
   });
 
+  it("pulls a Hugging Face hit from Hugging Face, not from Docker Hub", async () => {
+    /*
+     * `docker model search --source=huggingface` returns Hugging Face repositories under their
+     * own names, and `docker model pull` resolves an unqualified name against Docker Hub. Sending
+     * the displayed name therefore failed on every Hugging Face result, and failed in a way that
+     * reads like the model is not real:
+     *
+     *   failed to pull model "huggingfacetb/smollm2-135m-instruct:latest":
+     *   resolving docker.io/huggingfacetb/smollm2-135m-instruct:latest:
+     *   pull access denied, repository does not exist
+     *
+     * Verified against the CLI both ways: the bare name fails, `hf.co/` + the same name pulls.
+     * The core derives the pullable reference; this is the screen's half of it, and the two
+     * strings differing is the entire point — a test that used the same value for both would
+     * pass with the bug back in.
+     */
+    const store = createStore({
+      modelSearchStatus: "ready",
+      modelSearchResults: [
+        {
+          name: "HuggingFaceTB/SmolLM2-135M-Instruct",
+          reference: "hf.co/HuggingFaceTB/SmolLM2-135M-Instruct",
+          source: "HuggingFace",
+          sizeBytes: 272_500_000,
+        },
+      ],
+    });
+    render(<ModelsScreen store={store} />);
+
+    // Shown under its own name, so it is recognisable as the thing that was searched for.
+    expect(
+      screen.getByTestId("model-hit-HuggingFaceTB/SmolLM2-135M-Instruct"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pull" }));
+    expect(store.modelAction).toHaveBeenCalledWith({
+      action: "pull",
+      reference: "hf.co/HuggingFaceTB/SmolLM2-135M-Instruct",
+    });
+  });
+
   it("offers a pull for a search hit and formats what it will cost", () => {
     const store = createStore({
       modelSearchStatus: "ready",
       modelSearchResults: [
         {
           name: "ai/smollm2",
+          reference: "ai/smollm2",
           description: "Tiny LLM built for speed",
           downloads: 606_099,
           official: true,
@@ -244,8 +285,8 @@ describe("ModelsScreen", () => {
     const store = createStore({
       modelSearchStatus: "ready",
       modelSearchResults: [
-        { name: "ai/smollm2", sizeBytes: 270_601_982 },
-        { name: "ai/qwen3", sizeBytes: 1_000_000 },
+        { name: "ai/smollm2", reference: "ai/smollm2", sizeBytes: 270_601_982 },
+        { name: "ai/qwen3", reference: "ai/qwen3", sizeBytes: 1_000_000 },
       ],
       imageTransfer: {
         kind: "model",

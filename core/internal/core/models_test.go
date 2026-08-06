@@ -217,3 +217,45 @@ func TestModelsUnavailableRecognisesAnAbsentPlugin(t *testing.T) {
 		t.Fatal("an ordinary failure must not be reported as a missing plugin")
 	}
 }
+
+/*
+A Hugging Face search hit has to be pulled from Hugging Face.
+
+`docker model search --source=huggingface` returns repositories under their own names, and
+`docker model pull` resolves an unqualified name against Docker Hub. Anchorage passed the hit's
+name straight through, so every Hugging Face result failed — and failed in a way that reads like
+the model does not exist rather than like it is on another registry:
+
+	failed to pull model "huggingfacetb/smollm2-135m-instruct:latest":
+	resolving docker.io/huggingfacetb/smollm2-135m-instruct:latest:
+	pull access denied, repository does not exist or may require authorization
+
+Both halves were verified against the CLI on a live machine before this was written: the bare
+name fails exactly as above, and `hf.co/` + the same name pulls and lands in `docker model ls`
+as `huggingface.co/huggingfacetb/smollm2-135m-instruct`.
+*/
+func TestModelPullReferenceRoutesHuggingFaceHits(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		// Docker Hub is already pullable as returned, and must not acquire a prefix.
+		{"ai/smollm2", "Docker Hub", "ai/smollm2"},
+		{"ai/smollm2", "", "ai/smollm2"},
+		{"HuggingFaceTB/SmolLM2-135M-Instruct", "HuggingFace", "hf.co/HuggingFaceTB/SmolLM2-135M-Instruct"},
+		// The plugin's own casing is not a contract, so the match is case-insensitive.
+		{"bartowski/Llama-3.2-1B-GGUF", "huggingface", "hf.co/bartowski/Llama-3.2-1B-GGUF"},
+		// Already qualified: prefixing twice would produce hf.co/hf.co/... and resolve nowhere.
+		{"hf.co/bartowski/Llama-3.2-1B-GGUF", "HuggingFace", "hf.co/bartowski/Llama-3.2-1B-GGUF"},
+		{"huggingface.co/bartowski/x", "HuggingFace", "huggingface.co/bartowski/x"},
+		{"", "HuggingFace", ""},
+	}
+	for _, testCase := range cases {
+		got := modelPullReference(testCase.name, testCase.source)
+		if got != testCase.want {
+			t.Fatalf("modelPullReference(%q, %q) = %q, want %q",
+				testCase.name, testCase.source, got, testCase.want)
+		}
+	}
+}

@@ -1800,7 +1800,11 @@ type ModelsSearchParams struct {
 }
 
 type ModelSearchResult struct {
-	Name        string `json:"name"`
+	Name string `json:"name"`
+	// Reference is what `docker model pull` can resolve, which is not always Name: a Hugging
+	// Face hit is returned under its own repository name and pull resolves an unqualified name
+	// against Docker Hub. See modelPullReference.
+	Reference   string `json:"reference"`
 	Description string `json:"description,omitempty"`
 	Downloads   int64  `json:"downloads,omitempty"`
 	Stars       int64  `json:"stars,omitempty"`

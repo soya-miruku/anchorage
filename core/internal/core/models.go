@@ -303,6 +303,42 @@ type modelSearchEntry struct {
 	Size        int64  `json:"Size"`
 }
 
+/*
+modelPullReference turns a search hit into something `docker model pull` can actually resolve.
+
+`docker model search --source=huggingface` returns Hugging Face repositories under their own
+names — `HuggingFaceTB/SmolLM2-135M-Instruct` — and `docker model pull` resolves an unqualified
+name against Docker Hub. Passing the hit's name straight through therefore fails on every
+Hugging Face result, and fails in a way that reads like the model does not exist:
+
+	failed to pull model "huggingfacetb/smollm2-135m-instruct:latest":
+	resolving docker.io/huggingfacetb/smollm2-135m-instruct:latest:
+	pull access denied, repository does not exist or may require authorization
+
+It exists; it is on the other registry. `hf.co/` is the prefix the plugin routes to Hugging
+Face, verified against the CLI: the same name with the prefix pulls, and lands in the list as
+`huggingface.co/huggingfacetb/smollm2-135m-instruct`.
+
+Done here rather than in the renderer because which registry a hit came from is a fact the
+search already knows, and a UI assembling registry references is a UI that will eventually
+assemble a wrong one. A name that is already qualified is left alone, so a plugin that starts
+returning fully-qualified Hugging Face names does not end up with the prefix twice.
+*/
+func modelPullReference(name, source string) string {
+	reference := strings.TrimSpace(name)
+	if reference == "" {
+		return ""
+	}
+	if !strings.EqualFold(strings.TrimSpace(source), "huggingface") {
+		return boundScoutField(reference)
+	}
+	lower := strings.ToLower(reference)
+	if strings.HasPrefix(lower, "hf.co/") || strings.HasPrefix(lower, "huggingface.co/") {
+		return boundScoutField(reference)
+	}
+	return boundScoutField("hf.co/" + reference)
+}
+
 func (s *Service) modelsSearch(parent context.Context, params ModelsSearchParams) (ModelsSearchResult, error) {
 	contextName := strings.TrimSpace(params.Context)
 	if err := validateRequiredContext(contextName); err != nil {
@@ -371,6 +407,7 @@ func (s *Service) modelsSearch(parent context.Context, params ModelsSearchParams
 	for _, entry := range entries {
 		results = append(results, ModelSearchResult{
 			Name:        boundScoutField(entry.Name),
+			Reference:   modelPullReference(entry.Name, entry.Source),
 			Description: boundScoutField(entry.Description),
 			Downloads:   entry.Downloads,
 			Stars:       entry.Stars,

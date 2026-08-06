@@ -1777,7 +1777,13 @@ export interface ModelsListResult {
 }
 
 export interface ModelSearchResult {
+  /** What to show. A Hugging Face hit is returned under its own repository name. */
   name: string;
+  /**
+   * What to pull. Not always `name`: `docker model pull` resolves an unqualified name against
+   * Docker Hub, so a Hugging Face hit needs the `hf.co/` prefix or it fails as "does not exist".
+   */
+  reference: string;
   description?: string;
   downloads?: number;
   stars?: number;

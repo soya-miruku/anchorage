@@ -10,7 +10,7 @@
 ![Engine](https://img.shields.io/badge/Docker-Engine%20API-2496ED)
 ![Core](https://img.shields.io/badge/core-Go%20·%20zero%20dependencies-00ADD8)
 ![UI](https://img.shields.io/badge/UI-Electron%20·%20React-47848F)
-![Tests](https://img.shields.io/badge/tests-613%20renderer%20·%20Go%20race-success)
+![Tests](https://img.shields.io/badge/tests-614%20renderer%20·%20Go%20race-success)
 
 <img src="docs/media/containers-docker-light.png" width="820" alt="The Containers screen: a list of containers with live CPU and memory, status, ports, and per-row actions">
 
@@ -276,7 +276,7 @@ cd core && go test -race ./...
 
 The gate covers more than unit tests:
 
-- **613 renderer tests** across 47 files
+- **614 renderer tests** across 47 files
 - **Protocol conformance** — the JSON schema, the TypeScript types and the Go
   structs must agree, or the build fails
 - **Theme integrity** — every colour is a token, and every text-on-surface pair
