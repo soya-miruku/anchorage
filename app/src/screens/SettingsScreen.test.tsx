@@ -137,6 +137,9 @@ function createStore(
     builderActionPending: null,
     builderActionError: null,
     revealPath: vi.fn(async () => undefined),
+    enginePlugins: [],
+    enginePluginsError: null,
+    refreshEnginePlugins: vi.fn(async () => undefined),
     bridge: { desktop: { revealPath: vi.fn() } },
     ...overrides,
   } as unknown as AnchorageStore;
@@ -573,5 +576,99 @@ describe("SettingsScreen engine versions", () => {
     expect(screen.getByTestId("engine-client-version")).toHaveTextContent(
       "Not reported",
     );
+  });
+});
+
+/**
+ * The daemon's own plugins.
+ *
+ * Docker has two plugin systems sharing a word, and this application reported only one. These
+ * are containers the daemon runs as drivers, and the privileges each holds were granted once at
+ * `docker plugin install` and shown nowhere since.
+ */
+describe("SettingsScreen managed plugins", () => {
+  const SSHFS = {
+    id: "5724e2c8",
+    name: "vieux/sshfs:latest",
+    enabled: true,
+    description: "sshFS plugin for Docker",
+    interfaces: ["docker.volumedriver/1.0"],
+    privileges: {
+      network: "host",
+      capabilities: ["CAP_SYS_ADMIN"],
+      allowAllDevices: false,
+      mounts: ["/var/lib/docker/plugins/sshfs:/mnt/state"],
+      devices: ["/dev/fuse"],
+    },
+  };
+
+  it("shows what a driver was granted, which nothing else surfaces", () => {
+    render(
+      <SettingsScreen
+        store={createStore("engine", { enginePlugins: [SSHFS] } as Partial<AnchorageStore>)}
+      />,
+    );
+    const row = screen.getByTestId("engine-plugin-vieux/sshfs:latest");
+    expect(row).toHaveTextContent("docker.volumedriver/1.0");
+    // Each of these is a live grant the daemon is honouring.
+    expect(row).toHaveTextContent("host");
+    expect(row).toHaveTextContent("CAP_SYS_ADMIN");
+    expect(row).toHaveTextContent("/dev/fuse");
+    expect(row).toHaveTextContent("/var/lib/docker/plugins/sshfs:/mnt/state");
+  });
+
+  it("says nothing about privileges a plugin does not hold", () => {
+    // A row of empty fields reads as though the question was not asked.
+    render(
+      <SettingsScreen
+        store={createStore("engine", {
+          enginePlugins: [
+            {
+              ...SSHFS,
+              privileges: {
+                capabilities: [],
+                allowAllDevices: false,
+                mounts: [],
+                devices: [],
+              },
+            },
+          ],
+        } as Partial<AnchorageStore>)}
+      />,
+    );
+    expect(screen.queryByTestId("engine-plugin-privileges")).toBeNull();
+  });
+
+  it("names an unrestricted device grant rather than listing nothing", () => {
+    render(
+      <SettingsScreen
+        store={createStore("engine", {
+          enginePlugins: [
+            { ...SSHFS, privileges: { ...SSHFS.privileges, allowAllDevices: true, devices: [] } },
+          ],
+        } as Partial<AnchorageStore>)}
+      />,
+    );
+    expect(screen.getByTestId("engine-plugin-privileges")).toHaveTextContent(
+      "every device on the host",
+    );
+  });
+
+  it("distinguishes an empty daemon from one it could not read", () => {
+    render(<SettingsScreen store={createStore("engine", { enginePlugins: [] })} />);
+    expect(screen.getByTestId("engine-plugins-empty")).toBeInTheDocument();
+
+    cleanup();
+    render(
+      <SettingsScreen
+        store={createStore("engine", {
+          enginePlugins: null,
+          enginePluginsError: "permission denied",
+        } as unknown as Partial<AnchorageStore>)}
+      />,
+    );
+    // "No plugins" and "could not ask" are different claims about the machine.
+    expect(screen.queryByTestId("engine-plugins-empty")).toBeNull();
+    expect(screen.getByTestId("engine-plugins")).toHaveTextContent("permission denied");
   });
 });

@@ -86,6 +86,7 @@ import type {
   ViewId,
   SystemPlugins,
   DockerVersions,
+  EnginePlugin,
   PluginRepair,
   BuilderAction,
   ImageProjection,
@@ -439,6 +440,11 @@ export function useAnchorageStore() {
   // rather than re-fetched: it changes only when the daemon or the CLI is replaced, and the one
   // surface that reports it should not pay a subprocess to open.
   const [dockerVersions, setDockerVersions] = useState<DockerVersions | null>(null);
+  // The daemon's own plugins, which are a different subsystem from the CLI plugins above.
+  // Fetched on demand rather than at launch: nothing outside the Engine settings pane reads
+  // them, and an empty daemon is the common case.
+  const [enginePlugins, setEnginePlugins] = useState<EnginePlugin[] | null>(null);
+  const [enginePluginsError, setEnginePluginsError] = useState<string | null>(null);
   const [availableContexts, setAvailableContexts] = useState<
     Array<{ name: string; current: boolean; description?: string }>
   >([]);
@@ -3412,6 +3418,22 @@ export function useAnchorageStore() {
     [],
   );
 
+  const refreshEnginePlugins = useCallback(async () => {
+    if (!isHost) return;
+    try {
+      const result = await bridge.enginePlugins.list(dockerContextRef.current);
+      setEnginePlugins(result.plugins);
+      setEnginePluginsError(null);
+    } catch (reason) {
+      // Cleared rather than kept: a stale list would misreport what the daemon is running,
+      // and this pane's whole value is saying what holds which privileges right now.
+      setEnginePlugins(null);
+      setEnginePluginsError(
+        reason instanceof Error ? reason.message : "Managed plugins could not be read",
+      );
+    }
+  }, [bridge, isHost]);
+
   const refreshCompose = useCallback(async () => {
     if (!isHost) return;
     setComposeStatus((current) => (current === "ready" ? "ready" : "loading"));
@@ -4592,6 +4614,9 @@ export function useAnchorageStore() {
     // The plugin installation, which the sidebar reads to decide which rows exist and every
     // capability screen reads to decide what it can offer.
     dockerVersions,
+    enginePlugins,
+    enginePluginsError,
+    refreshEnginePlugins,
     pluginReport,
     pluginReportStatus,
     pluginReportError,

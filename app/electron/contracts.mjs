@@ -40,6 +40,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.files",
   "volumes.fileRead",
   "volumes.fileWrite",
+  "plugins.list",
   "builds.list",
   "builds.inspect",
   "builds.builderAction",
@@ -115,6 +116,7 @@ export const IPC_CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  pluginsList: "anchorage:plugins.list",
   buildsList: "anchorage:builds.list",
   buildsInspect: "anchorage:builds.inspect",
   buildsBuilderAction: "anchorage:builds.builderAction",
@@ -987,6 +989,13 @@ function validateVolumeName(value, field = "request.name") {
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
 
 const BUILD_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/u;
+
+/** The daemon's managed plugins. A plain context read; the daemon owns everything else. */
+export function validateEnginePluginsList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
 
 export function validateBuildsList(value) {
   assertPlainObject(value, "request");

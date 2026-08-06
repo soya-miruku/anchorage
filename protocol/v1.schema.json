@@ -57,6 +57,7 @@
         { "$ref": "#/$defs/volumeRestoreRequest" },
         { "$ref": "#/$defs/volumeCloneRequest" },
         { "$ref": "#/$defs/volumeEmptyRequest" },
+        { "$ref": "#/$defs/enginePluginsListRequest" },
         { "$ref": "#/$defs/buildsListRequest" },
         { "$ref": "#/$defs/buildsInspectRequest" },
         { "$ref": "#/$defs/buildsBuilderActionRequest" },
@@ -290,6 +291,24 @@
       "minLength": 1,
       "maxLength": 255,
       "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "enginePluginsListRequest": {
+      "description": "Lists the daemon's managed plugins — volume, network, log, IPAM, metrics and authz drivers the Engine runs as containers. A different subsystem from the CLI plugins that system.plugins reports: those are executables the client shells out to. Read over the Engine API rather than `docker plugin ls` because the socket reports the privileges each plugin was granted at install time, which the CLI table does not print.",
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "plugins.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "buildsListRequest": {
       "type": "object",

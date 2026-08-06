@@ -27,6 +27,7 @@ const CHANNELS = Object.freeze({
   volumesFiles: "anchorage:volumes.files",
   volumesFileRead: "anchorage:volumes.fileRead",
   volumesFileWrite: "anchorage:volumes.fileWrite",
+  pluginsList: "anchorage:plugins.list",
   buildsList: "anchorage:builds.list",
   buildsInspect: "anchorage:builds.inspect",
   buildsBuilderAction: "anchorage:builds.builderAction",
@@ -1027,6 +1028,12 @@ function volumeName(value, field = "request.name") {
 const VOLUME_BROWSE_PATH = /^\/[^\u0000\r\n]*$/u;
 
 const BUILD_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*(?:\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/u;
+
+function enginePluginsList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
 
 function buildsList(value) {
   plainObject(value, "request");
@@ -2142,6 +2149,8 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesFileWrite, volumeFileWrite(payload));
     case "builds.list":
       return call(CHANNELS.buildsList, buildsList(payload));
+    case "plugins.list":
+      return call(CHANNELS.pluginsList, enginePluginsList(payload));
     case "builds.inspect":
       return call(CHANNELS.buildsInspect, buildsInspect(payload));
     case "builds.builderAction":
@@ -2234,6 +2243,9 @@ const api = Object.freeze({
       call(CHANNELS.containersRebindPorts, containersRebindPorts(request)),
     export: (request) => call(CHANNELS.containersExport, containersExport(request)),
     commit: (request) => call(CHANNELS.containersCommit, containersCommit(request)),
+  }),
+  plugins: Object.freeze({
+    list: (request) => call(CHANNELS.pluginsList, enginePluginsList(request)),
   }),
   builds: Object.freeze({
     list: (request) => call(CHANNELS.buildsList, buildsList(request)),

@@ -1020,3 +1020,70 @@
 .engine-version-skew strong {
   color: var(--anc-warning-fg);
 }
+
+/* The daemon's own plugins, beside the CLI plugins they are constantly confused with. */
+.engine-plugins {
+  margin-top: 26px;
+}
+
+.engine-plugins h3 {
+  margin-bottom: 6px;
+  color: var(--anc-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.engine-plugins__list {
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+
+.engine-plugins__row {
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-input);
+}
+
+.engine-plugins__interfaces {
+  margin-top: 5px;
+  font-size: 10.5px;
+}
+
+/* Privileges read as facts about reach, so they are set as a definition list rather than chips:
+   the value is the interesting half and needs room to be read. */
+.engine-plugins__privileges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 18px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.engine-plugins__privileges dt {
+  color: var(--anc-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.engine-plugins__privileges dd {
+  margin-top: 2px;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.plugin-health__tag--enabled {
+  background: rgb(var(--anc-success-rgb) / 16%);
+  color: var(--anc-success-fg);
+}
+
+.plugin-health__tag--disabled {
+  background: rgb(var(--anc-overlay-rgb) / 10%);
+  color: var(--anc-text-muted);
+}

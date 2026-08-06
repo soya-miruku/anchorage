@@ -35,6 +35,8 @@ import type {
   ComposeListResult,
   BuildsListResult,
   BuilderAction,
+  EnginePlugin,
+  EnginePluginsList,
   BuilderActionResult,
   BuildsInspectResult,
   SecretsListResult,
@@ -940,6 +942,10 @@ class FixtureBridge implements AnchorageBridge {
     scout: async () => fixtureUnsupported("images.scout"),
   };
 
+  readonly enginePlugins = {
+    list: async () => fixtureUnsupported("plugins.list"),
+  };
+
   readonly builds = {
     list: async () => fixtureUnsupported("builds.list"),
     inspect: async () => fixtureUnsupported("builds.inspect"),
@@ -1600,6 +1606,24 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as VolumeEmptyResult;
   };
+  const enginePluginsList = async (context: string): Promise<EnginePluginsList> => {
+    const request = { context };
+    const result = host.plugins?.list
+      ? await host.plugins.list(request)
+      : host.invoke
+        ? await host.invoke("plugins.list", request)
+        : await Promise.reject(new Error("Managed plugins are unavailable"));
+    const raw = requireObjectResult(result, "plugins.list");
+    if (!Array.isArray(raw.plugins)) {
+      throw new Error("plugins.list returned an incomplete result");
+    }
+    return {
+      context: String(raw.context ?? context),
+      apiVersion: typeof raw.apiVersion === "string" ? raw.apiVersion : undefined,
+      plugins: structuredClone(raw.plugins) as EnginePlugin[],
+      observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
+    };
+  };
   const buildsList = async (context: string) => {
     const request = { context };
     const result = host.builds
@@ -1949,6 +1973,9 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       pluginAction: systemPluginAction,
       snapshot: systemSnapshot,
       prune: systemPrune,
+    },
+    enginePlugins: {
+      list: (context = "default") => enginePluginsList(context),
     },
     builds: {
       list: (context = "default") => buildsList(context),

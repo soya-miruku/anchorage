@@ -35,6 +35,7 @@ import {
   validateVolumeFileRead,
   validateVolumeFileWrite,
   validateBuildsList,
+  validateEnginePluginsList,
   validateBuildsInspect,
   validateBuildsBuilderAction,
   validateVolumeBackup,
@@ -855,6 +856,10 @@ function registerIpcHandlers() {
   // Browsing creates and removes a helper container, so it is slower than a plain read.
   registerHandler(IPC_CHANNELS.volumesFiles, (request) =>
     core.request("volumes.files", validateVolumeFiles(request), { timeoutMs: 120_000 }),
+  );
+  // A single Engine API read, so it answers on the order of the other inventories.
+  registerHandler(IPC_CHANNELS.pluginsList, (request) =>
+    core.request("plugins.list", validateEnginePluginsList(request), { timeoutMs: 20_000 }),
   );
   registerHandler(IPC_CHANNELS.buildsList, (request) =>
     core.request("builds.list", validateBuildsList(request), { timeoutMs: 90_000 }),

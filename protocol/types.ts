@@ -911,6 +911,7 @@ export type RPCRequest =
   | VolumeRestoreRequest
   | VolumeCloneRequest
   | VolumeEmptyRequest
+  | EnginePluginsListRequest
   | BuildsListRequest
   | BuildsInspectRequest
   | BuildsBuilderActionRequest
@@ -2087,6 +2088,57 @@ export interface VolumeEmptyResult {
  * reference as `builder/node/id` while `history inspect` accepts only the bare id, so the
  * core carries both and resolves between them.
  */
+/**
+ * The daemon's managed plugins.
+ *
+ * Not the CLI plugins `system.plugins` reports — those are executables the client shells out to,
+ * these are containers the daemon runs to provide volume, network, log, IPAM, metrics and authz
+ * drivers. The two share a word and nothing else, and only the first had a verb.
+ *
+ * Read over the Engine API rather than `docker plugin ls`, because the socket reports the
+ * privileges a plugin holds and the CLI's table does not. Those grants are made once at
+ * `docker plugin install` and never shown again.
+ */
+export interface EnginePluginsListRequest {
+  id: RequestId;
+  method: "plugins.list";
+  params: { context: string };
+}
+
+/** What a managed plugin may reach. Granted at install time, invisible ever since. */
+export interface EnginePluginPrivileges {
+  /** Network mode the plugin's container runs with, e.g. `host`. */
+  network?: string;
+  capabilities: string[];
+  /** True when it was granted every host device rather than a named set. */
+  allowAllDevices: boolean;
+  /** Host mounts as `source:destination`. */
+  mounts: string[];
+  devices: string[];
+}
+
+export interface EnginePlugin {
+  id: string;
+  name: string;
+  enabled: boolean;
+  reference?: string;
+  description?: string;
+  documentation?: string;
+  /** Interface types implemented, e.g. `docker.volumedriver/1.0`. */
+  interfaces: string[];
+  privileges: EnginePluginPrivileges;
+}
+
+export interface EnginePluginsListResult {
+  protocolVersion: "1";
+  context: string;
+  source: "engine-api";
+  apiVersion?: string;
+  plugins: EnginePlugin[];
+  observedAt: string;
+  endpointHash?: string;
+}
+
 export interface BuildsListRequest {
   id: RequestId;
   method: "builds.list";

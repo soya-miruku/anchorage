@@ -1362,6 +1362,7 @@ export interface AnchorageBridge {
   };
   readonly images: ImagesOperations;
   readonly compose: ComposeOperations;
+  readonly enginePlugins: EnginePluginOperations;
   readonly builds: BuildsOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
@@ -1466,6 +1467,9 @@ export interface HostAnchorageApi {
       volumes?: boolean;
       confirmed: true;
     }) => Promise<unknown>;
+  };
+  plugins?: {
+    list: (request: { context: string }) => Promise<unknown>;
   };
   builds?: {
     list: (request: { context: string }) => Promise<unknown>;
@@ -1934,6 +1938,45 @@ export interface BuildsInspectResult {
   completedSteps: number;
   materials: string[];
   observedAt: string;
+}
+
+/**
+ * A plugin the daemon runs, as opposed to one the CLI shells out to.
+ *
+ * `DockerCliPlugin` above is the other subsystem entirely — an executable in a plugin directory.
+ * These are containers providing volume, network, log, IPAM, metrics and authz drivers, and the
+ * privileges each holds were granted once at `docker plugin install` and shown nowhere since.
+ */
+export interface EnginePluginPrivileges {
+  network?: string;
+  capabilities: string[];
+  allowAllDevices: boolean;
+  /** Host mounts as `source:destination`. */
+  mounts: string[];
+  devices: string[];
+}
+
+export interface EnginePlugin {
+  id: string;
+  name: string;
+  enabled: boolean;
+  reference?: string;
+  description?: string;
+  documentation?: string;
+  /** e.g. `docker.volumedriver/1.0`. */
+  interfaces: string[];
+  privileges: EnginePluginPrivileges;
+}
+
+export interface EnginePluginsList {
+  context: string;
+  apiVersion?: string;
+  plugins: EnginePlugin[];
+  observedAt: string;
+}
+
+export interface EnginePluginOperations {
+  list(context: string): Promise<EnginePluginsList>;
 }
 
 export interface BuildsOperations {

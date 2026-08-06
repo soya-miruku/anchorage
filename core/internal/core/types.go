@@ -1665,3 +1665,57 @@ type PluginActionResult struct {
 	Plugins         PluginsResult `json:"plugins"`
 	ObservedAt      string        `json:"observedAt"`
 }
+
+/*
+Engine managed plugins.
+
+A different system from the CLI plugins in `plugins.go`, and easy to conflate: those are
+executables the CLI shells out to, while these are containers the daemon runs to provide volume
+drivers, network drivers, log drivers, IPAM, metrics collectors and authorization. They are
+installed with `docker plugin install`, listed by the Engine's own `/plugins` endpoint, and were
+entirely absent from this application — the whole subsystem had no verb and no surface.
+
+What makes them worth reporting carefully is the privilege. Installing one grants it capabilities
+the daemon then honours: host mounts, devices, Linux capabilities and a network mode. Docker asks
+for that consent once, at install time, and afterwards nothing shows what a given plugin was
+granted. That is precisely the kind of thing this application exists to make visible.
+*/
+type EnginePluginPrivileges struct {
+	// Network mode the plugin's own container runs with, e.g. "host".
+	Network string `json:"network,omitempty"`
+	// Linux capabilities the daemon grants it, e.g. CAP_SYS_ADMIN.
+	Capabilities []string `json:"capabilities"`
+	// True when the plugin was granted every device on the host rather than a named set.
+	AllowAllDevices bool `json:"allowAllDevices"`
+	// Host paths the plugin can see, as "source:destination".
+	Mounts []string `json:"mounts"`
+	// Host devices exposed to it.
+	Devices []string `json:"devices"`
+}
+
+type EnginePlugin struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	// Reference the plugin was pulled from, when the daemon reports one.
+	Reference     string `json:"reference,omitempty"`
+	Description   string `json:"description,omitempty"`
+	Documentation string `json:"documentation,omitempty"`
+	// Interface types it implements: docker.volumedriver/1.0, docker.logdriver/1.0 and so on.
+	Interfaces []string               `json:"interfaces"`
+	Privileges EnginePluginPrivileges `json:"privileges"`
+}
+
+type EnginePluginsListParams struct {
+	Context string `json:"context"`
+}
+
+type EnginePluginsListResult struct {
+	ProtocolVersion string         `json:"protocolVersion"`
+	Context         string         `json:"context"`
+	Source          string         `json:"source"`
+	APIVersion      string         `json:"apiVersion,omitempty"`
+	Plugins         []EnginePlugin `json:"plugins"`
+	ObservedAt      string         `json:"observedAt"`
+	EndpointHash    string         `json:"endpointHash,omitempty"`
+}

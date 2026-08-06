@@ -127,6 +127,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.pluginInstallation(ctx, params)
+	case "plugins.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params EnginePluginsListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.enginePluginsList(ctx, params)
 	case "system.pluginAction":
 		// Requires Docker: the repair is only permitted against an entry a scan classified as
 		// faulty, and that classification depends on what the CLI reports it loaded.

@@ -19,6 +19,7 @@ import {
 } from "../theme/appearance";
 import type {
   BuildBuilder,
+  EnginePlugin,
   EngineResources,
   FeatureFlags,
   SettingsTab,
@@ -791,6 +792,139 @@ function EngineVersionSkew({ skew }: { skew: VersionSkew }) {
   );
 }
 
+/**
+ * The daemon's own plugins.
+ *
+ * Docker has two plugin systems and this application only ever reported one. The CLI plugins
+ * above are executables the client shells out to; these are containers the daemon runs to
+ * provide volume, network, log, IPAM, metrics and authorization drivers. `docker plugin ls`
+ * lists them and nothing in Anchorage did.
+ *
+ * The privileges are why this is not just another table. Installing one grants it host mounts,
+ * devices, Linux capabilities and a network mode — consent given once at
+ * `docker plugin install` and never surfaced again, so a driver holding CAP_SYS_ADMIN, host
+ * networking and a bind of `/` looks identical to one holding nothing. That is exactly the kind
+ * of thing this application exists to show.
+ */
+function EnginePluginsSettings({ store }: { store: AnchorageStore }) {
+  const refresh = store.refreshEnginePlugins;
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  // Undefined and null both mean "not read"; normalising here keeps every branch below to one
+  // question rather than two.
+  const plugins = store.enginePlugins ?? null;
+  return (
+    <section className="engine-plugins" data-testid="engine-plugins">
+      <div className="plugin-health__heading">
+        <h3>Managed plugins</h3>
+        <button
+          type="button"
+          className="ghost-button"
+          data-testid="engine-plugins-refresh"
+          onClick={() => void refresh()}
+        >
+          Re-read
+        </button>
+      </div>
+      <p className="plugin-health__note">
+        Volume, network, log and authorization drivers the daemon runs as containers. A different
+        system from the CLI plugins above, installed with <code>docker plugin install</code>.
+      </p>
+
+      {store.enginePluginsError && (
+        <p className="capability-error" role="status">
+          {store.enginePluginsError}
+        </p>
+      )}
+
+      {plugins === null && !store.enginePluginsError && (
+        <p className="plugin-health__note" role="status">
+          Reading the daemon&rsquo;s plugins…
+        </p>
+      )}
+
+      {plugins !== null && plugins.length === 0 && (
+        <p className="plugin-health__note" data-testid="engine-plugins-empty">
+          This daemon runs no managed plugins. Docker&rsquo;s own drivers are built in; these are
+          the ones an operator installs on top.
+        </p>
+      )}
+
+      {plugins !== null && plugins.length > 0 && (
+        <ul className="engine-plugins__list">
+          {plugins.map((plugin) => (
+            <li
+              className="engine-plugins__row"
+              key={plugin.id || plugin.name}
+              data-testid={`engine-plugin-${plugin.name}`}
+            >
+              <div className="plugin-health__head">
+                <code>{plugin.name}</code>
+                <span
+                  className={`plugin-health__tag plugin-health__tag--${
+                    plugin.enabled ? "enabled" : "disabled"
+                  }`}
+                >
+                  {plugin.enabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+              {plugin.description && (
+                <p className="plugin-health__reason">{plugin.description}</p>
+              )}
+              {plugin.interfaces.length > 0 && (
+                <p className="engine-plugins__interfaces resource-mono resource-dim">
+                  {plugin.interfaces.join(" · ")}
+                </p>
+              )}
+              <EnginePluginPrivilegeList privileges={plugin.privileges} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * What this plugin may reach.
+ *
+ * Silent when it holds nothing, because a row of empty fields reads as though the question was
+ * not asked. Each entry is a grant the daemon is honouring right now.
+ */
+function EnginePluginPrivilegeList({
+  privileges,
+}: {
+  privileges: EnginePlugin["privileges"];
+}) {
+  const grants: Array<[string, string]> = [];
+  if (privileges.network) grants.push(["Network", privileges.network]);
+  if (privileges.capabilities.length > 0) {
+    grants.push(["Capabilities", privileges.capabilities.join(", ")]);
+  }
+  if (privileges.allowAllDevices) {
+    grants.push(["Devices", "every device on the host"]);
+  } else if (privileges.devices.length > 0) {
+    grants.push(["Devices", privileges.devices.join(", ")]);
+  }
+  if (privileges.mounts.length > 0) {
+    grants.push(["Host mounts", privileges.mounts.join(", ")]);
+  }
+  if (grants.length === 0) return null;
+
+  return (
+    <dl className="engine-plugins__privileges" data-testid="engine-plugin-privileges">
+      {grants.map(([term, value]) => (
+        <div key={term}>
+          <dt>{term}</dt>
+          <dd className="resource-mono">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
   return (
     <section className="capabilities-settings" data-testid="settings-capabilities">
@@ -936,6 +1070,7 @@ function EngineSettings({ store }: { store: AnchorageStore }) {
       <EngineVersionSkew skew={skew} />
       <CapabilitiesSettings store={store} />
       <CliPluginHealth store={store} />
+      <EnginePluginsSettings store={store} />
       {engine.warnings.length > 0 && (
         <div className="engine-warnings" data-testid="engine-warnings">
           <h3>Daemon warnings</h3>
