@@ -421,6 +421,13 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       name: "project_data",
       path: "/config.json",
     },
+    "models.list": { context: "default" },
+    "models.search": { context: "default", query: "smollm", source: "docker-hub" },
+    "models.action": {
+      context: "default",
+      action: "pull",
+      reference: "ai/smollm2:latest",
+    },
     "compose.list": { context: "default", all: true },
     "compose.ps": { context: "default", project: "storefront" },
     "compose.config": {

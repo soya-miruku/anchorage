@@ -35,6 +35,10 @@ import type {
   ComposeActionResult,
   ComposeListResult,
   BuildsListResult,
+  ModelActionRequest,
+  ModelActionResult,
+  ModelsListResult,
+  ModelsSearchResult,
   BuilderAction,
   EnginePlugin,
   EnginePluginsList,
@@ -965,6 +969,12 @@ class FixtureBridge implements AnchorageBridge {
     list: async () => fixtureUnsupported("plugins.list"),
   };
 
+  readonly models = {
+    list: async () => fixtureUnsupported("models.list"),
+    search: async () => fixtureUnsupported("models.search"),
+    action: async () => fixtureUnsupported("models.action"),
+  };
+
   readonly builds = {
     list: async () => fixtureUnsupported("builds.list"),
     inspect: async () => fixtureUnsupported("builds.inspect"),
@@ -1643,6 +1653,61 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
     };
   };
+  const modelsList = async (context: string) => {
+    const request = { context };
+    const result = host.models
+      ? await host.models.list(request)
+      : host.invoke
+        ? await host.invoke("models.list", request)
+        : await Promise.reject(new Error("Model Runner is unavailable"));
+    const raw = requireObjectResult(result, "models.list");
+    // `models` is the field the screen cannot do without. `runner` and `disk` come from text
+    // tables the core parses best-effort, so they are defaulted rather than demanded — an
+    // engine that answered the list is not broken because `docker model df` changed columns.
+    if (!Array.isArray(raw.models)) {
+      throw new Error("models.list returned an incomplete result");
+    }
+    const cloned = structuredClone(raw) as unknown as ModelsListResult;
+    return {
+      ...cloned,
+      runner: cloned.runner ?? { running: false, backends: [] },
+      disk: cloned.disk ?? [],
+    };
+  };
+  const modelsSearch = async (
+    query: string | undefined,
+    source: "docker-hub" | "huggingface" | "all" | undefined,
+    context: string,
+  ) => {
+    const request: Record<string, unknown> = { context };
+    if (query !== undefined) request.query = query;
+    if (source !== undefined) request.source = source;
+    const result = host.models
+      ? await host.models.search(request)
+      : host.invoke
+        ? await host.invoke("models.search", request)
+        : await Promise.reject(new Error("Model search is unavailable"));
+    const raw = requireObjectResult(result, "models.search");
+    if (!Array.isArray(raw.results)) {
+      throw new Error("models.search returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as ModelsSearchResult;
+  };
+  const modelsAction = async (
+    request: ModelActionRequest,
+  ): Promise<ModelActionResult> => {
+    const payload = { ...request, context: request.context ?? "default" };
+    const result = host.models?.action
+      ? await host.models.action(payload)
+      : host.invoke
+        ? await host.invoke("models.action", payload)
+        : await Promise.reject(new Error("Model actions are unavailable"));
+    const raw = requireObjectResult(result, "models.action");
+    if (typeof raw.action !== "string") {
+      throw new Error("models.action returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as ModelActionResult;
+  };
   const buildsList = async (context: string) => {
     const request = { context };
     const result = host.builds
@@ -1995,6 +2060,12 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     enginePlugins: {
       list: (context = "default") => enginePluginsList(context),
+    },
+    models: {
+      list: (context = "default") => modelsList(context),
+      search: (query, source, context = "default") =>
+        modelsSearch(query, source, context),
+      action: modelsAction,
     },
     builds: {
       list: (context = "default") => buildsList(context),

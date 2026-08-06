@@ -43,6 +43,9 @@ import {
   validateVolumeClone,
   validateVolumeEmpty,
   validateComposeList,
+  validateModelsAction,
+  validateModelsList,
+  validateModelsSearch,
   validateComposePs,
   validateComposeConfig,
   validateComposeAction,
@@ -916,6 +919,26 @@ function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.volumesFileRead, (request) =>
     core.request("volumes.fileRead", validateVolumeFileRead(request), { timeoutMs: 120_000 }),
   );
+  // `docker model ls` pulls the runner image the first time it is asked, printing pull
+  // progress before it answers, so this read is budgeted like a pull rather than like a list.
+  // The core bounds the same call at five minutes; anything tighter here would turn a first
+  // run on a cold machine into a failure indistinguishable from a broken install.
+  registerHandler(IPC_CHANNELS.modelsList, (request) =>
+    core.request("models.list", validateModelsList(request), { timeoutMs: 300_000 }),
+  );
+  // Search leaves the machine, so it gets a short budget of its own: a slow registry must not
+  // hold a window open for the length of a model pull.
+  registerHandler(IPC_CHANNELS.modelsSearch, (request) =>
+    core.request("models.search", validateModelsSearch(request), { timeoutMs: 60_000 }),
+  );
+  // pull returns as soon as its session starts, so this is a start timeout rather than a
+  // budget for gigabytes to arrive. remove and unload answer inline and are quick.
+  registerHandler(IPC_CHANNELS.modelsAction, (request) => {
+    assertMutationsEnabled();
+    return core.request("models.action", validateModelsAction(request), {
+      timeoutMs: 45_000,
+    });
+  });
   registerHandler(IPC_CHANNELS.composeList, (request) =>
     core.request("compose.list", validateComposeList(request), { timeoutMs: 60_000 }),
   );

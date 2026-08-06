@@ -1367,6 +1367,7 @@ export interface AnchorageBridge {
   readonly compose: ComposeOperations;
   readonly enginePlugins: EnginePluginOperations;
   readonly builds: BuildsOperations;
+  readonly models: ModelsOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
   readonly secrets: SecretsOperations;
@@ -1478,6 +1479,11 @@ export interface HostAnchorageApi {
     list: (request: { context: string }) => Promise<unknown>;
     inspect: (request: { context: string; ref: string }) => Promise<unknown>;
     builderAction?: (request: BuilderAction) => Promise<unknown>;
+  };
+  models?: {
+    list: (request: { context: string }) => Promise<unknown>;
+    search: (request: Record<string, unknown>) => Promise<unknown>;
+    action?: (request: ModelActionRequest) => Promise<unknown>;
   };
   compose?: {
     list: (request: { context: string; all?: boolean }) => Promise<unknown>;
@@ -1980,6 +1986,115 @@ export interface EnginePluginsList {
 
 export interface EnginePluginOperations {
   list(context: string): Promise<EnginePluginsList>;
+}
+
+/* ── Docker Model Runner ─────────────────────────────────────────────────────────────────── */
+
+/**
+ * One model on this machine, from `docker model ls --json`.
+ *
+ * The size, parameter count and quantization arrive as display strings — "256.35 MiB",
+ * "361.82 M", "IQ2_XXS/Q4_K_M" — and are shown as Docker printed them. Re-deriving numbers
+ * from them would put a figure on screen that disagrees with `docker model ls` for no benefit,
+ * since nothing computes with them.
+ */
+export interface DockerModel {
+  /** The manifest digest, `sha256:…`. */
+  id: string;
+  /** Every reference pointing at this model; empty once it has been untagged. */
+  tags: string[];
+  /** What `docker model run` and `docker model rm` accept: first tag, else the digest. */
+  reference: string;
+  created?: string;
+  format?: string;
+  quantization?: string;
+  parameters?: string;
+  architecture?: string;
+  size?: string;
+  contextSize?: number;
+}
+
+/**
+ * One row of `docker model status`. A backend that is not installed is shown rather than
+ * hidden: "mlx — Not Installed — only supported on Apple Silicon" tells a Linux operator
+ * something true, where an absent row would read as a missing feature.
+ */
+export interface ModelBackend {
+  name: string;
+  status: string;
+  detail?: string;
+}
+
+export interface ModelRunnerStatus {
+  /** Taken from the runner's own sentence, never inferred from a backend row. */
+  running: boolean;
+  reported?: string;
+  backends: ModelBackend[];
+}
+
+export interface ModelDiskUsage {
+  label: string;
+  size: string;
+}
+
+export interface ModelsListResult {
+  protocolVersion: "1";
+  context: string;
+  models: DockerModel[];
+  /**
+   * Both are best-effort: they come from column-aligned text with no JSON option, so a table
+   * Docker reformats leaves these empty rather than taking the model list down with it.
+   */
+  runner: ModelRunnerStatus;
+  disk: ModelDiskUsage[];
+  observedAt: string;
+}
+
+export interface ModelSearchResult {
+  name: string;
+  description?: string;
+  downloads?: number;
+  stars?: number;
+  source?: string;
+  official?: boolean;
+  updatedAt?: string;
+  backend?: string;
+  /** A real byte count, unlike the display strings on DockerModel. */
+  sizeBytes?: number;
+}
+
+export interface ModelsSearchResult {
+  protocolVersion: "1";
+  context: string;
+  query?: string;
+  results: ModelSearchResult[];
+  observedAt: string;
+}
+
+export type ModelAction = "pull" | "remove" | "unload";
+
+export interface ModelActionRequest {
+  context?: string;
+  action: ModelAction;
+  /** Required for pull and remove; omitting it on unload evicts every loaded model. */
+  reference?: string;
+}
+
+export interface ModelActionResult {
+  action: ModelAction;
+  receipt: Record<string, unknown>;
+  /** Present for pull alone, which streams; followed through session events. */
+  session?: SessionStartResult;
+}
+
+export interface ModelsOperations {
+  list(context?: string): Promise<ModelsListResult>;
+  search(
+    query?: string,
+    source?: "docker-hub" | "huggingface" | "all",
+    context?: string,
+  ): Promise<ModelsSearchResult>;
+  action(request: ModelActionRequest): Promise<ModelActionResult>;
 }
 
 export interface BuildsOperations {

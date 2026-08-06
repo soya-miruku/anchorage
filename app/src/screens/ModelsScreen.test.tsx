@@ -1,0 +1,234 @@
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ModelsScreen } from "./ModelsScreen";
+import type { AnchorageStore } from "../store/useAnchorageStore";
+import type { DockerModel } from "../types";
+
+afterEach(cleanup);
+
+const SMOLLM: DockerModel = {
+  id: "sha256:354bf30d0aa3af413d2aa5ae4f23c66d78980072d1e07a5b0d776e9606a2f0b9",
+  tags: ["ai/smollm2:latest", "ai/smollm2:360M"],
+  reference: "ai/smollm2:latest",
+  created: "2025-03-24T11:49:41Z",
+  format: "gguf",
+  quantization: "IQ2_XXS/Q4_K_M",
+  parameters: "361.82 M",
+  architecture: "llama",
+  size: "256.35 MiB",
+  contextSize: 4096,
+};
+
+function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
+  return {
+    isHost: true,
+    models: [],
+    modelRunner: { running: true, reported: "Docker Model Runner is running", backends: [] },
+    modelDisk: [],
+    modelsStatus: "ready",
+    modelsError: null,
+    modelsBusy: null,
+    modelSearchResults: null,
+    modelSearchStatus: "idle",
+    modelSearchError: null,
+    refreshModels: vi.fn(async () => undefined),
+    searchModels: vi.fn(async () => undefined),
+    clearModelSearch: vi.fn(),
+    modelAction: vi.fn(async () => true),
+    openCommandCenter: vi.fn(),
+    ...overrides,
+  } as unknown as AnchorageStore;
+}
+
+describe("ModelsScreen", () => {
+  it("reads the installation on arrival rather than waiting to be asked", () => {
+    const store = createStore();
+    render(<ModelsScreen store={store} />);
+
+    expect(store.refreshModels).toHaveBeenCalled();
+    // Search is the one thing here that leaves the machine, so it must not fire on mount:
+    // opening a screen is not consent to reach a registry.
+    expect(store.searchModels).not.toHaveBeenCalled();
+  });
+
+  it("shows the runner's own sentence rather than a paraphrase of a boolean", () => {
+    render(
+      <ModelsScreen
+        store={createStore({
+          modelRunner: {
+            running: true,
+            reported: "Docker Model Runner is running",
+            backends: [
+              { name: "llama.cpp", status: "Running", detail: "llama.cpp 72874f559" },
+              { name: "mlx", status: "Not Installed", detail: "only supported on Apple Silicon" },
+            ],
+          },
+        })}
+      />,
+    );
+
+    const runner = screen.getByTestId("model-runner");
+    expect(runner).toHaveTextContent("Docker Model Runner is running");
+    // A backend that is not installed is reported rather than hidden — an absent row would
+    // read as a missing feature instead of an inapplicable one.
+    expect(screen.getByTestId("model-backend-mlx")).toHaveTextContent(
+      "only supported on Apple Silicon",
+    );
+  });
+
+  it("distinguishes no models from no runner", () => {
+    // The whole reason the runner strip and the list share a screen. "Nothing pulled yet" and
+    // "nothing here is going to work" look identical if only one of them is on screen.
+    const { rerender } = render(<ModelsScreen store={createStore()} />);
+    expect(screen.getByTestId("models-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("model-runner")).toHaveTextContent("is running");
+
+    rerender(
+      <ModelsScreen
+        store={createStore({
+          modelRunner: {
+            running: false,
+            reported: "Docker Model Runner is not running",
+            backends: [],
+          },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("models-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("model-runner")).toHaveTextContent("is not running");
+  });
+
+  it("lists a model once however many tags point at it", () => {
+    render(<ModelsScreen store={createStore({ models: [SMOLLM] })} />);
+
+    const row = screen.getByTestId("model-row-ai/smollm2:latest");
+    expect(row).toHaveTextContent("361.82 M");
+    expect(row).toHaveTextContent("IQ2_XXS/Q4_K_M");
+    expect(row).toHaveTextContent("256.35 MiB");
+    // One row, with the second tag named on it. A row per tag would make the disk figures read
+    // as though the weights were stored twice.
+    expect(screen.getAllByTestId(/^model-row-/u)).toHaveLength(1);
+    expect(screen.getByTestId("model-extra-tags")).toHaveTextContent(
+      "Also tagged ai/smollm2:360M",
+    );
+  });
+
+  it("makes deleting weights take a second press", async () => {
+    const store = createStore({ models: [SMOLLM] });
+    render(<ModelsScreen store={store} />);
+    const row = screen.getByTestId("model-row-ai/smollm2:latest");
+
+    fireEvent.click(within(row).getByRole("button", { name: "Remove" }));
+    // Nothing has happened yet — the first press only asks.
+    expect(store.modelAction).not.toHaveBeenCalled();
+
+    fireEvent.click(within(row).getByRole("button", { name: "Delete weights" }));
+    expect(store.modelAction).toHaveBeenCalledWith({
+      action: "remove",
+      reference: "ai/smollm2:latest",
+    });
+  });
+
+  it("unloads without confirmation, because unloading destroys nothing", () => {
+    // Unload evicts the model from memory and leaves the weights on disk. Gating it behind the
+    // same confirmation as a delete would teach the operator to click through both.
+    const store = createStore({ models: [SMOLLM] });
+    render(<ModelsScreen store={store} />);
+
+    fireEvent.click(
+      within(screen.getByTestId("model-row-ai/smollm2:latest")).getByRole("button", {
+        name: "Unload",
+      }),
+    );
+    expect(store.modelAction).toHaveBeenCalledWith({
+      action: "unload",
+      reference: "ai/smollm2:latest",
+    });
+  });
+
+  it("greys only the row it is working on", () => {
+    const second: DockerModel = { ...SMOLLM, id: "sha256:other", tags: ["ai/qwen3:latest"], reference: "ai/qwen3:latest" };
+    render(
+      <ModelsScreen
+        store={createStore({
+          models: [SMOLLM, second],
+          modelsBusy: "ai/smollm2:latest",
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId("model-row-ai/smollm2:latest")).toHaveAttribute(
+      "data-busy",
+      "true",
+    );
+    expect(screen.getByTestId("model-row-ai/qwen3:latest")).not.toHaveAttribute(
+      "data-busy",
+    );
+  });
+
+  it("searches only when asked, and says the search leaves the machine", () => {
+    const store = createStore();
+    render(<ModelsScreen store={store} />);
+
+    expect(screen.getByText(/Reaches Docker Hub/u)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Search Docker Hub for a model"), {
+      target: { value: "smollm" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    expect(store.searchModels).toHaveBeenCalledWith("smollm");
+  });
+
+  it("offers a pull for a search hit and formats what it will cost", () => {
+    const store = createStore({
+      modelSearchStatus: "ready",
+      modelSearchResults: [
+        {
+          name: "ai/smollm2",
+          description: "Tiny LLM built for speed",
+          downloads: 606_099,
+          official: true,
+          backend: "llama.cpp",
+          source: "Docker Hub",
+          sizeBytes: 270_601_982,
+        },
+      ],
+    });
+    render(<ModelsScreen store={store} />);
+
+    const hit = screen.getByTestId("model-hit-ai/smollm2");
+    // 270,601,982 bytes is 258MB, and a download worth that much deserves a figure before
+    // the button rather than after it.
+    expect(hit).toHaveTextContent("258MB");
+    expect(hit).toHaveTextContent("606K pulls");
+
+    fireEvent.click(within(hit).getByRole("button", { name: "Pull" }));
+    expect(store.modelAction).toHaveBeenCalledWith({
+      action: "pull",
+      reference: "ai/smollm2",
+    });
+  });
+
+  it("falls back to the install surface when the plugin is not there", () => {
+    // There is nothing to list until `docker model` exists, so the screen becomes the one
+    // thing that helps: what state the plugin is in and how to get it.
+    render(
+      <ModelsScreen
+        store={createStore({ modelsStatus: "unavailable", pluginReport: null })}
+      />,
+    );
+
+    expect(screen.getByTestId("models-screen")).toHaveTextContent(/Models/u);
+    expect(screen.queryByTestId("model-runner")).toBeNull();
+  });
+
+  it("states what the runner does not protect, whether or not it is installed", () => {
+    render(<ModelsScreen store={createStore()} />);
+    expect(screen.getByTestId("models-screen-posture")).toHaveTextContent(
+      /no authentication by default/u,
+    );
+  });
+});

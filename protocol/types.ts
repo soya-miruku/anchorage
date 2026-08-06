@@ -899,6 +899,9 @@ export type RPCRequest =
   | ContainersCreateRequest
   | ContainersRebindPortsRequest
   | ContainersExportRequest
+  | ModelsListRequest
+  | ModelsSearchRequest
+  | ModelsActionRequest
   | ComposeListRequest
   | ComposePsRequest
   | ComposeConfigRequest
@@ -1710,6 +1713,92 @@ export interface ComposeProject {
   totalCount: number;
 }
 
+/** One model on this machine, from `docker model ls --json`. */
+export interface DockerModel {
+  /** The manifest digest, `sha256:…`. */
+  id: string;
+  /** Every reference pointing at this model; empty when it has been untagged. */
+  tags: string[];
+  /** What `docker model run` and `docker model rm` accept: first tag, else the digest. */
+  reference: string;
+  created?: string;
+  format?: string;
+  /**
+   * Carried as Docker printed them. These are display strings — "256.35 MiB", "361.82 M",
+   * "IQ2_XXS/Q4_K_M" — and re-deriving numbers from them would put a figure on screen that
+   * disagrees with `docker model ls` for no benefit, since nothing computes with them.
+   */
+  quantization?: string;
+  parameters?: string;
+  architecture?: string;
+  size?: string;
+  contextSize?: number;
+}
+
+/**
+ * One row of `docker model status`. A backend that is not installed is reported rather than
+ * hidden: "mlx — Not Installed — only supported on Apple Silicon" tells a Linux operator
+ * something true, where an absent row would read as a missing feature.
+ */
+export interface ModelBackend {
+  name: string;
+  status: string;
+  detail?: string;
+}
+
+export interface ModelRunnerStatus {
+  /** Taken from the runner's own sentence, never inferred from a backend row. */
+  running: boolean;
+  reported?: string;
+  backends: ModelBackend[];
+}
+
+export interface ModelDiskUsage {
+  label: string;
+  size: string;
+}
+
+export interface ModelsListResult {
+  protocolVersion: "1";
+  context: string;
+  models: DockerModel[];
+  /**
+   * Both come from column-aligned text with no JSON option, so both are best-effort: a table
+   * Docker reformats leaves these empty rather than taking the model list down with it.
+   */
+  runner: ModelRunnerStatus;
+  disk: ModelDiskUsage[];
+  observedAt: string;
+}
+
+export interface ModelSearchResult {
+  name: string;
+  description?: string;
+  downloads?: number;
+  stars?: number;
+  source?: string;
+  official?: boolean;
+  updatedAt?: string;
+  backend?: string;
+  /** A real byte count, unlike the display strings on DockerModel. */
+  sizeBytes?: number;
+}
+
+export interface ModelsSearchResult {
+  protocolVersion: "1";
+  context: string;
+  query?: string;
+  results: ModelSearchResult[];
+  observedAt: string;
+}
+
+export interface ModelsActionResult {
+  action: "pull" | "remove" | "unload";
+  receipt: DomainOperationReceipt;
+  /** Present for pull alone, which streams; followed through session events. */
+  session?: SessionStartResult;
+}
+
 export interface ComposeListResult {
   context: string;
   source: "cli-json";
@@ -1737,6 +1826,55 @@ export interface ComposePsResult {
   services: ComposeService[];
   observedAt: string;
   limitations: string[];
+}
+
+/**
+ * Docker Model Runner.
+ *
+ * The one AI capability that runs in full against a standalone Linux Engine: the plugin is
+ * packaged, the runner is an ordinary container on this engine, inference is local, and no
+ * Docker account or subscription is involved. The other AI destinations were removed rather
+ * than described, because nothing true could be said about installing them here.
+ */
+export interface ModelsListRequest {
+  id: RequestId;
+  method: "models.list";
+  params: { context: string };
+}
+
+/**
+ * Search reaches Docker Hub's `ai/` namespace, and Hugging Face when asked. It is the only
+ * read here that leaves the machine, which is why it is a separate verb rather than part of
+ * the list: opening a screen is not consent to a network call.
+ */
+export interface ModelsSearchRequest {
+  id: RequestId;
+  method: "models.search";
+  params: {
+    context: string;
+    query?: string;
+    source?: "docker-hub" | "huggingface" | "all";
+  };
+}
+
+/**
+ * `pull` streams through a session, because a model is gigabytes and the download outlives
+ * the request. `remove` and `unload` are bounded and answer inline — which is why the session
+ * fields are refused for them rather than ignored.
+ */
+export interface ModelsActionRequest {
+  id: RequestId;
+  method: "models.action";
+  params: {
+    context: string;
+    action: "pull" | "remove" | "unload";
+    /** Required for pull and remove. Omitted on unload, it evicts every loaded model. */
+    reference?: string;
+    cwd?: string;
+    timeoutSeconds?: number;
+    outputWindowBytes?: number;
+    maxOutputBytes?: number;
+  };
 }
 
 export interface ComposeListRequest {

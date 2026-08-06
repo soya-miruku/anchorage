@@ -48,6 +48,9 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.restore",
   "volumes.clone",
   "volumes.empty",
+  "models.list",
+  "models.search",
+  "models.action",
   "compose.list",
   "compose.ps",
   "compose.config",
@@ -124,6 +127,9 @@ export const IPC_CHANNELS = Object.freeze({
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
+  modelsList: "anchorage:models.list",
+  modelsSearch: "anchorage:models.search",
+  modelsAction: "anchorage:models.action",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeConfig: "anchorage:compose.config",
@@ -1197,6 +1203,119 @@ export function validateVolumeFileRead(value) {
     name: validateVolumeName(value.name),
     path: target,
   };
+}
+
+/* ── Docker Model Runner ─────────────────────────────────────────────────────────────────── */
+
+const MODEL_ACTIONS = new Set(["pull", "remove", "unload"]);
+const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
+// A model reference becomes an argv element, so the shapes that would be re-read as a flag are
+// refused here as well as in the core.
+const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+export function validateModelsList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
+
+export function validateModelsSearch(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context", "query", "source"]), "request");
+  const normalized = { context: validateContext(value.context) };
+  if (value.query !== undefined) {
+    // Empty is allowed: `docker model search` with no term lists the catalogue, which is the
+    // sensible first thing to show someone who has just opened the browser.
+    const query = boundedString(value.query, "request.query", 128, {
+      allowEmpty: true,
+    });
+    if (query.startsWith("-")) {
+      fail("request.query cannot begin with a dash");
+    }
+    if (/[\r\n\t]/u.test(query)) {
+      fail("request.query cannot contain control characters");
+    }
+    normalized.query = query;
+  }
+  if (value.source !== undefined) {
+    normalized.source = validateEnum(
+      value.source,
+      "request.source",
+      MODEL_SEARCH_SOURCES,
+    );
+  }
+  return normalized;
+}
+
+export function validateModelsAction(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set([
+      "context",
+      "action",
+      "reference",
+      "cwd",
+      "timeoutSeconds",
+      "outputWindowBytes",
+      "maxOutputBytes",
+    ]),
+    "request",
+  );
+  const action = validateEnum(value.action, "request.action", MODEL_ACTIONS);
+  const normalized = { context: validateContext(value.context), action };
+
+  if (value.reference !== undefined) {
+    const reference = boundedString(value.reference, "request.reference", 512);
+    if (!MODEL_REFERENCE.test(reference)) {
+      fail("request.reference must be a model reference or digest");
+    }
+    normalized.reference = reference;
+  }
+  // pull and remove name one model. unload without a reference evicts everything loaded,
+  // which is a deliberate ask rather than an omission.
+  if ((action === "pull" || action === "remove") && !normalized.reference) {
+    fail(`request.reference is required for model ${action}`);
+  }
+
+  // The session fields belong to pull, which streams. remove and unload answer inline, so
+  // accepting them there would describe a response shape the core never produces.
+  if (action !== "pull") {
+    for (const key of ["cwd", "timeoutSeconds", "outputWindowBytes", "maxOutputBytes"]) {
+      if (value[key] !== undefined) {
+        fail(`request.${key} is only accepted for model pull`);
+      }
+    }
+    return normalized;
+  }
+
+  assignDefined(normalized, "cwd", validateCwd(value.cwd));
+  assignDefined(
+    normalized,
+    "timeoutSeconds",
+    optionalInteger(value.timeoutSeconds, "request.timeoutSeconds", 0, 86_400),
+  );
+  assignDefined(
+    normalized,
+    "outputWindowBytes",
+    optionalInteger(
+      value.outputWindowBytes,
+      "request.outputWindowBytes",
+      1_024,
+      8_388_608,
+    ),
+  );
+  assignDefined(
+    normalized,
+    "maxOutputBytes",
+    optionalInteger(
+      value.maxOutputBytes,
+      "request.maxOutputBytes",
+      0,
+      1_099_511_627_776,
+    ),
+  );
+  return normalized;
 }
 
 export function validateComposeList(value) {

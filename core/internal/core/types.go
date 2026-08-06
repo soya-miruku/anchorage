@@ -1722,3 +1722,120 @@ type EnginePluginsListResult struct {
 	ObservedAt      string         `json:"observedAt"`
 	EndpointHash    string         `json:"endpointHash,omitempty"`
 }
+
+/* ── Docker Model Runner ─────────────────────────────────────────────────────────────────── */
+
+// DockerModel is one model on this machine, projected from `docker model ls --json`.
+//
+// The size, parameter count and quantization are carried as Docker printed them rather than
+// re-derived. They arrive as display strings ("256.35 MiB", "361.82 M", "IQ2_XXS/Q4_K_M") and
+// reformatting them would put a number on screen that disagrees with `docker model ls` for no
+// benefit — nothing computes with them.
+type DockerModel struct {
+	// ID is the manifest digest, `sha256:…`.
+	ID string `json:"id"`
+	// Tags are every reference pointing at this model. A pulled model normally has one; a
+	// model that has been untagged has none, and is only addressable by digest.
+	Tags []string `json:"tags"`
+	// Reference is what `docker model run` and `docker model rm` accept: the first tag when
+	// there is one, the digest otherwise.
+	Reference    string `json:"reference"`
+	Created      string `json:"created,omitempty"`
+	Format       string `json:"format,omitempty"`
+	Quantization string `json:"quantization,omitempty"`
+	Parameters   string `json:"parameters,omitempty"`
+	Architecture string `json:"architecture,omitempty"`
+	Size         string `json:"size,omitempty"`
+	// ContextSize is the model's own token window, when it declares one.
+	ContextSize *int `json:"contextSize,omitempty"`
+}
+
+// ModelBackend is one row of the `docker model status` table. A backend that is not installed
+// is reported rather than hidden: "mlx — Not Installed — only supported on Apple Silicon" tells
+// a Linux operator something true, where an absent row would look like a missing feature.
+type ModelBackend struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
+}
+
+type ModelRunnerStatus struct {
+	// Running is taken from the runner's own sentence, not inferred from the backend table.
+	Running bool `json:"running"`
+	// Reported is that sentence verbatim, so the screen can show what Docker said rather than
+	// a paraphrase of a boolean.
+	Reported string         `json:"reported,omitempty"`
+	Backends []ModelBackend `json:"backends"`
+}
+
+type ModelDiskUsage struct {
+	Label string `json:"label"`
+	Size  string `json:"size"`
+}
+
+type ModelsListParams struct {
+	Context string `json:"context"`
+}
+
+type ModelsListResult struct {
+	ProtocolVersion string        `json:"protocolVersion"`
+	Context         string        `json:"context"`
+	Models          []DockerModel `json:"models"`
+	// Runner and Disk are best-effort. Both come from column-aligned text with no JSON option,
+	// so an unrecognised table leaves them empty rather than failing the whole read.
+	Runner     ModelRunnerStatus `json:"runner"`
+	Disk       []ModelDiskUsage  `json:"disk"`
+	ObservedAt string            `json:"observedAt"`
+}
+
+type ModelsSearchParams struct {
+	Context string `json:"context"`
+	Query   string `json:"query,omitempty"`
+	// Source selects the registries searched: docker-hub (the default), huggingface, or all.
+	Source string `json:"source,omitempty"`
+}
+
+type ModelSearchResult struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Downloads   int64  `json:"downloads,omitempty"`
+	Stars       int64  `json:"stars,omitempty"`
+	Source      string `json:"source,omitempty"`
+	Official    bool   `json:"official,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty"`
+	Backend     string `json:"backend,omitempty"`
+	// SizeBytes is a real byte count here, unlike the display strings on DockerModel: search
+	// returns a number and the UI formats it.
+	SizeBytes int64 `json:"sizeBytes,omitempty"`
+}
+
+type ModelsSearchResult struct {
+	ProtocolVersion string              `json:"protocolVersion"`
+	Context         string              `json:"context"`
+	Query           string              `json:"query,omitempty"`
+	Results         []ModelSearchResult `json:"results"`
+	ObservedAt      string              `json:"observedAt"`
+}
+
+type ModelsActionParams struct {
+	Context string `json:"context"`
+	// Action is pull, remove, or unload.
+	Action string `json:"action"`
+	// Reference is required for pull and remove. Omitting it on unload evicts every loaded
+	// model, which is a legitimate ask rather than an oversight.
+	Reference string `json:"reference,omitempty"`
+	Cwd       string `json:"cwd,omitempty"`
+	// The three session fields apply to pull alone, which streams. MaxOutputBytes is int64 to
+	// match SessionStartParams, where it bounds a total rather than one window.
+	TimeoutSeconds    int   `json:"timeoutSeconds,omitempty"`
+	OutputWindowBytes int   `json:"outputWindowBytes,omitempty"`
+	MaxOutputBytes    int64 `json:"maxOutputBytes,omitempty"`
+}
+
+type ModelsActionResult struct {
+	Action  string                 `json:"action"`
+	Receipt DomainOperationReceipt `json:"receipt"`
+	// Session is present for pull alone: the download outlives this response and is followed
+	// through session events.
+	Session *SessionStartResult `json:"session,omitempty"`
+}

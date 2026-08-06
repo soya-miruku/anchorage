@@ -35,6 +35,9 @@ const CHANNELS = Object.freeze({
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
+  modelsList: "anchorage:models.list",
+  modelsSearch: "anchorage:models.search",
+  modelsAction: "anchorage:models.action",
   composeList: "anchorage:compose.list",
   composePs: "anchorage:compose.ps",
   composeConfig: "anchorage:compose.config",
@@ -1241,6 +1244,117 @@ function volumeFileRead(value) {
   };
 }
 
+const MODEL_ACTIONS = new Set(["pull", "remove", "unload"]);
+const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
+// A model reference becomes an argv element. The core refuses a leading dash as well, but this
+// boundary is what stops one being constructed here in the first place.
+const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+function modelsList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
+
+function modelsSearch(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "query", "source"]), "request");
+  const normalized = { context: context(value.context) };
+  if (value.query !== undefined) {
+    // Empty is allowed: `docker model search` with no term lists the catalogue, which is the
+    // sensible first thing to show someone who has opened the browser.
+    const query = text(value.query, "request.query", 128, true);
+    if (query.startsWith("-")) {
+      fail("request.query cannot begin with a dash");
+    }
+    // The term reaches argv after `--`, so a dash can no longer make it a flag, but a newline
+    // or tab in a search box is not a search term and the schema refuses it too.
+    if (/[\r\n\t]/u.test(query)) {
+      fail("request.query cannot contain control characters");
+    }
+    normalized.query = query;
+  }
+  if (value.source !== undefined) {
+    normalized.source = enumValue(
+      value.source,
+      "request.source",
+      MODEL_SEARCH_SOURCES,
+    );
+  }
+  return normalized;
+}
+
+function modelsAction(value) {
+  plainObject(value, "request");
+  onlyKeys(
+    value,
+    new Set([
+      "context",
+      "action",
+      "reference",
+      "cwd",
+      "timeoutSeconds",
+      "outputWindowBytes",
+      "maxOutputBytes",
+    ]),
+    "request",
+  );
+  const action = enumValue(value.action, "request.action", MODEL_ACTIONS);
+  const normalized = { context: context(value.context), action };
+
+  if (value.reference !== undefined) {
+    const reference = text(value.reference, "request.reference", 512);
+    if (!MODEL_REFERENCE.test(reference)) {
+      fail("request.reference must be a model reference or digest");
+    }
+    normalized.reference = reference;
+  }
+  // pull and remove name one model. unload without a reference evicts everything loaded,
+  // which is a deliberate ask rather than an omission, so only these two are required.
+  if ((action === "pull" || action === "remove") && !normalized.reference) {
+    fail(`request.reference is required for model ${action}`);
+  }
+
+  // The session fields belong to pull, which streams. remove and unload answer inline, so
+  // accepting them there would describe a response shape the core never produces.
+  if (action !== "pull") {
+    for (const key of ["cwd", "timeoutSeconds", "outputWindowBytes", "maxOutputBytes"]) {
+      if (value[key] !== undefined) {
+        fail(`request.${key} is only accepted for model pull`);
+      }
+    }
+    return normalized;
+  }
+
+  copyDefined(normalized, "cwd", cwd(value.cwd));
+  copyDefined(
+    normalized,
+    "timeoutSeconds",
+    optionalInteger(value.timeoutSeconds, "request.timeoutSeconds", 0, 86_400),
+  );
+  copyDefined(
+    normalized,
+    "outputWindowBytes",
+    optionalInteger(
+      value.outputWindowBytes,
+      "request.outputWindowBytes",
+      1_024,
+      8_388_608,
+    ),
+  );
+  copyDefined(
+    normalized,
+    "maxOutputBytes",
+    optionalInteger(
+      value.maxOutputBytes,
+      "request.maxOutputBytes",
+      0,
+      1_099_511_627_776,
+    ),
+  );
+  return normalized;
+}
+
 function composeList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context", "all"]), "request");
@@ -2163,6 +2277,12 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesClone, volumeClone(payload));
     case "volumes.empty":
       return call(CHANNELS.volumesEmpty, volumeEmpty(payload));
+    case "models.list":
+      return call(CHANNELS.modelsList, modelsList(payload));
+    case "models.search":
+      return call(CHANNELS.modelsSearch, modelsSearch(payload));
+    case "models.action":
+      return call(CHANNELS.modelsAction, modelsAction(payload));
     case "compose.list":
       return call(CHANNELS.composeList, composeList(payload));
     case "compose.ps":
@@ -2252,6 +2372,11 @@ const api = Object.freeze({
     inspect: (request) => call(CHANNELS.buildsInspect, buildsInspect(request)),
     builderAction: (request) =>
       call(CHANNELS.buildsBuilderAction, buildsBuilderAction(request)),
+  }),
+  models: Object.freeze({
+    list: (request) => call(CHANNELS.modelsList, modelsList(request)),
+    search: (request) => call(CHANNELS.modelsSearch, modelsSearch(request)),
+    action: (request) => call(CHANNELS.modelsAction, modelsAction(request)),
   }),
   compose: Object.freeze({
     list: (request) => call(CHANNELS.composeList, composeList(request)),

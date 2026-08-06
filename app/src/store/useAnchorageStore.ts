@@ -65,6 +65,11 @@ import type {
   SessionStartResult,
   BuildRecord,
   BuildBuilder,
+  DockerModel,
+  ModelActionRequest,
+  ModelDiskUsage,
+  ModelRunnerStatus,
+  ModelSearchResult,
   BuildsInspectResult,
   ComposeProject,
   ComposeService,
@@ -544,6 +549,24 @@ export function useAnchorageStore() {
   // Distinct from `composeProjects` below, which is only the set of project *names* found
   // on container labels and drives the Containers filter. This is the plugin's own project
   // list, which also covers projects whose containers are all stopped.
+  const [models, setModels] = useState<DockerModel[]>([]);
+  const [modelRunner, setModelRunner] = useState<ModelRunnerStatus>({
+    running: false,
+    backends: [],
+  });
+  const [modelDisk, setModelDisk] = useState<ModelDiskUsage[]>([]);
+  const [modelsStatus, setModelsStatus] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [modelsBusy, setModelsBusy] = useState<string | null>(null);
+  const [modelSearchResults, setModelSearchResults] = useState<
+    ModelSearchResult[] | null
+  >(null);
+  const [modelSearchStatus, setModelSearchStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [modelSearchError, setModelSearchError] = useState<string | null>(null);
   const [buildRecords, setBuildRecords] = useState<BuildRecord[]>([]);
   const [buildBuilders, setBuildBuilders] = useState<BuildBuilder[]>([]);
   const [buildsStatus, setBuildsStatus] = useState<
@@ -3213,6 +3236,110 @@ export function useAnchorageStore() {
    * Compose is optional and the operator's fix is to install it.
    */
   /**
+   * Reads Model Runner: what is pulled, whether the runner is up, and what it costs on disk.
+   *
+   * One call backs the whole screen because the three answers only mean something together.
+   * An empty model list reads as "nothing pulled yet" when the runner is running and as
+   * "nothing is going to work" when it is not, and showing either without the other would
+   * leave the operator to guess which they are looking at.
+   *
+   * An absent plugin is a described state rather than an error, exactly as buildx is: the fix
+   * is to install it, which Settings → Engine → Capabilities has the command for.
+   */
+  const refreshModels = useCallback(async () => {
+    if (!isHost) return;
+    setModelsStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.models.list(dockerContextRef.current);
+      setModels(result.models);
+      setModelRunner(result.runner);
+      setModelDisk(result.disk);
+      setModelsStatus("ready");
+      setModelsError(null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "Model Runner unavailable";
+      setModels([]);
+      setModelRunner({ running: false, backends: [] });
+      setModelDisk([]);
+      setModelsStatus(
+        /models_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
+      );
+      setModelsError(message);
+    }
+  }, [bridge, isHost]);
+
+  /**
+   * Searches Docker Hub, and Hugging Face when asked.
+   *
+   * Kept apart from the list because it leaves the machine. Opening the Models screen must not
+   * reach a registry; asking for a search is the consent, which is why this has its own status
+   * and its own error rather than sharing the list's.
+   */
+  const searchModels = useCallback(
+    async (query: string, source?: "docker-hub" | "huggingface" | "all") => {
+      if (!isHost) return;
+      setModelSearchStatus("loading");
+      setModelSearchError(null);
+      try {
+        const result = await bridge.models.search(
+          query,
+          source,
+          dockerContextRef.current,
+        );
+        setModelSearchResults(result.results);
+        setModelSearchStatus("ready");
+      } catch (reason) {
+        const message =
+          reason instanceof Error ? reason.message : "Model search failed";
+        setModelSearchResults(null);
+        setModelSearchStatus("error");
+        setModelSearchError(message);
+      }
+    },
+    [bridge, isHost],
+  );
+
+  const clearModelSearch = useCallback(() => {
+    setModelSearchResults(null);
+    setModelSearchStatus("idle");
+    setModelSearchError(null);
+  }, []);
+
+  /**
+   * Pull, remove, or unload one model.
+   *
+   * `busy` is keyed by reference rather than a single boolean, so pulling one model does not
+   * grey out the row beside it. A pull returns as soon as its session starts and the weights
+   * keep arriving afterwards, so the list is re-read on completion rather than optimistically
+   * patched — the only way to know a multi-gigabyte download finished is to look.
+   */
+  const modelAction = useCallback(
+    async (request: ModelActionRequest) => {
+      if (!isHost) return false;
+      const key = request.reference ?? request.action;
+      setModelsBusy(key);
+      setModelsError(null);
+      try {
+        await bridge.models.action({
+          ...request,
+          context: dockerContextRef.current,
+        });
+        await refreshModels();
+        return true;
+      } catch (reason) {
+        setModelsError(
+          reason instanceof Error ? reason.message : "The model action failed",
+        );
+        return false;
+      } finally {
+        setModelsBusy((current) => (current === key ? null : current));
+      }
+    },
+    [bridge, isHost, refreshModels],
+  );
+
+  /**
    * Loads buildx's build history and builder inventory.
    *
    * Buildx is optional, so an absent plugin is a described state rather than an error. A
@@ -4392,6 +4519,15 @@ export function useAnchorageStore() {
     volumes,
     volumeSummary,
     volumeMutationPending,
+    models,
+    modelRunner,
+    modelDisk,
+    modelsStatus,
+    modelsError,
+    modelsBusy,
+    modelSearchResults,
+    modelSearchStatus,
+    modelSearchError,
     builds: isHost ? [] : BUILD_FIXTURES,
     selectedBuild,
     settingsTab,
@@ -4555,6 +4691,10 @@ export function useAnchorageStore() {
     pruneVolumes,
     setSelectedBuildId,
     retryEngine,
+    refreshModels,
+    searchModels,
+    clearModelSearch,
+    modelAction,
     setSettingsTab,
     updateResource,
     resetResources,

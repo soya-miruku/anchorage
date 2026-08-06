@@ -46,6 +46,9 @@
         { "$ref": "#/$defs/containersCreateRequest" },
         { "$ref": "#/$defs/containersRebindPortsRequest" },
         { "$ref": "#/$defs/containersExportRequest" },
+        { "$ref": "#/$defs/modelsListRequest" },
+        { "$ref": "#/$defs/modelsSearchRequest" },
+        { "$ref": "#/$defs/modelsActionRequest" },
         { "$ref": "#/$defs/composeListRequest" },
         { "$ref": "#/$defs/composePsRequest" },
         { "$ref": "#/$defs/composeConfigRequest" },
@@ -574,6 +577,89 @@
               "not": { "pattern": "(^|/)\\.\\.(/|$)" }
             }
           },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelsListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "models.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelsSearchRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "models.search" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "query": { "type": "string", "maxLength": 128, "pattern": "^(?!-)[^\\u0000\\r\\n\\t]*$" },
+            "source": { "enum": ["docker-hub", "huggingface", "all"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelsActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "models.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": { "enum": ["pull", "remove", "unload"] },
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^(?!-)[^\\u0000\\r\\n\\t ]+$"
+            },
+            "cwd": { "type": "string", "minLength": 1 },
+            "timeoutSeconds": { "type": "integer", "minimum": 0, "maximum": 86400 },
+            "outputWindowBytes": { "type": "integer", "minimum": 1024, "maximum": 8388608 },
+            "maxOutputBytes": { "type": "integer", "minimum": 0, "maximum": 1099511627776 }
+          },
+          "allOf": [
+            {
+              "comment": "pull and remove name one model; unload without a reference evicts every loaded model, which is a deliberate ask rather than an omission.",
+              "if": { "properties": { "action": { "enum": ["pull", "remove"] } }, "required": ["action"] },
+              "then": { "required": ["reference"] }
+            },
+            {
+              "comment": "The session fields belong to pull, which streams. remove and unload answer inline, so accepting them there would describe a response shape the core never produces.",
+              "if": { "properties": { "action": { "enum": ["remove", "unload"] } }, "required": ["action"] },
+              "then": {
+                "properties": {
+                  "cwd": false,
+                  "timeoutSeconds": false,
+                  "outputWindowBytes": false,
+                  "maxOutputBytes": false
+                }
+              }
+            }
+          ],
           "additionalProperties": false
         }
       },

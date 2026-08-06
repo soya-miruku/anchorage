@@ -1,0 +1,342 @@
+/*
+Docker Model Runner.
+
+Every colour here is a theme token. A literal hex would survive all four families and both
+modes unchanged, which is how a coloured tile once ended up on the greyscale Monochrome
+surface — `scripts/theme-integrity.test.mjs` reads these files and fails on one.
+*/
+
+.models-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 28px;
+  overflow-y: auto;
+}
+
+.models-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.models-header h1 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--anc-text-primary);
+}
+
+.models-header p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--anc-text-secondary);
+}
+
+.models-posture {
+  margin: 0;
+  max-width: 88ch;
+  padding: 10px 12px;
+  border-left: 2px solid var(--anc-line-strong);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--anc-text-muted);
+}
+
+/* ── The runner strip ─────────────────────────────────────────────────────────────────── */
+
+.model-runner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-panel);
+}
+
+.model-runner__state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--anc-text-primary);
+}
+
+.model-runner__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.model-runner__dot--running {
+  background: var(--anc-success);
+}
+
+/*
+Neutral rather than danger. A runner that is not running is the ordinary state of a machine
+nobody has asked for inference yet, and painting it red would report a fault where there is
+none. The models list underneath says what that means in practice.
+*/
+.model-runner__dot--stopped {
+  background: var(--anc-status-neutral);
+}
+
+.model-runner__disk {
+  margin-left: auto;
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+  color: var(--anc-text-dimmer);
+}
+
+.model-backends {
+  display: grid;
+  grid-template-columns: minmax(80px, max-content) minmax(90px, max-content) 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--anc-line-hairline);
+  list-style: none;
+}
+
+.model-backends li {
+  display: contents;
+}
+
+.model-backends__name {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+  color: var(--anc-text-secondary);
+}
+
+.model-backends__status,
+.model-backends__detail {
+  font-size: 11px;
+  color: var(--anc-text-dimmer);
+}
+
+/* ── Local models ─────────────────────────────────────────────────────────────────────── */
+
+.models-local h2,
+.models-search h2,
+.models-disk h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-row {
+  display: grid;
+  grid-template-columns: 1fr max-content max-content;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-panel);
+}
+
+.model-row[data-busy="true"] {
+  opacity: 0.6;
+}
+
+.model-row__identity h3 {
+  margin: 0 0 6px;
+  font-family: var(--anc-font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--anc-text-primary);
+}
+
+.model-row__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.model-row__facts div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.model-row__facts dt {
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.model-row__facts dd {
+  margin: 0;
+  font-size: 11px;
+  color: var(--anc-text-secondary);
+}
+
+.model-row__tags {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer);
+}
+
+.model-row__size {
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+  color: var(--anc-text-mono);
+  white-space: nowrap;
+}
+
+.model-row__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.models-empty {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--anc-line-border);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--anc-text-muted);
+}
+
+/* ── Search ───────────────────────────────────────────────────────────────────────────── */
+
+.models-search__form {
+  display: flex;
+  gap: 8px;
+}
+
+.models-search__form input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: var(--anc-panel);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--anc-text-primary);
+}
+
+.models-search__form input:focus {
+  outline: none;
+  border-color: var(--anc-accent);
+}
+
+.models-search__note {
+  margin: 7px 0 0;
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.models-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.model-hit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 14px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: var(--anc-panel);
+}
+
+.model-hit h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 3px;
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--anc-text-primary);
+}
+
+/*
+`--anc-accent-fg`, not `--anc-accent`. The raw accent is the fill colour; using it as ink on an
+accent-tinted background fails AA in at least one mode of at least one family, which is what
+`scripts/theme-integrity.test.mjs` exists to catch — and did catch here.
+*/
+.model-hit__official {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--anc-accent);
+  font-family: var(--anc-font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--anc-accent-fg);
+}
+
+.model-hit p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--anc-text-secondary);
+}
+
+.model-hit__meta {
+  margin-top: 4px !important;
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer) !important;
+}
+
+/* ── Disk ─────────────────────────────────────────────────────────────────────────────── */
+
+.models-disk dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+  margin: 0;
+}
+
+.models-disk dl div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.models-disk dt {
+  font-size: 11px;
+  color: var(--anc-text-faint);
+}
+
+.models-disk dd {
+  margin: 0;
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+  color: var(--anc-text-mono);
+}
+
+.models-disk__note {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.models-disk__note code {
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer);
+}

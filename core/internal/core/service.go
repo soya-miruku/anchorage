@@ -354,6 +354,33 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.volumeFileRead(ctx, params)
+	case "models.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ModelsListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.modelsList(ctx, params)
+	case "models.search":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ModelsSearchParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.modelsSearch(ctx, params)
+	case "models.action":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ModelsActionParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.modelsAction(ctx, params, emit)
 	case "compose.list":
 		if err := s.requireDocker(); err != nil {
 			return nil, err
