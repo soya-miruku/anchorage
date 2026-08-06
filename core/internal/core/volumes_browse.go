@@ -212,11 +212,26 @@ func (s *Service) withVolumeHelper(ctx context.Context, client *engineClient, vo
 		"HostConfig": map[string]any{
 			"Binds":      []string{volume + ":" + volumeHelperMount + mountMode(writable)},
 			"AutoRemove": false,
-			// A helper that runs a process is a helper that could do more than read, so it is
-			// given nothing to do it with: no network, every capability dropped, and no route
-			// to regain privileges.
+			/*
+				A helper that runs a process is a helper that could do more than read, so it is
+				given nothing to do it with — with one exception, which is the point.
+
+				`CAP_DAC_READ_SEARCH` is the capability to read and traverse any path
+				regardless of its mode. Dropping it looked like obvious hardening and broke
+				precisely the volumes worth browsing: a Postgres data directory is
+				`drwx------` owned by another uid, and root without this capability gets
+				"Permission denied", so every such volume listed as empty. The archive endpoint
+				this replaces runs inside dockerd and was never subject to file modes at all,
+				so restoring this restores the access that already existed rather than adding
+				any.
+
+				It grants reading, not writing. `DAC_OVERRIDE` — which would also bypass write
+				permission — is added only for an upload, which is the only request that has a
+				reason to write.
+			*/
 			"NetworkMode":    "none",
 			"CapDrop":        []string{"ALL"},
+			"CapAdd":         volumeHelperCapabilities(writable),
 			"SecurityOpt":    []string{"no-new-privileges"},
 			"ReadonlyRootfs": !writable,
 		},
@@ -899,6 +914,16 @@ longer true for the fast path.
 
 const volumeHelperIdleCommand = "while :; do sleep 3600; done"
 
+// volumeHelperCapabilities is the smallest set that lets the helper do the job asked of it.
+// Reading any path needs DAC_READ_SEARCH; writing into one needs DAC_OVERRIDE as well, and only
+// an upload writes.
+func volumeHelperCapabilities(writable bool) []string {
+	if writable {
+		return []string{"DAC_READ_SEARCH", "DAC_OVERRIDE"}
+	}
+	return []string{"DAC_READ_SEARCH"}
+}
+
 // execListNames runs `ls -A` in a started helper and returns the direct children by name.
 //
 // Names only. Parsing `ls -l` means parsing a date format that differs between GNU coreutils
@@ -907,7 +932,11 @@ const volumeHelperIdleCommand = "while :; do sleep 3600; done"
 func execListNames(ctx context.Context, client *engineClient, containerID, target string) ([]string, error) {
 	payload, err := json.Marshal(map[string]any{
 		"AttachStdout": true,
-		"AttachStderr": false,
+		// Attached so a failure is legible. It was not, and that was the whole defect: a
+		// permission-denied `ls` wrote to a stream nobody read, exited non-zero into an exit
+		// code nobody checked, and produced zero names — which the caller rendered as "Empty
+		// directory" for every volume whose contents are not world-readable.
+		"AttachStderr": true,
 		/*
 			No TTY, deliberately, and this was got wrong first.
 
@@ -921,6 +950,19 @@ func execListNames(ctx context.Context, client *engineClient, containerID, targe
 		"Tty": false,
 		// `-1` as well as no TTY: belt and braces against an image whose ls is wrapped.
 		"Cmd": []string{"/bin/sh", "-c", "ls -1A -- " + quoteForShell(target)},
+		/*
+			Root, because the daemon already reads this volume as root.
+
+			The archive endpoint this replaces runs inside dockerd and is not subject to the
+			image's user at all, so it could read a 0700 directory owned by another uid. The
+			exec inherits the image's user instead, and most real volumes are not
+			world-readable — a Postgres data directory is `drwx------` — so without this the
+			fast path returned nothing for exactly the volumes worth browsing.
+
+			This grants no access the previous implementation did not have. It is root inside a
+			container with no network, no capabilities and a read-only mount.
+		*/
+		"User": "0:0",
 	})
 	if err != nil {
 		return nil, opError("volume_browse_failed", "The listing command could not be built.", err, nil)
@@ -966,8 +1008,34 @@ func execListNames(ctx context.Context, client *engineClient, containerID, targe
 		return nil, opError("volume_exec_failed", "The listing output could not be read.", err, nil)
 	}
 
+	stdout, stderr := demultiplex(raw)
+
+	// The exit code is the difference between "this directory is empty" and "the listing
+	// failed". Treating them alike is what made every unreadable volume look empty.
+	status, body, err = client.request(ctx, http.MethodGet,
+		"/v"+client.apiVersion+"/exec/"+url.PathEscape(created.ID)+"/json", nil)
+	if err != nil {
+		return nil, err
+	}
+	var inspected struct {
+		ExitCode int  `json:"ExitCode"`
+		Running  bool `json:"Running"`
+	}
+	if status < 200 || status >= 300 || json.Unmarshal(body, &inspected) != nil {
+		return nil, opError("volume_exec_failed",
+			"Docker Engine did not report how the listing command ended.", nil,
+			map[string]any{"status": status})
+	}
+	if inspected.Running || inspected.ExitCode != 0 {
+		return nil, opError("volume_exec_failed",
+			"The listing command failed inside the helper.", nil, map[string]any{
+				"exitCode": inspected.ExitCode,
+				"stderr":   strings.TrimSpace(boundScoutField(stderr)),
+			})
+	}
+
 	names := []string{}
-	for _, line := range strings.Split(demultiplex(raw), "\n") {
+	for _, line := range strings.Split(stdout, "\n") {
 		name := strings.TrimRight(line, "\r")
 		// `.` and `..` are not returned by `ls -A`, but a defensive skip costs nothing and a
 		// name containing a slash is not a direct child whatever produced it.
@@ -1071,7 +1139,14 @@ func (s *Service) listVolumeChildren(ctx context.Context, client *engineClient,
 	containerID, internal string) ([]ContainerFileEntry, bool, string, error) {
 	if s.helperIsStarted(containerID) {
 		names, err := execListNames(ctx, client, containerID, internal)
-		if err == nil {
+		// A failing exec used to fall through silently, which turned "the listing command
+		// failed" into "this directory is empty" for every volume that was not world-readable.
+		// The fallback is for a helper that never started; a started helper whose listing
+		// failed is a fault worth reporting.
+		if err != nil {
+			return nil, false, "exec", err
+		}
+		{
 			entries := make([]ContainerFileEntry, 0, len(names))
 			for _, name := range names {
 				// A name that cannot be stat-ed is still listed. A broken symlink or a file
@@ -1103,18 +1178,25 @@ A frame whose header is short or whose length runs past the buffer means the str
 what has been read so far is returned rather than discarded: a truncated listing is still a
 listing, and the caller bounds it either way.
 */
-func demultiplex(raw []byte) string {
-	var out strings.Builder
+func demultiplex(raw []byte) (string, string) {
+	var stdout, stderr strings.Builder
 	for len(raw) >= 8 {
+		// Byte zero is the stream: 1 is stdout, 2 is stderr. Merging them would let a
+		// permission-denied message become a filename in the listing.
+		stream := raw[0]
 		size := int(binary.BigEndian.Uint32(raw[4:8]))
 		raw = raw[8:]
 		if size > len(raw) {
 			size = len(raw)
 		}
-		out.Write(raw[:size])
+		if stream == 2 {
+			stderr.Write(raw[:size])
+		} else {
+			stdout.Write(raw[:size])
+		}
 		raw = raw[size:]
 	}
-	return out.String()
+	return stdout.String(), stderr.String()
 }
 
 /*

@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/binary"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -168,18 +169,19 @@ func TestDemultiplexStripsDockerStreamFraming(t *testing.T) {
 		return append(header, payload...)
 	}
 	raw := append(frame("live-capture\n"), frame("registry\n")...)
-	if got := demultiplex(raw); got != "live-capture\nregistry\n" {
-		t.Fatalf("demultiplex = %q", got)
+	stdout, stderr := demultiplex(raw)
+	if stdout != "live-capture\nregistry\n" || stderr != "" {
+		t.Fatalf("demultiplex = %q / %q", stdout, stderr)
 	}
 
 	// A stream cut mid-frame returns what arrived rather than nothing: a truncated listing is
 	// still a listing, and the caller bounds it either way.
 	cut := frame("live-capture\n")
 	cut = append(cut, 1, 0, 0, 0, 0, 0, 0, 99)
-	if got := demultiplex(cut); got != "live-capture\n" {
+	if got, _ := demultiplex(cut); got != "live-capture\n" {
 		t.Fatalf("a cut stream should keep what it had, got %q", got)
 	}
-	if got := demultiplex([]byte{1, 2, 3}); got != "" {
+	if got, _ := demultiplex([]byte{1, 2, 3}); got != "" {
 		t.Fatalf("a fragment shorter than a header has no payload, got %q", got)
 	}
 }
@@ -197,5 +199,75 @@ func TestQuoteForShellClosesTheInjection(t *testing.T) {
 	// Every embedded quote is closed, escaped and reopened, so the shell sees one word.
 	if !strings.HasPrefix(got, "'") || !strings.HasSuffix(got, "'") {
 		t.Fatalf("not a single quoted word: %s", got)
+	}
+}
+
+func TestDemultiplexKeepsStderrOutOfTheListing(t *testing.T) {
+	/*
+		The defect that made every non-world-readable volume look empty had two halves. This is
+		the second: with both streams attached, a merged demultiplex would turn
+		"ls: can't open '/anchorage-volume': Permission denied" into a filename. Byte zero of
+		each frame says which stream it is, so they are kept apart.
+	*/
+	frame := func(stream byte, payload string) []byte {
+		header := []byte{stream, 0, 0, 0, 0, 0, 0, 0}
+		binary.BigEndian.PutUint32(header[4:8], uint32(len(payload)))
+		return append(header, payload...)
+	}
+	raw := append(frame(1, "base\n"), frame(2, "ls: Permission denied\n")...)
+	raw = append(raw, frame(1, "global\n")...)
+
+	stdout, stderr := demultiplex(raw)
+	if stdout != "base\nglobal\n" {
+		t.Fatalf("stdout = %q — stderr leaked into the listing", stdout)
+	}
+	if !strings.Contains(stderr, "Permission denied") {
+		t.Fatalf("stderr = %q — the reason a listing failed must survive to the error", stderr)
+	}
+}
+
+func TestHelperExecRunsAsRootBecauseTheArchiveEndpointDid(t *testing.T) {
+	/*
+		Not a widening. The archive endpoint runs inside dockerd and is not subject to the
+		image's user, so it always read 0700 directories owned by other uids. The exec inherits
+		the image's user, and a Postgres data directory is `drwx------` — so the fast path
+		returned nothing for exactly the volumes worth browsing until this matched the access
+		the previous implementation already had.
+	*/
+	source, err := os.ReadFile("volumes_browse.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	if !strings.Contains(string(source), `"User": "0:0"`) {
+		t.Fatal("the listing exec must run as root, or unreadable volumes list as empty")
+	}
+	for _, hardening := range []string{`"NetworkMode":    "none"`, `"CapDrop":        []string{"ALL"}`, `"SecurityOpt":    []string{"no-new-privileges"}`} {
+		if !strings.Contains(string(source), hardening) {
+			t.Fatalf("root inside the helper is only acceptable with %s", hardening)
+		}
+	}
+}
+
+func TestHelperCapabilitiesAreTheSmallestSetThatWorks(t *testing.T) {
+	/*
+		Dropping every capability looked like obvious hardening and broke the feature: root
+		without CAP_DAC_READ_SEARCH cannot traverse a `drwx------` directory owned by another
+		uid, so a Postgres data volume listed as empty. The archive endpoint this replaces runs
+		inside dockerd and was never subject to file modes, so this restores access that
+		already existed rather than adding any.
+
+		The read path must not be able to write. DAC_OVERRIDE bypasses write permission too and
+		belongs only to an upload.
+	*/
+	read := volumeHelperCapabilities(false)
+	if len(read) != 1 || read[0] != "DAC_READ_SEARCH" {
+		t.Fatalf("a read needs exactly DAC_READ_SEARCH, got %v", read)
+	}
+	write := volumeHelperCapabilities(true)
+	if !containsString(write, "DAC_READ_SEARCH") || !containsString(write, "DAC_OVERRIDE") {
+		t.Fatalf("an upload needs both, got %v", write)
+	}
+	if len(write) != 2 {
+		t.Fatalf("nothing else belongs in the write set, got %v", write)
 	}
 }
