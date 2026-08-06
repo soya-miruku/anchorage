@@ -143,22 +143,22 @@ function contrast(left, right) {
 /**
  * The measured floor for each combination, to two decimal places, rounded down.
  *
- * Light-mode values are the raised ones and are close to their targets. Dark-mode values are
- * what dark has always measured, and every one of them is below the 3:1 a visible boundary
- * needs. Neither set is a target; both are a floor.
+ * Both modes now run the same hierarchy — border 2.2, control 2.6, strong 3.0 — so `strong` is
+ * the only one that reaches the 3:1 a non-text boundary properly needs. These remain floors
+ * rather than targets: raising them further is welcome, and this only objects to a drop.
  */
 const SURFACE_FLOORS = {
-  "docker/dark": { panel: 1.09, border: 1.21, control: 2.04, strong: 1.41 },
-  "docker/light": { panel: 1.04, border: 2.2, control: 2.6, strong: 3.01 },
-  "github/dark": { panel: 1.09, border: 1.13, control: 1.41, strong: 1.41 },
+  "docker/dark": { panel: 1.09, border: 2.22, control: 2.62, strong: 3.02 },
+  "docker/light": { panel: 1.04, border: 2.20, control: 2.60, strong: 3.01 },
+  "github/dark": { panel: 1.09, border: 2.20, control: 2.60, strong: 3.02 },
   "github/light": { panel: 1.06, border: 2.22, control: 2.61, strong: 3.01 },
-  "magnetic/dark": { panel: 1.06, border: 1.28, control: 1.71, strong: 1.71 },
+  "magnetic/dark": { panel: 1.06, border: 2.22, control: 2.61, strong: 3.04 },
   "magnetic/light": { panel: 1.08, border: 2.22, control: 2.62, strong: 3.01 },
-  "mono/dark": { panel: 1.08, border: 1.12, control: 1.77, strong: 1.34 },
-  "mono/light": { panel: 1.04, border: 2.2, control: 2.63, strong: 3.01 },
-  "nous/dark": { panel: 1.11, border: 1.23, control: 1.58, strong: 1.28 },
-  "nous/light": { panel: 1.04, border: 2.22, control: 2.6, strong: 3.0 },
-  "y2k/dark": { panel: 1.07, border: 1.28, control: 2.07, strong: 2.07 },
+  "mono/dark": { panel: 1.08, border: 2.21, control: 2.62, strong: 3.01 },
+  "mono/light": { panel: 1.04, border: 2.20, control: 2.63, strong: 3.01 },
+  "nous/dark": { panel: 1.11, border: 2.21, control: 2.62, strong: 3.01 },
+  "nous/light": { panel: 1.04, border: 2.22, control: 2.60, strong: 3.00 },
+  "y2k/dark": { panel: 1.07, border: 2.21, control: 2.62, strong: 3.01 },
   "y2k/light": { panel: 1.07, border: 17.45, control: 17.45, strong: 17.45 },
 };
 
@@ -218,22 +218,22 @@ test("no surface gets flatter than it already is", () => {
   );
 });
 
-test("light mode keeps its edges in the order their names imply", () => {
+test("every mode keeps its edges in the order their names imply", () => {
   /*
-   * `--anc-line-strong` measured weaker than `--anc-line-control` in four of six families
-   * before this was fixed, so a rule reaching for the strongest edge got a fainter one. The
-   * names are the contract; this keeps them honest. Dark mode is deliberately not asserted —
-   * it still has the inversion, and pinning it here would either fail the build or bless it.
+   * `--anc-line-strong` measured weaker than `--anc-line-control` in four of six light families
+   * and in most dark ones, so a rule reaching for the strongest edge quietly got a fainter one.
+   * The names are the contract. This asserted light only while dark still had the inversion;
+   * both run the same hierarchy now, so both are checked.
    */
   for (const [combination, tokens] of readThemeTokens()) {
-    if (!combination.endsWith("/light")) continue;
     const panel = resolve(tokens.get("--anc-panel"), tokens);
     const edge = (token) => contrast(resolve(tokens.get(token), tokens, panel), panel);
     const border = edge("--anc-line-border");
+    const control = edge("--anc-line-control");
     const strong = edge("--anc-line-strong");
     assert.ok(
-      strong >= border,
-      `${combination}: --anc-line-strong (${strong.toFixed(2)}) is weaker than --anc-line-border (${border.toFixed(2)})`,
+      strong >= control && control >= border,
+      `${combination}: edges are out of order — border ${border.toFixed(2)}, control ${control.toFixed(2)}, strong ${strong.toFixed(2)}`,
     );
   }
 });
@@ -302,4 +302,60 @@ test("no stylesheet names a custom property nothing defines", () => {
     });
   }
   assert.deepEqual(undefinedRefs, []);
+});
+
+test("every filled control can be read in every theme and mode", () => {
+  /*
+   * The primary button's label measured 1.05 against its own fill in y2k light — white on lime,
+   * invisible — and the danger button sat at 3.62-4.03 in four more, because each theme inked it
+   * with its own warm paper colour and that costs the half point that clears AA on a mid-red.
+   *
+   * The button ink is also why `--anc-on-action` exists. `--anc-on-accent` was doing two jobs:
+   * ink on the primary action fill, and fill for the knob, tick and dot that sit on an accent
+   * surface. In magnetic dark those want opposite colours — dark ink reads 9.99 on the accent
+   * surfaces and 3.74 on the deep-red button — so no single value could serve both.
+   *
+   * 4.5 rather than 3.0 throughout: every one of these is a text label, and none of it is large.
+   */
+  const PAIRS = [
+    ["--anc-on-action", "--anc-action-primary"],
+    ["--anc-on-danger", "--anc-danger"],
+  ];
+  const failures = [];
+  for (const [combination, tokens] of readThemeTokens()) {
+    for (const [inkToken, fillToken] of PAIRS) {
+      const ink = resolve(tokens.get(inkToken), tokens);
+      const fill = resolve(tokens.get(fillToken), tokens);
+      assert.ok(ink && fill, `${combination} does not define ${inkToken} and ${fillToken}`);
+      const measured = contrast(ink, fill);
+      if (measured < 4.5) {
+        failures.push(`${combination}: ${inkToken} on ${fillToken} is ${measured.toFixed(2)}`);
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+});
+
+test("the de-emphasis ramp stays readable, and stays a ramp", () => {
+  /*
+   * `--anc-text-faint` measured 2.71-3.18 on panel across five dark families and
+   * `--anc-text-dimmer` 3.37-3.95 — well under AA for the 10-11px labels they are used on. They
+   * were raised, but raising them all to the floor would have collapsed three de-emphasis levels
+   * into one, so each family's three steps are spaced between 4.5 and its own `secondary`.
+   * Both properties are asserted: readable, and still distinguishable from each other.
+   */
+  for (const [combination, tokens] of readThemeTokens()) {
+    const panel = resolve(tokens.get("--anc-panel"), tokens);
+    const step = (name) => contrast(resolve(tokens.get(`--anc-text-${name}`), tokens), panel);
+    const [secondary, muted, dimmer, faint] = ["secondary", "muted", "dimmer", "faint"].map(step);
+
+    for (const [name, value] of [["muted", muted], ["dimmer", dimmer], ["faint", faint]]) {
+      assert.ok(value >= 4.5, `${combination}: --anc-text-${name} is ${value.toFixed(2)}, under AA`);
+    }
+    // github states all three at one value on purpose, so this is >= rather than >.
+    assert.ok(
+      secondary >= muted && muted >= dimmer && dimmer >= faint,
+      `${combination}: the ramp is out of order — secondary ${secondary.toFixed(2)}, muted ${muted.toFixed(2)}, dimmer ${dimmer.toFixed(2)}, faint ${faint.toFixed(2)}`,
+    );
+  }
 });

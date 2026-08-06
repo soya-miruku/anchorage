@@ -22,7 +22,11 @@
   --anc-surface-elevated: #232120;
   --anc-status-neutral: #7c776f;
   --anc-on-accent: #131211;
-  --anc-on-danger: #ece4d6;
+  /* Not --anc-on-accent's value: this family's accent is light but its primary
+     action fill is a deep red, so one ink cannot serve both. Dark ink measured
+     3.74 on the button while reading 9.99 on the accent surfaces. */
+  --anc-on-action: #fffdf8;
+  --anc-on-danger: #ffffff;
 
   --anc-accent: #ecb52f;
   --anc-accent-hover: #f6cd63;
@@ -69,19 +73,19 @@
   --anc-text-body: #d8cfbf;
   --anc-text-mono: #cfc6b6;
   --anc-text-secondary: #a8a29a;
-  --anc-text-muted: #98938b;
+  --anc-text-muted: #9e9991;
   --anc-text-dim: #8a857d;
-  --anc-text-dimmer: #7c776f;
-  --anc-text-faint: #6d6861;
+  --anc-text-dimmer: #928d87;
+  --anc-text-faint: #85817b;
   --anc-text-quiet: #5e5a54;
   --anc-text-subdued: #7c776f;
   --anc-text-emphasis-muted: #a8a29a;
   --anc-update-text: #a8a29a;
 
   --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #302d2b;
-  --anc-line-strong: #45403c;
-  --anc-line-control: #45403c;
+  --anc-line-border: #53514f;
+  --anc-line-strong: #696562;
+  --anc-line-control: #5f5b58;
   --anc-control-neutral: #7c776f;
   --anc-control-neutral-hover: #98938b;
   --anc-control-close: #6e2029;
@@ -123,6 +127,7 @@
   --anc-surface-elevated: #e8e2d4;
   --anc-status-neutral: #675f54;
   --anc-on-accent: #fffdf8;
+  --anc-on-action: #fffdf8;
   --anc-on-danger: #fffdf8;
 
   --anc-accent: #8a5f10;

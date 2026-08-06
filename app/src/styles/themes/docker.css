@@ -23,7 +23,13 @@
   --anc-surface-elevated: #17375e;
   --anc-status-neutral: #4f6580;
   --anc-on-accent: #ffffff;
-  --anc-on-danger: #ffffff;
+  --anc-on-action: #ffffff;
+  
+  /* Near-black, unlike the other families. This fill cannot carry white — it measures
+     3.91 — and --anc-danger-fg is color-mix()-derived from --anc-danger, so darkening
+     the fill to rescue it moves the chip ink too and breaks a check already guarding
+     that. The ink is the only part that is free to move. */
+  --anc-on-danger: #1a1414;
 
   --anc-accent: #4a9bff;
   --anc-accent-hover: #7cb8ff;
@@ -61,19 +67,19 @@
   --anc-text-body: #cadcf0;
   --anc-text-mono: #bed4ec;
   --anc-text-secondary: #8ba3bd;
-  --anc-text-muted: #7b93ad;
+  --anc-text-muted: #869cb4;
   --anc-text-dim: #6b839d;
-  --anc-text-dimmer: #5d748e;
-  --anc-text-faint: #4f6580;
+  --anc-text-dimmer: #8192a7;
+  --anc-text-faint: #78899d;
   --anc-text-quiet: #445872;
   --anc-text-subdued: #5d748e;
   --anc-text-emphasis-muted: #8ba3bd;
   --anc-update-text: #8ba3bd;
 
   --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #16304f;
-  --anc-line-strong: #1e3a5f;
-  --anc-line-control: #2a5285;
+  --anc-line-border: #435871;
+  --anc-line-strong: #576c88;
+  --anc-line-control: #3e6391;
 
   --anc-scrim: rgba(6, 18, 32, 0.78);
   --anc-scrim-soft: rgba(6, 18, 32, 0.68);
@@ -114,6 +120,7 @@
   --anc-surface-elevated: #e3edfa;
   --anc-status-neutral: #58708f;
   --anc-on-accent: #ffffff;
+  --anc-on-action: #ffffff;
   --anc-on-danger: #ffffff;
 
   --anc-accent: #1d63ed;

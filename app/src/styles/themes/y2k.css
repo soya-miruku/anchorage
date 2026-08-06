@@ -22,7 +22,8 @@
   --anc-surface-elevated: #24242a;
   --anc-status-neutral: #6f6f68;
   --anc-on-accent: #0b0b0d;
-  --anc-on-danger: #efe9da;
+  --anc-on-action: #0b0b0d;
+  --anc-on-danger: #ffffff;
 
   --anc-accent: #c8ff32;
   --anc-accent-hover: #d6f77a;
@@ -69,19 +70,19 @@
   --anc-text-body: #cfcabf;
   --anc-text-mono: #cfcabf;
   --anc-text-secondary: #a8a89e;
-  --anc-text-muted: #8b8b86;
+  --anc-text-muted: #9c9c97;
   --anc-text-dim: #7d7d78;
-  --anc-text-dimmer: #6f6f68;
-  --anc-text-faint: #62625c;
+  --anc-text-dimmer: #8e8e89;
+  --anc-text-faint: #7f7f7a;
   --anc-text-quiet: #5a5a52;
   --anc-text-subdued: #6f6f68;
   --anc-text-emphasis-muted: #a8a89e;
   --anc-update-text: #a8a89e;
 
   --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #2a2a2e;
-  --anc-line-strong: #4a4a4e;
-  --anc-line-control: #4a4a4e;
+  --anc-line-border: #4e4e51;
+  --anc-line-strong: #626265;
+  --anc-line-control: #59595c;
   --anc-control-neutral: #6f6f68;
   --anc-control-neutral-hover: #8b8b86;
   --anc-control-close: #5c1d14;
@@ -129,7 +130,8 @@
      accent 2.86 to 6.10, primary 1.05 to 16.67, danger 4.03 to 4.33 — so there is no
      trade-off to weigh, only a value that was wrong. y2k dark already uses this ink. */
   --anc-on-accent: #0b0b0d;
-  --anc-on-danger: #f6f1e6;
+  --anc-on-action: #0b0b0d;
+  --anc-on-danger: #ffffff;
 
   --anc-accent: #7a9b00;
   --anc-accent-hover: #5c7400;
@@ -179,7 +181,7 @@
   --anc-text-muted: #4a4a4e;
   --anc-text-dim: #5a5a52;
   --anc-text-dimmer: #6a6a64;
-  --anc-text-faint: #6f6f68;
+  --anc-text-faint: #6e6e67;
   --anc-text-quiet: #8b8b86;
   --anc-text-subdued: #6a6a64;
   --anc-text-emphasis-muted: #3a3a36;
