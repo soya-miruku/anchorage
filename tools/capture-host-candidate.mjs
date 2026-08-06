@@ -1192,9 +1192,13 @@ try {
     {
       id: "host-command-inventory-visible",
       name: "Command Center is backed by installed command inventory",
+      // Bound to a test id rather than a class, because a class is a styling decision and this
+      // check survived the Command Center redesign only by accident of naming — it did not: the
+      // class went and the wording went with it. "runnable leaves" was tree-walk jargon that
+      // reached the operator; the surface now says "runnable commands".
       expression:
-        `document.querySelector('.command-center__inventory')
-          ?.textContent?.includes("runnable leaves")`,
+        `document.querySelector('[data-testid="command-center-inventory"]')
+          ?.textContent?.includes("runnable commands")`,
     },
     {
       id: "host-command-target-pinned",

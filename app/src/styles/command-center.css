@@ -1,3 +1,26 @@
+/*
+Command Center.
+
+Two rules govern the colour here, and breaking either is what made this dialog unusable in
+light mode before.
+
+1. Every colour is a theme token. `rgba(0, 0, 0, 0.62)` under the panel was a black halo on a
+   white page; shadows now come from `--anc-shadow-rgb`, which each family defines for its own
+   mode.
+2. `--anc-terminal-rgb`, `--anc-code-rgb` and `--anc-inset-rgb` are near-black in every light
+   family (`23 23 26` in nous light, `31 35 40` in github light). This file used to paint whole
+   sections with them at 20-38% alpha, which is a mid-grey slab on a white surface and an
+   invisible one on a dark surface. Nowhere else in the product uses those tokens above 12%.
+   The neutral wash idiom is `--anc-overlay-rgb` at single digits, and it is used sparingly
+   below — because the other half of the fix was to stop stacking filled boxes at all.
+
+Panel-on-app separation measures 1.04:1 in light mode against 1.11:1 in dark, so a bordered
+panel inside a panel simply does not read on a white surface. The layout is therefore flat: one
+surface, dividers at `--anc-line-strong`, and hierarchy carried by spacing and type. Tint is
+reserved for the things that have to be noticed — the literal-target, credential and
+destructive banners.
+*/
+
 .command-center-backdrop {
   position: absolute;
   z-index: 100;
@@ -12,27 +35,30 @@
 
 .command-center-loading {
   padding: 14px 18px;
-  border: 1px solid rgb(var(--anc-accent-rgb) / 22%);
-  border-radius: 8px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 10px;
   background: var(--anc-panel);
   color: var(--anc-text-secondary);
   font-family: var(--anc-font-mono);
-  font-size: 11px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.48);
+  font-size: 11.5px;
+  box-shadow: 0 20px 50px rgb(var(--anc-shadow-rgb) / 30%);
 }
 
+/*
+Narrower than the 1320px it was. The old width existed to fit three columns side by side; one
+column of commands wants a reading measure, and 880px is wide enough for a 100-column terminal
+at this mono size.
+*/
 .command-center {
   display: flex;
-  width: min(1320px, calc(100% - 24px));
+  width: min(880px, calc(100% - 24px));
   max-height: calc(100% - 20px);
   flex-direction: column;
-  overflow: auto;
-  border: 1px solid rgb(var(--anc-accent-rgb) / 22%);
-  border-radius: 13px;
-  background: var(--anc-app);
-  box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.62),
-    0 0 0 1px rgb(var(--anc-overlay-rgb) / 3.5%);
+  overflow: hidden;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 12px;
+  background: var(--anc-panel);
+  box-shadow: 0 28px 70px rgb(var(--anc-shadow-rgb) / 32%);
 }
 
 .command-center__header {
@@ -40,97 +66,87 @@
   flex: none;
   align-items: flex-start;
   justify-content: space-between;
-  min-height: 74px;
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--anc-line-strong);
-  background: var(--anc-panel);
-}
-
-.command-center__eyebrow {
-  margin-bottom: 3px;
-  color: var(--anc-accent-fg);
-  font-family: var(--anc-font-mono);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
+  gap: 16px;
+  padding: 16px 18px 13px;
 }
 
 .command-center__header h1 {
   color: var(--anc-text-primary);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.25;
 }
 
-.command-center__header p,
-.command-center__section-heading p {
-  margin-top: 3px;
+.command-center__header p {
+  margin-top: 4px;
+  max-width: 66ch;
   color: var(--anc-text-muted);
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .command-center__close {
   display: grid;
   width: 28px;
   height: 28px;
+  flex: none;
   place-items: center;
-  border-radius: 6px;
-  background: rgb(var(--anc-overlay-rgb) / 4.5%);
-  color: var(--anc-text-secondary);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
   font-size: 20px;
   line-height: 1;
 }
 
 .command-center__close:hover {
-  background: rgb(var(--anc-danger-rgb) / 15%);
+  background: rgb(var(--anc-danger-rgb) / 12%);
   color: var(--anc-danger-fg);
 }
 
-.command-center__toolbar {
-  display: grid;
-  min-height: 52px;
+/* ── Where it runs ────────────────────────────────────────────────────────────────────── */
+
+.command-target {
+  display: flex;
   flex: none;
-  grid-template-columns: 230px 245px 1fr auto;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--anc-line-border);
-  background: rgb(var(--anc-terminal-rgb) / 38%);
+  gap: 8px 18px;
+  padding: 0 18px 13px;
+  border-bottom: 1px solid var(--anc-line-strong);
 }
 
-.command-center__target-notice {
-  flex: none;
-  padding: 7px 16px;
-  border-bottom: 1px solid rgb(var(--anc-warning-rgb) / 24%);
-  background: rgb(var(--anc-warning-rgb) / 8%);
-  color: var(--anc-text-secondary);
-  font-size: 10.5px;
-  line-height: 1.45;
-}
-
-.command-center__toolbar label,
-.session-controls label,
-.command-search {
+.command-target label {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.command-center__toolbar label > span,
-.session-controls label > span,
-.command-search > span {
-  color: var(--anc-text-muted);
-  font-size: 10px;
+.command-target label > span {
+  color: var(--anc-text-faint);
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.35px;
-  text-transform: uppercase;
 }
+
+.command-target__summary {
+  flex: 1 1 260px;
+  min-width: 0;
+  color: var(--anc-text-faint);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.command-target__summary code {
+  font-family: var(--anc-font-mono);
+  color: var(--anc-text-mono);
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────────────────────── */
 
 .command-center select,
 .command-center input,
 .command-center textarea {
   border: 1px solid var(--anc-line-control);
-  border-radius: 6px;
+  border-radius: 7px;
   outline: 0;
   background: var(--anc-input);
   color: var(--anc-text-primary);
@@ -139,406 +155,474 @@
 .command-center select:focus-visible,
 .command-center input:focus-visible,
 .command-center textarea:focus-visible {
-  border-color: rgb(var(--anc-accent-rgb) / 55%);
+  border-color: var(--anc-accent);
+}
+
+.command-center input::placeholder {
+  color: var(--anc-text-faint);
+  opacity: 1;
 }
 
 .command-center select {
-  min-width: 155px;
-  height: 29px;
-  padding: 0 26px 0 8px;
-  font-family: var(--anc-font-mono);
-  font-size: 11px;
+  min-width: 170px;
+  height: 30px;
+  padding: 0 26px 0 9px;
+  font-size: 11.5px;
 }
 
-.command-center__inventory {
-  color: var(--anc-text-body);
-  font-family: var(--anc-font-mono);
-  font-size: 10.5px;
+.command-center input[type="radio"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--anc-accent);
 }
 
-.command-center__privacy {
-  color: var(--anc-text-dim);
-  font-size: 10px;
+/* ── Banners ──────────────────────────────────────────────────────────────────────────── */
+
+/*
+The four things an operator must not have to go looking for: an overridden target, a credential
+in the argv, a destructive command, and what the transcript keeps. The first three are banners
+and the fourth is the footer, and none of them is inside a disclosure.
+*/
+.command-banner {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 18px;
+  /* No width on three sides, so a modifier only has to restate the colour. Inside the body the
+     same banner becomes a card and turns the other three widths back on. */
+  border: 0 solid rgb(var(--anc-accent-rgb) / 22%);
+  border-bottom-width: 1px;
+  background: rgb(var(--anc-accent-rgb) / 8%);
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
-.command-center__notice,
-.command-center__danger,
-.command-center__copy-status,
-.session-status {
-  padding: 7px 16px;
-  border-bottom: 1px solid rgb(var(--anc-warning-rgb) / 18%);
-  background: rgb(var(--anc-warning-rgb) / 8%);
+.command-banner strong {
+  color: var(--anc-accent-fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.command-banner--warning {
+  border-color: rgb(var(--anc-warning-rgb) / 30%);
+  background: rgb(var(--anc-warning-rgb) / 10%);
+}
+
+.command-banner--warning strong {
   color: var(--anc-warning-fg);
-  font-size: 10.5px;
 }
+
+/* A shade stronger than the others. Violet over the royal blue of nous dark is the weakest
+   pairing any of these banners has, and 16% is the strongest fill the contrast test measures. */
+.command-banner--secret {
+  border-color: rgb(var(--anc-violet-rgb) / 40%);
+  background: rgb(var(--anc-violet-rgb) / 14%);
+}
+
+.command-banner--secret strong {
+  color: var(--anc-violet-fg);
+}
+
+.command-banner--danger {
+  border-color: rgb(var(--anc-danger-rgb) / 32%);
+  background: rgb(var(--anc-danger-rgb) / 10%);
+}
+
+.command-banner--danger strong,
+.command-banner--danger [role="alert"] {
+  color: var(--anc-danger-fg);
+}
+
+/* Inside the body the banners are cards rather than full-bleed strips, because they sit with
+   the command they describe rather than with the dialog. */
+.command-build .command-banner {
+  padding: 10px 12px;
+  border-width: 1px;
+  border-radius: 9px;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────────────────────── */
 
 .command-center__body {
-  display: grid;
-  min-height: 340px;
-  flex: none;
-  grid-template-columns: 390px minmax(0, 1fr);
-  border-bottom: 1px solid var(--anc-line-strong);
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 16px 18px 18px;
 }
 
-.command-center__discovery {
-  min-width: 0;
-  padding: 12px;
-  border-right: 1px solid var(--anc-line-strong);
-  background: rgb(var(--anc-code-rgb) / 34%);
-}
+/* ── Step one: find ───────────────────────────────────────────────────────────────────── */
 
-.command-search {
-  display: block;
+.command-find {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .command-search > span {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  font-weight: 500;
 }
 
 .command-search input {
   width: 100%;
-  height: 32px;
-  padding: 0 10px;
-  font-size: 11.5px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
+.command-find__inventory {
+  margin: 7px 0 10px;
+  color: var(--anc-text-faint);
+  font-size: 11px;
+}
+
+/* Ruled top and bottom so a list that is scrolled mid-row still ends somewhere, rather than
+   bleeding into the button underneath it. */
 .command-results {
-  height: 278px;
-  margin-top: 8px;
-  overflow: auto;
-  border: 1px solid var(--anc-line-border);
-  border-radius: 7px;
-  background: rgb(var(--anc-inset-rgb) / 27%);
+  max-height: 320px;
+  min-height: 96px;
+  overflow-y: auto;
+  border-top: 1px solid var(--anc-line-strong);
+  border-bottom: 1px solid var(--anc-line-strong);
 }
 
-.command-results > button {
-  position: relative;
+.command-result {
   display: grid;
   width: 100%;
-  min-height: 48px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 8px;
-  padding: 7px 70px 7px 10px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 2px 10px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--anc-line-hairline);
   background: transparent;
   text-align: left;
 }
 
-.command-results > button:hover,
-.command-results > .command-result--selected {
-  background: rgb(var(--anc-accent-rgb) / 9%);
-}
-
-.command-results > .command-result--selected {
+/*
+One highlight, not two. There is no persistent selection in this list any more — choosing a row
+moves to the next step — so hover and the keyboard cursor are the same state and share the
+product-wide row tint.
+*/
+.command-result:hover,
+.command-result--active {
+  background: var(--anc-row-hover);
   box-shadow: inset 2px 0 var(--anc-accent);
 }
 
-.command-results code {
+.command-result code {
   overflow: hidden;
   color: var(--anc-text-primary);
   font-family: var(--anc-font-mono);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.command-results span {
-  grid-column: 1;
-  overflow: hidden;
-  color: var(--anc-text-muted);
-  font-size: 9.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.command-result__kind {
+  align-self: center;
+  color: var(--anc-text-faint);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.command-results small {
-  position: absolute;
-  top: 9px;
-  right: 8px;
-  color: var(--anc-text-faint);
-  font-family: var(--anc-font-mono);
-  font-size: 7.5px;
-  letter-spacing: 0.5px;
+.command-result__description {
+  grid-column: 1;
+  overflow: hidden;
+  color: var(--anc-text-dimmer);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .command-results__empty,
 .argv-rows__empty {
-  padding: 20px 12px;
-  color: var(--anc-text-dim);
-  font-size: 10.5px;
+  padding: 22px 12px;
+  color: var(--anc-text-muted);
+  font-size: 12px;
   text-align: center;
 }
 
-.command-center__composer {
-  min-width: 0;
-  padding: 12px 14px;
+/* Says when the list is capped. An undisclosed cut reads as a complete answer. */
+.command-results__truncated {
+  padding: 10px;
+  color: var(--anc-text-faint);
+  font-size: 11px;
 }
 
-.command-center__section-heading {
+.command-find__escape {
+  margin-top: 12px;
+}
+
+/* ── Step two: check and run ──────────────────────────────────────────────────────────── */
+
+.command-build {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
 }
 
-.command-center__section-heading h2 {
-  color: var(--anc-text-strong);
-  font-size: 12.5px;
-  font-weight: 600;
+.command-build__chosen {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
 }
 
-.command-center__secondary,
-.command-center__run,
-.session-actions button,
-.session-controls button {
-  height: 29px;
-  padding: 0 10px;
-  border: 1px solid var(--anc-line-control);
-  border-radius: 6px;
-  background: rgb(var(--anc-overlay-rgb) / 4.5%);
-  color: var(--anc-text-body);
-  font-size: 10.5px;
-  font-weight: 500;
-}
-
-.command-center__secondary:hover:not(:disabled),
-.session-actions button:hover:not(:disabled),
-.session-controls button:hover:not(:disabled) {
-  background: rgb(var(--anc-overlay-rgb) / 8%);
-}
-
-.argv-context {
-  display: grid;
-  grid-template-columns: 54px minmax(90px, 0.55fr) 28px minmax(180px, 1fr);
-  align-items: center;
-  gap: 6px;
-  margin-top: 9px;
-  padding: 5px 8px;
-  border: 1px solid rgb(var(--anc-accent-rgb) / 16%);
-  border-radius: 6px;
-  background: rgb(var(--anc-accent-rgb) / 5.5%);
-}
-
-.argv-context span {
-  color: var(--anc-text-dim);
+/*
+The whole point of the step: the command line as it will actually be assembled, including the
+context Anchorage inserts, before anything runs. Secret-bearing tokens are dotted out here as
+well as in their input — a preview that echoed them would undo the masking two rows below.
+*/
+.command-preview {
+  display: block;
   font-family: var(--anc-font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--anc-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.argv-context label {
-  color: var(--anc-text-dim);
-  font-family: var(--anc-font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
+.command-preview__exe,
+.command-preview__target {
+  color: var(--anc-text-dimmer);
 }
 
-.argv-context code {
-  color: var(--anc-accent-fg);
-  font-family: var(--anc-font-mono);
-  font-size: 10.5px;
+.command-preview__secret {
+  color: var(--anc-violet-fg);
 }
 
-.argv-context input {
-  width: 100%;
-  height: 26px;
-  padding: 0 7px;
-  font-family: var(--anc-font-mono);
-  font-size: 10px;
+.command-build__description {
+  margin-top: 5px;
+  max-width: 72ch;
+  color: var(--anc-text-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .argv-rows {
-  height: 104px;
-  margin-top: 7px;
-  overflow: auto;
-  border: 1px solid var(--anc-line-border);
-  border-radius: 7px;
-  background: rgb(var(--anc-inset-rgb) / 28%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.argv-row,
+.environment-row {
+  display: grid;
+  align-items: center;
+  gap: 7px;
 }
 
 .argv-row {
-  display: grid;
-  min-height: 35px;
-  grid-template-columns: 24px minmax(0, 1fr) auto 26px 26px 26px;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 5px;
-  border-bottom: 1px solid var(--anc-line-hairline);
+  grid-template-columns: 20px minmax(0, 1fr) max-content;
+}
+
+.environment-row {
+  grid-template-columns: minmax(110px, 0.4fr) minmax(140px, 1fr) max-content;
 }
 
 .argv-row__index {
   color: var(--anc-text-faint);
   font-family: var(--anc-font-mono);
-  font-size: 9px;
-  text-align: center;
-}
-
-.argv-row input {
-  width: 100%;
-  height: 27px;
-  padding: 0 7px;
-  font-family: var(--anc-font-mono);
   font-size: 10.5px;
+  text-align: right;
 }
 
-.argv-row button {
-  min-width: 26px;
-  height: 25px;
-  padding: 0 6px;
-  border-radius: 5px;
-  background: rgb(var(--anc-overlay-rgb) / 3.5%);
-  color: var(--anc-text-muted);
-  font-size: 9px;
+.argv-row input,
+.environment-row input {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
 }
 
-.argv-row button:hover:not(:disabled) {
-  background: rgb(var(--anc-overlay-rgb) / 8%);
+.argv-row__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.argv-row__actions button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--anc-text-dimmer);
+  font-size: 11px;
+}
+
+.argv-row__actions button:hover:not(:disabled) {
+  border-color: var(--anc-line-control);
   color: var(--anc-text-primary);
 }
 
-.environment-editor {
-  margin-top: 7px;
-  border: 1px solid var(--anc-line-border);
-  border-radius: 6px;
-  background: rgb(var(--anc-inset-rgb) / 20%);
-}
-
-.environment-editor__heading {
-  display: flex;
-  min-height: 29px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 3px 6px 3px 9px;
-}
-
-.environment-editor__heading > span {
-  color: var(--anc-text-dim);
-  font-family: var(--anc-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-.environment-editor button {
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: rgb(var(--anc-overlay-rgb) / 4%);
-  color: var(--anc-text-muted);
-  font-size: 8.5px;
-}
-
 .environment-rows {
-  max-height: 68px;
-  overflow: auto;
-  border-top: 1px solid var(--anc-line-hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.environment-row {
-  display: grid;
-  grid-template-columns: minmax(90px, 0.42fr) minmax(120px, 1fr) auto 24px;
+.command-build__add {
+  align-self: flex-start;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 11.5px;
+}
+
+/* ── Secondary options ────────────────────────────────────────────────────────────────── */
+
+.command-options {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 3px 5px;
-  border-bottom: 1px solid var(--anc-line-hairline);
+  gap: 10px 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--anc-line-strong);
 }
 
-.environment-row input {
-  width: 100%;
-  height: 25px;
-  padding: 0 7px;
+.command-options label > span,
+.command-options__transport > span {
+  color: var(--anc-text-faint);
+  font-size: 11px;
+}
+
+.command-options__cwd {
+  display: flex;
+  min-width: 260px;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-options__cwd input {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  padding: 0 9px;
   font-family: var(--anc-font-mono);
-  font-size: 9.5px;
+  font-size: 11.5px;
 }
 
-.environment-editor__error {
-  padding: 5px 8px;
-  border-top: 1px solid rgb(var(--anc-danger-rgb) / 15%);
-  color: var(--anc-danger-fg);
-  font-size: 9.5px;
+.command-options__transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.command-center__run-options {
+.command-options__transport label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--anc-text-secondary);
+  font-size: 11.5px;
+}
+
+.command-options__env-add {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+}
+
+.command-options__env-add:hover:not(:disabled) {
+  background: rgb(var(--anc-overlay-rgb) / 5%);
+}
+
+.command-build__actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--anc-line-strong);
 }
 
-.command-center__run-options fieldset {
+.command-build__copy-notice {
+  color: var(--anc-text-muted);
+  font-size: 11px;
+}
+
+/* Run is the last thing in the row and the only thing on the right, whether or not the copy
+   notice is showing. */
+.command-build__actions .primary-button {
+  margin-left: auto;
+}
+
+/* ── Step three: output ───────────────────────────────────────────────────────────────── */
+
+.command-output {
   display: flex;
-  min-width: 0;
-  margin: 0 auto 0 0;
-  padding: 0;
-  border: 0;
-  gap: 8px;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 16px;
+  border-top: 1px solid var(--anc-line-strong);
 }
 
-.command-center__run-options legend {
-  position: absolute;
-  overflow: hidden;
-  width: 1px;
-  height: 1px;
-  clip: rect(0, 0, 0, 0);
-}
-
-.command-center__run-options fieldset label {
+.command-output__heading {
   display: flex;
   align-items: center;
-  gap: 4px;
-  color: var(--anc-text-secondary);
+  gap: 12px;
+}
+
+.command-output__heading h2 {
+  color: var(--anc-text-strong);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.command-output__state {
+  margin-right: auto;
+  overflow: hidden;
+  color: var(--anc-text-faint);
+  font-family: var(--anc-font-mono);
   font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.command-center__run-options input[type="radio"] {
-  width: 12px;
-  height: 12px;
-  accent-color: var(--anc-accent);
+.command-output__status {
+  padding: 8px 11px;
+  border: 1px solid rgb(var(--anc-success-rgb) / 26%);
+  border-radius: 8px;
+  background: rgb(var(--anc-success-rgb) / 9%);
+  color: var(--anc-success-fg);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
 
-.command-center__run {
-  border-color: rgb(var(--anc-action-primary-rgb) / 45%);
-  background: var(--anc-action-primary);
-  color: var(--anc-on-accent);
-}
-
-.command-center__run:hover:not(:disabled) {
-  background: var(--anc-action-primary-hover);
-}
-
-.command-center__run--danger {
-  border-color: rgb(var(--anc-danger-rgb) / 55%);
-  background: var(--anc-danger);
-  color: var(--anc-on-danger);
-}
-
-.command-center__danger,
-.command-center__copy-status {
-  margin: 7px -14px -12px;
-  border-top: 1px solid rgb(var(--anc-warning-rgb) / 18%);
-  border-bottom: 0;
-}
-
-.command-center__danger {
-  border-color: rgb(var(--anc-danger-rgb) / 20%);
-  background: rgb(var(--anc-danger-rgb) / 8%);
+.command-output__status--error {
+  border-color: rgb(var(--anc-danger-rgb) / 30%);
+  background: rgb(var(--anc-danger-rgb) / 10%);
   color: var(--anc-danger-fg);
 }
 
-.command-center__session {
-  min-height: 292px;
-  padding: 11px 14px 10px;
-  background: rgb(var(--anc-terminal-rgb) / 24%);
-}
+/*
+The container exec panel renders the same TerminalSurface, so these three rules are shared and
+are left exactly as the detail screen had them — `container-detail-exec` is one of the 24
+captured design-parity states, and quietly moving its terminal by a pixel is not this redesign's
+business. Everything the Command Center wants differently is scoped to `.command-output` below.
 
+The one shared change is the fallback's ink: it paints on `--anc-terminal-background`, so it
+takes `--anc-terminal-foreground` rather than the general mono text colour. That element only
+renders when xterm fails to load, which no capture does.
+*/
 .command-terminal {
   position: relative;
   height: 174px;
-  margin-top: 8px;
   overflow: hidden;
   border: 1px solid rgb(var(--anc-accent-rgb) / 13%);
   border-radius: 7px;
@@ -557,18 +641,61 @@
   margin: 0;
   overflow: auto;
   padding: 8px 10px;
-  color: var(--anc-text-mono);
+  color: var(--anc-terminal-foreground);
   font-family: var(--anc-font-mono);
   font-size: 10.5px;
   line-height: 1.45;
   white-space: pre-wrap;
 }
 
+/* Output is the whole of the last step here, rather than one panel among several. */
+.command-output .command-terminal {
+  height: 240px;
+  border-color: var(--anc-line-control);
+  border-radius: 8px;
+}
+
+.command-output .command-terminal__fallback {
+  font-size: 11.5px;
+}
+
 .session-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 7px;
+}
+
+.session-controls label {
+  display: grid;
+  gap: 4px;
+}
+
+.session-controls label > span {
+  color: var(--anc-text-faint);
+  font-size: 11px;
+}
+
+.session-controls input {
+  width: 74px;
+  height: 30px;
+  padding: 0 9px;
+  font-family: var(--anc-font-mono);
+  font-size: 11.5px;
+}
+
+.session-controls button {
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+}
+
+.session-controls button:hover:not(:disabled) {
+  background: rgb(var(--anc-overlay-rgb) / 5%);
 }
 
 .session-input {
@@ -576,82 +703,25 @@
   flex: 1;
 }
 
-.session-controls label {
-  display: grid;
-  gap: 3px;
-}
-
-.session-controls input {
-  width: 70px;
-  height: 28px;
-  padding: 0 7px;
-  font-family: var(--anc-font-mono);
-  font-size: 10.5px;
-}
-
 .session-input input {
   width: 100%;
 }
 
-.session-status {
-  margin: 8px -14px -10px;
-  border-top: 1px solid rgb(var(--anc-success-rgb) / 15%);
-  border-bottom: 0;
-  background: rgb(var(--anc-success-rgb) / 7%);
-  color: var(--anc-success-fg);
-}
-
-.session-status--error {
-  border-color: rgb(var(--anc-danger-rgb) / 18%);
-  background: rgb(var(--anc-danger-rgb) / 8%);
-  color: var(--anc-danger-fg);
-}
-
-.command-history {
-  flex: none;
-  padding: 8px 14px;
-  border-top: 1px solid var(--anc-line-border);
-  color: var(--anc-text-muted);
-  font-size: 10px;
-}
-
-.command-history summary {
-  cursor: pointer;
-}
-
-.command-history ol {
-  max-height: 100px;
-  margin: 7px 0 0;
-  overflow: auto;
-  padding-left: 22px;
-}
-
-.command-history code {
-  color: var(--anc-text-mono);
-  font-family: var(--anc-font-mono);
-  font-size: 9.5px;
-}
-
-/* Says when the list is capped. An undisclosed cut reads as a complete answer. */
-.command-center__truncated {
-  padding: 9px 16px;
-  color: var(--anc-text-faint);
-  font-size: 11px;
-}
+/* ── Installed but unrunnable ─────────────────────────────────────────────────────────── */
 
 /* Installed, on disk, and not runnable. Outside the results listbox because nothing here can be
    selected — the palette's contract is that a row runs something. */
 .command-unavailable {
+  margin-top: 12px;
   padding: 12px 14px;
-  margin-top: 10px;
   border: 1px solid rgb(var(--anc-warning-rgb) / 32%);
   border-radius: 9px;
-  background: rgb(var(--anc-warning-rgb) / 7%);
+  background: rgb(var(--anc-warning-rgb) / 8%);
 }
 
 .command-unavailable__lede {
   color: var(--anc-warning-fg);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -659,19 +729,19 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding-top: 9px;
   margin-top: 9px;
-  border-top: 1px solid var(--anc-line-hairline);
+  padding-top: 9px;
+  border-top: 1px solid rgb(var(--anc-warning-rgb) / 22%);
 }
 
 .command-unavailable__row code {
   color: var(--anc-text-primary);
   font-family: var(--anc-font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .command-unavailable__reason {
-  color: var(--anc-text-body);
+  color: var(--anc-text-secondary);
   font-size: 11.5px;
   line-height: 1.5;
   text-wrap: pretty;
@@ -687,4 +757,46 @@
   margin-top: 10px;
   color: var(--anc-text-muted);
   font-size: 11px;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────────────────────────── */
+
+.command-center__footer {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--anc-line-strong);
+}
+
+.command-center__privacy {
+  max-width: 72ch;
+  color: var(--anc-text-faint);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.command-history {
+  color: var(--anc-text-muted);
+  font-size: 11px;
+}
+
+.command-history summary {
+  cursor: pointer;
+}
+
+.command-history ol {
+  max-height: 110px;
+  margin: 8px 0 0;
+  overflow: auto;
+  padding-left: 22px;
+}
+
+.command-history code {
+  color: var(--anc-text-mono);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
 }

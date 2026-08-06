@@ -14,7 +14,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { createFixtureCapabilities } from "../data/commandFixtures";
-import { TerminalSurface } from "./CommandCenter";
+import { TerminalSurface } from "./CommandTerminal";
 import type {
   HostAnchorageApi,
   SessionEvent,
@@ -162,7 +162,19 @@ async function openCommandCenter() {
     ctrlKey: true,
     shiftKey: true,
   });
-  return screen.findByRole("dialog", { name: "Run any installed Docker command" });
+  return screen.findByRole("dialog", { name: "Run a Docker command" });
+}
+
+/** Search, then take the first match. The path every other test starts from. */
+async function chooseCommand(dialog: HTMLElement, term: string) {
+  fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
+    target: { value: term },
+  });
+  fireEvent.click(
+    await within(dialog).findByRole("option", {
+      name: new RegExp(term, "iu"),
+    }),
+  );
 }
 
 beforeEach(() => {
@@ -211,6 +223,115 @@ describe("Docker Command Center", () => {
     await waitFor(() => expect(globalSearch).toHaveValue("postgres"));
   });
 
+  /**
+   * The complexity complaint, as a test.
+   *
+   * Discovery, an argv composer and a terminal used to be on screen together from the moment
+   * the dialog opened, so the first thing an operator saw included an empty terminal for a
+   * session that did not exist and an editor for a command they had not picked. Each step now
+   * appears when there is something in it, and this asserts that ordering rather than the
+   * markup that currently implements it.
+   */
+  it("shows one step at a time: search, then the command, then its output", async () => {
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+
+    expect(within(dialog).getByPlaceholderText("e.g. compose up")).toBeVisible();
+    expect(within(dialog).queryByTestId("argv-rows")).toBeNull();
+    expect(
+      within(dialog).queryByTestId("command-terminal-transcript"),
+    ).toBeNull();
+
+    await chooseCommand(dialog, "version");
+    expect(within(dialog).getByTestId("argv-rows")).toBeInTheDocument();
+    expect(within(dialog).queryByPlaceholderText("e.g. compose up")).toBeNull();
+    expect(
+      within(dialog).queryByTestId("command-terminal-transcript"),
+    ).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Run command" }));
+    await waitFor(() =>
+      expect(
+        within(dialog).getByTestId("command-terminal-transcript"),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("names the exact command line, context included, before anything runs", async () => {
+    // "Check what it will do" is a step, and it cannot be done from a column of argv boxes
+    // that says nothing about the context Anchorage will insert in front of them.
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+    await chooseCommand(dialog, "compose up");
+
+    expect(within(dialog).getByTestId("command-preview")).toHaveTextContent(
+      "docker --context staging compose up",
+    );
+
+    fireEvent.change(
+      within(dialog).getByLabelText("Docker target mode"),
+      { target: { value: "literal" } },
+    );
+    // Literal mode does not insert the context, and the preview stops claiming it does.
+    expect(within(dialog).getByTestId("command-preview")).toHaveTextContent(
+      "docker compose up",
+    );
+    expect(
+      within(dialog).getByTestId("command-preview"),
+    ).not.toHaveTextContent("--context");
+  });
+
+  it("moves through the results with the arrow keys and chooses with Enter", async () => {
+    // A command palette that can only be driven with the mouse is not a command palette. The
+    // fixture's compose leaves sort down, logs, ps, up, watch — one press lands on the second.
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+
+    const search = within(dialog).getByPlaceholderText("e.g. compose up");
+    fireEvent.change(search, { target: { value: "compose" } });
+    await within(dialog).findByRole("option", { name: /compose down/i });
+
+    fireEvent.keyDown(search, { key: "ArrowDown" });
+    expect(
+      within(dialog).getByRole("option", { name: /compose logs/i }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(within(dialog).getByLabelText("Argument 0")).toHaveValue("compose");
+    expect(within(dialog).getByLabelText("Argument 1")).toHaveValue("logs");
+  });
+
+  it("keeps hand-edited argv when the operator goes back to the list", async () => {
+    // Going back to look at the list is not the same as abandoning the command, and losing an
+    // edited argv to a misclick on "Choose another" would make the step feel like a trapdoor.
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+    await chooseCommand(dialog, "compose up");
+    fireEvent.change(within(dialog).getByLabelText("Argument 1"), {
+      target: { value: "down" },
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Choose another" }));
+    expect(within(dialog).getByPlaceholderText("e.g. compose up")).toBeVisible();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Back to compose down" }),
+    );
+    expect(within(dialog).getByLabelText("Argument 1")).toHaveValue("down");
+  });
+
   it("propagates explicit literal targeting into start, copy, and history, then resets to pinned", async () => {
     const harness = createHostHarness();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -226,21 +347,26 @@ describe("Docker Command Center", () => {
     const targetMode = within(dialog).getByLabelText("Docker target mode");
     expect(targetMode).toHaveValue("pinned");
     fireEvent.change(targetMode, { target: { value: "literal" } });
+
+    // The escalation is stated wherever the operator is, not tucked into the run options.
+    // `tools/capture-host-candidate.mjs` waits on this exact opening phrase before it records
+    // the literal-target evidence screen, so a reword has to break a test here first.
     expect(
-      within(dialog).getByText(/selected context is discovery metadata only/u),
+      within(dialog).getByText(/^Literal target mode is enabled/u),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/is not applied to the run/u),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText(
         /without an override, Docker uses its ambient default/u,
       ),
     ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Treat DOCKER_CONFIG as target-sensitive/u),
+    ).toBeInTheDocument();
 
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.change(within(dialog).getByLabelText("Argument 0"), {
       target: { value: "--host=tcp://docker.example.test:2376" },
     });
@@ -327,12 +453,7 @@ describe("Docker Command Center", () => {
       expect(harness.capabilities).toHaveBeenCalledWith({ context: "staging" }),
     );
 
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "compose up" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /compose up/i }),
-    );
+    await chooseCommand(dialog, "compose up");
     fireEvent.click(within(dialog).getByRole("button", { name: /Add token/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: /Add token/ }));
     fireEvent.change(within(dialog).getByLabelText("Argument 2"), {
@@ -379,12 +500,7 @@ describe("Docker Command Center", () => {
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
 
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.click(within(dialog).getByLabelText("PTY"));
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Run command" }),
@@ -515,33 +631,36 @@ describe("Docker Command Center", () => {
     });
     expect(within(dialog).getByText(/Exited 143 · canceled/))
       .toBeInTheDocument();
+    // stdin belongs to a live process. Once it has exited there is nothing to write to.
+    expect(within(dialog).queryByLabelText("Literal stdin")).toBeNull();
   });
 
-  it("requires a second explicit action for destructive argv", async () => {
+  it("warns before a destructive command is pressed and again before it is confirmed", async () => {
     const harness = createHostHarness();
     window.anchorage = harness.host;
     render(<App />);
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
 
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "container rm" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /container rm/i }),
-    );
+    await chooseCommand(dialog, "container rm");
+    // Said while the command is still being written, not sprung at the moment of pressing Run.
+    expect(
+      within(dialog).getByText(/permanently change Docker resources/),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Run command" }),
     );
     expect(
       harness.start.mock.calls.filter((call) => call[0].argv[0] !== "events"),
     ).toHaveLength(0);
-    expect(
-      within(dialog).getByText(/permanently change Docker resources/),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      /Check the target and the command line above/u,
+    );
 
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Confirm & run" }),
+      within(dialog).getByRole("button", { name: "Confirm and run" }),
     );
     await waitFor(() =>
       expect(harness.start).toHaveBeenCalledWith({
@@ -553,18 +672,41 @@ describe("Docker Command Center", () => {
     );
   });
 
+  it("re-arms the destructive confirmation when the command changes underneath it", async () => {
+    // The sentence the operator agreed to was about the argv as it stood. Editing it and
+    // pressing Run again must not inherit consent given for a different command.
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+
+    await chooseCommand(dialog, "container rm");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Run command" }));
+    expect(
+      within(dialog).getByRole("button", { name: "Confirm and run" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Add token/ }));
+    fireEvent.change(within(dialog).getByLabelText("Argument 2"), {
+      target: { value: "--force" },
+    });
+    expect(
+      within(dialog).getByRole("button", { name: "Run command" }),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Run command" }));
+    expect(
+      harness.start.mock.calls.filter((call) => call[0].argv[0] !== "events"),
+    ).toHaveLength(0);
+  });
+
   it("masks login -p secrets and excludes them from copy and history", async () => {
     const harness = createHostHarness();
     window.anchorage = harness.host;
     render(<App />);
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.change(within(dialog).getByLabelText("Argument 0"), {
       target: { value: "login" },
     });
@@ -587,7 +729,11 @@ describe("Docker Command Center", () => {
     expect(
       within(dialog).getByText(/excluded from history/),
     ).toBeInTheDocument();
+    // Including the command-line preview, which would otherwise echo it back in plain text.
     expect(within(dialog).queryByText("hunter2")).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("command-preview")).not.toHaveTextContent(
+      "hunter2",
+    );
 
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Run command" }),
@@ -610,12 +756,7 @@ describe("Docker Command Center", () => {
     render(<App />);
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.click(within(dialog).getByRole("button", { name: /Add token/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: /Add token/ }));
     fireEvent.change(within(dialog).getByLabelText("Argument 0"), {
@@ -636,6 +777,9 @@ describe("Docker Command Center", () => {
       within(dialog).getByRole("button", { name: "Copy argv JSON" }),
     ).toBeDisabled();
     expect(within(dialog).queryByText("hunter2")).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId("command-preview")).not.toHaveTextContent(
+      "hunter2",
+    );
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Run command" }),
     );
@@ -649,6 +793,47 @@ describe("Docker Command Center", () => {
     );
     expect(within(dialog).queryByText(/In-memory history/))
       .not.toBeInTheDocument();
+  });
+
+  it("masks a secret-named environment value and refuses to copy it", async () => {
+    // The env editor is the other way a credential reaches a run, and it is the one that is
+    // easy to forget because the value never appears in the argv rows.
+    const harness = createHostHarness();
+    window.anchorage = harness.host;
+    render(<App />);
+    await screen.findByTestId(`container-row-${fullId}`);
+    const dialog = await openCommandCenter();
+    await chooseCommand(dialog, "version");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Add variable/ }),
+    );
+    fireEvent.change(within(dialog).getByLabelText("Environment key 0"), {
+      target: { value: "REGISTRY_TOKEN" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Environment value 0"), {
+      target: { value: "hunter2" },
+    });
+
+    expect(within(dialog).getByLabelText("Environment value 0")).toHaveAttribute(
+      "type",
+      "password",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Copy argv JSON" }),
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByText(/excluded from history/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Reveal environment value 0",
+      }),
+    );
+    expect(within(dialog).getByLabelText("Environment value 0")).toHaveAttribute(
+      "type",
+      "text",
+    );
   });
 
   it("buffers start-race events and replays only the returned session id", async () => {
@@ -711,12 +896,7 @@ describe("Docker Command Center", () => {
     render(<App />);
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.click(within(dialog).getByRole("button", { name: "Run command" }));
 
     await waitFor(() =>
@@ -742,12 +922,7 @@ describe("Docker Command Center", () => {
     render(<App />);
     await screen.findByTestId(`container-row-${fullId}`);
     const dialog = await openCommandCenter();
-    fireEvent.change(within(dialog).getByPlaceholderText("e.g. compose up"), {
-      target: { value: "version" },
-    });
-    fireEvent.click(
-      await within(dialog).findByRole("option", { name: /version/i }),
-    );
+    await chooseCommand(dialog, "version");
     fireEvent.click(within(dialog).getByRole("button", { name: "Run command" }));
     await waitFor(() => expect(harness.start).toHaveBeenCalled());
 

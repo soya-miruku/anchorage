@@ -6,8 +6,6 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import type { Terminal as XtermTerminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
 import type { AnchorageStore } from "../store/useAnchorageStore";
 import type {
   CommandNode,
@@ -18,6 +16,12 @@ import type {
   SessionTargetMode,
   SystemCapabilities,
 } from "../types";
+import { CommandResults } from "./CommandResults";
+import {
+  TerminalSurface,
+  type OutputChunk,
+  type OutputSurface,
+} from "./CommandTerminal";
 import {
   decodeSessionOutput,
   flattenAvailableCommandLeaves,
@@ -28,14 +32,29 @@ import {
   secretArgumentIndices,
 } from "./commandCenterModel";
 
+/*
+ * The Command Center: find a Docker command, see what it will do, run it, read the output.
+ *
+ * Those four things happen in that order, so the dialog shows them in that order and shows one
+ * of them at a time. The previous version put discovery, an argv composer and a terminal on
+ * screen simultaneously, which meant the operator had to hold the whole surface in their head
+ * to answer the only question that matters at any moment — and the first of the four steps was
+ * competing for attention with a terminal that had nothing in it yet.
+ *
+ * What is NOT staged, deliberately, is anything that says what a run will touch. The target
+ * strip, the literal-target warning, the destructive-command warning, the secret notice and the
+ * retention line are visible from wherever you are in the flow. Progressive disclosure is for
+ * controls; it is not for consequences.
+ */
+
+/* The exec panel in ContainerDetailScreen renders a session terminal too, and imports it from
+   this module. Re-exported rather than moved outright so that file does not have to change. */
+export { TerminalSurface } from "./CommandTerminal";
+export type { OutputChunk, OutputSurface } from "./CommandTerminal";
+
 interface ArgumentRow {
   id: number;
   value: string;
-}
-
-export interface OutputChunk {
-  payload: SessionOutputPayload;
-  text: string;
 }
 
 interface HistoryEntry {
@@ -53,206 +72,40 @@ interface EnvironmentRow {
   value: string;
 }
 
-export interface OutputSurface {
-  write(chunk: OutputChunk): void;
-  reset(): void;
-}
-
-type TerminalLoader = () => Promise<{
-  Terminal: typeof import("@xterm/xterm").Terminal;
-}>;
-
 type SessionState = "idle" | "starting" | "running" | "canceling" | "exited";
+
+/** Which of the two editable steps is on screen. Output appears under whichever it is. */
+type Stage = "find" | "command";
 
 const isJSDOM =
   typeof navigator !== "undefined" && /jsdom/iu.test(navigator.userAgent);
 const MAX_RENDERER_OUTPUT_BYTES = 1_048_576;
 const MAX_RENDERER_OUTPUT_CHUNKS = 800;
+const RESULTS_LIST_ID = "command-center-results";
+const resultOptionId = (index: number) => `command-center-result-${index}`;
 
-function readTerminalTheme(element: HTMLElement) {
-  const styles = window.getComputedStyle(element);
-  const color = (property: string, fallback: string) =>
-    styles.getPropertyValue(property).trim() || fallback;
-
-  return {
-    background: color("--anc-terminal-background", "#0d1736"),
-    foreground: color("--anc-terminal-foreground", "#dfe5f5"),
-    cursor: color("--anc-terminal-cursor", "#8ba8f0"),
-    selectionBackground: color("--anc-terminal-selection", "#405b9a"),
-    black: color("--anc-terminal-black", "#0d1736"),
-    red: color("--anc-terminal-red", "#e07a72"),
-    green: color("--anc-terminal-green", "#74c69d"),
-    yellow: color("--anc-terminal-yellow", "#e2b062"),
-    blue: color("--anc-terminal-blue", "#7fb4e8"),
-    magenta: color("--anc-terminal-magenta", "#a89bf0"),
-    cyan: color("--anc-terminal-cyan", "#8ba8f0"),
-    white: color("--anc-terminal-white", "#dfe5f5"),
-  };
-}
-
-export function TerminalSurface({
-  chunks,
-  active,
-  mode,
-  rows,
-  cols,
-  onAccepted,
-  onInput,
-  onDimensions,
-  registerSink,
-  terminalLoader,
-  preferFallback,
-}: {
-  chunks: OutputChunk[];
-  active: boolean;
-  mode: SessionMode;
-  rows: number;
-  cols: number;
-  onAccepted: (payload: SessionOutputPayload) => void;
-  onInput: (data: string) => void;
-  onDimensions: (rows: number, cols: number) => void;
-  registerSink: (sink: OutputSurface | null) => void;
-  terminalLoader?: TerminalLoader;
-  preferFallback?: boolean;
-}) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const terminalRef = useRef<XtermTerminal | null>(null);
-  const callbackRef = useRef({
-    onAccepted,
-    onInput,
-    onDimensions,
-    registerSink,
-  });
-  const useFallback = preferFallback ?? isJSDOM;
-  const [fallback, setFallback] = useState(useFallback);
-  const [ready, setReady] = useState(useFallback);
-
-  callbackRef.current = { onAccepted, onInput, onDimensions, registerSink };
-
-  useEffect(() => {
-    if (useFallback || !hostRef.current) return;
-    let disposed = false;
-    let resizeObserver: ResizeObserver | undefined;
-    let inputDisposable: { dispose(): void } | undefined;
-    const loadTerminal =
-      terminalLoader ?? (() => import("@xterm/xterm"));
-    void loadTerminal()
-      .then(({ Terminal }) => {
-        const host = hostRef.current;
-        if (disposed || !host) return;
-        const terminal = new Terminal({
-          convertEol: false,
-          cursorBlink: true,
-          cursorStyle: "bar",
-          disableStdin: false,
-          fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
-          fontSize: 12,
-          lineHeight: 1.25,
-          rows,
-          cols,
-          screenReaderMode: true,
-          scrollback: 5_000,
-          theme: readTerminalTheme(host),
-        });
-        terminal.open(host);
-        terminalRef.current = terminal;
-        inputDisposable = terminal.onData((data) =>
-          callbackRef.current.onInput(data),
-        );
-        const measure = () => {
-          const host = hostRef.current;
-          if (!host) return;
-          const nextCols = Math.max(40, Math.floor(host.clientWidth / 7.5));
-          const nextRows = Math.max(8, Math.floor(host.clientHeight / 18));
-          callbackRef.current.onDimensions(nextRows, nextCols);
-        };
-        if (typeof ResizeObserver !== "undefined") {
-          resizeObserver = new ResizeObserver(measure);
-          resizeObserver.observe(host);
-        }
-        setReady(true);
-      })
-      .catch(() => {
-        if (disposed) return;
-        terminalRef.current?.dispose();
-        terminalRef.current = null;
-        setFallback(true);
-        setReady(true);
-      });
-    return () => {
-      disposed = true;
-      resizeObserver?.disconnect();
-      inputDisposable?.dispose();
-      terminalRef.current?.dispose();
-      terminalRef.current = null;
-    };
-    // Rows and columns are updated by the dedicated effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terminalLoader, useFallback]);
-
-  useEffect(() => {
-    const terminal = terminalRef.current;
-    if (!terminal || !ready) return;
-    if (terminal.rows !== rows || terminal.cols !== cols) {
-      terminal.resize(cols, rows);
-    }
-  }, [cols, ready, rows]);
-
-  useEffect(() => {
-    if (!ready) return;
-    const sink: OutputSurface = {
-      write: (chunk) => {
-        const accepted = () => callbackRef.current.onAccepted(chunk.payload);
-        if (terminalRef.current) {
-          terminalRef.current.write(chunk.text, accepted);
-        } else {
-          window.queueMicrotask(accepted);
-        }
-      },
-      reset: () => {
-        terminalRef.current?.reset();
-      },
-    };
-    callbackRef.current.registerSink(sink);
-    return () => callbackRef.current.registerSink(null);
-  }, [ready]);
-
-  return (
-    <div
-      className="command-terminal"
-      aria-label="Docker session terminal"
-      data-mode={mode}
-      data-active={active}
-    >
-      <div ref={hostRef} className="command-terminal__xterm" />
-      {fallback && (
-        <pre
-          className="command-terminal__fallback"
-          data-testid="command-terminal-transcript"
-        >
-          {chunks.map((chunk) => chunk.text).join("")}
-        </pre>
-      )}
-    </div>
-  );
-}
-
-function commandLabel(command: CommandNode) {
-  return command.path.join(" ");
-}
+/*
+ * The full tree is thousands of leaves, so the list is capped. `commandMatches` keeps the total
+ * before capping: a silently truncated list reads as "that is all there is", which is the one
+ * thing this palette must never imply about the installed command surface.
+ */
+const COMMAND_RESULT_LIMIT = 100;
 
 export function CommandCenter({ store }: { store: AnchorageStore }) {
   const { bridge } = store;
-  const [capabilities, setCapabilities] =
-    useState<SystemCapabilities | null>(null);
+  const [capabilities, setCapabilities] = useState<SystemCapabilities | null>(
+    null,
+  );
   const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
   const [capabilityError, setCapabilityError] = useState<string | null>(null);
   const [context, setContext] = useState("");
-  const [targetMode, setTargetMode] =
-    useState<SessionTargetMode>("pinned");
+  const [targetMode, setTargetMode] = useState<SessionTargetMode>("pinned");
+  const [stage, setStage] = useState<Stage>("find");
   const [query, setQuery] = useState("");
-  const [selectedCommand, setSelectedCommand] =
-    useState<CommandNode | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedCommand, setSelectedCommand] = useState<CommandNode | null>(
+    null,
+  );
   const [argumentRows, setArgumentRows] = useState<ArgumentRow[]>([]);
   const [revealedSecrets, setRevealedSecrets] = useState<Set<number>>(
     new Set(),
@@ -282,6 +135,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
   const sessionStartPendingRef = useRef(false);
   const pendingSessionEventsRef = useRef<SessionEvent[]>([]);
   const queryRef = useRef<HTMLInputElement>(null);
+  const firstArgumentRef = useRef<HTMLInputElement>(null);
   const outputRingRef = useRef<OutputChunk[]>([]);
   const outputRingBytesRef = useRef(0);
   const outputSinkRef = useRef<OutputSurface | null>(null);
@@ -304,9 +158,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     [environmentRows],
   );
   const environmentError = useMemo(() => {
-    const populated = environmentRows.filter(
-      (row) => row.key || row.value,
-    );
+    const populated = environmentRows.filter((row) => row.key || row.value);
     const invalid = populated.find(
       (row) => !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(row.key),
     );
@@ -319,8 +171,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
   const environmentContainsSecrets = environmentRows.some((row) =>
     isSecretName(row.key),
   );
-  const containsSecrets =
-    secretIndices.size > 0 || environmentContainsSecrets;
+  const containsSecrets = secretIndices.size > 0 || environmentContainsSecrets;
   const destructive = useMemo(() => isDestructiveArgv(argv), [argv]);
   const availableCommands = useMemo(
     () =>
@@ -329,10 +180,6 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
         : [],
     [capabilities],
   );
-  const COMMAND_RESULT_LIMIT = 100;
-  // The full tree is thousands of leaves, so the list is capped. The count below is the
-  // total before capping: a silently truncated list reads as "that is all there is", which
-  // is the one thing this palette must never imply about the installed command surface.
   const commandMatches = useMemo(
     () => searchCommandLeaves(availableCommands, query),
     [availableCommands, query],
@@ -357,6 +204,15 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     sessionState === "starting" ||
     sessionState === "running" ||
     sessionState === "canceling";
+  const sessionVisible =
+    sessionState !== "idle" ||
+    outputChunks.length > 0 ||
+    Boolean(sessionError) ||
+    Boolean(exitSummary);
+  const warnings = [
+    ...(capabilities?.warnings ?? []),
+    ...(capabilities?.commandInventory.warnings ?? []),
+  ];
 
   const loadCapabilities = useCallback(
     async (requestedContext?: string) => {
@@ -395,6 +251,8 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
   useEffect(() => {
     if (!store.commandCenterOpen) return;
     setQuery(store.commandCenterInitialQuery);
+    setStage("find");
+    setActiveIndex(0);
     setTargetMode("pinned");
     setSelectedCommand(null);
     setArgumentRows([]);
@@ -429,6 +287,18 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       previouslyFocused?.focus();
     };
   }, [store.commandCenterOpen]);
+
+  /*
+   * Focus follows the step. Choosing a command with the keyboard has to leave the caret on the
+   * thing you would edit next, and going back to search has to leave it in the search box —
+   * otherwise arrowing to a command and pressing Enter strands focus on a control that is no
+   * longer rendered, and the next keystroke goes to the document.
+   */
+  useEffect(() => {
+    if (!store.commandCenterOpen) return;
+    if (stage === "command") firstArgumentRef.current?.focus();
+    else queryRef.current?.focus();
+  }, [stage, store.commandCenterOpen]);
 
   const appendOutput = useCallback((payload: SessionOutputPayload) => {
     const chunk = { payload, text: decodeSessionOutput(payload) };
@@ -520,11 +390,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       if (event.payload.sessionId !== activeSessionId) return;
       acceptOwnedSessionEvent(event);
     });
-  }, [
-    acceptOwnedSessionEvent,
-    bridge,
-    store.commandCenterOpen,
-  ]);
+  }, [acceptOwnedSessionEvent, bridge, store.commandCenterOpen]);
 
   useEffect(() => {
     if (
@@ -544,14 +410,20 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     );
   }, [store.commandCenterOpen, store.engineStatus]);
 
+  /* Any edit invalidates a pending destructive confirmation: the sentence the operator agreed
+     to was about the argv as it stood, not as it stands now. */
+  const invalidateConfirmation = () => {
+    setDestructiveConfirmation(null);
+    setCopyNotice(null);
+  };
+
   const updateArgument = (id: number, value: string) => {
     setArgumentRows((current) =>
       current.map((argument) =>
         argument.id === id ? { ...argument, value } : argument,
       ),
     );
-    setDestructiveConfirmation(null);
-    setCopyNotice(null);
+    invalidateConfirmation();
   };
 
   const addArgument = () => {
@@ -559,7 +431,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       ...current,
       { id: nextArgumentIdRef.current++, value: "" },
     ]);
-    setDestructiveConfirmation(null);
+    invalidateConfirmation();
   };
 
   const removeArgument = (id: number) => {
@@ -571,7 +443,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       next.delete(id);
       return next;
     });
-    setDestructiveConfirmation(null);
+    invalidateConfirmation();
   };
 
   const moveArgument = (index: number, offset: -1 | 1) => {
@@ -582,7 +454,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       [next[index], next[destination]] = [next[destination], next[index]];
       return next;
     });
-    setDestructiveConfirmation(null);
+    invalidateConfirmation();
   };
 
   const addEnvironmentVariable = () => {
@@ -590,7 +462,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       ...current,
       { id: nextEnvironmentIdRef.current++, key: "", value: "" },
     ]);
-    setDestructiveConfirmation(null);
+    invalidateConfirmation();
   };
 
   const updateEnvironmentVariable = (
@@ -599,12 +471,9 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     value: string,
   ) => {
     setEnvironmentRows((current) =>
-      current.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row,
-      ),
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
     );
-    setDestructiveConfirmation(null);
-    setCopyNotice(null);
+    invalidateConfirmation();
   };
 
   const removeEnvironmentVariable = (id: number) => {
@@ -614,7 +483,16 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       next.delete(id);
       return next;
     });
-    setDestructiveConfirmation(null);
+    invalidateConfirmation();
+  };
+
+  const toggleRevealed = (id: number) => {
+    setRevealedSecrets((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const selectCommand = (command: CommandNode) => {
@@ -628,6 +506,15 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     setRevealedSecrets(new Set());
     setDestructiveConfirmation(null);
     setSessionError(null);
+    setStage("command");
+  };
+
+  const startFromScratch = () => {
+    setSelectedCommand(null);
+    setArgumentRows([{ id: nextArgumentIdRef.current++, value: "" }]);
+    setRevealedSecrets(new Set());
+    setDestructiveConfirmation(null);
+    setStage("command");
   };
 
   const copyArgv = async () => {
@@ -846,12 +733,25 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     store.closeCommandCenter();
   }, [bridge, store]);
 
-  const handleDialogKeyDown = (
-    event: ReactKeyboardEvent<HTMLDivElement>,
-  ) => {
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       event.preventDefault();
       void close();
+      return;
+    }
+    /* The palette's submit chord. Plain Enter is left alone because it belongs to whichever
+       field has focus, and because a bare Enter that starts a Docker command is too easy to
+       hit by accident. This does not skip the destructive confirmation. */
+    if (
+      event.key === "Enter" &&
+      (event.metaKey || event.ctrlKey) &&
+      stage === "command" &&
+      !running &&
+      argv.length > 0 &&
+      Boolean(context)
+    ) {
+      event.preventDefault();
+      void runCommand();
       return;
     }
     if (event.key !== "Tab") return;
@@ -873,7 +773,50 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
     }
   };
 
+  /* Arrow keys drive the list from the search box, which is where the caret already is. */
+  const handleSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (commandResults.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((current) =>
+        Math.min(current + 1, commandResults.length - 1),
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter") {
+      const command = commandResults[activeIndex];
+      if (!command) return;
+      event.preventDefault();
+      selectCommand(command);
+    }
+  };
+
   if (!store.commandCenterOpen) return null;
+
+  const selectedLabel = argv.join(" ");
+  /*
+   * The command line as the host will assemble it. Pinned mode prepends the context; literal
+   * mode passes argv through untouched, which is exactly why literal mode is worth a warning.
+   *
+   * Built as tokens rather than a string so a credential can be dotted out individually, and
+   * joined with real spaces rather than a flex gap: a gap is not in the text, so the preview
+   * would have been read aloud and copied as one unbroken word.
+   */
+  const previewTokens: { text: string; className?: string }[] = [
+    { text: "docker", className: "command-preview__exe" },
+    ...(targetMode === "pinned" && context
+      ? [
+          { text: "--context", className: "command-preview__target" },
+          { text: context, className: "command-preview__target" },
+        ]
+      : []),
+    ...argv.map((token, index) =>
+      secretIndices.has(index)
+        ? { text: "••••••", className: "command-preview__secret" }
+        : { text: token || "''" },
+    ),
+  ];
 
   return (
     <div className="command-center-backdrop" data-testid="command-center">
@@ -887,10 +830,10 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
       >
         <header className="command-center__header">
           <div>
-            <div className="command-center__eyebrow">DOCKER COMMAND CENTER</div>
-            <h1 id="command-center-title">Run any installed Docker command</h1>
+            <h1 id="command-center-title">Run a Docker command</h1>
             <p id="command-center-description">
-              Select a discovered command, then edit each literal argv token.
+              Everything the Docker CLI on this machine can do, including
+              installed plugins.
             </p>
           </div>
           <button
@@ -903,9 +846,12 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
           </button>
         </header>
 
-        <div className="command-center__toolbar">
+        {/* Where the command will land, kept above the command itself and visible at every step.
+            Both controls answer the same question, so they sit together rather than one in a
+            toolbar and the other buried in run options. */}
+        <div className="command-target">
           <label>
-            <span>Docker context</span>
+            <span>Context</span>
             <select
               aria-label="Docker context"
               value={context}
@@ -915,6 +861,7 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
                 setContext(next);
                 setSelectedCommand(null);
                 setArgumentRows([]);
+                setStage("find");
                 setDestructiveConfirmation(null);
                 void loadCapabilities(next);
               }}
@@ -932,271 +879,299 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
             </select>
           </label>
           <label>
-            <span>Target mode</span>
+            <span>Target</span>
             <select
               aria-label="Docker target mode"
               value={targetMode}
               disabled={running}
               onChange={(event) => {
-                setTargetMode(
-                  event.currentTarget.value as SessionTargetMode,
-                );
+                setTargetMode(event.currentTarget.value as SessionTargetMode);
                 setDestructiveConfirmation(null);
                 setCopyNotice(null);
               }}
             >
-              <option value="pinned">Pinned selected context</option>
-              <option value="literal">Literal argv / environment</option>
+              <option value="pinned">Pin to the selected context</option>
+              <option value="literal">Let the command choose (literal)</option>
             </select>
           </label>
-          <div className="command-center__inventory">
-            {capabilitiesLoading
-              ? "Discovering installed commands…"
-              : capabilities
-                ? `${availableCommands.length} runnable leaves · ${capabilities.commandInventory.complete ? "complete inventory" : "partial inventory"}`
-                : "Inventory unavailable"}
-          </div>
-          <div className="command-center__privacy">
-            History is memory-only · secret-bearing argv is never copied or saved
-          </div>
+          {targetMode === "pinned" && (
+            <p className="command-target__summary">
+              Runs against <code>{context || "no context selected"}</code>.
+              Anchorage passes the context itself, so nothing you type can move
+              the command to another engine.
+            </p>
+          )}
         </div>
 
         {targetMode === "literal" && (
-          <div className="command-center__target-notice" role="status">
-            Literal target mode is enabled by your explicit selection. The
-            selected context is discovery metadata only and is not applied.
-            Exact Docker global target, config, and TLS argv tokens plus
-            DOCKER_* target environment values determine the target; without
-            an override, Docker uses its ambient default. Treat DOCKER_CONFIG
-            as target-sensitive.
+          <div className="command-banner command-banner--warning" role="status">
+            {/* "Literal target mode is enabled" is also the phrase `tools/capture-host-candidate.mjs`
+                waits for before it records the literal-target evidence screen. CommandCenter.test.tsx
+                pins the opening words so a reword fails here rather than silently there. */}
+            <strong>
+              Literal target mode is enabled because you selected it.
+            </strong>
+            <p>
+              The context above is used to discover commands and is not applied
+              to the run. Where this actually lands is decided by the Docker
+              global target, config and TLS tokens you type, plus any DOCKER_*
+              values you set below; without an override, Docker uses its ambient
+              default. Treat DOCKER_CONFIG as target-sensitive — it carries the
+              credentials the run will use.
+            </p>
           </div>
         )}
 
-        {(Boolean(capabilityError) ||
-          (capabilities?.warnings.length ?? 0) > 0 ||
-          (capabilities?.commandInventory.warnings.length ?? 0) > 0) && (
-          <div className="command-center__notice" role="status">
-            {capabilityError ??
-              [
-                ...(capabilities?.warnings ?? []),
-                ...(capabilities?.commandInventory.warnings ?? []),
-              ].join(" · ")}
+        {(Boolean(capabilityError) || warnings.length > 0) && (
+          <div className="command-banner" role="status">
+            {capabilityError ?? warnings.join(" · ")}
           </div>
         )}
 
         <div className="command-center__body">
-          <section className="command-center__discovery">
-            <label className="command-search">
-              <span>Find an installed command</span>
-              <input
-                ref={queryRef}
-                type="search"
-                value={query}
-                placeholder="e.g. compose up"
-                autoComplete="off"
-                onChange={(event) => setQuery(event.currentTarget.value)}
+          {stage === "find" ? (
+            <section className="command-find" aria-label="Find a command">
+              <label className="command-search">
+                <span>Find an installed command</span>
+                <input
+                  ref={queryRef}
+                  type="search"
+                  role="combobox"
+                  aria-expanded="true"
+                  aria-controls={RESULTS_LIST_ID}
+                  aria-activedescendant={
+                    commandResults.length > 0
+                      ? resultOptionId(activeIndex)
+                      : undefined
+                  }
+                  value={query}
+                  placeholder="e.g. compose up"
+                  autoComplete="off"
+                  onChange={(event) => {
+                    setQuery(event.currentTarget.value);
+                    setActiveIndex(0);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                />
+              </label>
+              <p
+                className="command-find__inventory"
+                data-testid="command-center-inventory"
+              >
+                {capabilitiesLoading
+                  ? "Reading the installed command list…"
+                  : capabilities
+                    ? `${availableCommands.length} runnable commands${
+                        capabilities.commandInventory.complete
+                          ? ""
+                          : " · the list is partial"
+                      } · ↑↓ to move, Enter to choose`
+                    : "The installed command list is unavailable."}
+              </p>
+
+              <CommandResults
+                results={commandResults}
+                totalMatches={commandMatches.length}
+                unavailable={unavailablePluginMatches}
+                activeIndex={activeIndex}
+                loading={capabilitiesLoading}
+                listId={RESULTS_LIST_ID}
+                optionId={resultOptionId}
+                onChoose={selectCommand}
+                onActivate={setActiveIndex}
               />
-            </label>
-            <div
-              className="command-results"
-              role="listbox"
-              aria-label="Installed Docker commands"
-            >
-              {commandResults.map((command) => {
-                const selected =
-                  selectedCommand?.path.join("\0") === command.path.join("\0");
-                return (
+
+              <div className="command-find__escape">
+                {argumentRows.length > 0 ? (
                   <button
-                    key={command.path.join("\0")}
                     type="button"
-                    role="option"
-                    aria-selected={selected}
-                    className={selected ? "command-result--selected" : ""}
-                    onClick={() => selectCommand(command)}
-                    disabled={running}
+                    className="ghost-button"
+                    onClick={() => setStage("command")}
                   >
-                    <code>{commandLabel(command)}</code>
-                    <span>{command.description || "Installed Docker command"}</span>
-                    <small>
-                      {command.kind === "plugin-command" ? "PLUGIN" : "BUILT-IN"}
-                    </small>
+                    Back to {selectedLabel || "the command"}
                   </button>
-                );
-              })}
-              {commandMatches.length > commandResults.length && (
-                <p className="command-center__truncated" role="status">
-                  Showing {commandResults.length} of {commandMatches.length}{" "}
-                  matching commands. Narrow the search to see the rest.
-                </p>
-              )}
-              {!capabilitiesLoading &&
-                commandResults.length === 0 &&
-                unavailablePluginMatches.length === 0 && (
-                  <p className="command-results__empty">
-                    No installed command leaf matches this query.
+                ) : (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={startFromScratch}
+                  >
+                    Write the arguments myself
+                  </button>
+                )}
+              </div>
+            </section>
+          ) : (
+            <section className="command-build" aria-label="Check and run">
+              <div className="command-build__chosen">
+                <div>
+                  <code
+                    className="command-preview"
+                    data-testid="command-preview"
+                  >
+                    {previewTokens.map((token, index) => (
+                      // Tokens are reorderable and duplicable, so position is the identity here.
+                      <span key={index} className={token.className}>
+                        {index > 0 ? " " : ""}
+                        {token.text}
+                      </span>
+                    ))}
+                  </code>
+                  <p className="command-build__description">
+                    {selectedCommand?.description ??
+                      "Each row below is one literal argument, passed exactly as written."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={running}
+                  onClick={() => setStage("find")}
+                >
+                  Choose another
+                </button>
+              </div>
+
+              <div className="argv-rows" data-testid="argv-rows">
+                {argumentRows.map((argument, index) => {
+                  const secret = secretIndices.has(index);
+                  const revealed = revealedSecrets.has(argument.id);
+                  return (
+                    <div className="argv-row" key={argument.id}>
+                      <span className="argv-row__index">{index}</span>
+                      <input
+                        ref={index === 0 ? firstArgumentRef : undefined}
+                        aria-label={`Argument ${index}`}
+                        type={secret && !revealed ? "password" : "text"}
+                        value={argument.value}
+                        autoComplete={secret ? "new-password" : "off"}
+                        spellCheck={false}
+                        disabled={running}
+                        onChange={(event) =>
+                          updateArgument(argument.id, event.currentTarget.value)
+                        }
+                      />
+                      <div className="argv-row__actions">
+                        {secret && (
+                          <button
+                            type="button"
+                            aria-label={`${revealed ? "Hide" : "Reveal"} argument ${index}`}
+                            onClick={() => toggleRevealed(argument.id)}
+                          >
+                            {revealed ? "Hide" : "Show"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Move argument ${index} up`}
+                          onClick={() => moveArgument(index, -1)}
+                          disabled={running || index === 0}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move argument ${index} down`}
+                          onClick={() => moveArgument(index, 1)}
+                          disabled={running || index === argumentRows.length - 1}
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Remove argument ${index}`}
+                          onClick={() => removeArgument(argument.id)}
+                          disabled={running}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {argumentRows.length === 0 && (
+                  <p className="argv-rows__empty">
+                    No arguments yet. Add the first Docker argument, or choose a
+                    command.
                   </p>
                 )}
-            </div>
-
-            {/* Installed, found on disk, and not runnable. Outside the listbox above because
-                nothing here can be selected and run — presenting it as an option would be a
-                worse answer than the "no match" this replaces. */}
-            {unavailablePluginMatches.length > 0 && (
-              <div
-                className="command-unavailable"
-                data-testid="command-center-unavailable"
-              >
-                <p className="command-unavailable__lede">
-                  {unavailablePluginMatches.length === 1
-                    ? "One installed plugin matches but cannot run:"
-                    : `${unavailablePluginMatches.length} installed plugins match but cannot run:`}
-                </p>
-                {unavailablePluginMatches.map((plugin) => (
-                  <div
-                    className="command-unavailable__row"
-                    key={plugin.path ?? plugin.name}
-                    data-testid={`command-center-unavailable-${plugin.name}`}
-                  >
-                    <code>docker {plugin.name}</code>
-                    <span className="command-unavailable__reason">
-                      {plugin.availabilityNote ??
-                        "The Docker CLI found it and would not load it."}
-                    </span>
-                    {plugin.path && (
-                      <span className="command-unavailable__path resource-mono">
-                        {plugin.path}
-                      </span>
-                    )}
-                  </div>
-                ))}
-                <p className="command-unavailable__route">
-                  Settings → Engine → CLI plugins can remove or repair these.
-                </p>
               </div>
-            )}
-            <div hidden>
-            </div>
-          </section>
 
-          <section className="command-center__composer">
-            <div className="command-center__section-heading">
-              <div>
-                <h2>Literal argv</h2>
-                <p>One row equals one argument. Empty rows remain empty arguments.</p>
-              </div>
               <button
                 type="button"
-                className="command-center__secondary"
+                className="command-build__add ghost-button"
                 onClick={addArgument}
                 disabled={running}
               >
-                + Add token
+                Add token
               </button>
-            </div>
 
-            <div className="argv-context">
-              <span>context</span>
-              <code>{context || "not selected"}</code>
-              <label htmlFor="command-center-cwd">cwd</label>
-              <input
-                id="command-center-cwd"
-                aria-label="Working directory"
-                value={cwd}
-                disabled={running}
-                placeholder="Host home (default)"
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => {
-                  setCwd(event.currentTarget.value);
-                  setDestructiveConfirmation(null);
-                  setCopyNotice(null);
-                }}
-              />
-            </div>
-            <div className="argv-rows" data-testid="argv-rows">
-              {argumentRows.map((argument, index) => {
-                const secret = secretIndices.has(index);
-                const revealed = revealedSecrets.has(argument.id);
-                return (
-                  <div className="argv-row" key={argument.id}>
-                    <span className="argv-row__index">{index}</span>
+              {/*
+                Secondary, not hidden. Working directory, transport and environment change what a
+                run does, so a disclosure that has to be opened to see whether any of them are set
+                would be a surface for surprises. They are quiet and one line tall until used.
+              */}
+              <div className="command-options">
+                <label className="command-options__cwd">
+                  <span>Working directory</span>
+                  <input
+                    aria-label="Working directory"
+                    value={cwd}
+                    disabled={running}
+                    placeholder="Host home (default)"
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(event) => {
+                      setCwd(event.currentTarget.value);
+                      invalidateConfirmation();
+                    }}
+                  />
+                </label>
+                {/* A div rather than a fieldset, matching the prune scope on ImagesScreen: a
+                    legend cannot be laid out inline with the controls it labels without fighting
+                    the UA's own fieldset rendering, and this group is one row tall. */}
+                <div
+                  className="command-options__transport"
+                  role="radiogroup"
+                  aria-label="Transport"
+                >
+                  <span>Transport</span>
+                  <label>
                     <input
-                      aria-label={`Argument ${index}`}
-                      type={secret && !revealed ? "password" : "text"}
-                      value={argument.value}
-                      autoComplete={secret ? "new-password" : "off"}
-                      spellCheck={false}
+                      type="radio"
+                      name="session-mode"
+                      value="pipes"
+                      checked={mode === "pipes"}
                       disabled={running}
-                      onChange={(event) =>
-                        updateArgument(argument.id, event.currentTarget.value)
-                      }
+                      onChange={() => setMode("pipes")}
                     />
-                    {secret && (
-                      <button
-                        type="button"
-                        aria-label={`${revealed ? "Hide" : "Reveal"} argument ${index}`}
-                        onClick={() =>
-                          setRevealedSecrets((current) => {
-                            const next = new Set(current);
-                            if (next.has(argument.id)) next.delete(argument.id);
-                            else next.add(argument.id);
-                            return next;
-                          })
-                        }
-                      >
-                        {revealed ? "Hide" : "Show"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Move argument ${index} up`}
-                      onClick={() => moveArgument(index, -1)}
-                      disabled={running || index === 0}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Move argument ${index} down`}
-                      onClick={() => moveArgument(index, 1)}
-                      disabled={running || index === argumentRows.length - 1}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Remove argument ${index}`}
-                      onClick={() => removeArgument(argument.id)}
+                    Pipes
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="session-mode"
+                      value="pty"
+                      checked={mode === "pty"}
                       disabled={running}
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-              {argumentRows.length === 0 && (
-                <p className="argv-rows__empty">
-                  Select a command leaf or add the first Docker argument.
-                </p>
-              )}
-            </div>
-
-            <div className="environment-editor">
-              <div className="environment-editor__heading">
-                <span>
-                  Environment
-                  {environmentRows.length > 0
-                    ? ` · ${environmentRows.length}`
-                    : " · optional"}
-                </span>
+                      onChange={() => setMode("pty")}
+                    />
+                    PTY
+                  </label>
+                </div>
                 <button
                   type="button"
+                  className="command-options__env-add"
                   onClick={addEnvironmentVariable}
                   disabled={running}
                 >
-                  + Add variable
+                  Add variable
+                  {environmentRows.length > 0
+                    ? ` · ${environmentRows.length} set`
+                    : ""}
                 </button>
               </div>
+
               {environmentRows.length > 0 && (
                 <div className="environment-rows">
                   {environmentRows.map((row, index) => {
@@ -1235,267 +1210,270 @@ export function CommandCenter({ store }: { store: AnchorageStore }) {
                             )
                           }
                         />
-                        {secret && (
+                        <div className="argv-row__actions">
+                          {secret && (
+                            <button
+                              type="button"
+                              onClick={() => toggleRevealed(row.id)}
+                              aria-label={`${revealed ? "Hide" : "Reveal"} environment value ${index}`}
+                            >
+                              {revealed ? "Hide" : "Show"}
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() =>
-                              setRevealedSecrets((current) => {
-                                const next = new Set(current);
-                                if (next.has(row.id)) next.delete(row.id);
-                                else next.add(row.id);
-                                return next;
-                              })
-                            }
-                            aria-label={`${revealed ? "Hide" : "Reveal"} environment value ${index}`}
+                            aria-label={`Remove environment variable ${index}`}
+                            onClick={() => removeEnvironmentVariable(row.id)}
+                            disabled={running}
                           >
-                            {revealed ? "Hide" : "Show"}
+                            ×
                           </button>
-                        )}
-                        <button
-                          type="button"
-                          aria-label={`Remove environment variable ${index}`}
-                          onClick={() => removeEnvironmentVariable(row.id)}
-                          disabled={running}
-                        >
-                          ×
-                        </button>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+
               {environmentError && (
-                <div className="environment-editor__error" role="alert">
+                <div className="command-banner command-banner--danger" role="alert">
                   {environmentError}
                 </div>
               )}
-            </div>
 
-            <div className="command-center__run-options">
-              <fieldset>
-                <legend>Transport</legend>
-                <label>
-                  <input
-                    type="radio"
-                    name="session-mode"
-                    value="pipes"
-                    checked={mode === "pipes"}
-                    disabled={running}
-                    onChange={() => setMode("pipes")}
-                  />
-                  Pipes
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="session-mode"
-                    value="pty"
-                    checked={mode === "pty"}
-                    disabled={running}
-                    onChange={() => setMode("pty")}
-                  />
-                  PTY
-                </label>
-              </fieldset>
-              <button
-                type="button"
-                className="command-center__secondary"
-                disabled={
-                  containsSecrets || argv.length === 0 || Boolean(environmentError)
-                }
-                title={
-                  containsSecrets
-                    ? "Copy is disabled because this argv contains a secret-bearing argument"
-                    : "Copy exact target mode, context metadata, and argv as JSON"
-                }
-                onClick={() => void copyArgv()}
-              >
-                Copy argv JSON
-              </button>
-              <button
-                type="button"
-                className={
-                  destructiveConfirmation
-                    ? "command-center__run command-center__run--danger"
-                    : "command-center__run"
-                }
-                disabled={running || argv.length === 0 || !context}
-                onClick={() => void runCommand()}
-              >
-                {sessionState === "starting"
-                  ? "Starting…"
-                  : destructiveConfirmation
-                    ? "Confirm & run"
-                    : "Run command"}
-              </button>
-            </div>
-            {destructiveConfirmation && (
-              <div className="command-center__danger" role="alert">
-                This command can remove or permanently change Docker resources.
-                Review the target mode, context metadata, and literal argv,
-                then confirm once more.
+              {/*
+                Both notices are rendered from the argv itself, so they appear while the command is
+                still being written rather than at the moment of pressing Run. The confirmation
+                sentence is a separate element with role="alert" because it is the only part that
+                is genuinely new information at press time.
+              */}
+              {containsSecrets && (
+                <div className="command-banner command-banner--secret" role="status">
+                  <strong>A credential is in this command.</strong>
+                  <p>
+                    It is masked here, excluded from history, and copy is
+                    disabled. It is still sent to Docker exactly as typed.
+                  </p>
+                </div>
+              )}
+
+              {destructive && (
+                <div className="command-banner command-banner--danger">
+                  <strong>
+                    This can remove or permanently change Docker resources.
+                  </strong>
+                  {destructiveConfirmation && (
+                    <p role="alert">
+                      Check the target and the command line above, then press
+                      Confirm and run.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="command-build__actions">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={
+                    containsSecrets ||
+                    argv.length === 0 ||
+                    Boolean(environmentError)
+                  }
+                  title={
+                    containsSecrets
+                      ? "Copy is disabled because this argv contains a secret-bearing argument"
+                      : "Copy exact target mode, context metadata, and argv as JSON"
+                  }
+                  onClick={() => void copyArgv()}
+                >
+                  Copy argv JSON
+                </button>
+                {copyNotice && (
+                  <span className="command-build__copy-notice" role="status">
+                    {copyNotice}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={
+                    destructiveConfirmation
+                      ? "primary-button primary-button--danger"
+                      : "primary-button"
+                  }
+                  disabled={running || argv.length === 0 || !context}
+                  onClick={() => void runCommand()}
+                >
+                  {sessionState === "starting"
+                    ? "Starting…"
+                    : destructiveConfirmation
+                      ? "Confirm and run"
+                      : "Run command"}
+                </button>
               </div>
-            )}
-            {(copyNotice || containsSecrets) && (
-              <div className="command-center__copy-status" role="status">
-                {containsSecrets
-                  ? "Secret detected · masked, excluded from history, and copy disabled"
-                  : copyNotice}
+            </section>
+          )}
+
+          {/* Output arrives only once there is a run to have produced it. An empty terminal
+              beside the search box was the single largest piece of the old dialog and it never
+              said anything until the last step. */}
+          {sessionVisible && (
+            <section className="command-output" aria-label="Session output">
+              <div className="command-output__heading">
+                <h2>Output</h2>
+                <span className="command-output__state">
+                  {sessionId
+                    ? `${mode.toUpperCase()} · ${sessionState} · ${sessionId}`
+                    : `${mode.toUpperCase()} · ${sessionState}`}
+                </span>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  disabled={sessionState !== "running"}
+                  onClick={() => void cancelSession()}
+                >
+                  Cancel
+                </button>
               </div>
-            )}
-          </section>
+
+              <TerminalSurface
+                chunks={outputChunks}
+                active={sessionState === "running"}
+                mode={mode}
+                rows={rows}
+                cols={cols}
+                onAccepted={handleSessionEventAccepted}
+                onInput={(data) => {
+                  if (mode === "pty") void sendInput(data);
+                }}
+                onDimensions={(nextRows, nextCols) => {
+                  setRows(nextRows);
+                  setCols(nextCols);
+                }}
+                registerSink={registerOutputSink}
+              />
+
+              {(sessionError ||
+                exitSummary ||
+                truncationNotice ||
+                localDroppedBytes > 0) && (
+                <div
+                  className={`command-output__status${sessionError ? " command-output__status--error" : ""}`}
+                  role={sessionError ? "alert" : "status"}
+                >
+                  {[
+                    sessionError,
+                    exitSummary,
+                    truncationNotice,
+                    localDroppedBytes > 0
+                      ? `${localDroppedBytes.toLocaleString()} older renderer bytes were released`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              )}
+
+              {/* Writing to a process that has exited is not a thing an operator can want, so
+                  stdin appears with the running process and leaves with it. */}
+              {sessionState === "running" && (
+                <div className="session-controls">
+                  <label className="session-input">
+                    <span>Literal stdin</span>
+                    <input
+                      value={sessionInput}
+                      onChange={(event) =>
+                        setSessionInput(event.currentTarget.value)
+                      }
+                      placeholder="Sent exactly as entered"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!sessionInput}
+                    onClick={() => void sendInput(sessionInput)}
+                  >
+                    Send bytes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void sendInput(`${sessionInput}\n`);
+                      setSessionInput("");
+                    }}
+                  >
+                    Send line
+                  </button>
+                  <button type="button" onClick={() => void sendInput("", true)}>
+                    EOF
+                  </button>
+                  {mode === "pty" && (
+                    <>
+                      <label>
+                        <span>Rows</span>
+                        <input
+                          aria-label="PTY rows"
+                          type="number"
+                          min="8"
+                          max="200"
+                          value={rows}
+                          onChange={(event) =>
+                            setRows(Number(event.currentTarget.value))
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>Cols</span>
+                        <input
+                          aria-label="PTY columns"
+                          type="number"
+                          min="40"
+                          max="400"
+                          value={cols}
+                          onChange={(event) =>
+                            setCols(Number(event.currentTarget.value))
+                          }
+                        />
+                      </label>
+                      <button type="button" onClick={() => void resizeSession()}>
+                        Resize
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
-        <section className="command-center__session">
-          <div className="command-center__section-heading">
-            <div>
-              <h2>Session output</h2>
-              <p>
-                {sessionId
-                  ? `${sessionId} · ${sessionState}`
-                  : `No active ${mode.toUpperCase()} session`}
-              </p>
-            </div>
-            <div className="session-actions">
-              <button
-                type="button"
-                className="command-center__secondary"
-                disabled={sessionState !== "running"}
-                onClick={() => void cancelSession()}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-
-          <TerminalSurface
-            chunks={outputChunks}
-            active={sessionState === "running"}
-            mode={mode}
-            rows={rows}
-            cols={cols}
-            onAccepted={handleSessionEventAccepted}
-            onInput={(data) => {
-              if (mode === "pty") void sendInput(data);
-            }}
-            onDimensions={(nextRows, nextCols) => {
-              setRows(nextRows);
-              setCols(nextCols);
-            }}
-            registerSink={registerOutputSink}
-          />
-
-          <div className="session-controls">
-            <label className="session-input">
-              <span>Literal stdin</span>
-              <input
-                value={sessionInput}
-                disabled={sessionState !== "running"}
-                onChange={(event) => setSessionInput(event.currentTarget.value)}
-                placeholder="Sent exactly as entered"
-                autoComplete="off"
-              />
-            </label>
-            <button
-              type="button"
-              disabled={sessionState !== "running" || !sessionInput}
-              onClick={() => void sendInput(sessionInput)}
-            >
-              Send bytes
-            </button>
-            <button
-              type="button"
-              disabled={sessionState !== "running"}
-              onClick={() => {
-                void sendInput(`${sessionInput}\n`);
-                setSessionInput("");
-              }}
-            >
-              Send line
-            </button>
-            <button
-              type="button"
-              disabled={sessionState !== "running"}
-              onClick={() => void sendInput("", true)}
-            >
-              EOF
-            </button>
-            <label>
-              <span>Rows</span>
-              <input
-                aria-label="PTY rows"
-                type="number"
-                min="8"
-                max="200"
-                value={rows}
-                disabled={mode !== "pty"}
-                onChange={(event) => setRows(Number(event.currentTarget.value))}
-              />
-            </label>
-            <label>
-              <span>Cols</span>
-              <input
-                aria-label="PTY columns"
-                type="number"
-                min="40"
-                max="400"
-                value={cols}
-                disabled={mode !== "pty"}
-                onChange={(event) => setCols(Number(event.currentTarget.value))}
-              />
-            </label>
-            <button
-              type="button"
-              disabled={sessionState !== "running" || mode !== "pty"}
-              onClick={() => void resizeSession()}
-            >
-              Resize
-            </button>
-          </div>
-
-          {(sessionError ||
-            exitSummary ||
-            truncationNotice ||
-            localDroppedBytes > 0) && (
-            <div
-              className={`session-status${sessionError ? " session-status--error" : ""}`}
-              role={sessionError ? "alert" : "status"}
-            >
-              {[
-                sessionError,
-                exitSummary,
-                truncationNotice,
-                localDroppedBytes > 0
-                  ? `${localDroppedBytes.toLocaleString()} older renderer bytes were released`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
+        <footer className="command-center__footer">
+          <p className="command-center__privacy">
+            History is memory-only and never written to disk. A command carrying
+            a credential is not copied and not remembered.
+          </p>
+          {history.length > 0 && (
+            <details className="command-history">
+              <summary>In-memory history ({history.length})</summary>
+              <ol>
+                {history.map((entry, index) => (
+                  <li key={`${entry.targetMode}-${entry.context}-${index}`}>
+                    <code>
+                      {JSON.stringify({
+                        context: entry.context,
+                        targetMode: entry.targetMode,
+                        argv: entry.argv,
+                        mode: entry.mode,
+                        ...(entry.cwd ? { cwd: entry.cwd } : {}),
+                        ...(entry.env ? { env: entry.env } : {}),
+                      })}
+                    </code>
+                  </li>
+                ))}
+              </ol>
+            </details>
           )}
-        </section>
-
-        {history.length > 0 && (
-          <details className="command-history">
-            <summary>In-memory history ({history.length})</summary>
-            <ol>
-              {history.map((entry, index) => (
-                <li key={`${entry.targetMode}-${entry.context}-${index}`}>
-                  <code>
-                    {JSON.stringify({
-                      context: entry.context,
-                      targetMode: entry.targetMode,
-                      argv: entry.argv,
-                      mode: entry.mode,
-                      ...(entry.cwd ? { cwd: entry.cwd } : {}),
-                      ...(entry.env ? { env: entry.env } : {}),
-                    })}
-                  </code>
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
+        </footer>
       </div>
     </div>
   );
