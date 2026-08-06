@@ -12,13 +12,15 @@
 ![UI](https://img.shields.io/badge/UI-Electron%20·%20React-47848F)
 ![Tests](https://img.shields.io/badge/tests-609%20renderer%20·%20Go%20race-success)
 
-<img src="docs/media/containers-banner-dismissed.png" width="820" alt="The Containers screen: a list of containers with live CPU and memory, status, ports, and per-row actions">
+<img src="docs/media/containers-docker-light.png" width="820" alt="The Containers screen: a list of containers with live CPU and memory, status, ports, and per-row actions">
+
+<sub>Containers, in the Docker light theme. The shots further down are the shipped default, Nous dark.</sub>
 
 </div>
 
 > **Every screenshot here is real, and every container in them is invented.**
-> They are the same captures the design gate measures against, rendered from
-> fixture data so the images can be published without showing anybody's actual
+> They come from the design gate's own capture harness, rendered against fixture
+> data so the images can be published without showing anybody's actual
 > infrastructure.
 
 ---
