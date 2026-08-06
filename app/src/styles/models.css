@@ -740,3 +740,76 @@ The counts stay on the closed row on purpose. They are the disclosure in miniatu
   overflow-wrap: anywhere;
   color: var(--anc-text-faint);
 }
+
+/* ── Creating and removing a secret ───────────────────────────────────────────────────── */
+
+.secret-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 10px;
+  background: var(--anc-panel);
+}
+
+.secret-create h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.secret-create__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.secret-create__row label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.secret-create__row label span {
+  font-size: 10.5px;
+  color: var(--anc-text-faint);
+}
+
+.secret-create__row input {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: var(--anc-input);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--anc-text-primary);
+}
+
+.secret-create__row input:focus {
+  outline: none;
+  border-color: var(--anc-accent);
+}
+
+.secret-create__note {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--anc-text-muted);
+}
+
+.secret-row__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.secret-row__confirm {
+  display: flex;
+  gap: 6px;
+}

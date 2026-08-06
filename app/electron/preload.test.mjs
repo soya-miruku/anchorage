@@ -425,6 +425,12 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
     "mcp.list": { context: "default" },
     "mcp.catalog": { context: "default", reference: "local/probe:v1" },
     "agents.list": { context: "default" },
+    "secrets.action": {
+      context: "default",
+      action: "create",
+      name: "api-token",
+      value: "c2VjcmV0",
+    },
     "models.list": { context: "default" },
     "models.search": { context: "default", query: "smollm", source: "docker-hub" },
     "models.action": {

@@ -69,6 +69,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "networks.list",
   "networks.action",
   "secrets.list",
+  "secrets.action",
   "cli.run",
   "session.start",
   "session.input",
@@ -152,6 +153,7 @@ export const IPC_CHANNELS = Object.freeze({
   networksList: "anchorage:networks.list",
   networksAction: "anchorage:networks.action",
   secretsList: "anchorage:secrets.list",
+  secretsAction: "anchorage:secrets.action",
   cliRun: "anchorage:cli.run",
   sessionStart: "anchorage:session.start",
   sessionInput: "anchorage:session.input",
@@ -1265,6 +1267,46 @@ export function validateAgentsList(value) {
   assertPlainObject(value, "request");
   assertOnlyKeys(value, new Set(["context"]), "request");
   return { context: validateContext(value.context) };
+}
+
+const SECRET_ACTIONS = new Set(["create", "remove"]);
+const SECRET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u;
+
+export function validateSecretsAction(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "action", "name", "value", "id", "confirmed"]),
+    "request",
+  );
+  const action = validateEnum(value.action, "request.action", SECRET_ACTIONS);
+  const normalized = { context: validateContext(value.context), action };
+
+  if (action === "create") {
+    const name = boundedString(value.name, "request.name", 64);
+    if (!SECRET_NAME.test(name)) {
+      fail("request.name must be letters, digits, dot, dash or underscore");
+    }
+    // Base64 of the secret bytes: bounded and shape-checked, never inspected or logged. It is
+    // the one field crossing this boundary whose contents must not be looked at.
+    const encoded = boundedString(value.value, "request.value", 700_000);
+    if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded)) {
+      fail("request.value must be base64");
+    }
+    if (value.id !== undefined || value.confirmed !== undefined) {
+      fail("request.id and request.confirmed are only accepted for secret remove");
+    }
+    return { ...normalized, name, value: encoded };
+  }
+
+  const id = boundedString(value.id, "request.id", 128);
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true to remove a secret");
+  }
+  if (value.name !== undefined || value.value !== undefined) {
+    fail("request.name and request.value are only accepted for secret create");
+  }
+  return { ...normalized, id, confirmed: true };
 }
 
 export function validateModelsList(value) {

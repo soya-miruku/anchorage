@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -65,6 +65,127 @@ function swarmExplanation(nodeState: string) {
     default:
       return "This engine did not report a swarm state, so the store could not be read.";
   }
+}
+
+
+/**
+ * Creating a secret.
+ *
+ * The value lives in this component's state and nowhere else — it is handed straight to
+ * `bridge.secrets.create`, which base64-encodes it at the boundary and sends it to the Engine
+ * API in a JSON body. It never becomes an argv element, which is the reason this screen does
+ * not shell out: argv is world-readable in /proc for the life of the process and lands in this
+ * codebase's own command receipts.
+ *
+ * The field is cleared the moment the create succeeds. There is no "show" toggle: the value
+ * cannot be read back afterwards from anywhere, so a control implying otherwise would be a lie
+ * about the one property this screen exists to explain.
+ */
+function CreateSecret({ store }: { store: AnchorageStore }) {
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const busy = store.secretBusy === name && name.length > 0;
+
+  return (
+    <form
+      className="secret-create"
+      data-testid="secret-create"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!name.trim() || !value) return;
+        void store
+          .secretAction({ action: "create", name: name.trim(), value })
+          .then((ok) => {
+            if (!ok) return;
+            setName("");
+            setValue("");
+          });
+      }}
+    >
+      <h2>Create a secret</h2>
+      <div className="secret-create__row">
+        <label>
+          <span>Name</span>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="api-token"
+            maxLength={64}
+            pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]*"
+            required
+          />
+        </label>
+        <label>
+          <span>Value</span>
+          <input
+            type="password"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="Stored once, never readable again"
+            autoComplete="off"
+            required
+          />
+        </label>
+        <button type="submit" className="primary-button" disabled={busy}>
+          {busy ? "Creating…" : "Create"}
+        </button>
+      </div>
+      <p className="secret-create__note">
+        Written straight to the Engine API. The value is never placed on a command line, never
+        logged, and cannot be read back — by Anchorage or by anything else.
+      </p>
+      {store.secretError && (
+        <p className="capability-error" role="alert" data-testid="secret-action-error">
+          {store.secretError}
+        </p>
+      )}
+    </form>
+  );
+}
+
+/** A removal cannot be undone by retyping what is on screen, because the value was never on it. */
+function RemoveSecret({
+  store,
+  secret,
+}: {
+  store: AnchorageStore;
+  secret: SecretSummary;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const busy = store.secretBusy === secret.id;
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        className="ghost-button ghost-button--danger"
+        data-testid={`secret-remove-${secret.id}`}
+        disabled={busy}
+        onClick={() => setConfirming(true)}
+      >
+        Remove
+      </button>
+    );
+  }
+  return (
+    <span className="secret-row__confirm">
+      <button
+        type="button"
+        className="ghost-button ghost-button--danger"
+        data-testid={`secret-remove-confirm-${secret.id}`}
+        disabled={busy}
+        onClick={() => {
+          setConfirming(false);
+          void store.secretAction({ action: "remove", id: secret.id });
+        }}
+      >
+        {busy ? "Removing…" : "Delete for good"}
+      </button>
+      <button type="button" className="ghost-button" onClick={() => setConfirming(false)}>
+        Cancel
+      </button>
+    </span>
+  );
 }
 
 function HostSecrets({ store }: { store: AnchorageStore }) {
@@ -138,6 +259,8 @@ function HostSecrets({ store }: { store: AnchorageStore }) {
         </p>
       </div>
 
+      {manager && <CreateSecret store={store} />}
+
       {!swarm && status === "error" ? (
         <div className="empty-state" data-testid="secrets-error-state">
           <strong>Secrets unavailable</strong>
@@ -181,6 +304,7 @@ function HostSecrets({ store }: { store: AnchorageStore }) {
             <span>Created</span>
             <span>Updated</span>
             <span>Labels</span>
+            <span className="sr-only">Actions</span>
           </div>
           <div className="secrets-table__body" data-testid="secrets-table-body">
             {secrets.map((secret) => (
@@ -209,6 +333,9 @@ function HostSecrets({ store }: { store: AnchorageStore }) {
                 </span>
                 <span className="resource-muted" title={formatLabels(secret)}>
                   {formatLabels(secret)}
+                </span>
+                <span className="secret-row__actions">
+                  <RemoveSecret store={store} secret={secret} />
                 </span>
               </div>
             ))}

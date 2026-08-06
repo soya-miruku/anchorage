@@ -567,6 +567,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.secretsList(ctx, params)
+	case "secrets.action":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params SecretsActionParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.secretsAction(ctx, params)
 	case "system.action":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

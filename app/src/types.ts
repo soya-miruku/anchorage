@@ -935,8 +935,34 @@ export interface SecretsListResult {
 }
 
 /** Read-only on purpose: no inspect, because there is no value; no writes, by scope. */
+/**
+ * `create` takes the raw bytes and base64-encodes them at the bridge. The value goes to the
+ * Engine API in a JSON body and is never placed in argv, never logged, and never returned —
+ * Docker gives metadata back only, so a secret is write-once from here.
+ */
+export interface SecretsActionRequest {
+  context?: string;
+  action: "create" | "remove";
+  name?: string;
+  value?: string;
+  id?: string;
+  confirmed?: true;
+}
+
+export interface SecretsActionResult {
+  protocolVersion: "1";
+  context: string;
+  action: "create" | "remove";
+  id?: string;
+  name?: string;
+  receipt: Record<string, unknown>;
+  observedAt: string;
+}
+
 export interface SecretsOperations {
   list(context?: string): Promise<SecretsListResult>;
+  create(name: string, value: string, context?: string): Promise<SecretsActionResult>;
+  remove(id: string, context?: string): Promise<SecretsActionResult>;
 }
 
 export interface VolumesOperations {
@@ -1534,6 +1560,7 @@ export interface HostAnchorageApi {
   };
   secrets?: {
     list: (request: { context: string }) => Promise<unknown>;
+    action?: (request: SecretsActionRequest) => Promise<unknown>;
   };
   volumes?: {
     list: (request: { context: string }) => Promise<unknown>;

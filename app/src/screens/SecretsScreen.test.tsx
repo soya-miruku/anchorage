@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SecretsScreen } from "./SecretsScreen";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -30,10 +30,14 @@ function renderHost(overrides: Partial<AnchorageStore>) {
     secretsError: null,
     secretsLimitations: [],
     refreshSecrets: async () => undefined,
+    secretAction: vi.fn(async () => true),
+    secretBusy: null,
+    secretError: null,
     openCommandCenter: vi.fn(),
     ...overrides,
   } as unknown as AnchorageStore;
-  return render(<SecretsScreen store={store} />);
+  render(<SecretsScreen store={store} />);
+  return store;
 }
 
 describe("SecretsScreen", () => {
@@ -60,9 +64,57 @@ describe("SecretsScreen", () => {
     for (const label of [/reveal/iu, /show value/iu, /copy value/iu, /decrypt/iu]) {
       expect(screen.queryByRole("button", { name: label })).toBeNull();
     }
-    // No write verbs either: creating or removing a secret is out of scope.
-    expect(screen.queryByRole("button", { name: /create secret/iu })).toBeNull();
-    expect(screen.queryByRole("button", { name: /remove/iu })).toBeNull();
+    // Writing is now in scope and reading never will be. The list above is the part that
+    // cannot change: Docker discards the plaintext, so a control implying otherwise would be a
+    // lie about the single property this screen exists to explain.
+  });
+
+  it("creates a secret without the value touching anything that can echo it", async () => {
+    const store = renderHost({ secrets: [] });
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "api-token" },
+    });
+    const value = screen.getByLabelText("Value");
+    // A password field, so it is not shoulder-readable and browsers do not offer to save it.
+    expect(value).toHaveAttribute("type", "password");
+    fireEvent.change(value, { target: { value: "hunter2" } });
+    fireEvent.submit(screen.getByTestId("secret-create"));
+
+    expect(store.secretAction).toHaveBeenCalledWith({
+      action: "create",
+      name: "api-token",
+      value: "hunter2",
+    });
+  });
+
+  it("offers no way to see a value it has just been given", () => {
+    // The field is write-only in both directions: nothing reveals it while typing, and nothing
+    // reads it back afterwards, because after the create there is nowhere left to read it from.
+    renderHost({ secrets: [] });
+    for (const label of [/reveal/iu, /show/iu, /unmask/iu]) {
+      expect(screen.queryByRole("button", { name: label })).toBeNull();
+    }
+  });
+
+  it("makes a removal take a second press, because it cannot be undone", () => {
+    // Retyping the value is not a recovery path here — it was never on screen to retype.
+    const store = renderHost({ secrets: [secret()] });
+
+    fireEvent.click(screen.getByTestId("secret-remove-aaaaaaaaaaaasecret1"));
+    expect(store.secretAction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("secret-remove-confirm-aaaaaaaaaaaasecret1"));
+    expect(store.secretAction).toHaveBeenCalledWith({
+      action: "remove",
+      id: "aaaaaaaaaaaasecret1",
+    });
+  });
+
+  it("offers no create form on an engine with no secret store", () => {
+    // Rendering one would invite the operator to fill it in and be refused by the daemon.
+    renderHost({ secrets: [], secretsSwarm: { manager: false, nodeState: "inactive" } });
+    expect(screen.queryByTestId("secret-create")).toBeNull();
   });
 
   // The conflation this screen exists to prevent: a live `docker secret` surface says

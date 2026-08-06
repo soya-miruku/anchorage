@@ -38,6 +38,8 @@ import type {
   BuildsListResult,
   MCPCatalogResult,
   MCPListResult,
+  SecretsActionRequest,
+  SecretsActionResult,
   CapabilityInstallResult,
   InstallableCapability,
   ModelActionRequest,
@@ -1019,6 +1021,8 @@ class FixtureBridge implements AnchorageBridge {
    */
   readonly secrets = {
     list: async () => fixtureUnsupported("secrets.list"),
+    create: async () => fixtureUnsupported("secrets.action"),
+    remove: async () => fixtureUnsupported("secrets.action"),
   };
 
   readonly volumes = {
@@ -1377,7 +1381,7 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
    */
   const listSecrets = async (context: string): Promise<SecretsListResult> => {
     const request = { context };
-    const result = host.secrets
+    const result = host.secrets?.list
       ? await host.secrets.list(request)
       : host.invoke
         ? await host.invoke("secrets.list", request)
@@ -1736,6 +1740,20 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       toolsets: cloned.toolsets ?? [],
       providers: cloned.providers ?? [],
     };
+  };
+  const secretsAction = async (
+    request: SecretsActionRequest,
+  ): Promise<SecretsActionResult> => {
+    const result = host.secrets?.action
+      ? await host.secrets.action(request)
+      : host.invoke
+        ? await host.invoke("secrets.action", request)
+        : await Promise.reject(new Error("Secret actions are unavailable"));
+    const raw = requireObjectResult(result, "secrets.action");
+    if (typeof raw.action !== "string") {
+      throw new Error("secrets.action returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as SecretsActionResult;
   };
   const modelsList = async (context: string) => {
     const request = { context };
@@ -2216,6 +2234,18 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     secrets: {
       list: (context = "default") => listSecrets(context),
+      create: (name: string, value: string, context = "default") =>
+        secretsAction({
+          context,
+          action: "create",
+          name,
+          // Base64 here rather than in the store, so the plain value exists in exactly one
+          // place — the input the operator typed into — and never in a request object that
+          // could be logged, serialised into an error, or read from a devtools call stack.
+          value: btoa(value),
+        }),
+      remove: (id: string, context = "default") =>
+        secretsAction({ context, action: "remove", id, confirmed: true }),
     },
     volumes: {
       list: listVolumes,

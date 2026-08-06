@@ -1992,3 +1992,38 @@ type MCPCatalogResult struct {
 	Truncated   bool   `json:"truncated,omitempty"`
 	ObservedAt  string `json:"observedAt"`
 }
+
+/* ── Creating and removing a Swarm secret ────────────────────────────────────────────────── */
+
+type SecretsActionParams struct {
+	Context string `json:"context"`
+	// Action is create or remove.
+	Action string `json:"action"`
+	/*
+		Value is the secret itself, raw bytes, and is the reason this verb goes over the Engine
+		API rather than the CLI: as an argv element it would be world-readable in /proc and
+		would land in this codebase's own command receipts. It is base64-encoded into a JSON
+		body, is never logged, never echoed into a receipt or an error detail, and cannot be
+		read back — Docker returns metadata only.
+	*/
+	Value []byte `json:"value,omitempty"`
+	// Name is required to create. Docker allows 64 characters of alphanumerics, dot, dash
+	// and underscore.
+	Name string `json:"name,omitempty"`
+	// ID is required to remove: the immutable identifier, never the name, because a name can
+	// be reused after a removal and an ID cannot.
+	ID string `json:"id,omitempty"`
+	// Confirmed must be true to remove. A secret's value cannot be read back, so a removal
+	// cannot be undone by recreating it from what is on screen.
+	Confirmed bool `json:"confirmed,omitempty"`
+}
+
+type SecretsActionResult struct {
+	ProtocolVersion string                 `json:"protocolVersion"`
+	Context         string                 `json:"context"`
+	Action          string                 `json:"action"`
+	ID              string                 `json:"id,omitempty"`
+	Name            string                 `json:"name,omitempty"`
+	Receipt         DomainOperationReceipt `json:"receipt"`
+	ObservedAt      string                 `json:"observedAt"`
+}

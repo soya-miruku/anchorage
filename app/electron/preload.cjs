@@ -56,6 +56,7 @@ const CHANNELS = Object.freeze({
   networksList: "anchorage:networks.list",
   networksAction: "anchorage:networks.action",
   secretsList: "anchorage:secrets.list",
+  secretsAction: "anchorage:secrets.action",
   cliRun: "anchorage:cli.run",
   sessionStart: "anchorage:session.start",
   sessionInput: "anchorage:session.input",
@@ -1295,6 +1296,38 @@ function agentsList(value) {
   return { context: context(value.context) };
 }
 
+const SECRET_ACTIONS = new Set(["create", "remove"]);
+const SECRET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u;
+
+function secretsAction(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "action", "name", "value", "id", "confirmed"]), "request");
+  const action = enumValue(value.action, "request.action", SECRET_ACTIONS);
+  const normalized = { context: context(value.context), action };
+  if (action === "create") {
+    const name = text(value.name, "request.name", 64);
+    if (!SECRET_NAME.test(name)) {
+      fail("request.name must be letters, digits, dot, dash or underscore");
+    }
+    const encoded = text(value.value, "request.value", 700_000);
+    if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded)) {
+      fail("request.value must be base64");
+    }
+    if (value.id !== undefined || value.confirmed !== undefined) {
+      fail("request.id and request.confirmed are only accepted for secret remove");
+    }
+    return { ...normalized, name, value: encoded };
+  }
+  const id = text(value.id, "request.id", 128);
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true to remove a secret");
+  }
+  if (value.name !== undefined || value.value !== undefined) {
+    fail("request.name and request.value are only accepted for secret create");
+  }
+  return { ...normalized, id, confirmed: true };
+}
+
 function modelsList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context"]), "request");
@@ -2330,6 +2363,8 @@ function invoke(method, payload) {
       return call(CHANNELS.mcpCatalog, mcpCatalog(payload));
     case "agents.list":
       return call(CHANNELS.agentsList, agentsList(payload));
+    case "secrets.action":
+      return call(CHANNELS.secretsAction, secretsAction(payload));
     case "models.list":
       return call(CHANNELS.modelsList, modelsList(payload));
     case "models.search":
@@ -2429,6 +2464,10 @@ const api = Object.freeze({
   capabilities: Object.freeze({
     install: (request) =>
       call(CHANNELS.capabilityInstall, capabilityInstall(request)),
+  }),
+  secrets: Object.freeze({
+    list: (request) => call(CHANNELS.secretsList, secretsList(request)),
+    action: (request) => call(CHANNELS.secretsAction, secretsAction(request)),
   }),
   mcp: Object.freeze({
     list: (request) => call(CHANNELS.mcpList, mcpList(request)),

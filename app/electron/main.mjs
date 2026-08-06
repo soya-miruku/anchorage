@@ -45,6 +45,7 @@ import {
   validateComposeList,
   validateCapabilityInstall,
   validateAgentsList,
+  validateSecretsAction,
   validateMcpCatalog,
   validateMcpList,
   validateModelsAction,
@@ -933,6 +934,14 @@ function registerIpcHandlers() {
       validateCapabilityInstall(request),
       { timeoutMs: 600_000 },
     );
+  });
+  // A create carries the secret value, so it is mutation-gated like every other write and
+  // budgeted as a short engine call rather than a transfer.
+  registerHandler(IPC_CHANNELS.secretsAction, (request) => {
+    assertMutationsEnabled();
+    return core.request("secrets.action", validateSecretsAction(request), {
+      timeoutMs: 45_000,
+    });
   });
   // Catalogue reads can pull an OCI artifact, and one catalogue is a few hundred kilobytes of
   // JSON, so both are budgeted well above an ordinary list.

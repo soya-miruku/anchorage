@@ -1,12 +1,17 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Swarm secrets are the only secret store Docker's own API exposes, and it exposes them as
@@ -221,3 +226,169 @@ func (s *Service) secretsListCLI(ctx context.Context, contextName string) (Secre
 		Limitations: []string{secretValueLimitation, secretCLILimitation},
 	}, nil
 }
+
+/*
+Creating and removing a Swarm secret.
+
+Read-only was the honest state until now — Docker exposes both verbs and Anchorage did not — but
+a secret is the one resource where the *value* has to cross the RPC boundary, so how it travels
+matters more than that it travels at all.
+
+It goes over the Engine API, not the CLI. `docker secret create NAME -` would work, but it means
+either putting the value in argv, where it is world-readable in /proc for the life of the process
+and lands in this codebase's own command receipts, or teaching the CLI runner to write stdin,
+which nothing else needs. `POST /secrets/create` takes the value base64-encoded in a JSON body
+that is never logged and never echoed. There is no CLI fallback for the same reason: falling back
+would silently downgrade to the argv route on exactly the engines where the operator cannot see
+that it happened.
+
+The value is never returned, never included in a receipt, and never written to an error detail.
+Docker does not return it either — `GET /secrets` gives metadata only — so a created secret is
+write-once from Anchorage's point of view, which is the property the operator should expect.
+*/
+
+const maxSecretBytes = 500 * 1024 // Docker's own documented ceiling for a secret payload.
+
+func (s *Service) secretsAction(parent context.Context, params SecretsActionParams) (SecretsActionResult, error) {
+	contextName := strings.TrimSpace(params.Context)
+	if err := validateRequiredContext(contextName); err != nil {
+		return SecretsActionResult{}, err
+	}
+	name := strings.TrimSpace(params.Name)
+
+	switch params.Action {
+	case "create":
+		// Docker's own constraint: 64 characters, alphanumerics plus dot, dash and underscore.
+		if name == "" || len(name) > 64 || !secretNamePattern.MatchString(name) {
+			return SecretsActionResult{}, opError("invalid_secret_name",
+				"A secret name must be 1-64 characters of letters, digits, dot, dash or underscore.",
+				nil, map[string]any{"name": name})
+		}
+		if len(params.Value) == 0 {
+			return SecretsActionResult{}, opError("secret_value_required",
+				"A secret needs a value.", nil, nil)
+		}
+		if len(params.Value) > maxSecretBytes {
+			return SecretsActionResult{}, opError("secret_too_large",
+				"A secret value must be 500 KB or smaller.", nil,
+				map[string]any{"limit": maxSecretBytes})
+		}
+	case "remove":
+		if params.ID == "" {
+			return SecretsActionResult{}, opError("secret_id_required",
+				"Removing a secret needs its immutable ID.", nil, nil)
+		}
+		if !params.Confirmed {
+			return SecretsActionResult{}, opError("confirmation_required",
+				"Removing a secret is irreversible and its value cannot be read back, so it must be confirmed.",
+				nil, map[string]any{"id": params.ID})
+		}
+	default:
+		return SecretsActionResult{}, opError("invalid_action",
+			"A secret action must be create or remove.", nil,
+			map[string]any{"action": params.Action})
+	}
+
+	ctx, cancel := context.WithTimeout(parent, domainMutationTimeout)
+	defer cancel()
+	endpoint, err := s.resolveEngineEndpoint(ctx, contextName)
+	if err != nil {
+		return SecretsActionResult{}, secretsTransportRefusal(err)
+	}
+	client, err := s.engineClient(ctx, endpoint)
+	if err != nil {
+		return SecretsActionResult{}, secretsTransportRefusal(err)
+	}
+
+	started := time.Now().UTC()
+	receipt := DomainOperationReceipt{
+		Context: contextName, Domain: "secret", Action: params.Action,
+		Source: "engine-api", Outcome: "failed", StartedAt: started.Format(time.RFC3339Nano),
+		EndpointHash: endpoint.endpointHash,
+	}
+	// The name identifies a create; the ID identifies a remove. Neither is the value, so both
+	// are safe to record.
+	if params.Action == "create" {
+		receipt.ResourceID = name
+	} else {
+		receipt.ResourceID = params.ID
+	}
+
+	var status int
+	var body []byte
+	if params.Action == "create" {
+		payload, marshalErr := json.Marshal(map[string]any{
+			"Name": name,
+			"Data": base64.StdEncoding.EncodeToString(params.Value),
+			"Labels": map[string]string{
+				// Recorded so an operator can tell later which secrets this app created; it
+				// carries no value and nothing depends on reading it back.
+				"com.anchorage.created-by": "anchorage",
+			},
+		})
+		if marshalErr != nil {
+			return SecretsActionResult{}, opError("secret_encode_failed",
+				"The secret could not be encoded for the engine.", marshalErr, nil)
+		}
+		status, body, err = client.request(ctx, http.MethodPost,
+			"/v"+client.apiVersion+"/secrets/create", bytes.NewReader(payload))
+	} else {
+		status, body, err = client.request(ctx, http.MethodDelete,
+			"/v"+client.apiVersion+"/secrets/"+url.PathEscape(params.ID), nil)
+	}
+	if err != nil {
+		return SecretsActionResult{}, err
+	}
+
+	completed := time.Now().UTC()
+	receipt.HTTPStatus = status
+	receipt.CompletedAt = completed.Format(time.RFC3339Nano)
+	receipt.DurationMs = completed.Sub(started).Milliseconds()
+
+	if status == http.StatusServiceUnavailable {
+		return SecretsActionResult{}, opError("swarm_unavailable",
+			"This engine has no Swarm secret store, so secrets cannot be created or removed here.",
+			nil, map[string]any{"httpStatus": status})
+	}
+	if status < 200 || status >= 300 {
+		// The body may name the secret but never carries its value, so it is safe to surface.
+		return SecretsActionResult{}, engineHTTPError("secret_action_failed",
+			"The engine refused the secret action.", status, body)
+	}
+
+	result := SecretsActionResult{
+		ProtocolVersion: ProtocolVersion,
+		Context:         contextName,
+		Action:          params.Action,
+		ObservedAt:      completed.Format(time.RFC3339Nano),
+	}
+	if params.Action == "create" {
+		var created struct {
+			ID string `json:"ID"`
+		}
+		// The engine answers with the new ID. A body it cannot parse is not a failure — the
+		// secret exists either way, and the caller re-reads the list.
+		_ = json.Unmarshal(body, &created)
+		result.ID = created.ID
+		result.Name = name
+		receipt.ResourceID = created.ID
+	} else {
+		result.ID = params.ID
+	}
+	receipt.Outcome = "succeeded"
+	result.Receipt = receipt
+	return result, nil
+}
+
+// secretsTransportRefusal keeps the one honest message for an engine this verb cannot reach.
+// Unlike the list, there is deliberately no CLI fallback: see the note above.
+func secretsTransportRefusal(err error) error {
+	if errors.Is(err, errTransportUnsupported) {
+		return opError("native_transport_required",
+			"Creating or removing a secret needs the Engine API over a local socket, so the value never becomes a command argument.",
+			nil, nil)
+	}
+	return err
+}
+
+var secretNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)

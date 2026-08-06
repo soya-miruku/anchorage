@@ -932,6 +932,7 @@ export type RPCRequest =
   | NetworksListRequest
   | NetworksActionRequest
   | SecretsListRequest
+  | SecretsActionRequest
   | CLIRunRequest
   | SessionStartRequest
   | SessionInputRequest
@@ -2564,6 +2565,33 @@ export interface BuildsInspectResult {
  * Distinct from Docker Pass, the separate `se://` resolver: this says nothing about whether
  * an `se://` reference resolves on the host.
  */
+/**
+ * Creating or removing a Swarm secret.
+ *
+ * `value` is base64 of the secret bytes and travels in a JSON body, never as an argv element:
+ * argv is world-readable in /proc for the life of the process and lands in this codebase's own
+ * command receipts. The core sends it to the Engine API and never logs it, never echoes it into
+ * a receipt, and never returns it — Docker itself only gives metadata back, so a secret is
+ * write-once from here.
+ */
+export interface SecretsActionRequest {
+  id: RequestId;
+  method: "secrets.action";
+  params:
+    | { context: string; action: "create"; name: string; value: string }
+    | { context: string; action: "remove"; id: string; confirmed: true };
+}
+
+export interface SecretsActionResult {
+  protocolVersion: "1";
+  context: string;
+  action: "create" | "remove";
+  id?: string;
+  name?: string;
+  receipt: DomainOperationReceipt;
+  observedAt: string;
+}
+
 export interface SecretsListRequest {
   id: RequestId;
   method: "secrets.list";

@@ -79,6 +79,7 @@
         { "$ref": "#/$defs/networksListRequest" },
         { "$ref": "#/$defs/networksActionRequest" },
         { "$ref": "#/$defs/secretsListRequest" },
+        { "$ref": "#/$defs/secretsActionRequest" },
         { "$ref": "#/$defs/cliRequest" },
         { "$ref": "#/$defs/sessionStartRequest" },
         { "$ref": "#/$defs/sessionInputRequest" },
@@ -1176,6 +1177,42 @@
           "properties": {
             "context": { "type": "string", "minLength": 1, "maxLength": 255 }
           },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "secretsActionRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "secrets.action" },
+        "params": {
+          "type": "object",
+          "required": ["context", "action"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 },
+            "action": { "enum": ["create", "remove"] },
+            "name": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]*$" },
+            "value": {
+              "comment": "Base64 of the secret bytes. It travels in a JSON body rather than argv so it is never world-readable in /proc and never lands in a command receipt.",
+              "type": "string",
+              "maxLength": 700000
+            },
+            "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "confirmed": { "const": true }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "action": { "const": "create" } }, "required": ["action"] },
+              "then": { "required": ["name", "value"], "properties": { "id": false, "confirmed": false } }
+            },
+            {
+              "if": { "properties": { "action": { "const": "remove" } }, "required": ["action"] },
+              "then": { "required": ["id", "confirmed"], "properties": { "name": false, "value": false } }
+            }
+          ],
           "additionalProperties": false
         }
       },

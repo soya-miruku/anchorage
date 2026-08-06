@@ -855,14 +855,15 @@
   font-size: 12.5px;
 }
 
-/* Five columns, 30px gutters, same head chrome as the containers, images, volumes and
-   networks tables — this is the same component wearing different data. */
+/* Six columns, 30px gutters, same head chrome as the containers, images, volumes and
+   networks tables — this is the same component wearing different data. The last is the remove
+   control and is sized to its content, so adding it did not reflow the five that carry data. */
 .secrets-table__head,
 .secret-row {
   display: grid;
   grid-template-columns:
     minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.4fr)
-    minmax(0, 1.4fr);
+    minmax(0, 1.4fr) max-content;
   gap: 14px;
   align-items: center;
   padding: 0 30px;

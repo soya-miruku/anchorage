@@ -575,6 +575,8 @@ export function useAnchorageStore() {
     "idle" | "loading" | "ready" | "unavailable" | "error"
   >("idle");
   const [agentsError, setAgentsError] = useState<string | null>(null);
+  const [secretBusy, setSecretBusy] = useState<string | null>(null);
+  const [secretError, setSecretError] = useState<string | null>(null);
   const [models, setModels] = useState<DockerModel[]>([]);
   const [modelRunner, setModelRunner] = useState<ModelRunnerStatus>({
     running: false,
@@ -3714,6 +3716,51 @@ export function useAnchorageStore() {
     [bridge, isHost, recordActivity],
   );
 
+  /**
+   * Create or remove a Swarm secret.
+   *
+   * The value never enters this store. It goes straight from the input the operator typed into
+   * `bridge.secrets.create`, which base64-encodes it at the boundary — so there is no React
+   * state, no request object and no error payload anywhere in the renderer holding it in the
+   * clear. That is the whole reason this does not take a request object like the other actions.
+   *
+   * A removal cannot be undone by retyping what is on screen, because the value was never
+   * readable. The confirmation is enforced in the core as well as here.
+   */
+  const secretAction = useCallback(
+    async (
+      request:
+        | { action: "create"; name: string; value: string }
+        | { action: "remove"; id: string },
+    ) => {
+      if (!isHost) return false;
+      const key = request.action === "create" ? request.name : request.id;
+      setSecretBusy(key);
+      setSecretError(null);
+      try {
+        if (request.action === "create") {
+          await bridge.secrets.create(
+            request.name,
+            request.value,
+            dockerContextRef.current,
+          );
+        } else {
+          await bridge.secrets.remove(request.id, dockerContextRef.current);
+        }
+        await refreshSecrets();
+        return true;
+      } catch (reason) {
+        setSecretError(
+          reason instanceof Error ? reason.message : "The secret action failed",
+        );
+        return false;
+      } finally {
+        setSecretBusy((current) => (current === key ? null : current));
+      }
+    },
+    [bridge, isHost, refreshSecrets],
+  );
+
   const setCapabilityRevealed = useCallback(
     (view: ViewId, revealed: boolean) => {
       setRevealedCapabilities((current) => {
@@ -4717,6 +4764,8 @@ export function useAnchorageStore() {
     volumes,
     volumeSummary,
     volumeMutationPending,
+    secretBusy,
+    secretError,
     mcpReport,
     mcpCatalogDetail,
     mcpStatus,
@@ -4901,6 +4950,7 @@ export function useAnchorageStore() {
     setSelectedBuildId,
     retryEngine,
     refreshAgents,
+    secretAction,
     refreshMcp,
     openMcpCatalog,
     closeMcpCatalog,
