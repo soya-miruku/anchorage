@@ -2,6 +2,11 @@ app/node_modules/
 app/dist/
 app/release/
 app/build/core/anchorage-core
+# Its manifest too. `package-desktop.mjs` writes both together — the manifest is the SHA-256 of
+# the binary beside it — and electron-builder ships them as extraResources. Committing hashes
+# that describe an ignored file means the committed copy describes a binary nobody has; the one
+# in the repository was already stale, and a failed packaging run correctly deleted it.
+app/build/core/manifest.json
 core/bin/
 
 *.log
