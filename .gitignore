@@ -47,3 +47,10 @@ app/release/
 # and asserted by the theme gate, and the SHA-256 in design-qa.md, which stays meaningful to
 # anyone holding the file. The checks that read the comp itself skip out loud when it is absent.
 docs/design_handoff_anchorage/
+
+# The parity baseline, for the same reason: these 21 PNGs are renders OF the comp, and they show
+# it more plainly than the HTML does — every screen, including the eight the app does not ship.
+# They stay on the machines that regenerate them (tools/capture-design-reference.mjs writes them,
+# tools/measure-design-parity.mjs reads them); neither runs in `npm test`. The captures of
+# Anchorage itself under docs/design-qa/final-actual/ are ours and stay tracked.
+docs/design-qa/reference/
