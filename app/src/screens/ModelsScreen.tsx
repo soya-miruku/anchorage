@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { CapabilitySetup } from "../components/CapabilitySetup";
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import { capabilityForView } from "../data/capabilities";
 import type { AnchorageStore } from "../store/useAnchorageStore";
@@ -208,6 +209,7 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
 
   const {
     isHost,
+    imageTransfer,
     models,
     modelRunner,
     modelDisk,
@@ -259,6 +261,10 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
   // Past the two early returns, so the store is the real one. This was a useMemo above them,
   // which meant it ran before the host check and read a field the browser-preview path never
   // supplies — memoising a find over two entries bought nothing and cost a crash.
+  const pulling =
+    imageTransfer?.kind === "model" &&
+    (imageTransfer.status === "starting" || imageTransfer.status === "running");
+
   const totalDisk = modelDisk.find((entry) =>
     /model/iu.test(entry.label),
   )?.size;
@@ -329,6 +335,20 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
         <div className="compose-notice" role="alert" data-testid="models-error">
           {modelsError}
         </div>
+      )}
+
+      {/*
+        A pull streams, so it needs somewhere to stream to. Filtered on `kind` because image
+        transfers and Compose actions share this slot — without that an image pull would render
+        its progress here, and a model pull would render on Images.
+      */}
+      {imageTransfer?.kind === "model" && (
+        <SessionActivityPanel
+          session={imageTransfer}
+          testId="model-pull-output"
+          runningMessage="Pulling — waiting for the registry."
+          idleMessage="Waiting for Docker…"
+        />
       )}
 
       <section className="models-local">
@@ -428,7 +448,7 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
               <SearchHit
                 key={hit.name}
                 hit={hit}
-                busy={modelsBusy === hit.name}
+                busy={pulling || modelsBusy === hit.name}
                 onPull={() =>
                   void modelAction({ action: "pull", reference: hit.name })
                 }

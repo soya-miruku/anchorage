@@ -2097,6 +2097,12 @@ export interface ModelActionRequest {
   action: ModelAction;
   /** Required for pull and remove; omitting it on unload evicts every loaded model. */
   reference?: string;
+  /**
+   * Pull only, and pull streams. The core holds this many bytes of unacknowledged output
+   * before it stops writing, so a caller that does not follow and acknowledge the session
+   * stalls the download once the window fills.
+   */
+  outputWindowBytes?: number;
 }
 
 export interface ModelActionResult {

@@ -538,11 +538,11 @@ export function useAnchorageStore() {
    */
   const [imageTransfer, setImageTransfer] = useState<{
     /**
-     * Which screen owns this session. Image transfers and Compose actions share one slot, so
-     * without this a `compose down` rendered its panel on Images and an image pull rendered one
-     * on Compose. Each screen shows only its own.
+     * Which screen owns this session. Image transfers, Compose actions and model pulls share
+     * one slot, so without this a `compose down` rendered its panel on Images and an image pull
+     * rendered one on Compose. Each screen shows only its own.
      */
-    kind: "image" | "compose";
+    kind: "image" | "compose" | "model";
     /** "Pull" | "Save" | "Load" | "Export" — what the progress panel is reporting on. */
     title: string;
     reference: string;
@@ -3061,6 +3061,40 @@ export function useAnchorageStore() {
   );
 
   /**
+   * Reads Model Runner: what is pulled, whether the runner is up, and what it costs on disk.
+   *
+   * One call backs the whole screen because the three answers only mean something together.
+   * An empty model list reads as "nothing pulled yet" when the runner is running and as
+   * "nothing is going to work" when it is not, and showing either without the other would
+   * leave the operator to guess which they are looking at.
+   *
+   * An absent plugin is a described state rather than an error, exactly as buildx is: the fix
+   * is to install it, which Settings → Engine → Capabilities has the command for.
+   */
+  const refreshModels = useCallback(async () => {
+    if (!isHost) return;
+    setModelsStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.models.list(dockerContextRef.current);
+      setModels(result.models);
+      setModelRunner(result.runner);
+      setModelDisk(result.disk);
+      setModelsStatus("ready");
+      setModelsError(null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "Model Runner unavailable";
+      setModels([]);
+      setModelRunner({ running: false, backends: [] });
+      setModelDisk([]);
+      setModelsStatus(
+        /models_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
+      );
+      setModelsError(message);
+    }
+  }, [bridge, isHost]);
+
+  /**
    * Follows a session-backed transfer to completion.
    *
    * Pull, image save/load and container export all stream their progress over the session.*
@@ -3073,7 +3107,7 @@ export function useAnchorageStore() {
    */
   const runTransferSession = useCallback(
     async (options: {
-      kind: "image" | "compose";
+      kind: "image" | "compose" | "model";
       title: string;
       reference: string;
       failureMessage: string;
@@ -3085,7 +3119,14 @@ export function useAnchorageStore() {
       let owner: string | null = null;
       let pending: SessionEvent[] = [];
       const finish = () => {
-        void Promise.allSettled([refreshImages(), refreshSnapshot()]);
+        // A model pull changes no image and no disk-usage figure the snapshot reports, so it
+        // re-reads the model list instead. Refreshing everything regardless would be two
+        // pointless engine round trips on every pull.
+        void Promise.allSettled(
+          options.kind === "model"
+            ? [refreshModels()]
+            : [refreshImages(), refreshSnapshot()],
+        );
         options.onSettled?.();
       };
       const accept = (event: SessionEvent) => {
@@ -3250,7 +3291,7 @@ export function useAnchorageStore() {
         );
       }
     },
-    [bridge, refreshImages, refreshSnapshot],
+    [bridge, refreshImages, refreshModels, refreshSnapshot],
   );
 
   /**
@@ -3387,39 +3428,6 @@ export function useAnchorageStore() {
     }
   }, [bridge, isHost]);
 
-  /**
-   * Reads Model Runner: what is pulled, whether the runner is up, and what it costs on disk.
-   *
-   * One call backs the whole screen because the three answers only mean something together.
-   * An empty model list reads as "nothing pulled yet" when the runner is running and as
-   * "nothing is going to work" when it is not, and showing either without the other would
-   * leave the operator to guess which they are looking at.
-   *
-   * An absent plugin is a described state rather than an error, exactly as buildx is: the fix
-   * is to install it, which Settings → Engine → Capabilities has the command for.
-   */
-  const refreshModels = useCallback(async () => {
-    if (!isHost) return;
-    setModelsStatus((current) => (current === "ready" ? "ready" : "loading"));
-    try {
-      const result = await bridge.models.list(dockerContextRef.current);
-      setModels(result.models);
-      setModelRunner(result.runner);
-      setModelDisk(result.disk);
-      setModelsStatus("ready");
-      setModelsError(null);
-    } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : "Model Runner unavailable";
-      setModels([]);
-      setModelRunner({ running: false, backends: [] });
-      setModelDisk([]);
-      setModelsStatus(
-        /models_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
-      );
-      setModelsError(message);
-    }
-  }, [bridge, isHost]);
 
   /**
    * Searches Docker Hub, and Hugging Face when asked.
@@ -3470,6 +3478,44 @@ export function useAnchorageStore() {
     async (request: ModelActionRequest) => {
       if (!isHost) return false;
       const key = request.reference ?? request.action;
+
+      /*
+        A pull is a session, and it has to be followed like one.
+
+        This used to await `models.action` and immediately re-read the list. The call returns as
+        soon as the download *starts*, so the list was re-read before a byte had landed, the
+        busy flag cleared within the same second, and the screen reported that nothing had
+        happened — while the pull ran on unattended and turned up minutes later on some
+        unrelated Re-check. That is the defect that was reported as "unable to pull models".
+
+        Nothing acknowledged the session's output either. The core stops writing once its window
+        fills without an ack, and measured against a real pull that is latent rather than fatal:
+        `docker model pull` emitted 718 bytes for a 256 MiB model, nowhere near the window. It
+        is fixed here because it is free to fix and the margin is not a guarantee — a model with
+        many layers prints proportionally more.
+
+        `runTransferSession` already does all of this correctly for image and Compose work, and
+        its own comment records that those two paths had duplicated the logic until only one of
+        them got the tricky parts right. Reaching for it here rather than copying it a third
+        time is the whole point of it existing.
+      */
+      if (request.action === "pull" && request.reference) {
+        setModelsError(null);
+        await runTransferSession({
+          kind: "model",
+          title: "Pull",
+          reference: request.reference,
+          failureMessage: "Model pull failed",
+          start: () =>
+            bridge.models.action({
+              ...request,
+              context: dockerContextRef.current,
+              outputWindowBytes: 64 * 1024,
+            }),
+        });
+        return true;
+      }
+
       setModelsBusy(key);
       setModelsError(null);
       try {
@@ -3488,7 +3534,7 @@ export function useAnchorageStore() {
         setModelsBusy((current) => (current === key ? null : current));
       }
     },
-    [bridge, isHost, refreshModels],
+    [bridge, isHost, refreshModels, runTransferSession],
   );
 
   /**

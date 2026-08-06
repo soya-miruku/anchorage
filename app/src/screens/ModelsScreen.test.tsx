@@ -32,6 +32,7 @@ function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
     modelsStatus: "ready",
     modelsError: null,
     modelsBusy: null,
+    imageTransfer: null,
     modelSearchResults: null,
     modelSearchStatus: "idle",
     modelSearchError: null,
@@ -230,5 +231,54 @@ describe("ModelsScreen", () => {
     expect(screen.getByTestId("models-screen-posture")).toHaveTextContent(
       /no authentication by default/u,
     );
+  });
+
+  it("shows a pull in flight, and stops a second one starting", () => {
+    /*
+      The defect this covers: a pull returns as soon as the download *starts*, so the screen
+      used to re-read the list immediately, find nothing new, and report that nothing had
+      happened — while the download was still running with nobody following it. The transfer
+      slot holds one session, so a second pull would cancel the first; both Pull buttons are
+      disabled while one is in flight rather than only the row that was pressed.
+    */
+    const store = createStore({
+      modelSearchStatus: "ready",
+      modelSearchResults: [
+        { name: "ai/smollm2", sizeBytes: 270_601_982 },
+        { name: "ai/qwen3", sizeBytes: 1_000_000 },
+      ],
+      imageTransfer: {
+        kind: "model",
+        title: "Pull",
+        reference: "ai/smollm2",
+        status: "running",
+        output: "Downloading 42%",
+      },
+    });
+    render(<ModelsScreen store={store} />);
+
+    expect(screen.getByTestId("model-pull-output")).toHaveTextContent("Downloading 42%");
+    for (const button of screen.getAllByRole("button", { name: /Pull|Pulling/u })) {
+      expect(button).toBeDisabled();
+    }
+  });
+
+  it("does not show another screen's transfer", () => {
+    // Image transfers and Compose actions share this slot. Before it was filtered by kind, an
+    // image pull rendered its progress on Compose and vice versa.
+    render(
+      <ModelsScreen
+        store={createStore({
+          imageTransfer: {
+            kind: "image",
+            title: "Pull",
+            reference: "nginx:latest",
+            status: "running",
+            output: "Downloading",
+          },
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("model-pull-output")).toBeNull();
   });
 });
