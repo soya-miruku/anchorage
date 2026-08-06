@@ -58,8 +58,8 @@
   gap: 14px;
   height: var(--anc-titlebar-height);
   padding: 0 12px 0 16px;
-  border-bottom: 1px solid var(--anc-line-strong);
-  background: var(--anc-panel);
+  border-bottom: 1px solid var(--anc-line-border);
+  background: var(--anc-chrome);
   app-region: drag;
   -webkit-app-region: drag;
   user-select: none;
@@ -500,12 +500,12 @@
   align-items: center;
   gap: 18px;
   height: var(--anc-statusbar-height);
-  padding: 0 16px;
-  border-top: 1px solid var(--anc-line-strong);
-  background: var(--anc-panel);
+  padding: 0 18px;
+  border-top: 1px solid var(--anc-line-border);
+  background: var(--anc-chrome);
   color: var(--anc-text-dimmer);
   font-family: var(--anc-font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .statusbar__engine {

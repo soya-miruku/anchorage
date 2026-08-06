@@ -1061,7 +1061,7 @@ function buildsInspect(value) {
   return { context: context(value.context), ref };
 }
 
-const BUILDER_ACTIONS = new Set(["remove", "bootstrap"]);
+const BUILDER_ACTIONS = new Set(["remove", "bootstrap", "remove-context"]);
 const BUILDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 
 function buildsBuilderAction(value) {
@@ -1075,7 +1075,7 @@ function buildsBuilderAction(value) {
   }
   const normalized = { context: context(value.context), name, action };
   const agreed = optionalBoolean(value.confirmed, "request.confirmed");
-  if (action === "remove") {
+  if (action === "remove" || action === "remove-context") {
     if (agreed !== true) {
       fail("request.confirmed must be true to remove a builder");
     }

@@ -130,6 +130,13 @@ function createStore(
     pluginReportError: null,
     pluginRepairPending: null,
     refreshPlugins: vi.fn(async () => undefined),
+    installCapability: vi.fn(async () => undefined),
+    capabilityInstalling: null,
+    capabilityInstalled: null,
+    capabilityInstallError: null,
+    // The builders pane classifies a builder by whether a Docker context shares its name, so
+    // the stub carries a context list rather than leaving it undefined.
+    availableContexts: [{ name: "default", current: true }],
     repairPlugin: vi.fn(async () => true),
     revealedCapabilities: [],
     setCapabilityRevealed: vi.fn(),
@@ -298,7 +305,57 @@ describe("SettingsScreen builders pane", () => {
     );
 
     expect(screen.queryByTestId("builder-bootstrap-default")).toBeNull();
-    expect(screen.getByTestId("builder-remove-default")).toBeInTheDocument();
+    // Nor a remove: see the next test. `default` is the one builder buildx will not delete.
+    expect(screen.queryByTestId("builder-remove-default")).toBeNull();
+    expect(screen.getByTestId("builder-permanent-default")).toBeInTheDocument();
+  });
+
+  it("removes a context-backed builder with the verb that works on one", () => {
+    /*
+     * Reported as "when we go to the builders page, we cannot remove other builders, for example
+     * in my case desktop-linux and podman".
+     *
+     * Buildx lists a builder for every Docker context alongside the ones it owns, and refuses to
+     * delete the former — verified against the real CLI rather than inferred:
+     *
+     *     failed to remove anc-probe: context builder cannot be removed,
+     *     run `docker context rm anc-probe` to remove this context
+     *
+     * On a machine where Docker Desktop was uninstalled and podman is not running, that is every
+     * removable-looking row: two entries reporting a dead socket, behind a button that could not
+     * succeed however many times it was pressed. The verb has to follow the classification, and
+     * so does the question asked before it — a context removal deletes no build cache, and
+     * saying it does would be scaring someone about the wrong thing.
+     */
+    const store = createStore("builders", {
+      buildBuilders: [
+        {
+          name: "desktop-linux",
+          driver: "docker",
+          current: false,
+          error: "Cannot load builder desktop-linux: failed to connect",
+          nodes: [],
+        },
+      ],
+      availableContexts: [
+        { name: "default", current: true },
+        { name: "desktop-linux", current: false },
+      ],
+    });
+    render(<SettingsScreen store={store} />);
+
+    const remove = screen.getByTestId("builder-remove-desktop-linux");
+    expect(remove).toHaveTextContent("Remove context");
+    fireEvent.click(remove);
+    expect(
+      screen.getByTestId("builder-remove-question-desktop-linux"),
+    ).toHaveTextContent(/buildx cannot remove it/u);
+    fireEvent.click(screen.getByTestId("builder-remove-confirm-desktop-linux"));
+    expect(store.runBuilderAction).toHaveBeenCalledWith({
+      name: "desktop-linux",
+      action: "remove-context",
+      confirmed: true,
+    });
   });
 
   it("reports buildx's own refusal rather than restating it", () => {
@@ -447,8 +504,29 @@ describe("SettingsScreen capabilities", () => {
     for (const plugin of ["ai", "sbx"]) {
       expect(screen.queryByTestId(`capability-row-${plugin}`), plugin).toBeNull();
     }
-    expect(pane).toHaveTextContent("Anchorage does not install these");
     expect(screen.getByTestId("capability-row-compose")).toHaveTextContent("v5.3.1");
+  });
+
+  it("offers the install where Anchorage can perform it, and only there", () => {
+    /*
+     * Reported as "even though it says agents not installed in the engine section i cannot
+     * install it, we should be able to install it with a single button". The pane reported the
+     * absence beside a shell command to copy and said in its own header that Anchorage installs
+     * nothing — a sentence that had stopped being true when the core gained its compiled table
+     * of installable plugins. The setup screens had the button; this list, which is where anyone
+     * goes to find out what is missing, did not.
+     *
+     * `buildx` is the counterexample and is asserted for: it is a distribution package, which
+     * needs root the core must never have, so the copyable command is the whole offer there.
+     */
+    const store = createStore("engine", {
+      pluginReport: installation([{ name: "compose", status: "available" }]),
+    });
+    render(<SettingsScreen store={store} />);
+
+    fireEvent.click(screen.getByTestId("capability-install-now-agent"));
+    expect(store.installCapability).toHaveBeenCalledWith("agent");
+    expect(screen.queryByTestId("capability-install-now-buildx")).toBeNull();
   });
 
   it("offers to restore a hidden row, and only for a row that is actually hidden", () => {

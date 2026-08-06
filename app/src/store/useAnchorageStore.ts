@@ -3639,7 +3639,12 @@ export function useAnchorageStore() {
           kind: "event",
           state: "succeeded",
           target: { view: "settings", settingsTab: "builders" },
-          title: result.outcome === "removed" ? "Builder removed" : "Builder started",
+          title:
+            result.outcome === "removed"
+              ? "Builder removed"
+              : result.outcome === "context-removed"
+                ? "Context removed"
+                : "Builder started",
           subject: result.name,
           // Buildx explains what it did better than a restatement would.
           detail: result.output?.split("\n").slice(0, 4).join("\n") || undefined,

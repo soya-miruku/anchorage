@@ -1119,3 +1119,34 @@
   flex: 1 1 100%;
   line-height: 1.5;
 }
+
+/*
+ * The install offer on a capability row.
+ *
+ * Stacked rather than inline with the copyable command beneath it: the two are alternatives, not
+ * a pair, and side by side the primary button read as belonging to the shell command next to it.
+ */
+.capabilities-row__direct {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.capabilities-row__direct > span {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.capabilities-row__direct > p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.capabilities-row__installed {
+  color: var(--anc-success-fg);
+}

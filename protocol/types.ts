@@ -2478,9 +2478,13 @@ export interface BuildsBuilderActionRequest {
   params: {
     context: string;
     name: string;
-    /** `bootstrap` is `buildx inspect --bootstrap`; `remove` is `buildx rm`. */
-    action: "remove" | "bootstrap";
-    /** Required for `remove`: the builder's cache does not survive it. */
+    /**
+     * `bootstrap` is `buildx inspect --bootstrap`; `remove` is `buildx rm`; `remove-context` is
+     * `docker context rm`, the only verb that clears a builder buildx synthesised from a Docker
+     * context.
+     */
+    action: "remove" | "bootstrap" | "remove-context";
+    /** Required for either removal: neither the cache nor the context definition survives it. */
     confirmed?: true;
   };
 }
@@ -2489,8 +2493,8 @@ export interface BuildsBuilderActionResult {
   protocolVersion: "1";
   context: string;
   name: string;
-  action: "remove" | "bootstrap";
-  outcome: "removed" | "bootstrapped";
+  action: "remove" | "bootstrap" | "remove-context";
+  outcome: "removed" | "bootstrapped" | "context-removed";
   /** What buildx printed. A failure is only explicable in its own terms. */
   output?: string;
   /** The re-read inventory: removing the current builder promotes another one. */

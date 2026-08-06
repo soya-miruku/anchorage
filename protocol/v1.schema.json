@@ -360,7 +360,7 @@
       "additionalProperties": false
     },
     "buildsBuilderActionRequest": {
-      "description": "Runs one of buildx's own builder verbs. 'bootstrap' is `buildx inspect --bootstrap`, the repair for a builder buildx reports as unreachable; 'remove' is `buildx rm`, which discards the builder and its cache. `buildx use` is deliberately absent: it rewrites the CLI configuration every tool on the machine reads.",
+      "description": "Runs one of buildx's own builder verbs. 'bootstrap' is `buildx inspect --bootstrap`, the repair for a builder buildx reports as unreachable; 'remove' is `buildx rm`, which discards the builder and its cache; 'remove-context' is `docker context rm`, which is the only thing that clears a builder buildx synthesised from a Docker context — `buildx rm` refuses those and says so. `buildx use` is deliberately absent: it rewrites the CLI configuration every tool on the machine reads.",
       "type": "object",
       "required": ["id", "method", "params"],
       "properties": {
@@ -378,12 +378,19 @@
               "maxLength": 256,
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
             },
-            "action": { "enum": ["remove", "bootstrap"] },
+            "action": { "enum": ["remove", "bootstrap", "remove-context"] },
             "confirmed": { "type": "boolean" }
           },
           "allOf": [
             {
               "if": { "properties": { "action": { "const": "remove" } } },
+              "then": {
+                "required": ["confirmed"],
+                "properties": { "confirmed": { "const": true } }
+              }
+            },
+            {
+              "if": { "properties": { "action": { "const": "remove-context" } } },
               "then": {
                 "required": ["confirmed"],
                 "properties": { "confirmed": { "const": true } }

@@ -36,6 +36,10 @@ function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
     agentsStatus: "ready",
     agentsError: null,
     refreshAgents: vi.fn(async () => undefined),
+    // Model Runner's own inventory, which the empty-model message needs in order to say which
+    // of two very different problems the operator has.
+    models: [],
+    refreshModels: vi.fn(async () => undefined),
     openCommandCenter: vi.fn(),
     ...overrides,
   } as unknown as AnchorageStore;
@@ -62,8 +66,38 @@ describe("AgentsScreen", () => {
     );
     const empty = screen.getByTestId("agents-no-models");
     // The two routes to a model, both actionable. "No models" on its own would read as a fault.
-    expect(empty).toHaveTextContent(/Model Runner/u);
+    expect(empty).toHaveTextContent(/Model Runner has nothing pulled/u);
     expect(empty).toHaveTextContent(/API key/u);
+  });
+
+  it("distinguishes nothing pulled from pulled but unreachable", () => {
+    /*
+     * Reported as "i cannot see anything in the agents page, despite me pulling a model". The
+     * old copy described both possibilities in one sentence — pull a model, or set an API key —
+     * which is exactly no help to someone who has already pulled one. The two states need
+     * opposite actions, so the screen has to know which it is looking at, and it can: the
+     * Models screen reads the same machine.
+     */
+    render(
+      <AgentsScreen
+        store={createStore({
+          agentReport: { ...REPORT, models: [] },
+          models: [
+            {
+              id: "sha256:abc",
+              tags: ["ai/qwen3:latest"],
+              reference: "ai/qwen3:latest",
+            },
+          ],
+        })}
+      />,
+    );
+    const empty = screen.getByTestId("agents-no-models");
+    expect(empty).toHaveTextContent(/Model Runner has 1 model pulled/u);
+    expect(empty).toHaveTextContent(/ai\/qwen3:latest/u);
+    expect(empty).toHaveTextContent(/not a missing model/u);
+    // Telling someone who has a model to go and pull one is the failure this replaces.
+    expect(empty).not.toHaveTextContent(/nothing pulled/u);
   });
 
   it("scopes the credential claim to the process rather than the machine", () => {

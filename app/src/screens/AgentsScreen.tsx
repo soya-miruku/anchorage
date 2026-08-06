@@ -27,11 +27,24 @@ export function AgentsScreen({ store }: { store: AnchorageStore }) {
     throw new Error("agents is missing from the capability catalogue");
   }
 
-  const { isHost, agentReport, agentsStatus, agentsError, refreshAgents } = store;
+  const {
+    isHost,
+    agentReport,
+    agentsStatus,
+    agentsError,
+    refreshAgents,
+    refreshModels,
+  } = store;
 
   useEffect(() => {
-    if (isHost) void refreshAgents();
-  }, [isHost, refreshAgents]);
+    if (!isHost) return;
+    void refreshAgents();
+    // Model Runner is read too, and only so that "no model provider is reachable" can tell the
+    // two cases apart. They need completely different actions: pull something, or point the
+    // agent at what is already pulled. Reported as "i cannot see anything in the agents page,
+    // despite me pulling a model" — a sentence the old copy could not have answered either way.
+    void refreshModels();
+  }, [isHost, refreshAgents, refreshModels]);
 
   if (!isHost) {
     return (
@@ -101,9 +114,30 @@ export function AgentsScreen({ store }: { store: AnchorageStore }) {
         <h2>What it can think with</h2>
         {models.length === 0 ? (
           <p className="models-empty" data-testid="agents-no-models">
-            No model provider is reachable. Docker Agent will use Model Runner if a
-            model is pulled locally, or a hosted provider if its API key is set in
-            the environment Anchorage was started from.
+            No model provider is reachable.{" "}
+            {/*
+              Two different problems wearing one sentence. With nothing pulled, the answer is to
+              pull something; with models pulled that the agent cannot see, pulling more will not
+              help and the fault is in the agent's own provider configuration. The Models screen
+              already knows which it is, so say it rather than describing both possibilities and
+              leaving the operator to work out which one they are in.
+            */}
+            {store.models.length > 0 ? (
+              <>
+                Model Runner has {store.models.length} model
+                {store.models.length === 1 ? "" : "s"} pulled —{" "}
+                <code className="resource-mono">{store.models[0]?.reference}</code>
+                {store.models.length > 1 ? " and others" : ""} — so this is not a missing
+                model. Docker Agent reads its providers from its own configuration; run{" "}
+                <code>docker agent doctor</code> to see which ones it is looking for.
+              </>
+            ) : (
+              <>
+                Model Runner has nothing pulled either, so there is genuinely nothing to think
+                with yet. Pull a model on the Models screen, or set a hosted provider&rsquo;s
+                API key in the environment Anchorage was started from.
+              </>
+            )}
           </p>
         ) : (
           <ul className="agent-models" data-testid="agent-models">

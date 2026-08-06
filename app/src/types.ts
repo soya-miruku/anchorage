@@ -2295,16 +2295,20 @@ export interface BuildsOperations {
 export interface BuilderAction {
   context: string;
   name: string;
-  action: "remove" | "bootstrap";
-  /** Required for remove: the builder's cache does not survive it. */
+  /**
+   * `remove` is `buildx rm`. `remove-context` is `docker context rm`, which is the only verb
+   * that clears a builder buildx synthesised from a Docker context — `buildx rm` refuses those.
+   */
+  action: "remove" | "bootstrap" | "remove-context";
+  /** Required for either removal: neither the cache nor the context definition survives it. */
   confirmed?: true;
 }
 
 export interface BuilderActionResult {
   context: string;
   name: string;
-  action: "remove" | "bootstrap";
-  outcome: "removed" | "bootstrapped";
+  action: "remove" | "bootstrap" | "remove-context";
+  outcome: "removed" | "bootstrapped" | "context-removed";
   /** What buildx printed. A failure is only explicable in its own terms. */
   output?: string;
   /** The builders that remain: removing the current one promotes another. */

@@ -89,6 +89,12 @@ Two divergences are recorded but do not hold a budget, because they measure unde
 - **Status chip contrast in Nous dark** reproduces the handoff's own aliasing, which costs
   contrast — danger lands at 2.05:1. Pinned to the design's measured values rather than corrected,
   and asserted by `app/scripts/theme-integrity.test.mjs` so it cannot get worse.
+- **The status bar is 32px, against the comp's 26px**, with 11px mono in place of 10.5px and an
+  18px gutter in place of 16px. Asked for directly rather than derived: at the comp's height the
+  engine line, the counts and the clock sat two pixels off the window edge, and the bar read as a
+  border with text in it. It is the only metric here deliberately off the comp, and it moves every
+  captured state by six pixels of vertical space, so the parity budgets above are stale until they
+  are re-derived — see the caveat below, which was already true for other reasons.
 
 ## A caveat on the numbers
 

@@ -270,9 +270,12 @@ func (s *Service) buildxBuilders(ctx context.Context, contextName string) ([]Bui
 
 // The builder verbs this exposes. `use` is absent on purpose: it rewrites the CLI's own
 // configuration for every tool on the machine, which the builders pane says out loud rather
-// than offering. These two only reach what an operator needs for a builder buildx reports as
-// unreachable — start it, or delete it.
-var builderActions = map[string]bool{"remove": true, "bootstrap": true}
+// than offering. These three only reach what an operator needs for a builder buildx reports as
+// unreachable — start it, or delete it by whichever route actually deletes it.
+var builderActions = map[string]bool{"remove": true, "bootstrap": true, "remove-context": true}
+
+// builderRemovals are the two verbs that destroy something and therefore need agreement.
+var builderRemovals = map[string]bool{"remove": true, "remove-context": true}
 
 // validateBuilderName constrains the name before it becomes an argv element. Deliberately the
 // same shape as validateBuildRef, minus the slash segments a builder name never has.
@@ -297,6 +300,45 @@ func validateBuilderName(raw string) (string, error) {
 }
 
 /*
+builderFailureMessage names the verb that failed in the operator's terms.
+
+Written out rather than interpolating the action, because "Docker Buildx could not remove-context
+that builder" is not a sentence, and the context removal is not buildx's doing at all.
+*/
+func builderFailureMessage(action string) string {
+	switch action {
+	case "bootstrap":
+		return "Docker Buildx could not start that builder."
+	case "remove-context":
+		return "Docker could not remove that context."
+	default:
+		return "Docker Buildx could not remove that builder."
+	}
+}
+
+/*
+stderrSummary puts Docker's own first line into the message.
+
+The detail map already carries the whole of stderr, and every surface that shows one of these
+errors shows the message. Leaving the reason only in the details is how "Docker Buildx could not
+remove that builder" reached an operator whose actual problem — that buildx refuses to remove a
+context builder and names the command that does — was sitting one field away, unread.
+
+The first line only: buildx follows a specific failure with a generic "ERROR: failed to remove one
+or more builders", and appending that to the sentence adds nothing.
+*/
+func stderrSummary(stderr string) string {
+	line := strings.TrimSpace(stderr)
+	if index := strings.IndexByte(line, '\n'); index >= 0 {
+		line = strings.TrimSpace(line[:index])
+	}
+	if line == "" {
+		return ""
+	}
+	return strings.TrimPrefix(line, "ERROR: ")
+}
+
+/*
 Acting on one builder.
 
 The builders table could report an unreachable builder and do nothing about it, which left the
@@ -305,8 +347,22 @@ hand. Both verbs here are that same buildx command, run through the fingerprinte
 
 `bootstrap` is `inspect --bootstrap`, which is how buildx starts a builder's node; it is the
 repair for the ordinary "cannot reach" case, where the builder's container was removed or the
-machine rebooted. `remove` is `buildx rm`, which is the only way to clear an entry pointing at
-a driver that is gone for good — the case a removed Docker Desktop leaves behind.
+machine rebooted. `remove` is `buildx rm`, which clears a builder buildx owns.
+
+`remove-context` is `docker context rm`, and it exists because `remove` cannot do this job.
+Buildx synthesises a builder for every Docker context, and refuses to delete those:
+
+	failed to remove desktop-linux: context builder cannot be removed,
+	run `docker context rm desktop-linux` to remove this context
+
+So the two entries a removed Docker Desktop leaves behind — `desktop-linux`, and `podman` from
+a podman socket that is not running — could be listed, could be reported as unreachable, and
+could not be removed by the one button offered, whatever the operator did. Buildx names the
+remedy in its own error; this is that remedy, run through the same fingerprinted binary.
+
+It removes a connection definition, not a machine: no container, image or volume is touched,
+and recreating the context restores it. Docker refuses to remove the current context on its
+own, so nothing here needs to guard the connection Anchorage is using.
 
 Neither is given the operation-receipt machinery: they change buildx's own state rather than a
 Docker resource the reconciler tracks, and the fresh inventory in the result is what the surface
@@ -327,24 +383,29 @@ func (s *Service) builderAction(parent context.Context, params BuilderActionPara
 	if err != nil {
 		return BuilderActionResult{}, err
 	}
-	// Removing a builder discards its build cache, which nothing restores.
-	if action == "remove" && !params.Confirmed {
-		return BuilderActionResult{}, confirmationRequired("builder", name, "remove")
+	// Removing a builder discards its build cache; removing a context discards the endpoint
+	// definition. Neither is restored by anything, so both are agreed to first.
+	if builderRemovals[action] && !params.Confirmed {
+		return BuilderActionResult{}, confirmationRequired("builder", name, action)
 	}
-	// Confirmation belongs to remove; accepting it for bootstrap would let a caller believe
-	// they had agreed to something about a verb that destroys nothing.
-	if action != "remove" && params.Confirmed {
+	// Confirmation belongs to the removals; accepting it for bootstrap would let a caller
+	// believe they had agreed to something about a verb that destroys nothing.
+	if !builderRemovals[action] && params.Confirmed {
 		return BuilderActionResult{}, opError("invalid_action_options",
-			"Confirmation is only valid for builder remove.", nil,
+			"Confirmation is only valid for builder removal.", nil,
 			map[string]any{"action": action})
 	}
 
-	argv := []string{"buildx", "rm", name}
-	outcome := "removed"
-	if action == "bootstrap" {
+	var argv []string
+	var outcome string
+	switch action {
+	case "bootstrap":
 		// `--bootstrap` before the name: buildx takes the builder as a positional argument.
-		argv = []string{"buildx", "inspect", "--bootstrap", name}
-		outcome = "bootstrapped"
+		argv, outcome = []string{"buildx", "inspect", "--bootstrap", name}, "bootstrapped"
+	case "remove-context":
+		argv, outcome = []string{"context", "rm", name}, "context-removed"
+	default:
+		argv, outcome = []string{"buildx", "rm", name}, "removed"
 	}
 
 	// Bootstrapping pulls and starts a BuildKit container on a cold machine, so this shares
@@ -355,13 +416,15 @@ func (s *Service) builderAction(parent context.Context, params BuilderActionPara
 	if err != nil {
 		return BuilderActionResult{}, err
 	}
-	// Buildx explains itself better than any wording here could — "cannot remove the default
-	// builder", "failed to find driver" — so its own output is carried rather than replaced.
+	// Docker explains itself better than any wording here could — "cannot remove the default
+	// builder", "failed to find driver", "context builder cannot be removed, run `docker
+	// context rm ...`" — so its own output is carried rather than replaced. That last one is
+	// how the missing verb above was found in the first place.
 	output := strings.TrimSpace(string(result.stdout))
 	stderr := strings.TrimSpace(string(result.stderr))
 	if result.exitCode != 0 {
 		return BuilderActionResult{}, opError("builder_action_failed",
-			"Docker Buildx could not "+action+" that builder.", nil,
+			builderFailureMessage(action)+" "+stderrSummary(stderr), nil,
 			map[string]any{"builder": name, "action": action,
 				"exitCode": result.exitCode, "stderr": stderr})
 	}

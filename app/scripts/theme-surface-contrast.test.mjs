@@ -179,6 +179,7 @@ const HANDOFF_EQUIVALENTS = {
   desk: "desk",
   glow: "desk-glow",
   app: "app",
+  chrome: "chrome",
   panel: "panel",
   well: "input",
   muted: "surface-elevated",

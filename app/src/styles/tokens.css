@@ -8,7 +8,16 @@
   --anc-titlebar-height: 46px;
   --anc-banner-height: 34px;
   --anc-sidebar-width: 216px;
-  --anc-statusbar-height: 26px;
+  /*
+   * 32px, against the handoff's 26px.
+   *
+   * The one metric here deliberately off the comp, asked for directly: at 26px with 10.5px mono
+   * the engine line, the counts and the clock sat on the window edge with two pixels either
+   * side, and the bar read as a border with text in it rather than as a surface. The extra six
+   * pixels and the half-point of type give it the same optical weight as the titlebar without
+   * making it a second toolbar. Recorded in docs/design-divergences.md.
+   */
+  --anc-statusbar-height: 32px;
   --anc-container-row-height: 56px;
   /* The last track holds the row action cluster. It must stay wide enough for every button
      the row can render (4 x 27px + 3 x 6px gaps = 126px); a narrower track does not clip the

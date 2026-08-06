@@ -7,6 +7,7 @@ import {
   capabilityEntry,
   capabilityState,
   installCommandFor,
+  installableCapability,
   type PluginCapability,
 } from "../data/capabilities";
 import { describeVersionSkew, type VersionSkew } from "../data/engineVersions";
@@ -928,6 +929,66 @@ function EnginePluginPrivilegeList({
   );
 }
 
+/**
+ * Install, for the plugins Anchorage can install itself.
+ *
+ * This pane reported `docker agent` as "Not installed" beside a shell command to copy, and that
+ * was the whole offer — reported as "even though it says agents not installed in the engine
+ * section i cannot install it". The install had existed since the capability work: the core
+ * carries a compiled table of plugins it will fetch, and the Agents and Tools setup screens both
+ * have the button. Settings, which is where anyone looking for "what is missing" actually goes,
+ * was never given it.
+ *
+ * Deliberately compact against the setup screen's version. That screen is the whole point of
+ * itself and can spend three paragraphs on what a verified digest does and does not prove; this
+ * is one row in a list of five. The caveat that matters most — a digest is not a publisher
+ * signature — stays, because it is the part that would otherwise be assumed.
+ */
+function CapabilityDirectInstall({
+  store,
+  capability,
+}: {
+  store: AnchorageStore;
+  capability: PluginCapability;
+}) {
+  const installable = installableCapability(capability.plugin);
+  if (!installable) return null;
+  const busy = store.capabilityInstalling === installable;
+  const installed =
+    store.capabilityInstalled?.plugin === capability.plugin
+      ? store.capabilityInstalled
+      : null;
+  return (
+    <div className="capabilities-row__direct">
+      <button
+        type="button"
+        className="primary-button"
+        disabled={busy}
+        data-testid={`capability-install-now-${capability.plugin}`}
+        onClick={() => void store.installCapability(installable)}
+      >
+        {busy ? "Installing…" : "Install"}
+      </button>
+      <span className="resource-dim">
+        Downloads the binary Docker publishes for this release, checks it against the SHA-256
+        that release states, and writes it to your own plugin directory — no root. The digest
+        proves the bytes match what GitHub served; it is not a publisher signature.
+      </span>
+      {store.capabilityInstallError && !busy && (
+        <p className="capability-install__failed" role="alert">
+          {store.capabilityInstallError}
+        </p>
+      )}
+      {installed && (
+        <p className="capabilities-row__installed" data-testid={`capability-installed-${capability.plugin}`}>
+          Installed {installed.release} to{" "}
+          <code className="resource-mono">{installed.path}</code>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
   return (
     <section className="capabilities-settings" data-testid="settings-capabilities">
@@ -935,9 +996,10 @@ function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
         <h3>Capabilities</h3>
       </div>
       <p className="plugin-health__note">
-        Optional Docker plugins, and what depends on them. Anchorage does not install these —
-        nothing in it downloads or runs an installer — so each one links to what it needs and
-        where it goes.
+        Optional Docker plugins, and what depends on them. Anchorage installs the ones Docker
+        publishes a Linux binary for, straight into your own plugin directory. The rest are
+        distribution packages, which need root the core does not have, so those show the command
+        for this machine&rsquo;s package manager instead.
       </p>
       <ul className="capabilities-list">
         {capabilityCatalogue.map((capability) => {
@@ -969,15 +1031,19 @@ function CapabilitiesSettings({ store }: { store: AnchorageStore }) {
                   </span>
                 )}
               </div>
-              {/* The command for this host, where one exists. Anchorage still does not run it —
-                  installing needs root and the core can execute nothing but the fingerprinted
-                  Docker binary — but the operator should not have to go and find out what their
-                  own distribution calls the package. */}
+              {/* The button first where there is one, because it is the answer. The command
+                  stays underneath it rather than being replaced: a distribution package is a
+                  different thing from a binary dropped in a user directory — it gets updates —
+                  and an operator who would rather have that should not have to go and find out
+                  what their own distribution calls it. */}
               {state === "absent" && (
-                <CapabilityInstallCommand
-                  capability={capability}
-                  manager={store.pluginReport?.packageManager}
-                />
+                <>
+                  <CapabilityDirectInstall store={store} capability={capability} />
+                  <CapabilityInstallCommand
+                    capability={capability}
+                    manager={store.pluginReport?.packageManager}
+                  />
+                </>
               )}
               {hideable && (
                 <div className="capabilities-row__actions">
@@ -1183,6 +1249,56 @@ function FixtureBuildersSettings() {
  * beneath, because the actions column is a fixed gutter that truncates, and the thing being
  * agreed to — that the build cache goes too — is the part that must not be cut off.
  */
+/**
+ * How this builder can be deleted, if it can be.
+ *
+ * Buildx lists a builder for every Docker context alongside the ones it owns, and refuses to
+ * delete the former:
+ *
+ *     failed to remove desktop-linux: context builder cannot be removed,
+ *     run `docker context rm desktop-linux` to remove this context
+ *
+ * On a machine where Docker Desktop was uninstalled and podman is not running, that is every
+ * removable-looking row on the pane: `desktop-linux` and `podman` sat there reporting a dead
+ * socket, with a Remove button that could not succeed however many times it was pressed. The
+ * name matching a context is the whole test, because that is exactly the condition buildx
+ * objects to.
+ *
+ * `default` is excluded even though it is also a context: buildx will not remove the default
+ * builder, and Docker will not remove the default context. Neither will the current context,
+ * which is the connection Anchorage is using.
+ */
+function builderRemoval(
+  builder: BuildBuilder,
+  contexts: ReadonlyArray<{ name: string; current: boolean }> | undefined,
+): {
+  action: "remove" | "remove-context";
+  label: string;
+  consequence: string;
+} | null {
+  // No context list means the classification cannot be made, and the safe answer is the verb
+  // that was always offered: buildx will refuse a context builder and say so, which is worse
+  // than choosing correctly and better than a render that throws and takes the pane with it.
+  const context = contexts?.find((entry) => entry.name === builder.name);
+  if (!context) {
+    return {
+      action: "remove",
+      label: "Remove",
+      consequence:
+        "Removes this builder and its build cache. Nothing restores the cache.",
+    };
+  }
+  if (builder.name === "default" || context.current) {
+    return null;
+  }
+  return {
+    action: "remove-context",
+    label: "Remove context",
+    consequence:
+      "This builder is a Docker context, so buildx cannot remove it — Docker removes the context instead. That deletes the connection entry only: no container, image or volume is touched, and recreating the context brings it back.",
+  };
+}
+
 function BuilderActions({
   store,
   builder,
@@ -1196,8 +1312,9 @@ function BuilderActions({
 }) {
   const busy = store.builderActionPending === builder.name;
   const running = builder.nodes.some((node) => node.status === "running");
+  const removal = builderRemoval(builder, store.availableContexts);
 
-  if (confirming) {
+  if (confirming && removal) {
     return (
       <div className="builders-row__actions">
         <button
@@ -1216,12 +1333,12 @@ function BuilderActions({
             onConfirm(null);
             void store.runBuilderAction({
               name: builder.name,
-              action: "remove",
+              action: removal.action,
               confirmed: true,
             });
           }}
         >
-          {busy ? "Removing…" : "Remove"}
+          {busy ? "Removing…" : removal.label}
         </button>
       </div>
     );
@@ -1243,15 +1360,26 @@ function BuilderActions({
           {busy ? "Starting…" : "Try to start"}
         </button>
       )}
-      <button
-        type="button"
-        className="ghost-button ghost-button--danger"
-        disabled={busy}
-        data-testid={`builder-remove-${builder.name}`}
-        onClick={() => onConfirm(builder.name)}
-      >
-        Remove
-      </button>
+      {/* No button where nothing would work. The default builder and the context Anchorage is
+          connected through are both refused by Docker itself; a control that exists only to
+          report that is worse than the row saying so once, below. */}
+      {removal ? (
+        <button
+          type="button"
+          className="ghost-button ghost-button--danger"
+          disabled={busy}
+          data-testid={`builder-remove-${builder.name}`}
+          onClick={() => onConfirm(builder.name)}
+        >
+          {removal.label}
+        </button>
+      ) : (
+        <span className="resource-dim" data-testid={`builder-permanent-${builder.name}`}>
+          {builder.name === "default"
+            ? "The default builder cannot be removed."
+            : "This is the context Anchorage is connected through."}
+        </span>
+      )}
     </div>
   );
 }
@@ -1361,8 +1489,11 @@ function HostBuildersSettings({ store }: { store: AnchorageStore }) {
                   {confirmingRemove === builder.name && (
                     <tr className="builders-row builders-row--reason">
                       <td colSpan={6} data-testid={`builder-remove-question-${builder.name}`}>
-                        Remove <strong>{builder.name}</strong>? Its build cache goes with it and
-                        nothing restores it.
+                        Remove <strong>{builder.name}</strong>?{" "}
+                        {/* The consequence comes from the same function that chose the verb, so
+                            the question can never describe a build cache for a removal that
+                            deletes a connection entry instead. */}
+                        {builderRemoval(builder, store.availableContexts)?.consequence}
                         {builder.current
                           ? " It is the active builder, so buildx will fall back to another one."
                           : ""}
