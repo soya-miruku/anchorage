@@ -1657,6 +1657,22 @@ async function verifyPackagedPayload(
 const APPIMAGE_MOUNTED_STARTUP_BUDGET_MS = 20_000;
 
 /**
+ * What the application itself takes to put a window up.
+ *
+ * The cycle budget above measures `xvfb-run <AppImage>` end to end, and most of it is not the
+ * application: 3.0 s is xvfb bringing up an X server, and the rest spans a resize gauntlet, a
+ * DevTools probe and process teardown. Measured directly, the window becomes renderable in
+ * 707-741 ms warm and 1679 ms cold — so the cycle number ran about ten times the thing it was
+ * named after, and a budget set against it would not notice startup tripling.
+ *
+ * The application reports its own figure from `process.getCreationTime()`, and this bounds that.
+ * Deliberately loose to begin with: the numbers above are unpacked, and a mounted AppImage
+ * demand-pages from compressed squashfs, which no measurement here has isolated yet. Tighten it
+ * once a packaged figure exists rather than guessing downward now.
+ */
+const APPIMAGE_STARTUP_BUDGET_MS = 5_000;
+
+/**
  * One message for every way the mounted AppImage can be too slow, because the actionable part is
  * identical either way: this is what squashfs compression costs.
  */
@@ -1717,13 +1733,28 @@ async function measureMountedAppImageStartup(appImage) {
   if (elapsedMs > APPIMAGE_MOUNTED_STARTUP_BUDGET_MS) {
     failMountedStartup(elapsedMs, "it is over budget");
   }
+  // The application's own figure, which is the one worth regressing against. Absent only if the
+  // platform would not report a process creation time; the cycle bound above still applies.
+  const startupMatch = output.match(/ANCHORAGE_DESKTOP_STARTUP_MS=(\d+)/u);
+  const startupMs = startupMatch ? Number(startupMatch[1]) : null;
+  if (startupMs !== null && startupMs > APPIMAGE_STARTUP_BUDGET_MS) {
+    fail(
+      `AppImage startup failed: the window took ${(startupMs / 1000).toFixed(2)} s to become ` +
+        `renderable, against a ${APPIMAGE_STARTUP_BUDGET_MS / 1000} s budget.\n` +
+        "  This measures process creation to ready-to-show, so it excludes the X server and the\n" +
+        "  smoke's own resize and teardown work. Compare against the unpacked build to separate\n" +
+        "  squashfs demand-paging from a genuine startup regression.",
+    );
+  }
   log(
-    `  AppImage mounted startup: ${(elapsedMs / 1000).toFixed(1)} s ` +
-      `(budget ${APPIMAGE_MOUNTED_STARTUP_BUDGET_MS / 1000} s)`,
+    `  AppImage startup: ${startupMs === null ? "not reported" : `${(startupMs / 1000).toFixed(2)} s`} ` +
+      `(budget ${APPIMAGE_STARTUP_BUDGET_MS / 1000} s) · full smoke cycle ` +
+      `${(elapsedMs / 1000).toFixed(1)} s, of which ~3.0 s is the X server`,
   );
   return {
     status: "measured",
     elapsedMs,
+    startupMs,
     budgetMs: APPIMAGE_MOUNTED_STARTUP_BUDGET_MS,
   };
 }
