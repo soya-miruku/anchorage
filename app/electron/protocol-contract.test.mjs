@@ -1616,3 +1616,61 @@ test("protocol v1 makes the container-replacing verb demand the immutable ID", (
     TypeError,
   );
 });
+
+test("every protocol method survives the RPC transport", async () => {
+  /*
+   * The gap this closes.
+   *
+   * The allowlist test above proves the schema and RENDERER_RPC_METHODS agree, and the validator
+   * test proves each request shape is schema-valid. Neither asks whether the transport that
+   * actually carries them would accept the name — and for eight of the fifty-two it would not.
+   * `JsonlRpcClient.request` validated method names against `[a-z][a-z0-9]*`, so every camelCase
+   * verb was refused as malformed after passing the schema, the renderer allowlist, the preload
+   * switch and the IPC channel map. The core had always accepted them.
+   *
+   * Asserted against the real client rather than a copy of its pattern, so a future tightening
+   * of that regex fails here instead of at a user's plugin removal.
+   */
+  const { JsonLineRpcClient } = await import("./jsonl-rpc.mjs");
+  const client = new JsonLineRpcClient();
+
+  for (const method of ["health", ...RENDERER_RPC_METHODS]) {
+    await assert.rejects(
+      client.request(method, {}),
+      (error) => {
+        assert.notEqual(
+          error.code,
+          "RPC_INVALID_METHOD",
+          `the transport rejected ${method} as a malformed name`,
+        );
+        // With no core attached the only legitimate refusal is that there is nothing to talk to.
+        assert.equal(error.code, "CORE_UNAVAILABLE");
+        return true;
+      },
+      `${method} did not reach the transport`,
+    );
+  }
+});
+
+test("the RPC transport still refuses a malformed method name", () => {
+  // Widening the pattern for camelCase must not have widened it to anything else.
+  const pattern = /^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/u;
+  for (const method of [
+    "",
+    ".plugins",
+    "system.",
+    "system..plugins",
+    "System.plugins",
+    "1system.plugins",
+    "sys tem.plugins",
+    "system.plugins\n",
+    "system.plugins;rm -rf /",
+    "../../etc/passwd",
+  ]) {
+    assert.equal(
+      pattern.test(method),
+      false,
+      `the transport pattern accepted ${JSON.stringify(method)}`,
+    );
+  }
+});

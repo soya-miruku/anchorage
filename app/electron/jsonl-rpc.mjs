@@ -44,11 +44,26 @@ export class JsonLineRpcClient extends EventEmitter {
   }
 
   async request(method, params, { timeoutMs } = {}) {
+    /*
+     * Dot-separated segments, each starting lowercase, camelCase within a segment.
+     *
+     * This pattern was `[a-z][a-z0-9]*`, which rejected every camelCase verb in the protocol —
+     * eight of the fifty-two, silently, at the transport rather than at any boundary that
+     * explains itself. `containers.statsBatch`, both file reads and both file writes,
+     * `containers.rebindPorts`, `system.pluginAction` and `builds.builderAction` all reached
+     * this line and were refused as malformed names, having passed the renderer allowlist, the
+     * preload switch, the IPC channel map and the schema on the way. The core accepts every one
+     * of them; nothing downstream was wrong.
+     *
+     * Nothing caught it because the lockstep test compares the schema against the renderer
+     * allowlist and never asks whether the transport would carry what both agreed on. It does
+     * now — see "every protocol method survives the RPC transport" in protocol-contract.test.mjs.
+     */
     if (
       typeof method !== "string" ||
       method.length === 0 ||
       method.length > 128 ||
-      !/^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)*$/u.test(method)
+      !/^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)*$/u.test(method)
     ) {
       throw makeError("RPC_INVALID_METHOD", "The RPC method name is invalid");
     }
