@@ -27,9 +27,24 @@ function relativeTime(iso: string, now: number): string {
   return `${hours}h ago`;
 }
 
-function ActivityRow({ item, now }: { item: Activity; now: number }) {
-  return (
-    <div className={`activity-row activity-row--${item.state}`}>
+/**
+ * One entry, clickable when it has somewhere to go.
+ *
+ * A row without a target stays a plain div rather than becoming a disabled button: a control
+ * that looks pressable and does nothing is worse than text that never offered. `onOpen` is
+ * optional so the toast stack and the inbox share this without either pretending.
+ */
+function ActivityRow({
+  item,
+  now,
+  onOpen,
+}: {
+  item: Activity;
+  now: number;
+  onOpen?: (item: Activity) => void;
+}) {
+  const body = (
+    <>
       <span className="activity-row__dot" aria-hidden="true" />
       <div className="activity-row__body">
         <div className="activity-row__head">
@@ -39,7 +54,26 @@ function ActivityRow({ item, now }: { item: Activity; now: number }) {
         <div className="activity-row__subject">{item.subject}</div>
         {item.detail && <div className="activity-row__detail">{item.detail}</div>}
       </div>
-    </div>
+    </>
+  );
+
+  if (!onOpen || !item.target) {
+    return (
+      <div className={`activity-row activity-row--${item.state}`}>{body}</div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={`activity-row activity-row--${item.state} activity-row--open`}
+      data-testid={`activity-open-${item.id}`}
+      // Names the destination rather than repeating the title, because a screen reader user
+      // choosing between six notifications needs to know where each one goes.
+      aria-label={`${item.title} ${item.subject} — show in ${item.target.view}`}
+      onClick={() => onOpen(item)}
+    >
+      {body}
+    </button>
   );
 }
 
@@ -49,9 +83,11 @@ function ActivityRow({ item, now }: { item: Activity; now: number }) {
 export function ActivityToasts({
   activities,
   onDismiss,
+  onOpen,
 }: {
   activities: readonly Activity[];
   onDismiss: (id: string) => void;
+  onOpen?: (item: Activity) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   // Only ticks while something is on screen, so an idle app schedules nothing.
@@ -96,7 +132,7 @@ export function ActivityToasts({
     <div className="activity-toasts" role="status" aria-live="polite" data-testid="activity-toasts">
       {shown.map((item) => (
         <div className={`activity-toast activity-toast--${item.state}`} key={item.id}>
-          <ActivityRow item={item} now={now} />
+          <ActivityRow item={item} now={now} onOpen={onOpen} />
           <button
             type="button"
             className="activity-toast__close"
@@ -118,10 +154,12 @@ export function ActivityInbox({
   activities,
   unreadCount,
   onMarkRead,
+  onOpen,
 }: {
   activities: readonly Activity[];
   unreadCount: number;
   onMarkRead: () => void;
+  onOpen?: (item: Activity) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -197,7 +235,21 @@ export function ActivityInbox({
           ) : (
             <div className="activity-inbox__list">
               {activities.map((item) => (
-                <ActivityRow item={item} key={item.id} now={now} />
+                <ActivityRow
+                  item={item}
+                  key={item.id}
+                  now={now}
+                  onOpen={
+                    onOpen
+                      ? (entry) => {
+                          // Closed on the way out: the panel overlays the screen it just
+                          // navigated to, so leaving it open hides the answer.
+                          setOpen(false);
+                          onOpen(entry);
+                        }
+                      : undefined
+                  }
+                />
               ))}
             </div>
           )}

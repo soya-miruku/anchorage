@@ -2577,6 +2577,37 @@ export function useAnchorageStore() {
   const dismissActivity = useCallback((id: string) => {
     setActivities((current) => current.filter((item) => item.id !== id));
   }, []);
+  /**
+   * Follow an activity to wherever it happened.
+   *
+   * A notification that names a container and cannot show it is a dead end: the operator reads
+   * "Container health unhealthy — api" and then has to go and find `api` themselves. Reading it
+   * marks it read, because arriving at the thing is the strongest possible signal that it has
+   * been seen.
+   *
+   * Returns whether it went anywhere, so the surface can render an entry with no destination as
+   * plain text rather than as a control that does nothing.
+   */
+  const openActivity = useCallback(
+    (activity: Activity) => {
+      const target = activity.target;
+      if (!target) return false;
+      setActivities((current) =>
+        current.map((item) =>
+          item.id === activity.id ? { ...item, read: true } : item,
+        ),
+      );
+      if (target.containerId) {
+        // Navigates to Containers on its own, so setView here would be redundant.
+        void selectContainer(target.containerId);
+        return true;
+      }
+      setView(target.view);
+      if (target.settingsTab) setSettingsTab(target.settingsTab);
+      return true;
+    },
+    [selectContainer],
+  );
   const unreadActivityCount = useMemo(
     () => activities.filter((item) => !item.read).length,
     [activities],
@@ -3249,6 +3280,14 @@ export function useAnchorageStore() {
       recordActivity({
         id: activityId,
         kind: "job",
+        target: {
+          view:
+            options.kind === "model"
+              ? "models"
+              : options.kind === "compose"
+                ? "compose"
+                : "images",
+        },
         state: "running",
         title: options.title,
         subject: options.reference,
@@ -3599,6 +3638,7 @@ export function useAnchorageStore() {
           id: `builder:${result.action}:${result.name}:${Date.now()}`,
           kind: "event",
           state: "succeeded",
+          target: { view: "settings", settingsTab: "builders" },
           title: result.outcome === "removed" ? "Builder removed" : "Builder started",
           subject: result.name,
           // Buildx explains what it did better than a restatement would.
@@ -3702,6 +3742,7 @@ export function useAnchorageStore() {
           id: `plugin:${result.action}:${result.path}:${Date.now()}`,
           kind: "event",
           state: "succeeded",
+          target: { view: "settings", settingsTab: "engine" },
           title:
             result.outcome === "removed" ? "Plugin entry removed" : "Plugin made executable",
           subject: `docker ${result.name}`,
@@ -4251,6 +4292,9 @@ export function useAnchorageStore() {
         id: activityId,
         kind: "job",
         state: "running",
+        // Rebinding replaces the container, so the new one has a different id. The list is the
+        // honest destination: the id in this entry will not exist by the time it succeeds.
+        target: { view: "containers" },
         title: "Republish ports",
         subject: id.slice(0, 12),
         detail: "Docker fixes bindings at creation, so the container is being replaced.",
@@ -4299,6 +4343,7 @@ export function useAnchorageStore() {
         id: activityId,
         kind: "job",
         state: "running",
+        target: { view: "scan" },
         title: "Security scan",
         subject: reference,
         detail: "Docker Scout indexes an image the first time it sees one, which can take minutes.",
@@ -4776,6 +4821,7 @@ export function useAnchorageStore() {
     unreadActivityCount,
     markActivitiesRead,
     dismissActivity,
+    openActivity,
     hostDomainState,
     selectedInspect:
       selectedId === null ? null : inspectByContainer[selectedId] ?? null,

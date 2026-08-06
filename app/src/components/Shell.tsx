@@ -273,6 +273,7 @@ function TitleBar({
             activities={store.activities ?? []}
             unreadCount={store.unreadActivityCount ?? 0}
             onMarkRead={store.markActivitiesRead ?? (() => undefined)}
+            onOpen={store.openActivity}
           />
         )}
         {!captureSurface && (
@@ -649,6 +650,7 @@ export function Shell({
         <ActivityToasts
           activities={store.activities ?? []}
           onDismiss={store.dismissActivity ?? (() => undefined)}
+          onOpen={store.openActivity}
         />
       )}
     </div>

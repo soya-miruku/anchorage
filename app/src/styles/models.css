@@ -856,3 +856,31 @@ navigate somewhere the operator can no longer see.
   opacity: 0.55;
   pointer-events: none;
 }
+
+/*
+An activity row that goes somewhere.
+
+Styled as the row it already was rather than as a button: it sits in a dense stack, and giving
+each entry a button's chrome would turn the inbox into a wall of controls. The affordance is the
+hover and the pointer.
+*/
+.activity-row--open {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activity-row--open:hover,
+.activity-row--open:focus-visible {
+  background: var(--anc-row-hover);
+}
+
+.activity-row--open:focus-visible {
+  outline: 2px solid var(--anc-accent);
+  outline-offset: -2px;
+}

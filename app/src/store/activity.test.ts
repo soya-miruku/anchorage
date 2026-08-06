@@ -152,3 +152,65 @@ describe("updateActivity", () => {
     expect(updateActivity(list, "missing", { state: "failed" })).toBe(list);
   });
 });
+
+describe("where a notification takes you", () => {
+  /*
+    A notification that names a container and cannot show it is a dead end: the operator reads
+    "Container health unhealthy — api" and then has to go and find `api` themselves, on a
+    screen they have to guess. These pin the destinations, and pin the two cases where there
+    deliberately is not one.
+  */
+  it("opens the container a container event is about", () => {
+    const activity = summariseDockerEvent({
+      Type: "container",
+      Action: "die",
+      Actor: { ID: "abc123def456", Attributes: { name: "api", exitCode: "1" } },
+      time: 1_760_000_000,
+    });
+    expect(activity?.target).toEqual({
+      view: "containers",
+      containerId: "abc123def456",
+    });
+  });
+
+  it("stops at the list for a container that no longer exists", () => {
+    // Opening the detail screen for a destroyed container lands on an error. The list is
+    // where its absence is the point.
+    const activity = summariseDockerEvent({
+      Type: "container",
+      Action: "destroy",
+      Actor: { ID: "abc123def456", Attributes: { name: "api" } },
+      time: 1_760_000_000,
+    });
+    expect(activity?.target).toEqual({ view: "containers" });
+  });
+
+  it("sends each resource event to the list that holds it", () => {
+    const cases: Array<[string, string, string]> = [
+      ["image", "pull", "images"],
+      ["volume", "create", "volumes"],
+      ["network", "create", "networks"],
+    ];
+    for (const [type, action, view] of cases) {
+      const activity = summariseDockerEvent({
+        Type: type,
+        Action: action,
+        Actor: { ID: "x", Attributes: { name: "thing" } },
+        time: 1_760_000_000,
+      });
+      expect(activity?.target, `${type} ${action}`).toEqual({ view });
+    }
+  });
+
+  it("offers nowhere to go when there is nowhere", () => {
+    // Daemon and plugin events have no list of their own, and a row that looks clickable and
+    // does nothing is worse than one that never offered.
+    const activity = summariseDockerEvent({
+      Type: "daemon",
+      Action: "reload",
+      Actor: { ID: "d", Attributes: { name: "daemon" } },
+      time: 1_760_000_000,
+    });
+    expect(activity?.target).toBeUndefined();
+  });
+});

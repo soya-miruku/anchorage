@@ -13,10 +13,31 @@
  * "what did it just do" without the operator having to know which is which.
  */
 
+import type { SettingsTab, ViewId } from "../types";
+
 export type ActivityKind = "job" | "event";
 
 /** `info` is a fact that is neither good nor bad — most Docker events are this. */
 export type ActivityState = "running" | "succeeded" | "failed" | "info";
+
+/**
+ * Where an entry happened, so reading it can take you there.
+ *
+ * A notification that names a container and cannot show it is a dead end: the operator reads
+ * "Container health unhealthy — api" and then has to find `api` themselves, on a screen they
+ * have to guess. The target is what closes that.
+ *
+ * `containerId` is carried separately from the view because opening a container is a second
+ * step past navigating to Containers, and a container is the one subject with a detail screen
+ * of its own. Everything else lands on the list that holds it.
+ */
+export interface ActivityTarget {
+  view: ViewId;
+  /** Opens the container's detail screen rather than stopping at the list. */
+  containerId?: string;
+  /** Which Settings pane, for entries whose subject lives in one. */
+  settingsTab?: SettingsTab;
+}
 
 export interface Activity {
   id: string;
@@ -33,6 +54,11 @@ export interface Activity {
   startedAt: string;
   endedAt?: string;
   read: boolean;
+  /**
+   * Absent where there is nowhere useful to go. A pruned image has no page to land on, and a
+   * row that looks clickable and then does nothing is worse than one that never offered.
+   */
+  target?: ActivityTarget;
 }
 
 /**
@@ -187,6 +213,12 @@ export function summariseDockerEvent(raw: RawDockerEvent): Activity | null {
   }
 
   const seconds = typeof raw.time === "number" ? raw.time : undefined;
+  /*
+    Derived from the event's own type rather than from its wording. A `destroy` deliberately
+    still points at the list: the thing is gone, and the list is where you confirm that.
+    Only a container gets its detail screen, and only when the event carried an id to open.
+  */
+  const target = eventTarget(type, action, id);
   return {
     // Docker can emit the same action for the same actor twice in one second, so the id carries
     // the action too and a suffix is added by the caller if it still collides.
@@ -198,5 +230,36 @@ export function summariseDockerEvent(raw: RawDockerEvent): Activity | null {
     detail,
     startedAt: seconds ? new Date(seconds * 1000).toISOString() : new Date().toISOString(),
     read: false,
+    target,
   };
+}
+
+/**
+ * The destination for a Docker event, by type.
+ *
+ * `container` is the only type with somewhere deeper to go, and only while the container still
+ * exists — opening the detail screen for one that has just been destroyed lands on an error,
+ * so a destroy stops at the list where its absence is the point.
+ */
+function eventTarget(
+  type: string,
+  action: string,
+  id: string | undefined,
+): ActivityTarget | undefined {
+  switch (type) {
+    case "container":
+      return action === "destroy" || !id
+        ? { view: "containers" }
+        : { view: "containers", containerId: id };
+    case "image":
+      return { view: "images" };
+    case "volume":
+      return { view: "volumes" };
+    case "network":
+      return { view: "networks" };
+    default:
+      // Daemon and plugin events have no list of their own. Nothing is better than somewhere
+      // arbitrary.
+      return undefined;
+  }
 }
