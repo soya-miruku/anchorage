@@ -1,3 +1,7 @@
+<div align="center">
+
+<img src="docs/media/anchorage-mark.svg" width="96" alt="">
+
 # Anchorage
 
 **A desktop app for the Docker you already have.**
@@ -7,6 +11,15 @@
 ![Core](https://img.shields.io/badge/core-Go%20·%20zero%20dependencies-00ADD8)
 ![UI](https://img.shields.io/badge/UI-Electron%20·%20React-47848F)
 ![Tests](https://img.shields.io/badge/tests-609%20renderer%20·%20Go%20race-success)
+
+<img src="docs/media/containers-banner-dismissed.png" width="820" alt="The Containers screen: a list of containers with live CPU and memory, status, ports, and per-row actions">
+
+</div>
+
+> **Every screenshot here is real, and every container in them is invented.**
+> They are the same captures the design gate measures against, rendered from
+> fixture data so the images can be published without showing anybody's actual
+> infrastructure.
 
 ---
 
@@ -82,6 +95,23 @@ arguments and environment variables.
 **Capabilities** installs the CLI plugins Docker publishes a Linux binary for. The
 download is checked against the SHA-256 that release states and written to your
 own plugin directory — no root needed.
+
+### What it looks like
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/dashboard.png" alt="Dashboard"><br><sub><b>Dashboard</b> — what the engine is doing right now</sub></td>
+<td width="50%"><img src="docs/media/images-local.png" alt="Images"><br><sub><b>Images</b> — local images and what is reclaimable</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/media/volumes.png" alt="Volumes"><br><sub><b>Volumes</b> — click one to browse its filesystem</sub></td>
+<td width="50%"><img src="docs/media/container-detail-stats.png" alt="Container stats"><br><sub><b>Container detail</b> — live CPU, memory, network and disk</sub></td>
+</tr>
+</table>
+
+<img src="docs/media/settings-engine.png" width="100%" alt="Settings, Engine pane">
+
+<sub><b>Settings → Engine</b> — what the daemon reports, attributed to the key it was read from, and every optional CLI plugin with its real state.</sub>
 
 ---
 
