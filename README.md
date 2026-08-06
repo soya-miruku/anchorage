@@ -1,231 +1,244 @@
 # Anchorage
 
-Anchorage is a Linux desktop interface for the Docker installation already on
-the machine. It combines fast, native Engine API workflows with an exact
-literal-argument pipes/PTY route for every recursively discovered canonical
-advertised leaf of the installed Docker CLI and its advertised plugins. That
-is transport reachability, not a claim that every leaf was behaviorally
-executed. Hidden commands and aliases are not enumerated; a user who knows one
-can still enter its literal argv and delegate it to the installed CLI.
+**A desktop app for the Docker you already have.**
 
-In normal browser and Electron use, the renderer fills the available viewport
-and resizes with it. Electron opens with a 1600 x 1000 content area and permits
-resizing down to 1080 x 700. The fixed 1656 x 1056 design canvas, including its
-28px desk around a 1600 x 1000 application, is used only by `?capture=...` URLs
-for canonical handoff comparison.
+![Platform](https://img.shields.io/badge/platform-Linux%20x86--64-informational)
+![Engine](https://img.shields.io/badge/Docker-Engine%20API-2496ED)
+![Core](https://img.shields.io/badge/core-Go%20·%20zero%20dependencies-00ADD8)
+![UI](https://img.shields.io/badge/UI-Electron%20·%20React-47848F)
+![Tests](https://img.shields.io/badge/tests-609%20renderer%20·%20Go%20race-success)
 
-## Run the packaged application
+---
 
-The Linux AppImage is built at:
+## What this is
 
-```text
-app/release/Anchorage-0.1.0-x86_64.AppImage
+Docker on Linux is excellent and almost entirely invisible. Everything runs, and
+nothing shows you what is running until you type a command and read a table.
+
+Anchorage is a window onto that. It talks to the Docker daemon already on your
+machine, using your existing contexts, credentials and CLI plugins. It does not
+install Docker, ship its own copy, or run a virtual machine.
+
+If something works in your terminal, Anchorage can show it. If it does not,
+Anchorage says so instead of pretending.
+
+**It is a viewer and an operator, not a replacement.** Every action becomes the
+same Engine API call or the same `docker` command you would have typed yourself.
+
+## The one idea worth knowing
+
+**Anchorage never invents an answer.**
+
+When a capability is missing, unreachable, or genuinely impossible on your
+machine, the screen tells you which of those it is, in those words. No
+placeholder data. No button greyed out in the hope you move on. No action
+offered that it cannot carry out.
+
+That sounds small. It is the thing that decides whether a tool is worth trusting
+at 2am, and it is why several features in *What it deliberately does not do* were
+removed rather than faked.
+
+---
+
+## What it does
+
+### Containers, and what is inside them
+
+| | |
+|---|---|
+| **Containers** | Live list with CPU and memory. Start, stop, restart, pause, kill, rename, change resource limits, act on many at once |
+| **Container detail** | Logs, inspect, mounts, an interactive shell, running processes, filesystem changes, live stats |
+| **Files** | Browse a container's filesystem, read a file, upload into it |
+| **Ports** | Republish a running container's ports. Docker fixes these when a container is created, so Anchorage replaces the container — and says that is what it is doing |
+
+### Everything around them
+
+| | |
+|---|---|
+| **Compose** | Projects, their services, the fully resolved configuration, and up / down / restart |
+| **Images** | Local images, registry search, pull, push, tag, save, load, and a prune that shows what it will reclaim before you agree |
+| **Volumes** | Browse a volume's filesystem, back up and restore to a tar archive, clone, empty, remove |
+| **Networks** | List, inspect, create, remove |
+| **Builds** | BuildKit build history, and the builders behind it — including repairing or deleting one that has broken |
+| **Logs** | One merged, filterable stream across your running containers |
+| **Scan** | Docker Scout vulnerability reports for an image |
+| **Secrets** | Swarm secrets: list, create, remove. The value goes straight to the Engine API and never becomes a command argument |
+
+### AI, where Docker actually ships it for Linux
+
+| | |
+|---|---|
+| **Models** | Docker Model Runner: what is pulled, what the runner is doing, what it costs on disk. Search Docker Hub, pull, unload, remove |
+| **Agents** | Docker Agent: which models it can reach, which credentials are visible, which tool types an agent can be granted |
+| **Tools** | The MCP Toolkit: browse catalogues and see, for each server, exactly which tools it would expose and which credentials it would demand |
+
+### Two more things
+
+**Command Center** (`Ctrl/Cmd+Shift+P`) finds and runs any command your installed
+Docker CLI advertises, plugins included. It shows the exact command line before
+running it, warns you before a destructive one, and masks secrets in both
+arguments and environment variables.
+
+**Capabilities** installs the CLI plugins Docker publishes a Linux binary for. The
+download is checked against the SHA-256 that release states and written to your
+own plugin directory — no root needed.
+
+---
+
+## What it deliberately does not do
+
+This list matters as much as the one above. Every entry was considered and
+rejected for a stated reason, not overlooked.
+
+### Removed, because they cannot work against a plain Linux Docker Engine
+
+| | Why |
+|---|---|
+| **Ask Gordon** (`docker ai`) | Needs Docker Desktop and a signed-in account. Docker publishes no standalone binary at any price |
+| **Sandboxes** (`sbx`) | Needs Ubuntu 24.04+, KVM, and an OAuth sign-in |
+| **Docker Cloud / Offload** | A managed cloud service behind a subscription |
+| **Desktop Extensions** | A Docker Desktop-only framework. Ours used to show a marketplace of invented ratings and install counts, which is worse than having no screen at all |
+| **Dev Environments** | Docker deleted this in Desktop 4.42 and archived the repository |
+| **Hardened Images** | A Docker Hub catalogue with no API or CLI command to list it |
+| **Governance** | Administered in a web console the engine cannot read back |
+| **Kubernetes** | Needs cluster state Anchorage does not read. Desktop can offer a cluster only because it manages a virtual machine |
+
+### Present, but bounded on purpose
+
+- **Agents does not run agents.** `docker agent run` is an interactive terminal
+  application. Rebuilding it here would mean maintaining a chat client and
+  claiming parity with something that changes weekly.
+- **Tools browses but does not enable.** Adding an MCP server to a profile is one
+  command away and stays a deliberate one — a mis-click hands an agent someone
+  else's credentials.
+- **Secrets can never show you a value.** Docker discards the plaintext the
+  moment a secret exists. Nothing can read it back, so no control here pretends
+  otherwise.
+- **Anchorage does not update itself.** Nothing contacts a server or installs
+  anything in the background. You verify a release by hand — see below.
+- **Linux only.** The packaged build is an x86-64 AppImage. There is no macOS or
+  Windows build.
+
+---
+
+## How it is built
+
+Three parts, deliberately kept apart:
+
+```
+┌──────────────────────┐
+│  Renderer            │  React + TypeScript. Sandboxed, no Node access,
+│  what you see        │  no filesystem, no network, no Docker socket.
+└──────────┬───────────┘
+           │  a fixed list of validated IPC channels
+┌──────────┴───────────┐
+│  Electron main       │  Validates every request against the protocol
+│  the gate            │  before it goes further. Blocks all downloads.
+└──────────┬───────────┘
+           │  JSON-lines over stdio
+┌──────────┴───────────┐
+│  Go core             │  Zero third-party dependencies. Talks to the
+│  the work            │  Docker socket and runs one fingerprinted binary.
+└──────────────────────┘
 ```
 
-Treat that file as a release candidate only after `npm run package:linux`
-finishes successfully and
-`app/release/release-verification.json` reports `"status": "passed"`. The
-receipt binds the exact AppImage, unpacked application, extracted AppImage
-payload, renderer, core, Electron runtime, and release evidence; an
-electron-builder output without that receipt is only an intermediate artifact.
+**Why a separate core.** The renderer is where untrusted text ends up — container
+names, image labels, log output. Keeping every privileged operation behind a
+typed protocol in a different process means a bug in the UI cannot turn into a
+Docker command.
 
-Make sure the Docker daemon is available to the current user, then launch the
-AppImage directly. Anchorage uses the same Docker executable, contexts,
-credentials, plugins, and daemon permissions as the terminal user.
+**Why the core has no dependencies.** It is the part holding the socket. A supply
+chain is a decision, and this one is that there isn't one.
 
-## Product surfaces
+**Why everything is validated three times.** The preload boundary, the main
+process and the core each check the same request against the same schema. That
+duplication is the point: every layer refuses on its own rather than trusting the
+one before it.
 
-- Dashboard, Containers, container logs/inspect/mounts/exec/stats, Images, and
-  Volumes are live first-class Docker workflows. They use the Engine API where
-  it preserves Docker semantics and improves latency.
-- The Command Center opens with `Ctrl/Cmd+Shift+P`, inventories the exact
-  recursively discovered canonical advertised command tree, and runs literal
-  argument arrays through pipes or a real PTY. This is the coverage path for
-  Compose, Scout, interactive commands, and discovered long-tail CLI and
-  plugin leaves without invoking a shell.
-- Pinned targeting injects the visibly selected Docker context and blocks
-  target overrides. Explicit literal targeting permits Docker's own
-  context/host/config/TLS flags and environment variables while still fixing
-  the executable and rejecting loader, PATH, HOME, and askpass injection.
-- Capability-unavailable features are reported explicitly. Browser development
-  previews use deterministic fixtures for design QA; the packaged desktop
-  bridge uses live Docker data and never labels fixture data as live.
-- Settings > Appearance provides Default, Docker, and GitHub theme families in
-  both Light and Dark modes. The renderer applies the palettes through one
-  semantic token contract and stores the choice locally when browser storage is
-  available. If storage is unavailable or a write fails, the selected theme
-  continues for the current renderer session and the UI reports it as
-  session-only.
-- The handoff's Builds, Dev Environments, Extensions, Settings, and container
-  Files states remain part of canonical visual QA. Where the installed Engine
-  and CLI do not expose the Docker Desktop data behind them, host mode shows an
-  explicit unavailable state. When a relevant installed command exists it is
-  available through Command Center; Anchorage does not invent an equivalent
-  where Docker exposes none.
+More detail: [docs/architecture.md](docs/architecture.md) ·
+[docs/parity-and-release-gates.md](docs/parity-and-release-gates.md)
 
-## Architecture
+---
 
-```text
-React renderer
-  -> sandboxed Electron preload
-  -> private JSON Lines RPC
-  -> standard-library Go core
-     -> negotiated Docker Engine API
-     -> fingerprinted installed Docker CLI and plugins
-```
+## Requirements
 
-The renderer has no Node.js, filesystem, process, or Docker socket access.
-Electron enables context isolation and sandboxing and denies renderer
-navigation, popups, downloads, and permissions. The core injects the selected
-Docker context, executes an argument vector without shell interpolation, caps
-captured output, applies stream backpressure, and targets mutations by immutable
-Docker IDs.
+- Linux, x86-64
+- A Docker daemon your user can reach — if `docker ps` works in your terminal,
+  you are ready
+- Docker CLI plugins are optional. They are detected when present and never
+  required
 
-On Linux the BrowserWindow is frameless (`frame: false`), so Anchorage's own
-draggable titlebar and main-process window controls are the only titlebar. The
-small platform shadow and extended native resize boundary are intentionally
-retained so the user can resize from the window edges. The renderer also
-synchronizes the native window background to the active theme so resizing does
-not reveal a differently coloured backing surface.
+For development, additionally:
 
-More detail is in [docs/architecture.md](docs/architecture.md) and the release
-criteria are in
-[docs/parity-and-release-gates.md](docs/parity-and-release-gates.md).
+- Go 1.25 or newer
+- Node.js 20.11 or newer, and npm
 
-## Development
-
-Prerequisites:
-
-- a working Docker CLI and daemon;
-- Go 1.25 or newer;
-- Node.js 20.11 or newer, plus npm.
-
-Install renderer dependencies and run the complete desktop development stack:
+## Running it
 
 ```bash
 cd app
-npm ci
-npm run dev:desktop
+npm install
+npm run dev:desktop     # development
+
+npm run package:linux   # build the AppImage
 ```
 
-The development launcher chooses an unused local port and proves that the
-Electron process is loading the matching Vite instance. It fails closed instead
-of attaching to an unrelated process already occupying a port.
+A packaged build is a release candidate only once
+`app/release/release-verification.json` reports `"status": "passed"`. That
+receipt ties together the exact AppImage, renderer, core binary, Electron runtime
+and release evidence. An electron-builder output without it is an intermediate
+file, not a release.
 
-Run a browser-only design preview:
+## Verifying a download
 
 ```bash
-cd app
-npm run dev
-```
-
-The browser preview intentionally uses deterministic fixtures because no
-privileged preload bridge exists in a web page.
-
-Ordinary preview URLs use the resizable viewport layout. URLs with a
-`?capture=<state>` query switch to the fixed canonical canvas, force
-Default/Dark without reading or writing the saved appearance, and omit the new
-Appearance settings row so the original 24-state handoff remains comparable.
-
-## Verification
-
-```bash
-cd core
-go test -race ./...
-go vet ./...
-go build -o bin/anchorage-core ./cmd/anchorage-core
-
-cd ../app
-npm test
-npm run typecheck:renderer
-npm run build
-npm run package:preflight
-npm run package:linux
-```
-
-Generate a capability ledger from the current Docker installation:
-
-```bash
-node tools/generate-capability-ledger.mjs
-```
-
-The command writes the raw discovery evidence and one row per discovered
-canonical advertised leaf command to `artifacts/docker/`. A
-`transport-covered` row means the command is installed and has a
-literal-argument pipes/PTY route through Anchorage. It does not mean that
-arbitrary or destructive commands were mass-executed, and it is kept separate
-from operation-level behavioral conformance.
-
-Visual source, actual captures, and paired comparisons live under
-`docs/design_handoff_anchorage/` and `docs/design-qa/`.
-
-Generate the remaining release evidence:
-
-```bash
-ANCHORAGE_ACCEPTANCE_MUTATIONS=1 node tools/run-core-acceptance.mjs
-node tools/run-performance-evidence.mjs
-node tools/generate-security-evidence.mjs
-```
-
-The performance command is an authoritative 30-minute soak by default. Package
-preflight rejects shortened evidence, a different core or harness hash,
-incomplete command/design matrices, failed cleanup, or stale source inputs.
-
-## Packaging
-
-`npm run package:linux` creates the AppImage and an unpacked Linux directory,
-bundling a freshly built, stripped, hash-verified Go core. A local build is
-unsigned; a published one must be signed.
-
-A `.deb` is intentionally not emitted until the project has a canonical
-homepage for package metadata.
-
-### Signing a release
-
-Signing uses a detached OpenPGP signature over a `SHA256SUMS` file rather than
-the AppImage's embedded signature sections. Verifying an embedded signature
-requires the downloader to have `appimagetool` and to know about `--validate`;
-a detached signature is checked with the `gpg` and `sha256sum` already present
-on any Linux system, which is the difference between a signature that can be
-verified and one that is.
-
-Generate a signing key once. Keep it separate from a personal identity, so it
-can be rotated or revoked without affecting anything else:
-
-```
-gpg --quick-generate-key "Anchorage Release Signing <you@example.com>" ed25519 sign 3y
-gpg --armor --export "Anchorage Release Signing" > anchorage-signing-key.asc
-```
-
-Then, after building:
-
-```
-npm --prefix app run release:sign -- --key "Anchorage Release Signing"
-```
-
-That writes `SHA256SUMS`, signs it, and then **verifies its own output** —
-confirming the signature is good, that it was made by the intended key, and
-that every recorded digest still matches the file beside it. A signature that
-does not verify is worse than none, because it looks like protection and is
-not. The result is recorded in `release-signature.json`.
-
-The private key is never read by this project. `gpg` is invoked so that
-`gpg-agent` prompts for the passphrase directly, and no key material ever
-enters the repository or the evidence bundle.
-
-### Verifying a download
-
-Publish `anchorage-signing-key.asc` alongside the release. A downloader then
-runs:
-
-```
-gpg --import anchorage-signing-key.asc
 gpg --verify SHA256SUMS.asc SHA256SUMS
 sha256sum -c SHA256SUMS
 ```
 
-The first command establishes which key they are trusting, the second proves
-the checksum file came from that key, and the third proves the artifacts match
-the checksums. Importing a key that arrived with the download only proves
-internal consistency, so confirm the fingerprint through a channel that did
-not come from the same place as the file.
+Both are stock tools. A signature that does not verify means the download is not
+the release that was published, whatever the file happens to be called.
+
+---
+
+## Testing
+
+```bash
+cd app  && npm test                  # the full gate
+cd app  && npm run typecheck:renderer # NOT part of npm test — run it separately
+cd core && go test -race ./...
+```
+
+The gate covers more than unit tests:
+
+- **609 renderer tests** across 47 files
+- **Protocol conformance** — the JSON schema, the TypeScript types and the Go
+  structs must agree, or the build fails
+- **Theme integrity** — every colour is a token, and every text-on-surface pair
+  clears WCAG AA in all twelve theme-and-mode combinations
+- **Surface contrast** — a ratchet: surfaces may become more distinct, never less
+- **Design parity** — 21 canonical screens measured against the design comp, with
+  every divergence budgeted and explained
+- **Core binary freshness** — the packaged core cannot be older than its sources
+
+## Appearance
+
+Six theme families — Nous, Docker, GitHub, Monochrome, Magnetic and Y2K — each in
+light and dark. Colours come from one semantic token contract rather than being
+written into components, which is what makes the contrast checks above possible
+at all.
+
+## Contributing
+
+Two conventions matter more than formatting:
+
+1. **Comments explain why, especially why the obvious alternative was rejected.**
+   A comment restating the code is noise. A comment recording a decision is often
+   the most valuable thing in the file.
+2. **A test states the defect it prevents.** "Checks the parser" is not a reason.
+   "A naive split turns *Not Installed* into two fields and shifts every column
+   left" is.
+
+## Licence
+
+Not yet chosen.
