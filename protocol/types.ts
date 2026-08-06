@@ -899,6 +899,7 @@ export type RPCRequest =
   | ContainersCreateRequest
   | ContainersRebindPortsRequest
   | ContainersExportRequest
+  | CapabilityInstallRequest
   | ModelsListRequest
   | ModelsSearchRequest
   | ModelsActionRequest
@@ -1836,6 +1837,45 @@ export interface ComposePsResult {
  * Docker account or subscription is involved. The other AI destinations were removed rather
  * than described, because nothing true could be said about installing them here.
  */
+/**
+ * Installing a Docker CLI plugin.
+ *
+ * `capability` is an enum rather than a string, and there is deliberately no URL anywhere in
+ * this request. The core holds the complete table of what may be installed and where from, so
+ * nothing a caller can say redirects the download — which is the property that keeps this from
+ * being a general download-and-execute primitive aimed at a directory the Docker CLI runs.
+ *
+ * The bytes are verified against the SHA-256 the release publishes, fetched over TLS from the
+ * GitHub API. That binds them to what GitHub said the release contained; it is not a publisher
+ * signature, and the surface offering the install says so.
+ */
+export interface CapabilityInstallRequest {
+  id: RequestId;
+  method: "system.capabilityInstall";
+  params: { capability: "agent" | "mcp"; confirmed: true };
+}
+
+export interface CapabilityInstallResult {
+  protocolVersion: "1";
+  capability: string;
+  plugin: string;
+  path: string;
+  repository: string;
+  release: string;
+  asset: string;
+  /** The digest of the file actually written. */
+  sha256: string;
+  /**
+   * The digest the release published, which the download was checked against. Identical to
+   * `sha256` for a bare binary; different for an archive, because the published digest covers
+   * the tarball rather than the file extracted from it. Both are reported so that difference
+   * is visible rather than implied.
+   */
+  assetSha256: string;
+  sizeBytes: number;
+  installedAt: string;
+}
+
 export interface ModelsListRequest {
   id: RequestId;
   method: "models.list";

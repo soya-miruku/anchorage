@@ -355,3 +355,65 @@
   align-items: center;
   gap: 6px;
 }
+
+/*
+Anchorage installing a plugin itself.
+
+Set apart from the guidance around it with its own rule and tint, because it is the one control
+here that acts rather than advises — the surrounding text is all "run this yourself".
+*/
+.capability-install__direct {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 9px;
+  background: rgb(var(--anc-accent-rgb) / 6%);
+}
+
+.capability-install__direct-note {
+  margin: 8px 0 0 !important;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--anc-text-secondary) !important;
+}
+
+/*
+The limit of what the digest proves, kept visually distinct from the reassurance above it. It
+is not fine print — an operator deciding whether to run someone else's binary needs the caveat
+at the same moment as the button, not in a tooltip.
+*/
+.capability-install__caveat {
+  margin: 6px 0 0 !important;
+  padding-left: 9px;
+  border-left: 2px solid var(--anc-line-strong);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--anc-text-muted) !important;
+}
+
+.capability-install__failed {
+  margin: 8px 0 0 !important;
+  font-size: 11px;
+  color: var(--anc-danger-fg) !important;
+}
+
+.capability-install__done {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.capability-install__done strong {
+  font-size: 11.5px;
+  color: var(--anc-text-primary);
+}
+
+.capability-install__done code {
+  font-family: var(--anc-font-mono);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  color: var(--anc-text-dimmer);
+}

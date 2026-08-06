@@ -46,6 +46,7 @@
         { "$ref": "#/$defs/containersCreateRequest" },
         { "$ref": "#/$defs/containersRebindPortsRequest" },
         { "$ref": "#/$defs/containersExportRequest" },
+        { "$ref": "#/$defs/capabilityInstallRequest" },
         { "$ref": "#/$defs/modelsListRequest" },
         { "$ref": "#/$defs/modelsSearchRequest" },
         { "$ref": "#/$defs/modelsActionRequest" },
@@ -575,6 +576,31 @@
               "maxLength": 4096,
               "pattern": "^/",
               "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityInstallRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "system.capabilityInstall" },
+        "params": {
+          "type": "object",
+          "required": ["capability", "confirmed"],
+          "properties": {
+            "comment": false,
+            "capability": {
+              "comment": "An enum, not a string. The caller names a capability the core has compiled in; it can never name a URL, which is what keeps this from being a download-and-execute primitive.",
+              "enum": ["agent", "mcp"]
+            },
+            "confirmed": {
+              "comment": "Installing places an executable in a directory the Docker CLI scans and runs. That is closer to installing an application than to fetching a file, so it is gated like the other destructive verbs.",
+              "const": true
             }
           },
           "additionalProperties": false

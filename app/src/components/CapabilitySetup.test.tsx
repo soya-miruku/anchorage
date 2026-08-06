@@ -38,6 +38,11 @@ function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
     revealedCapabilities: [],
     refreshPlugins: vi.fn(async () => undefined),
     repairPlugin: vi.fn(async () => true),
+    installCapability: vi.fn(async () => true),
+    dismissCapabilityInstall: vi.fn(),
+    capabilityInstalling: null,
+    capabilityInstallError: null,
+    capabilityInstalled: null,
     setCapabilityRevealed: vi.fn(),
     revealPath: vi.fn(async () => undefined),
     openCommandCenter: vi.fn(),
@@ -273,5 +278,99 @@ describe("CapabilitySetup sidebar row", () => {
       ]),
     });
     expect(screen.queryByTestId("capability-hide-model")).toBeNull();
+  });
+});
+
+/**
+ * Anchorage installing the plugin itself.
+ *
+ * These pin the boundary rather than the button. What may be installed is a short allowlist in
+ * the core, mirrored in `installableCapability`, and the reason it is an allowlist rather than a
+ * property on each catalogue entry is that a general "install this URL" control aimed at a
+ * directory the Docker CLI runs is precisely what an attacker reaching the RPC boundary wants.
+ */
+describe("CapabilitySetup direct install", () => {
+  function renderCapability(
+    view: "models" | "agents" | "tools",
+    overrides: Partial<AnchorageStore> = {},
+  ) {
+    const capability = capabilityForView(view);
+    if (!capability) throw new Error(`${view} is missing from the catalogue`);
+    const store = createStore(overrides);
+    render(
+      <CapabilitySetup
+        store={store}
+        capability={capability}
+        testId={`${view}-screen`}
+        posture="A posture statement."
+      />,
+    );
+    return store;
+  }
+
+  it("offers to install a plugin binary Docker publishes a release for", () => {
+    const store = renderCapability("agents");
+    fireEvent.click(screen.getByRole("button", { name: "Install for me" }));
+    expect(store.installCapability).toHaveBeenCalledWith("agent");
+  });
+
+  it("does not offer to install anything needing root", () => {
+    // Models is a distribution package. Installing one needs privilege the core must never
+    // have, so the command stays the only honest answer however convenient a button would be.
+    renderCapability("models");
+    expect(screen.queryByTestId("capability-install-model")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Install for me" })).toBeNull();
+  });
+
+  it("states the limit of what the digest proves, beside the button rather than after it", () => {
+    // A verified digest binds the bytes to what GitHub's API said the release contained. It is
+    // not a publisher signature, and an operator deciding whether to run someone else's binary
+    // needs that at the moment of deciding.
+    renderCapability("tools");
+    const pane = screen.getByTestId("capability-install-mcp");
+    expect(pane).toHaveTextContent(/SHA-256/u);
+    expect(pane).toHaveTextContent(/not a publisher signature/u);
+    expect(pane).toHaveTextContent(/No root needed/u);
+  });
+
+  it("reports where the plugin landed and what its digest was", () => {
+    renderCapability("tools", {
+      capabilityInstalled: {
+        protocolVersion: "1",
+        capability: "mcp",
+        plugin: "mcp",
+        path: "/home/tester/.docker/cli-plugins/docker-mcp",
+        repository: "docker/mcp-gateway",
+        release: "v0.43.3",
+        asset: "docker-mcp-linux-amd64.tar.gz",
+        sha256: "23d33c3b8a988ac7bf7231785b5dca23189a5145c15cec8b7fa2ae08e888cc14",
+        assetSha256: "d39702b4c150d5e96e59cf3d90a28b9bb2a85ca81ddd05d87126be0849232049",
+        sizeBytes: 46_571_704,
+        installedAt: "2026-08-06T12:35:27.159Z",
+      },
+    });
+    const done = screen.getByTestId("capability-installed");
+    expect(done).toHaveTextContent("v0.43.3");
+    expect(done).toHaveTextContent("/home/tester/.docker/cli-plugins/docker-mcp");
+    expect(done).toHaveTextContent("23d33c3b");
+  });
+
+  it("does not report one capability's install under another", () => {
+    // The result is a single slot on the store, so a stale one from a previous install would
+    // otherwise appear as a success under whichever capability is on screen next.
+    renderCapability("agents", {
+      capabilityInstalled: {
+        plugin: "mcp",
+        path: "/home/tester/.docker/cli-plugins/docker-mcp",
+        release: "v0.43.3",
+        sha256: "23d33c3b",
+      } as never,
+    });
+    expect(screen.queryByTestId("capability-installed")).toBeNull();
+  });
+
+  it("disables the button while that install is running", () => {
+    renderCapability("tools", { capabilityInstalling: "mcp" });
+    expect(screen.getByRole("button", { name: "Installing…" })).toBeDisabled();
   });
 });

@@ -65,7 +65,9 @@ import type {
   SessionStartResult,
   BuildRecord,
   BuildBuilder,
+  CapabilityInstallResult,
   DockerModel,
+  InstallableCapability,
   ModelActionRequest,
   ModelDiskUsage,
   ModelRunnerStatus,
@@ -549,6 +551,14 @@ export function useAnchorageStore() {
   // Distinct from `composeProjects` below, which is only the set of project *names* found
   // on container labels and drives the Containers filter. This is the plugin's own project
   // list, which also covers projects whose containers are all stopped.
+  const [capabilityInstalling, setCapabilityInstalling] = useState<string | null>(
+    null,
+  );
+  const [capabilityInstallError, setCapabilityInstallError] = useState<
+    string | null
+  >(null);
+  const [capabilityInstalled, setCapabilityInstalled] =
+    useState<CapabilityInstallResult | null>(null);
   const [models, setModels] = useState<DockerModel[]>([]);
   const [modelRunner, setModelRunner] = useState<ModelRunnerStatus>({
     running: false,
@@ -3236,6 +3246,46 @@ export function useAnchorageStore() {
    * Compose is optional and the operator's fix is to install it.
    */
   /**
+   * Fetches a CLI plugin and puts it where the Docker CLI will find it.
+   *
+   * Anchorage could not do this before, and the reason it can now is narrower than it looks: a
+   * plugin is one executable in a directory the operator already owns, so no privilege is
+   * needed. A distribution package still needs root and is still only ever a command to copy.
+   *
+   * The plugin installation is re-read afterwards rather than assumed, because the install
+   * succeeding and the CLI loading the result are different facts — a binary for the wrong
+   * architecture lands perfectly well and then fails to run.
+   */
+  const installCapability = useCallback(
+    async (capability: InstallableCapability) => {
+      if (!isHost) return false;
+      setCapabilityInstalling(capability);
+      setCapabilityInstallError(null);
+      try {
+        const result = await bridge.capabilities.install(capability);
+        setCapabilityInstalled(result);
+        await refreshPlugins();
+        return true;
+      } catch (reason) {
+        setCapabilityInstallError(
+          reason instanceof Error ? reason.message : "The install failed",
+        );
+        return false;
+      } finally {
+        setCapabilityInstalling((current) =>
+          current === capability ? null : current,
+        );
+      }
+    },
+    [bridge, isHost, refreshPlugins],
+  );
+
+  const dismissCapabilityInstall = useCallback(() => {
+    setCapabilityInstalled(null);
+    setCapabilityInstallError(null);
+  }, []);
+
+  /**
    * Reads Model Runner: what is pulled, whether the runner is up, and what it costs on disk.
    *
    * One call backs the whole screen because the three answers only mean something together.
@@ -4519,6 +4569,9 @@ export function useAnchorageStore() {
     volumes,
     volumeSummary,
     volumeMutationPending,
+    capabilityInstalling,
+    capabilityInstallError,
+    capabilityInstalled,
     models,
     modelRunner,
     modelDisk,
@@ -4691,6 +4744,8 @@ export function useAnchorageStore() {
     pruneVolumes,
     setSelectedBuildId,
     retryEngine,
+    installCapability,
+    dismissCapabilityInstall,
     refreshModels,
     searchModels,
     clearModelSearch,

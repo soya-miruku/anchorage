@@ -1368,6 +1368,7 @@ export interface AnchorageBridge {
   readonly enginePlugins: EnginePluginOperations;
   readonly builds: BuildsOperations;
   readonly models: ModelsOperations;
+  readonly capabilities: CapabilityOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
   readonly secrets: SecretsOperations;
@@ -1479,6 +1480,12 @@ export interface HostAnchorageApi {
     list: (request: { context: string }) => Promise<unknown>;
     inspect: (request: { context: string; ref: string }) => Promise<unknown>;
     builderAction?: (request: BuilderAction) => Promise<unknown>;
+  };
+  capabilities?: {
+    install: (request: {
+      capability: string;
+      confirmed: true;
+    }) => Promise<unknown>;
   };
   models?: {
     list: (request: { context: string }) => Promise<unknown>;
@@ -2085,6 +2092,32 @@ export interface ModelActionResult {
   receipt: Record<string, unknown>;
   /** Present for pull alone, which streams; followed through session events. */
   session?: SessionStartResult;
+}
+
+/** What Anchorage can fetch and install itself. An enum, never a URL — see the core's table. */
+export type InstallableCapability = "agent" | "mcp";
+
+export interface CapabilityInstallResult {
+  protocolVersion: "1";
+  capability: string;
+  plugin: string;
+  path: string;
+  repository: string;
+  release: string;
+  asset: string;
+  sha256: string;
+  /**
+   * The digest the release published, which the download was verified against. Differs from
+   * `sha256` for an archive, because the published digest covers the tarball rather than the
+   * binary inside it.
+   */
+  assetSha256: string;
+  sizeBytes: number;
+  installedAt: string;
+}
+
+export interface CapabilityOperations {
+  install(capability: InstallableCapability): Promise<CapabilityInstallResult>;
 }
 
 export interface ModelsOperations {

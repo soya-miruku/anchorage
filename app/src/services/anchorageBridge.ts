@@ -35,6 +35,8 @@ import type {
   ComposeActionResult,
   ComposeListResult,
   BuildsListResult,
+  CapabilityInstallResult,
+  InstallableCapability,
   ModelActionRequest,
   ModelActionResult,
   ModelsListResult,
@@ -969,6 +971,10 @@ class FixtureBridge implements AnchorageBridge {
     list: async () => fixtureUnsupported("plugins.list"),
   };
 
+  readonly capabilities = {
+    install: async () => fixtureUnsupported("system.capabilityInstall"),
+  };
+
   readonly models = {
     list: async () => fixtureUnsupported("models.list"),
     search: async () => fixtureUnsupported("models.search"),
@@ -1653,6 +1659,25 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
       observedAt: typeof raw.observedAt === "string" ? raw.observedAt : "",
     };
   };
+  const capabilityInstall = async (
+    capability: InstallableCapability,
+  ): Promise<CapabilityInstallResult> => {
+    const request = { capability, confirmed: true as const };
+    const result = host.capabilities?.install
+      ? await host.capabilities.install(request)
+      : host.invoke
+        ? await host.invoke("system.capabilityInstall", request)
+        : await Promise.reject(
+            new Error("Installing a capability needs the desktop shell"),
+          );
+    const raw = requireObjectResult(result, "system.capabilityInstall");
+    // The digest is the point of the whole verb, so a result without one is refused rather
+    // than reported as a successful install.
+    if (typeof raw.path !== "string" || typeof raw.sha256 !== "string") {
+      throw new Error("system.capabilityInstall returned an incomplete result");
+    }
+    return structuredClone(raw) as unknown as CapabilityInstallResult;
+  };
   const modelsList = async (context: string) => {
     const request = { context };
     const result = host.models
@@ -2060,6 +2085,9 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     enginePlugins: {
       list: (context = "default") => enginePluginsList(context),
+    },
+    capabilities: {
+      install: capabilityInstall,
     },
     models: {
       list: (context = "default") => modelsList(context),

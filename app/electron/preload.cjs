@@ -35,6 +35,7 @@ const CHANNELS = Object.freeze({
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
+  capabilityInstall: "anchorage:system.capabilityInstall",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
@@ -1244,6 +1245,23 @@ function volumeFileRead(value) {
   };
 }
 
+// Mirrored from the core's table. An enum, never a URL.
+const INSTALLABLE_CAPABILITIES = new Set(["agent", "mcp"]);
+
+function capabilityInstall(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["capability", "confirmed"]), "request");
+  const capability = enumValue(
+    value.capability,
+    "request.capability",
+    INSTALLABLE_CAPABILITIES,
+  );
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true to install a capability");
+  }
+  return { capability, confirmed: true };
+}
+
 const MODEL_ACTIONS = new Set(["pull", "remove", "unload"]);
 const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
 // A model reference becomes an argv element. The core refuses a leading dash as well, but this
@@ -2277,6 +2295,8 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesClone, volumeClone(payload));
     case "volumes.empty":
       return call(CHANNELS.volumesEmpty, volumeEmpty(payload));
+    case "system.capabilityInstall":
+      return call(CHANNELS.capabilityInstall, capabilityInstall(payload));
     case "models.list":
       return call(CHANNELS.modelsList, modelsList(payload));
     case "models.search":
@@ -2372,6 +2392,10 @@ const api = Object.freeze({
     inspect: (request) => call(CHANNELS.buildsInspect, buildsInspect(request)),
     builderAction: (request) =>
       call(CHANNELS.buildsBuilderAction, buildsBuilderAction(request)),
+  }),
+  capabilities: Object.freeze({
+    install: (request) =>
+      call(CHANNELS.capabilityInstall, capabilityInstall(request)),
   }),
   models: Object.freeze({
     list: (request) => call(CHANNELS.modelsList, modelsList(request)),

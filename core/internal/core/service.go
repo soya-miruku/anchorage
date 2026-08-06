@@ -354,6 +354,21 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.volumeFileRead(ctx, params)
+	case "system.capabilityInstall":
+		// Deliberately not gated on requireDocker. Installing a plugin is a filesystem write
+		// into the operator's own directory, and the case that needs it most is a machine
+		// where the Docker CLI is present but the plugin is not — refusing when the daemon is
+		// unreachable would withhold the fix from exactly the setup that is broken.
+		var params CapabilityInstallParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		if !params.Confirmed {
+			return nil, opError("confirmation_required",
+				"Installing a capability places an executable in a directory the Docker CLI runs, so it must be confirmed.",
+				nil, map[string]any{"capability": params.Capability})
+		}
+		return s.capabilityInstall(ctx, params)
 	case "models.list":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

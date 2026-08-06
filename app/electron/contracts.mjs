@@ -48,6 +48,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.restore",
   "volumes.clone",
   "volumes.empty",
+  "system.capabilityInstall",
   "models.list",
   "models.search",
   "models.action",
@@ -127,6 +128,7 @@ export const IPC_CHANNELS = Object.freeze({
   volumesRestore: "anchorage:volumes.restore",
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
+  capabilityInstall: "anchorage:system.capabilityInstall",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
@@ -1203,6 +1205,28 @@ export function validateVolumeFileRead(value) {
     name: validateVolumeName(value.name),
     path: target,
   };
+}
+
+/* ── Installing a CLI plugin ─────────────────────────────────────────────────────────────── */
+
+// The complete set, mirrored from the core's own table. An enum, never a URL: the core decides
+// where the bytes come from, and nothing a caller sends can redirect that.
+const INSTALLABLE_CAPABILITIES = new Set(["agent", "mcp"]);
+
+export function validateCapabilityInstall(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["capability", "confirmed"]), "request");
+  const capability = validateEnum(
+    value.capability,
+    "request.capability",
+    INSTALLABLE_CAPABILITIES,
+  );
+  // Gated like the destructive verbs, because it is one in the way that matters: it puts an
+  // executable in a directory the Docker CLI scans and runs.
+  if (value.confirmed !== true) {
+    fail("request.confirmed must be true to install a capability");
+  }
+  return { capability, confirmed: true };
 }
 
 /* ── Docker Model Runner ─────────────────────────────────────────────────────────────────── */

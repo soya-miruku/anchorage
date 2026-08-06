@@ -1,6 +1,7 @@
 import type {
   DockerCliPlugin,
   HostPackageManager,
+  InstallableCapability,
   SystemPlugins,
   ViewId,
 } from "../types";
@@ -31,11 +32,15 @@ place to list every gated capability, installed or not, so an absent row no long
 the opposite case and stays visible: something was installed here and went wrong, and that row
 is the way into the repair.
 
-**Nothing here installs anything.** The core has no HTTP client, Electron blocks every download,
-and no request in the protocol can execute a binary other than the fingerprinted Docker CLI. So
-`install` is guidance the operator acts on, not work Anchorage performs — the exact command where
-Docker publishes a package, the plugin directory mechanics where it does not, and a re-check that
-notices the moment it lands.
+**Some of this Anchorage now installs itself, and the line is drawn by privilege.** This block
+used to read "nothing here installs anything", on the grounds that the core had no HTTP client
+and Electron blocks every download. Half of that reasoning was sound and half was a habit. A
+*distribution package* needs root, and the core must never have it, so for Compose and Buildx the
+command remains the only honest answer. A *plugin binary* is one executable in a directory the
+operator already owns, which needs no privilege at all — the only blocker was that nothing could
+fetch it. The core can now, for the short allowlist in `installableCapability` below and nothing
+else. Everything else here is unchanged: the command where Docker publishes a package, the
+directory mechanics where it does not, and a re-check that notices the moment a plugin lands.
 */
 
 /**
@@ -204,6 +209,27 @@ export const capabilityCatalogue: readonly PluginCapability[] = Object.freeze([
     },
   },
 ]);
+
+/**
+ * Whether Anchorage can fetch this plugin itself, and under which key.
+ *
+ * Mirrors the core's compiled-in table, and is deliberately a short allowlist rather than a
+ * property on the catalogue entry: the set of things the app will download must be legible in
+ * one place, and adding a row to the catalogue must not silently make it installable.
+ *
+ * Compose and Buildx are absent on purpose. Both are distribution packages that need root, so
+ * for those the command remains the only honest answer.
+ */
+const SELF_INSTALLABLE: Record<string, InstallableCapability> = {
+  agent: "agent",
+  mcp: "mcp",
+};
+
+export function installableCapability(
+  plugin: string,
+): InstallableCapability | null {
+  return SELF_INSTALLABLE[plugin] ?? null;
+}
 
 export function capabilityForView(view: ViewId): PluginCapability | undefined {
   return capabilityCatalogue.find((capability) => capability.view === view);

@@ -6,6 +6,7 @@ import {
   capabilityEntry,
   capabilityState,
   installCommandFor,
+  installableCapability,
   type CapabilityState,
   type PluginCapability,
 } from "../data/capabilities";
@@ -26,10 +27,16 @@ import { usePluginRepair } from "./usePluginRepair";
  *   - what state the plugin is in, read from the installation rather than asserted;
  *   - the repair, when the fault is one that can be repaired here — a link with no target
  *     removed, a missing execute bit set;
- *   - the install, as guidance. Anchorage cannot perform it: the core has no HTTP client,
- *     Electron blocks every download, and no request can execute anything but the fingerprinted
- *     Docker CLI. So it gives the exact command where Docker publishes one, the directory
- *     mechanics where it does not, and a re-check that notices the moment the plugin lands.
+ *   - the install. For a plugin binary on the core's allowlist Anchorage now performs it —
+ *     downloading the release asset, checking it against the SHA-256 that release publishes,
+ *     and writing it to the operator's own plugin directory, which needs no privilege. For a
+ *     distribution package it stays guidance, because that needs root and the core must not
+ *     have it: the exact command for this host's package manager, the directory mechanics, and
+ *     a re-check that notices the moment the plugin lands.
+ *
+ * The claim the install button makes is bounded on purpose. A verified digest says the bytes
+ * are what GitHub's API said that release contained; it is not a publisher signature, and the
+ * surface says so rather than letting a green tick imply more than it proves.
  */
 
 const STATE_LABEL: Record<CapabilityState, string> = {
@@ -168,10 +175,60 @@ export function CapabilityInstallGuidance({
   // One command, for the manager this host actually has — see installCommandFor for why a
   // fallback would be worse than nothing.
   const install = installCommandFor(capability, store.pluginReport?.packageManager);
+  const installable = installableCapability(capability.plugin);
+  const busy = store.capabilityInstalling === installable;
+  const installed =
+    store.capabilityInstalled?.plugin === capability.plugin
+      ? store.capabilityInstalled
+      : null;
   return (
     <div className="capability-install">
       <h4>Installing it</h4>
       <p>{capability.install.note}</p>
+
+      {/*
+        Anchorage does this one itself.
+
+        Only for a plugin the core has compiled into its own table — the button sends a
+        capability name, never a URL, which is what stops it being a way to make Anchorage
+        fetch and run something arbitrary. A distribution package is still guidance only: that
+        needs root, which the core must never have.
+      */}
+      {installable && (
+        <div className="capability-install__direct" data-testid={`capability-install-${capability.plugin}`}>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={busy}
+            onClick={() => void store.installCapability(installable)}
+          >
+            {busy ? "Installing…" : "Install for me"}
+          </button>
+          <p className="capability-install__direct-note">
+            Downloads the release binary Docker publishes on GitHub, checks it against the
+            SHA-256 that release states, and writes it to your plugin directory. No root needed
+            — that directory is yours.
+          </p>
+          <p className="capability-install__caveat">
+            The digest proves the bytes are what GitHub said that release contains. It is not a
+            publisher signature: Docker signs no release binary here, so this cannot attest who
+            built it. A CLI plugin runs with your Docker access.
+          </p>
+          {store.capabilityInstallError && busy === false && (
+            <p className="capability-install__failed" role="alert">
+              {store.capabilityInstallError}
+            </p>
+          )}
+          {installed && (
+            <div className="capability-install__done" data-testid="capability-installed">
+              <strong>
+                Installed {installed.release} to {installed.path}
+              </strong>
+              <code className="resource-mono">sha256:{installed.sha256}</code>
+            </div>
+          )}
+        </div>
+      )}
       {install ? (
         <>
           <CopyableCommand command={install.command} />

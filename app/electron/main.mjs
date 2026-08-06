@@ -43,6 +43,7 @@ import {
   validateVolumeClone,
   validateVolumeEmpty,
   validateComposeList,
+  validateCapabilityInstall,
   validateModelsAction,
   validateModelsList,
   validateModelsSearch,
@@ -919,6 +920,17 @@ function registerIpcHandlers() {
   registerHandler(IPC_CHANNELS.volumesFileRead, (request) =>
     core.request("volumes.fileRead", validateVolumeFileRead(request), { timeoutMs: 120_000 }),
   );
+  // Installing downloads a binary of up to a few hundred megabytes and verifies it before
+  // writing, so the budget is a download budget. Mutation-gated: it writes an executable into
+  // a directory the Docker CLI runs.
+  registerHandler(IPC_CHANNELS.capabilityInstall, (request) => {
+    assertMutationsEnabled();
+    return core.request(
+      "system.capabilityInstall",
+      validateCapabilityInstall(request),
+      { timeoutMs: 600_000 },
+    );
+  });
   // `docker model ls` pulls the runner image the first time it is asked, printing pull
   // progress before it answers, so this read is budgeted like a pull rather than like a list.
   // The core bounds the same call at five minutes; anything tighter here would turn a first

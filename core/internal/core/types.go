@@ -1839,3 +1839,34 @@ type ModelsActionResult struct {
 	// through session events.
 	Session *SessionStartResult `json:"session,omitempty"`
 }
+
+/* ── Installing a CLI plugin ─────────────────────────────────────────────────────────────── */
+
+type CapabilityInstallParams struct {
+	// Capability names an entry in the core's compiled-in table — `agent` or `mcp`. It is
+	// deliberately not a URL: the whole safety of this verb rests on the caller being unable
+	// to say where the bytes come from.
+	Capability string `json:"capability"`
+	// Confirmed must be true. Installing places an executable in a directory the Docker CLI
+	// scans and runs, which is closer to installing an application than to fetching a file.
+	Confirmed bool `json:"confirmed"`
+}
+
+type CapabilityInstallResult struct {
+	ProtocolVersion string `json:"protocolVersion"`
+	Capability      string `json:"capability"`
+	Plugin          string `json:"plugin"`
+	Path            string `json:"path"`
+	Repository      string `json:"repository"`
+	Release         string `json:"release"`
+	Asset           string `json:"asset"`
+	// SHA256 is the digest of the file actually written.
+	SHA256 string `json:"sha256"`
+	// AssetSHA256 is the digest the release published, which the download was verified
+	// against. For a bare binary the two are identical; for an archive they differ, because
+	// the published digest covers the tarball rather than the file extracted from it. Both are
+	// reported so the difference is visible rather than implied.
+	AssetSHA256 string `json:"assetSha256"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	InstalledAt string `json:"installedAt"`
+}
