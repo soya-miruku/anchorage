@@ -289,7 +289,7 @@
   padding: 8px 10px 8px 12px;
   border: 1px solid var(--anc-line-hairline);
   border-radius: 7px;
-  background: var(--anc-surface);
+  background: var(--anc-code);
 }
 
 .capability-command code {

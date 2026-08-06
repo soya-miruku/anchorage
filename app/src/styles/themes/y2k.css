@@ -122,7 +122,13 @@
   --anc-table-head: #f6f1e6;
   --anc-surface-elevated: #e0dacb;
   --anc-status-neutral: #6a6a64;
-  --anc-on-accent: #f6f1e6;
+  /* Near-black, unlike every other light family, because y2k's accent ramp is lime. The
+     near-white this used to hold measured 1.05 against the primary action fill, so the
+     button's label was invisible — and so were the switch knob, checkbox tick and radio dot
+     that share this token. Flipping it improves all three accent surfaces at once —
+     accent 2.86 to 6.10, primary 1.05 to 16.67, danger 4.03 to 4.33 — so there is no
+     trade-off to weigh, only a value that was wrong. y2k dark already uses this ink. */
+  --anc-on-accent: #0b0b0d;
   --anc-on-danger: #f6f1e6;
 
   --anc-accent: #7a9b00;

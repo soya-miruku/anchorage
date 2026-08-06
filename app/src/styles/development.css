@@ -1921,8 +1921,8 @@ select option {
    without this the control looked identical to an available one and simply did not respond. */
 .logs-source input[type="checkbox"]:disabled {
   cursor: not-allowed;
-  border-color: var(--anc-line);
-  background: var(--anc-surface-sunken, var(--anc-input));
+  border-color: var(--anc-line-border);
+  background: var(--anc-input);
   opacity: 0.55;
 }
 
@@ -1949,7 +1949,7 @@ select option {
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
@@ -2004,14 +2004,14 @@ select option {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--anc-line);
+  border-bottom: 1px solid var(--anc-line-border);
   font-size: 12px;
 }
 
 .activity-inbox__empty {
   margin: 0;
   padding: 16px 12px;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
   font-size: 11.5px;
   line-height: 1.5;
 }
@@ -2072,7 +2072,7 @@ select option {
 }
 
 .activity-inbox__list .activity-row + .activity-row {
-  border-top: 1px solid var(--anc-line);
+  border-top: 1px solid var(--anc-line-border);
 }
 
 /* Colour reinforces the state; the title says it. Monochrome ships, so nothing may rest on hue. */
@@ -2137,7 +2137,7 @@ select option {
   margin-top: 1px;
   font-family: var(--anc-font-mono);
   font-size: 11px;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2147,7 +2147,7 @@ select option {
   margin-top: 3px;
   font-size: 11px;
   line-height: 1.45;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
 }
 
 .activity-row--failed .activity-row__detail {
@@ -2193,7 +2193,7 @@ select option {
 .compose-service-detail dd {
   margin: 2px 0 0;
   font-size: 11.5px;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
   overflow-wrap: anywhere;
 }
 
@@ -2208,7 +2208,7 @@ select option {
   border: 1px solid var(--anc-line-strong);
   border-radius: 5px;
   background: transparent;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
   font-family: inherit;
   font-size: 10.5px;
   cursor: pointer;
@@ -2252,7 +2252,7 @@ select option {
 .appearance-hint {
   margin: -2px 0 10px;
   font-size: 11.5px;
-  color: var(--anc-text-soft, var(--anc-text-muted));
+  color: var(--anc-text-muted, var(--anc-text-muted));
 }
 
 /* Settings panes that describe what an engine cannot be asked to change, rather than listing

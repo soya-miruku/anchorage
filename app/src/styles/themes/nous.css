@@ -188,9 +188,9 @@
   --anc-update-text: #1a48d0;
 
   --anc-line-hairline: rgba(23, 23, 26, 0.055);
-  --anc-line-border: #e8eefb;
-  --anc-line-strong: #dbe4f7;
-  --anc-line-control: #c7d5f0;
+  --anc-line-border: #aaaeb8;
+  --anc-line-strong: #8f95a1;
+  --anc-line-control: #96a1b5;
 
   --anc-scrim: rgba(23, 23, 26, 0.34);
   --anc-scrim-soft: rgba(23, 23, 26, 0.24);

@@ -948,7 +948,7 @@
   margin: 0 0 10px;
   font-size: 12px;
   line-height: 1.55;
-  color: var(--anc-text-soft);
+  color: var(--anc-text-muted);
 }
 
 .rebind-dialog__losses {
@@ -1008,7 +1008,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--anc-line);
+  border-bottom: 1px solid var(--anc-line-border);
   background: rgb(var(--anc-accent-rgb) / 5%);
   font-size: 11px;
   color: var(--anc-text-muted);

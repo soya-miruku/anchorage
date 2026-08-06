@@ -180,9 +180,9 @@
   --anc-update-text: #4a453e;
 
   --anc-line-hairline: rgba(0, 0, 0, 0.05);
-  --anc-line-border: #d8d1c0;
-  --anc-line-strong: #bdb5a2;
-  --anc-line-control: #bdb5a2;
+  --anc-line-border: #b2ac9e;
+  --anc-line-strong: #999384;
+  --anc-line-control: #a59e8d;
   --anc-control-neutral: #675f54;
   --anc-control-neutral-hover: #544f46;
   --anc-control-close: #cf5340;
