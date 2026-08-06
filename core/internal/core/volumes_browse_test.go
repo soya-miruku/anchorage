@@ -1,6 +1,10 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestVolumePathsAreScopedToTheVolumeRoot(t *testing.T) {
 	// The operator browses the volume as if it were the filesystem root; internally that is
@@ -106,5 +110,45 @@ func TestParkVolumeHelperKeepsOnlyOneAndHoldsIt(t *testing.T) {
 	}
 	if _, ok := service.parkedHelpers["vol-b\x00ro"]; !ok {
 		t.Fatal("the newest helper should be the one kept")
+	}
+}
+
+func TestArchiveScanBoundsAreBothNeeded(t *testing.T) {
+	/*
+		Measured against a real 625 GB volume: asking the archive endpoint for `/` returned the
+		first top-level entry immediately, then descended into it and streamed 1,053 MB in two
+		seconds without ever reaching the second one. The endpoint returns a directory's whole
+		subtree, depth-first, so every direct child after the first sits behind everything
+		beneath it.
+
+		An entry count cannot bound that on its own, because 20,000 entries can be any number
+		of bytes — which is why the byte and time bounds exist alongside it. This pins that all
+		three are present and that none has been widened into uselessness.
+	*/
+	if maxArchiveScanBytes <= 0 || maxArchiveScanBytes > 256*1024*1024 {
+		t.Fatalf("byte bound is %d — a listing that streams more than a few hundred MB is not a listing", maxArchiveScanBytes)
+	}
+	if maxArchiveScanTime <= 0 || maxArchiveScanTime > 30*time.Second {
+		t.Fatalf("time bound is %v — the point is to fail fast rather than stall", maxArchiveScanTime)
+	}
+	if maxArchiveDescendants <= 0 {
+		t.Fatal("the descendant bound is still needed for directories with many tiny files")
+	}
+}
+
+func TestVolumeArchiveTooLargeNamesTheMechanism(t *testing.T) {
+	// "Listing failed" is not actionable. Knowing the directory is fine and the method is not
+	// tells the operator the volume is intact and this is Anchorage's limitation.
+	err := volumeArchiveTooLarge("/anchorage-volume", 1_053_000_000, 1)
+	if err.Code != "volume_directory_too_large" {
+		t.Fatalf("code = %q", err.Code)
+	}
+	if !strings.Contains(err.Message, "whole subtree") {
+		t.Fatalf("the message must name why, got %q", err.Message)
+	}
+	// The count is the tell: on a very large volume it is usually one, which makes the shape
+	// of the problem obvious without reading any code.
+	if err.Details["entriesFound"] != 1 || err.Details["bytesScanned"] != int64(1_053_000_000) {
+		t.Fatalf("details = %v", err.Details)
 	}
 }

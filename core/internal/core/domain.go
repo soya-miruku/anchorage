@@ -3024,15 +3024,61 @@ func (s *Service) imagesInspect(parent context.Context, params ImagesInspectPara
 	}, nil
 }
 
+// countingReader records how much of a stream has actually been pulled, which io.Reader does
+// not otherwise expose to a caller sitting above tar.Reader.
+type countingReader struct {
+	inner io.Reader
+	read  int64
+}
+
+func (c *countingReader) Read(buffer []byte) (int, error) {
+	n, err := c.inner.Read(buffer)
+	c.read += int64(n)
+	return n, err
+}
+
+/*
+The refusal that replaces a three-minute stall.
+
+It names the mechanism, because the operator cannot act on "listing failed" and can act on
+knowing the directory is fine and the method is not. The count of entries found before giving
+up is included: on a very large volume it is usually one, which makes the shape of the problem
+obvious at a glance.
+*/
+func volumeArchiveTooLarge(target string, bytesRead int64, found int) *OpError {
+	return opError("volume_directory_too_large",
+		"This directory is too large to list through the Docker archive endpoint, which returns a directory's whole subtree rather than just its children. Listing stopped rather than streaming the volume.",
+		nil, map[string]any{
+			"path":         target,
+			"bytesScanned": bytesRead,
+			"entriesFound": found,
+		})
+}
+
 const (
 	// A directory listing is capped so browsing "/" cannot stream an entire filesystem.
 	maxFileEntries = 500
 	// Single-file reads are bounded; this is a browser, not a download manager.
 	maxFileReadBytes = 1 * 1024 * 1024
-	// The archive endpoint returns a directory's whole subtree. Entries that are not direct
-	// children never reach the entry cap, so without a separate bound a listing of a shallow
-	// directory could stream an entire volume through the socket.
+	/*
+		The archive endpoint returns a directory's whole subtree, depth-first, and that is the
+		hard limit on this way of listing. Measured against a 625 GB volume: asking for `/`
+		returned the first top-level entry immediately, then descended into it and streamed
+		1,053 MB in two seconds without reaching the second one. To see every direct child of
+		that directory you must stream everything beneath the first — hundreds of gigabytes —
+		so the listing either times out or comes back missing most of its entries.
+
+		An entry count alone does not bound this, because 20,000 entries can be any number of
+		bytes. Both bounds are needed, and neither is a fix: they turn a three-minute stall
+		into a fast, explicit refusal that names the cause. The fix is to stop listing through
+		this endpoint at all; `volumeArchiveTooLarge` below is what says so to the operator.
+	*/
 	maxArchiveDescendants = 20000
+	// Roughly a second of streaming on a fast local socket, and far more than any real
+	// directory listing needs.
+	maxArchiveScanBytes = 64 * 1024 * 1024
+	// Belt and braces for a slow socket, where the byte cap alone could still take minutes.
+	maxArchiveScanTime = 8 * time.Second
 
 	// Browsing creates and removes a helper container, so it is slower than a plain read.
 	volumeBrowseTimeout = 90 * time.Second
@@ -3118,7 +3164,11 @@ func listArchiveChildren(ctx context.Context, client *engineClient, containerID,
 	entries := []ContainerFileEntry{}
 	truncated := false
 	descendants := 0
-	reader := tar.NewReader(body)
+	// Counted rather than inferred: the tar reader skips file bodies without reporting how much
+	// it consumed, so the byte bound has to sit under it on the stream itself.
+	counter := &countingReader{inner: body}
+	deadline := time.Now().Add(maxArchiveScanTime)
+	reader := tar.NewReader(counter)
 	for {
 		header, readErr := reader.Next()
 		if errors.Is(readErr, io.EOF) {
@@ -3140,9 +3190,14 @@ func listArchiveChildren(ctx context.Context, client *engineClient, containerID,
 			// the walk abandoned once they dominate, which bounds the read by depth rather
 			// than by the caller's patience.
 			descendants++
-			if descendants > maxArchiveDescendants {
-				truncated = true
-				break
+			if descendants > maxArchiveDescendants ||
+				counter.read > maxArchiveScanBytes ||
+				time.Now().After(deadline) {
+				// Abandoned rather than pursued. Reaching any of these means the first child
+				// has a subtree large enough that the remaining direct children are unreachable
+				// through this endpoint, so the honest outcome is a named refusal rather than a
+				// listing that silently omits most of the directory.
+				return nil, false, volumeArchiveTooLarge(target, counter.read, len(entries))
 			}
 			continue
 		}
