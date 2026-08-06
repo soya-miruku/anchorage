@@ -369,6 +369,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 				nil, map[string]any{"capability": params.Capability})
 		}
 		return s.capabilityInstall(ctx, params)
+	case "agents.list":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params AgentsListParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.agentsList(ctx, params)
 	case "models.list":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

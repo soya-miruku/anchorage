@@ -1368,6 +1368,7 @@ export interface AnchorageBridge {
   readonly enginePlugins: EnginePluginOperations;
   readonly builds: BuildsOperations;
   readonly models: ModelsOperations;
+  readonly agents: AgentsOperations;
   readonly capabilities: CapabilityOperations;
   readonly volumes: VolumesOperations;
   readonly networks: NetworksOperations;
@@ -1486,6 +1487,9 @@ export interface HostAnchorageApi {
       capability: string;
       confirmed: true;
     }) => Promise<unknown>;
+  };
+  agents?: {
+    list: (request: { context: string }) => Promise<unknown>;
   };
   models?: {
     list: (request: { context: string }) => Promise<unknown>;
@@ -2118,6 +2122,46 @@ export interface CapabilityInstallResult {
 
 export interface CapabilityOperations {
   install(capability: InstallableCapability): Promise<CapabilityInstallResult>;
+}
+
+export interface AgentModel {
+  provider: string;
+  model: string;
+  default?: boolean;
+}
+
+export interface AgentToolset {
+  type: string;
+  summary?: string;
+  docs?: string;
+}
+
+/**
+ * `configured` reports what is visible to the Anchorage process, not what exists on the
+ * machine. Docker Agent reads credentials from environment variables, so a key exported in a
+ * shell profile is invisible to an app launched from a desktop entry — the screen says that
+ * rather than reporting the key as absent.
+ */
+export interface AgentProvider {
+  provider: string;
+  credentials: string[];
+  configured: boolean;
+}
+
+export interface AgentsListResult {
+  protocolVersion: "1";
+  context: string;
+  models: AgentModel[];
+  toolsets: AgentToolset[];
+  providers: AgentProvider[];
+  configPath?: string;
+  configStatus?: string;
+  telemetryDisabled: boolean;
+  observedAt: string;
+}
+
+export interface AgentsOperations {
+  list(context?: string): Promise<AgentsListResult>;
 }
 
 export interface ModelsOperations {

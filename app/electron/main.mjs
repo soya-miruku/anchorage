@@ -44,6 +44,7 @@ import {
   validateVolumeEmpty,
   validateComposeList,
   validateCapabilityInstall,
+  validateAgentsList,
   validateModelsAction,
   validateModelsList,
   validateModelsSearch,
@@ -931,6 +932,11 @@ function registerIpcHandlers() {
       { timeoutMs: 600_000 },
     );
   });
+  // Three JSON reads of local config plus a provider table. The plugin prints a first-run
+  // banner before answering, which costs nothing, so this is budgeted as an ordinary read.
+  registerHandler(IPC_CHANNELS.agentsList, (request) =>
+    core.request("agents.list", validateAgentsList(request), { timeoutMs: 120_000 }),
+  );
   // `docker model ls` pulls the runner image the first time it is asked, printing pull
   // progress before it answers, so this read is budgeted like a pull rather than like a list.
   // The core bounds the same call at five minutes; anything tighter here would turn a first

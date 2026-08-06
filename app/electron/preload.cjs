@@ -36,6 +36,7 @@ const CHANNELS = Object.freeze({
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
   capabilityInstall: "anchorage:system.capabilityInstall",
+  agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
@@ -1268,6 +1269,12 @@ const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
 // boundary is what stops one being constructed here in the first place.
 const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
 
+function agentsList(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context"]), "request");
+  return { context: context(value.context) };
+}
+
 function modelsList(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context"]), "request");
@@ -2297,6 +2304,8 @@ function invoke(method, payload) {
       return call(CHANNELS.volumesEmpty, volumeEmpty(payload));
     case "system.capabilityInstall":
       return call(CHANNELS.capabilityInstall, capabilityInstall(payload));
+    case "agents.list":
+      return call(CHANNELS.agentsList, agentsList(payload));
     case "models.list":
       return call(CHANNELS.modelsList, modelsList(payload));
     case "models.search":
@@ -2396,6 +2405,9 @@ const api = Object.freeze({
   capabilities: Object.freeze({
     install: (request) =>
       call(CHANNELS.capabilityInstall, capabilityInstall(request)),
+  }),
+  agents: Object.freeze({
+    list: (request) => call(CHANNELS.agentsList, agentsList(request)),
   }),
   models: Object.freeze({
     list: (request) => call(CHANNELS.modelsList, modelsList(request)),

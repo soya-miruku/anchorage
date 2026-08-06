@@ -49,6 +49,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "volumes.clone",
   "volumes.empty",
   "system.capabilityInstall",
+  "agents.list",
   "models.list",
   "models.search",
   "models.action",
@@ -129,6 +130,7 @@ export const IPC_CHANNELS = Object.freeze({
   volumesClone: "anchorage:volumes.clone",
   volumesEmpty: "anchorage:volumes.empty",
   capabilityInstall: "anchorage:system.capabilityInstall",
+  agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
@@ -1236,6 +1238,12 @@ const MODEL_SEARCH_SOURCES = new Set(["docker-hub", "huggingface", "all"]);
 // A model reference becomes an argv element, so the shapes that would be re-read as a flag are
 // refused here as well as in the core.
 const MODEL_REFERENCE = /^(?!-)[^\u0000\r\n\t ]+$/u;
+
+export function validateAgentsList(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(value, new Set(["context"]), "request");
+  return { context: validateContext(value.context) };
+}
 
 export function validateModelsList(value) {
   assertPlainObject(value, "request");

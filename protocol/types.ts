@@ -900,6 +900,7 @@ export type RPCRequest =
   | ContainersRebindPortsRequest
   | ContainersExportRequest
   | CapabilityInstallRequest
+  | AgentsListRequest
   | ModelsListRequest
   | ModelsSearchRequest
   | ModelsActionRequest
@@ -1874,6 +1875,56 @@ export interface CapabilityInstallResult {
   assetSha256: string;
   sizeBytes: number;
   installedAt: string;
+}
+
+/**
+ * Docker Agent.
+ *
+ * Deliberately a read, and only a read. `docker agent run` is an interactive terminal
+ * application; reimplementing it here would mean building a chat client and claiming parity
+ * with a TUI that changes weekly. This answers what a GUI is actually good at — whether the
+ * machine is set up to run an agent at all, and with what.
+ */
+export interface AgentsListRequest {
+  id: RequestId;
+  method: "agents.list";
+  params: { context: string };
+}
+
+export interface AgentModel {
+  provider: string;
+  model: string;
+  default?: boolean;
+}
+
+export interface AgentToolset {
+  type: string;
+  summary?: string;
+  docs?: string;
+}
+
+/**
+ * `configured` reports what is visible to the Anchorage process, not what exists. Docker Agent
+ * reads credentials from environment variables, so a key exported in a shell profile is
+ * invisible to an app started from a desktop launcher.
+ */
+export interface AgentProvider {
+  provider: string;
+  credentials: string[];
+  configured: boolean;
+}
+
+export interface AgentsListResult {
+  protocolVersion: "1";
+  context: string;
+  models: AgentModel[];
+  toolsets: AgentToolset[];
+  providers: AgentProvider[];
+  configPath?: string;
+  configStatus?: string;
+  /** Anchorage set TELEMETRY_ENABLED=false for its own calls; the operator's terminal is not affected. */
+  telemetryDisabled: boolean;
+  observedAt: string;
 }
 
 export interface ModelsListRequest {

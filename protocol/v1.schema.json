@@ -47,6 +47,7 @@
         { "$ref": "#/$defs/containersRebindPortsRequest" },
         { "$ref": "#/$defs/containersExportRequest" },
         { "$ref": "#/$defs/capabilityInstallRequest" },
+        { "$ref": "#/$defs/agentsListRequest" },
         { "$ref": "#/$defs/modelsListRequest" },
         { "$ref": "#/$defs/modelsSearchRequest" },
         { "$ref": "#/$defs/modelsActionRequest" },
@@ -602,6 +603,23 @@
               "comment": "Installing places an executable in a directory the Docker CLI scans and runs. That is closer to installing an application than to fetching a file, so it is gated like the other destructive verbs.",
               "const": true
             }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentsListRequest": {
+      "type": "object",
+      "required": ["id", "method", "params"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "method": { "const": "agents.list" },
+        "params": {
+          "type": "object",
+          "required": ["context"],
+          "properties": {
+            "context": { "type": "string", "minLength": 1, "maxLength": 255 }
           },
           "additionalProperties": false
         }

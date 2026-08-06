@@ -340,3 +340,165 @@ accent-tinted background fails AA in at least one mode of at least one family, w
   font-size: 10.5px;
   color: var(--anc-text-dimmer);
 }
+
+/* ── Docker Agent ─────────────────────────────────────────────────────────────────────── */
+
+.agents-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 28px;
+  overflow-y: auto;
+}
+
+.agents-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agents-header h1 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--anc-text-primary);
+}
+
+.agents-header p {
+  margin: 0;
+  max-width: 66ch;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--anc-text-secondary);
+}
+
+.agents-header code,
+.agents-block__note code,
+.agents-footer code {
+  font-family: var(--anc-font-mono);
+  font-size: 0.94em;
+  color: var(--anc-text-mono);
+}
+
+.agents-posture {
+  margin: 0;
+  max-width: 88ch;
+  padding: 10px 12px;
+  border-left: 2px solid var(--anc-line-strong);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--anc-text-muted);
+}
+
+.agents-block h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--anc-text-faint);
+}
+
+.agents-block__note {
+  margin: 0 0 10px;
+  max-width: 80ch;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--anc-text-muted);
+}
+
+.agent-models,
+.agent-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-models li,
+.agent-providers li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 13px;
+  border: 1px solid var(--anc-line-border);
+  border-radius: 8px;
+  background: var(--anc-panel);
+}
+
+.agent-models__provider,
+.agent-providers__name {
+  min-width: 110px;
+  font-size: 11px;
+  color: var(--anc-text-faint);
+}
+
+.agent-models__model {
+  font-family: var(--anc-font-mono);
+  font-size: 12px;
+  color: var(--anc-text-primary);
+}
+
+.agent-models__default {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--anc-success);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--anc-success-fg);
+}
+
+.agent-providers code {
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  color: var(--anc-text-dimmer);
+}
+
+/*
+A dense grid rather than cards: twenty-six toolsets is a reference list to scan, not a set of
+things to act on, and one card each would push the footer off the first screen.
+*/
+.agent-toolsets {
+  display: grid;
+  grid-template-columns: minmax(130px, max-content) 1fr;
+  gap: 5px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-toolsets li {
+  display: contents;
+}
+
+.agent-toolsets__type {
+  font-family: var(--anc-font-mono);
+  font-size: 11px;
+  color: var(--anc-text-secondary);
+}
+
+.agent-toolsets__summary {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--anc-text-dimmer);
+}
+
+.agents-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--anc-line-hairline);
+}
+
+.agents-footer p {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--anc-text-faint);
+}

@@ -34,6 +34,7 @@ import type {
   ComposeActionParams,
   ComposeActionResult,
   ComposeListResult,
+  AgentsListResult,
   BuildsListResult,
   CapabilityInstallResult,
   InstallableCapability,
@@ -975,6 +976,10 @@ class FixtureBridge implements AnchorageBridge {
     install: async () => fixtureUnsupported("system.capabilityInstall"),
   };
 
+  readonly agents = {
+    list: async () => fixtureUnsupported("agents.list"),
+  };
+
   readonly models = {
     list: async () => fixtureUnsupported("models.list"),
     search: async () => fixtureUnsupported("models.search"),
@@ -1678,6 +1683,26 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as CapabilityInstallResult;
   };
+  const agentsList = async (context: string) => {
+    const request = { context };
+    const result = host.agents
+      ? await host.agents.list(request)
+      : host.invoke
+        ? await host.invoke("agents.list", request)
+        : await Promise.reject(new Error("Docker Agent is unavailable"));
+    const raw = requireObjectResult(result, "agents.list");
+    // `models` decides whether the plugin answered at all. Toolsets and providers come from
+    // supplementary reads the core lets fail, so they are defaulted rather than demanded.
+    if (!Array.isArray(raw.models)) {
+      throw new Error("agents.list returned an incomplete result");
+    }
+    const cloned = structuredClone(raw) as unknown as AgentsListResult;
+    return {
+      ...cloned,
+      toolsets: cloned.toolsets ?? [],
+      providers: cloned.providers ?? [],
+    };
+  };
   const modelsList = async (context: string) => {
     const request = { context };
     const result = host.models
@@ -2088,6 +2113,9 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     capabilities: {
       install: capabilityInstall,
+    },
+    agents: {
+      list: (context = "default") => agentsList(context),
     },
     models: {
       list: (context = "default") => modelsList(context),

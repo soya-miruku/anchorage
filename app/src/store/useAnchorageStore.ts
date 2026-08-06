@@ -65,6 +65,7 @@ import type {
   SessionStartResult,
   BuildRecord,
   BuildBuilder,
+  AgentsListResult,
   CapabilityInstallResult,
   DockerModel,
   InstallableCapability,
@@ -559,6 +560,11 @@ export function useAnchorageStore() {
   >(null);
   const [capabilityInstalled, setCapabilityInstalled] =
     useState<CapabilityInstallResult | null>(null);
+  const [agentReport, setAgentReport] = useState<AgentsListResult | null>(null);
+  const [agentsStatus, setAgentsStatus] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
+  const [agentsError, setAgentsError] = useState<string | null>(null);
   const [models, setModels] = useState<DockerModel[]>([]);
   const [modelRunner, setModelRunner] = useState<ModelRunnerStatus>({
     running: false,
@@ -3286,6 +3292,33 @@ export function useAnchorageStore() {
   }, []);
 
   /**
+   * Reads what Docker Agent can do on this machine.
+   *
+   * Not what agents exist — there is no such list, because an agent is a YAML file the operator
+   * points `docker agent run` at. What a GUI can usefully answer is whether the machine is set
+   * up at all: which models are reachable, which tool types an agent could be granted, and
+   * which provider credentials are visible.
+   */
+  const refreshAgents = useCallback(async () => {
+    if (!isHost) return;
+    setAgentsStatus((current) => (current === "ready" ? "ready" : "loading"));
+    try {
+      const result = await bridge.agents.list(dockerContextRef.current);
+      setAgentReport(result);
+      setAgentsStatus("ready");
+      setAgentsError(null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "Docker Agent unavailable";
+      setAgentReport(null);
+      setAgentsStatus(
+        /agents_unavailable|not installed/iu.test(message) ? "unavailable" : "error",
+      );
+      setAgentsError(message);
+    }
+  }, [bridge, isHost]);
+
+  /**
    * Reads Model Runner: what is pulled, whether the runner is up, and what it costs on disk.
    *
    * One call backs the whole screen because the three answers only mean something together.
@@ -4569,6 +4602,9 @@ export function useAnchorageStore() {
     volumes,
     volumeSummary,
     volumeMutationPending,
+    agentReport,
+    agentsStatus,
+    agentsError,
     capabilityInstalling,
     capabilityInstallError,
     capabilityInstalled,
@@ -4744,6 +4780,7 @@ export function useAnchorageStore() {
     pruneVolumes,
     setSelectedBuildId,
     retryEngine,
+    refreshAgents,
     installCapability,
     dismissCapabilityInstall,
     refreshModels,

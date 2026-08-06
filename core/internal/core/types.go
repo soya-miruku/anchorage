@@ -1870,3 +1870,55 @@ type CapabilityInstallResult struct {
 	SizeBytes   int64  `json:"sizeBytes"`
 	InstalledAt string `json:"installedAt"`
 }
+
+/* ── Docker Agent ────────────────────────────────────────────────────────────────────────── */
+
+// AgentModel is one model an agent can be pointed at, from `docker agent models --format json`.
+type AgentModel struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Default  bool   `json:"default,omitempty"`
+}
+
+// AgentToolset is one tool type an agent configuration can grant, with Docker's own summary.
+type AgentToolset struct {
+	Type    string `json:"type"`
+	Summary string `json:"summary,omitempty"`
+	Docs    string `json:"docs,omitempty"`
+}
+
+/*
+AgentProvider is one model provider and whether its credential is visible.
+
+`Configured` is deliberately not called "present". Docker Agent reads credentials from
+environment variables, so this reports what is visible to the Anchorage process — a key exported
+in a shell profile is invisible to an app started from a desktop launcher, and the screen says
+that rather than reporting the key as missing.
+*/
+type AgentProvider struct {
+	Provider string `json:"provider"`
+	// Credentials are the environment variables this provider would be read from.
+	Credentials []string `json:"credentials"`
+	Configured  bool     `json:"configured"`
+}
+
+type AgentsListParams struct {
+	Context string `json:"context"`
+}
+
+type AgentsListResult struct {
+	ProtocolVersion string          `json:"protocolVersion"`
+	Context         string          `json:"context"`
+	Models          []AgentModel    `json:"models"`
+	Toolsets        []AgentToolset  `json:"toolsets"`
+	Providers       []AgentProvider `json:"providers"`
+	// ConfigPath and ConfigStatus come from `doctor`, which is supplementary: an unreadable
+	// report leaves them empty rather than failing the read.
+	ConfigPath   string `json:"configPath,omitempty"`
+	ConfigStatus string `json:"configStatus,omitempty"`
+	// TelemetryDisabled records that Anchorage set TELEMETRY_ENABLED=false for its own calls.
+	// Reported rather than assumed, so the screen states a fact about what it did rather than
+	// a claim about the operator's own terminal, where the default still applies.
+	TelemetryDisabled bool   `json:"telemetryDisabled"`
+	ObservedAt        string `json:"observedAt"`
+}
