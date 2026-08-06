@@ -18,10 +18,18 @@ docs/design-qa/comparisons/
 docs/design-qa/actual/
 docs/design-qa/invalid/
 
-# Regenerated diff and contact-sheet output (~50 MB). The release evidence under
-# artifacts/docker, artifacts/performance and artifacts/security IS committed — that bundle
-# is what a release is judged against.
-artifacts/design/
+# Every generated artefact, including the release evidence bundle that used to be committed.
+#
+# artifacts/host-candidate/ is the reason. Those captures are of a REAL Docker daemon — this
+# machine's own containers, images and published ports — taken to prove the app works against
+# something other than fixtures. They are evidence, they are not publishable, and the difference
+# was not visible from the directory name. The JSON under artifacts/docker/ names the same
+# projects. artifacts/design/ was already ignored for size.
+#
+# Nothing in `npm test` needs any of it: the checks that cite a digest generated into artifacts/
+# run only when the file is present, and say so when it is not. A release is still judged against
+# the bundle; the bundle is now produced and kept locally rather than versioned.
+artifacts/
 
 # Local environment. No .env exists today; this is here so one never lands by accident.
 .env
