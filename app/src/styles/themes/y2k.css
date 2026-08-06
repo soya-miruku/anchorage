@@ -70,19 +70,17 @@
   --anc-text-body: #cfcabf;
   --anc-text-mono: #cfcabf;
   --anc-text-secondary: #a8a89e;
-  --anc-text-muted: #9c9c97;
-  --anc-text-dim: #7d7d78;
-  --anc-text-dimmer: #8e8e89;
-  --anc-text-faint: #7f7f7a;
-  --anc-text-quiet: #5a5a52;
-  --anc-text-subdued: #6f6f68;
-  --anc-text-emphasis-muted: #a8a89e;
+  --anc-text-muted: #8b8b86;
+  --anc-text-dim: #888881;
+  --anc-text-dimmer: #85857c;
+  --anc-text-faint: #7f7f77;
+  --anc-text-quiet: #7f7f77;
   --anc-update-text: #a8a89e;
 
-  --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #4e4e51;
-  --anc-line-strong: #626265;
-  --anc-line-control: #59595c;
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-border: #2a2a2e;
+  --anc-line-strong: #4a4a4e;
+  --anc-line-control: #4a4a4e;
   --anc-control-neutral: #6f6f68;
   --anc-control-neutral-hover: #8b8b86;
   --anc-control-close: #5c1d14;
@@ -108,7 +106,7 @@
   --anc-terminal-white: #efe9da;
 
   /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
-  --anc-frame-shadow: 14px 14px 0 rgba(0,0,0,0.6), 0 0 0 1.5px #2a2a2e;
+  --anc-frame-shadow: 14px 14px 0 rgba(0, 0, 0, 0.6), 0 0 0 1.5px #2a2a2e;
 }
 
 :root[data-theme="y2k"][data-color-mode="light"] {
@@ -179,15 +177,13 @@
   --anc-text-mono: #24242a;
   --anc-text-secondary: #3a3a36;
   --anc-text-muted: #4a4a4e;
-  --anc-text-dim: #5a5a52;
+  --anc-text-dim: #5a5a59;
   --anc-text-dimmer: #6a6a64;
-  --anc-text-faint: #6e6e67;
-  --anc-text-quiet: #8b8b86;
-  --anc-text-subdued: #6a6a64;
-  --anc-text-emphasis-muted: #3a3a36;
+  --anc-text-faint: #6e6e68;
+  --anc-text-quiet: #6e6e68;
   --anc-update-text: #3a3a36;
 
-  --anc-line-hairline: rgba(0, 0, 0, 0.05);
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
   --anc-line-border: #0b0b0d;
   --anc-line-strong: #0b0b0d;
   --anc-line-control: #0b0b0d;

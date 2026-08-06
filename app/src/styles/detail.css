@@ -233,7 +233,7 @@
 .log-level {
   width: 44px;
   flex: none;
-  color: var(--anc-text-subdued);
+  color: var(--anc-text-dimmer);
 }
 
 .log-level--warn {
@@ -363,7 +363,7 @@
 }
 
 .terminal-line--output {
-  color: var(--anc-text-emphasis-muted);
+  color: var(--anc-text-secondary);
 }
 
 .terminal-prompt {

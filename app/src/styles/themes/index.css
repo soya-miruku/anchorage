@@ -15,6 +15,34 @@
  * handoff. Runtime code selects a family and mode with data-theme and
  * data-color-mode on the document element, and a corner style with data-corners — v2.5
  * separates shape from palette, so a family suggests a default that the operator can override.
+ *
+ * Every surface, line and palette value in the six families below is the handoff's, verbatim.
+ * Two groups are not, and both are deliberate:
+ *
+ * LINES. The handoff draws four registers — `--hairline`, `--bd-soft`, `--bd`, `--bd-strong` —
+ * and the app keeps four under its own names. `--anc-line-hairline` is the handoff's
+ * `--hairline`, a color-mix of the border rather than a literal, so the seam stays in the
+ * family's hue and follows the border whenever it moves. `--anc-line-control` and
+ * `--anc-line-strong` both resolve to `--bd-strong`, which is what the handoff draws inputs,
+ * toggle rings and dashed wells with; they are two names for one register today and stay
+ * separate because they carry different intent.
+ *
+ * These edges measure 1.28-1.50 against the panel, and that is the design rather than a
+ * shortfall. They were once pushed to 2.2-3.0 on the reading that WCAG 1.4.11 wants 3:1 from
+ * any visible boundary. It does not — 1.4.11 covers the boundary of a control where that
+ * boundary is what identifies it, not a separator between two regions. Raising them turned
+ * every tinted hairline in the product into a hard grey rule, which is what "the separation
+ * lines look out of place" was. Structure in this design comes from the surface stack
+ * (desk / app / panel / well / muted / header) and the frame shadow, not from outlining.
+ *
+ * INK. `--anc-text-secondary` and `--anc-text-muted` are the handoff's `--fg-2` and `--fg-3`
+ * and clear AA everywhere. `--anc-text-dimmer` and `--anc-text-faint` do not: the handoff's
+ * `--fg-5` and `--fg-6` measure 2.7-4.0 on panel in dark mode, and they carry 130 call sites
+ * of 10-11px label between them. Each is lifted by the smallest step toward `--fg-2` — the top
+ * of the recessive ramp, so the step stays in its own hue family — that reaches 4.5, and the
+ * pair is spread rather than both pinned to the floor, so three levels do not collapse into
+ * one. `--anc-text-dim` sits at the midpoint of muted and dimmer; `--anc-text-quiet` is the
+ * faintest step there is and takes `faint` rather than inventing a level below the floor.
  */
 
 /*

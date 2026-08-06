@@ -25,7 +25,7 @@
   /* Not --anc-on-accent's value: this family's accent is light but its primary
      action fill is a deep red, so one ink cannot serve both. Dark ink measured
      3.74 on the button while reading 9.99 on the accent surfaces. */
-  --anc-on-action: #fffdf8;
+  --anc-on-action: #fdf3e7;
   --anc-on-danger: #ffffff;
 
   --anc-accent: #ecb52f;
@@ -73,19 +73,17 @@
   --anc-text-body: #d8cfbf;
   --anc-text-mono: #cfc6b6;
   --anc-text-secondary: #a8a29a;
-  --anc-text-muted: #9e9991;
-  --anc-text-dim: #8a857d;
-  --anc-text-dimmer: #928d87;
-  --anc-text-faint: #85817b;
-  --anc-text-quiet: #5e5a54;
-  --anc-text-subdued: #7c776f;
-  --anc-text-emphasis-muted: #a8a29a;
+  --anc-text-muted: #98938b;
+  --anc-text-dim: #948f87;
+  --anc-text-dimmer: #908a82;
+  --anc-text-faint: #868179;
+  --anc-text-quiet: #868179;
   --anc-update-text: #a8a29a;
 
-  --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #53514f;
-  --anc-line-strong: #696562;
-  --anc-line-control: #5f5b58;
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-border: #302d2b;
+  --anc-line-strong: #45403c;
+  --anc-line-control: #45403c;
   --anc-control-neutral: #7c776f;
   --anc-control-neutral-hover: #98938b;
   --anc-control-close: #6e2029;
@@ -111,7 +109,7 @@
   --anc-terminal-white: #ece4d6;
 
   /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
-  --anc-frame-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.09);
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.09);
 }
 
 :root[data-theme="magnetic"][data-color-mode="light"] {
@@ -127,7 +125,7 @@
   --anc-surface-elevated: #e8e2d4;
   --anc-status-neutral: #675f54;
   --anc-on-accent: #fffdf8;
-  --anc-on-action: #fffdf8;
+  --anc-on-action: #fdf8ee;
   --anc-on-danger: #fffdf8;
 
   --anc-accent: #8a5f10;
@@ -176,18 +174,16 @@
   --anc-text-mono: #292622;
   --anc-text-secondary: #4a453e;
   --anc-text-muted: #544f46;
-  --anc-text-dim: #5d574d;
+  --anc-text-dim: #5e574d;
   --anc-text-dimmer: #675f54;
   --anc-text-faint: #6f675b;
-  --anc-text-quiet: #786f62;
-  --anc-text-subdued: #675f54;
-  --anc-text-emphasis-muted: #4a453e;
+  --anc-text-quiet: #6f675b;
   --anc-update-text: #4a453e;
 
-  --anc-line-hairline: rgba(0, 0, 0, 0.05);
-  --anc-line-border: #b2ac9e;
-  --anc-line-strong: #999384;
-  --anc-line-control: #a59e8d;
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-border: #d8d1c0;
+  --anc-line-strong: #bdb5a2;
+  --anc-line-control: #bdb5a2;
   --anc-control-neutral: #675f54;
   --anc-control-neutral-hover: #544f46;
   --anc-control-close: #cf5340;
@@ -213,5 +209,5 @@
   --anc-terminal-white: #171614;
 
   /* v2.5 makes the app frame's shadow a theme decision; Y2K uses a hard offset, not a blur. */
-  --anc-frame-shadow: 0 30px 70px rgba(0,0,0,0.16), 0 0 0 1px rgba(0,0,0,0.07);
+  --anc-frame-shadow: 0 30px 70px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.07);
 }

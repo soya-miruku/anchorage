@@ -4,38 +4,34 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 /**
- * Whether a surface has an edge you can see, in every theme and both modes.
+ * Whether each theme is still the theme the handoff describes.
  *
- * `theme-integrity.test.mjs` covers ink: status foregrounds move away from their fill, the
- * fixtures name no raw hex, and no stylesheet paints status text with a fill token. All of that
- * is about text, and text was not what went wrong.
+ * This file used to be a contrast ratchet: it recorded what every surface and edge measured and
+ * failed if any of them got flatter. The intent was right and the standard was wrong. It read
+ * WCAG 1.4.11 as asking 3:1 of any visible boundary, so it drove `--anc-line-border` and
+ * `--anc-line-strong` from the handoff's 1.28-1.50 against the panel up to 2.2-3.0 in all twelve
+ * combinations. 1.4.11 does not ask that. It covers the boundary of a control where that boundary
+ * is what identifies the control — not a separator between two regions, and not a card edge.
  *
- * The report was "it looks very ugly especially in light mode". Measuring the ink ramp said that
- * could not be it — light mode is *better* than dark on every text token (nous/light muted 7.26
- * against nous/dark 5.16), and every below-AA failure in the set was a dark mode one. What was
- * actually weak was structure. A card is drawn as `--anc-panel` inside `--anc-app` with a
- * `--anc-line-border` edge, and in light mode those three were nearly the same colour:
- * nous/light measured panel:app 1.044 and border:panel 1.163, against a 3:1 minimum for a
- * non-text boundary. Light read worse than dark for two compounding reasons — it had less
- * separation to start with (1.044 against dark's 1.114) and equal ratios are harder to see at
- * high luminance, so a near-white card on a near-white page with a near-white border had no edge
- * at all. The tell was y2k/light, the one light theme with a real border, and the one nobody
- * complained about.
+ * What the ratchet actually produced was a hard grey rule everywhere the design wanted a tinted
+ * hairline, in every family and both modes at once, reported as "our separation lines, border
+ * colors, size and shape of badges, many small things like this so out of place". The same pass
+ * replaced the handoff's `--hairline` — a color-mix of the border, so it carries the family's hue
+ * — with a flat white or black wash, and lifted six steps of the recessive ink ramp onto so few
+ * distinct values that github/light collapsed `--fg-2` through `--fg-7` onto one colour.
  *
- * The light-mode line tokens have since been raised, and given a hierarchy they did not have:
- * `strong` used to measure *weaker* than `control` in four of six families, which is backwards
- * for a token by that name. Light now runs border 2.2, control 2.6, strong 3.0. `hairline` was
- * deliberately left alone — it is a decorative seam, invisible everywhere, and the last test
- * here pins that so nobody mistakes it for a divider.
- *
- * Dark mode was not changed and is now the weaker side: border 1.12–1.28, strong 1.28–1.71.
- * That is a live decision rather than an oversight, which is exactly why this file is a ratchet
- * and not an assertion of a good number. It records what each combination measures today and
- * fails if any of them gets flatter, so the remaining decision stays open while the flatness
- * cannot quietly deepen.
+ * So the check is now fidelity rather than measurement: the handoff HTML is in the repository,
+ * it is parsed here, and the surfaces, lines and palette must equal it. A number cannot drift
+ * from a source of truth that is read on every run. The genuinely measured properties that
+ * remain are the ones the handoff does not settle — the AA floor on ink and on filled controls —
+ * and they are stated as what they are, deviations from the handoff with a reason.
  */
 
 const themeDirectory = new URL("../src/styles/themes/", import.meta.url);
+const handoffPath = new URL(
+  "../../docs/design_handoff_anchorage/v2.5/Anchorage v2.dc.html",
+  import.meta.url,
+);
 
 /**
  * Comments are stripped before anything is parsed.
@@ -76,6 +72,22 @@ function readThemeTokens() {
   return combinations;
 }
 
+/** The handoff's own `.anc[data-theme][data-mode]` blocks, same shape. */
+function readHandoffTokens() {
+  const combinations = new Map();
+  const html = readFileSync(fileURLToPath(handoffPath), "utf8");
+  for (const [, family, mode, body] of html.matchAll(
+    /\.anc\[data-theme="([a-z0-9]+)"\]\[data-mode="(dark|light)"\]\s*\{([^}]*)\}/gu,
+  )) {
+    const tokens = new Map();
+    for (const [, name, value] of body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;}]+)/gu)) {
+      tokens.set(name, value.trim());
+    }
+    combinations.set(`${family}/${mode}`, tokens);
+  }
+  return combinations;
+}
+
 function composite(colour, alpha, backdrop) {
   return colour.map((channel, index) =>
     Math.round(channel * alpha + backdrop[index] * (1 - alpha)),
@@ -85,8 +97,9 @@ function composite(colour, alpha, backdrop) {
 /**
  * Resolves a token to RGB, following `var()` and compositing any alpha over the backdrop.
  *
- * The compositing matters: `--anc-line-hairline` is an rgba white or black, and comparing it as
- * though it were opaque would report a contrast it never actually has on screen.
+ * `color-mix(in srgb, var(--x) N%, transparent)` is handled because `--anc-line-hairline` is
+ * defined that way: it is the border at 62%, and comparing it as though it were opaque would
+ * report a contrast it never actually has on screen.
  */
 function resolve(value, tokens, backdrop, depth = 0) {
   if (depth > 6 || typeof value !== "string") return null;
@@ -95,6 +108,14 @@ function resolve(value, tokens, backdrop, depth = 0) {
   const variable = /^var\((--anc-[a-z0-9-]+)\)$/u.exec(trimmed);
   if (variable) {
     return resolve(tokens.get(variable[1]), tokens, backdrop, depth + 1);
+  }
+
+  const mixed =
+    /^color-mix\(\s*in srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*transparent\s*\)$/u.exec(trimmed);
+  if (mixed) {
+    const base = resolve(mixed[1], tokens, backdrop, depth + 1);
+    if (!base || !backdrop) return base;
+    return composite(base, Number(mixed[2]) / 100, backdrop);
   }
 
   const hex = /^#([0-9a-f]{6})$/iu.exec(trimmed);
@@ -141,31 +162,49 @@ function contrast(left, right) {
 }
 
 /**
- * The measured floor for each combination, to two decimal places, rounded down.
+ * Handoff token -> app token, for everything copied across unchanged.
  *
- * Both modes now run the same hierarchy — border 2.2, control 2.6, strong 3.0 — so `strong` is
- * the only one that reaches the 3:1 a non-text boundary properly needs. These remain floors
- * rather than targets: raising them further is welcome, and this only objects to a drop.
+ * `--bd-soft` is absent on purpose: the app has no consumer for a fourth solid edge, and the
+ * register it would occupy is filled by `--anc-line-hairline`, which is the handoff's own
+ * `--hairline` instead. `--fg-4` through `--fg-7` are absent because they are the lifted tail;
+ * the ink ramp test below covers them.
  */
-const SURFACE_FLOORS = {
-  "docker/dark": { panel: 1.09, border: 2.22, control: 2.62, strong: 3.02 },
-  "docker/light": { panel: 1.04, border: 2.20, control: 2.60, strong: 3.01 },
-  "github/dark": { panel: 1.09, border: 2.20, control: 2.60, strong: 3.02 },
-  "github/light": { panel: 1.06, border: 2.22, control: 2.61, strong: 3.01 },
-  "magnetic/dark": { panel: 1.06, border: 2.22, control: 2.61, strong: 3.04 },
-  "magnetic/light": { panel: 1.08, border: 2.22, control: 2.62, strong: 3.01 },
-  "mono/dark": { panel: 1.08, border: 2.21, control: 2.62, strong: 3.01 },
-  "mono/light": { panel: 1.04, border: 2.20, control: 2.63, strong: 3.01 },
-  "nous/dark": { panel: 1.11, border: 2.21, control: 2.62, strong: 3.01 },
-  "nous/light": { panel: 1.04, border: 2.22, control: 2.60, strong: 3.00 },
-  "y2k/dark": { panel: 1.07, border: 2.21, control: 2.62, strong: 3.01 },
-  "y2k/light": { panel: 1.07, border: 17.45, control: 17.45, strong: 17.45 },
+const HANDOFF_EQUIVALENTS = {
+  shadow: "frame-shadow",
+  desk: "desk",
+  glow: "desk-glow",
+  app: "app",
+  panel: "panel",
+  well: "input",
+  muted: "surface-elevated",
+  header: "table-head",
+  bd: "line-border",
+  "bd-strong": "line-strong",
+  fg: "text-primary",
+  "fg-strong": "text-strong",
+  "fg-body": "text-body",
+  "fg-mono": "text-mono",
+  "fg-2": "text-secondary",
+  "fg-3": "text-muted",
+  accent: "accent",
+  "accent-hi": "accent-hover",
+  primary: "action-primary",
+  "primary-fg": "on-action",
+  "primary-hi": "action-primary-hover",
+  green: "success",
+  amber: "warning",
+  red: "danger",
+  violet: "violet",
+  blue: "blue",
+  close: "control-close",
 };
 
-test("every theme and mode is measured, so a new family cannot skip the ratchet", () => {
+const normalise = (value) => value.toLowerCase().replace(/\s+/gu, "");
+
+test("every theme and mode the app ships is one the handoff defines", () => {
   const combinations = readThemeTokens();
-  // A parse that silently loses tokens would let the ratchet pass on nothing at all, which is
-  // exactly what happened when a comment was read as a declaration. Every family defines the
+  // A parse that silently loses tokens would let everything below pass on nothing at all, which
+  // is exactly what happened when a comment was read as a declaration. Every family defines the
   // same set, so an outlier count means the parse broke rather than the theme changed.
   const counts = [...combinations.values()].map((tokens) => tokens.size);
   assert.equal(
@@ -173,86 +212,108 @@ test("every theme and mode is measured, so a new family cannot skip the ratchet"
     1,
     `theme token counts disagree (${counts.join(", ")}) — a block probably failed to parse`,
   );
-  const measured = [...combinations.keys()].sort();
+
+  const handoff = readHandoffTokens();
+  assert.ok(handoff.size > 0, "the handoff HTML did not parse");
+  const unknown = [...combinations.keys()].filter((key) => !handoff.has(key));
   assert.deepEqual(
-    measured,
-    Object.keys(SURFACE_FLOORS).sort(),
-    "a theme family or mode was added or removed without recording its surface floors",
+    unknown,
+    [],
+    "a family or mode exists in the app that the handoff does not define",
   );
 });
 
-test("no surface gets flatter than it already is", () => {
-  const EDGES = [
-    ["--anc-line-border", "border"],
-    ["--anc-line-control", "control"],
-    ["--anc-line-strong", "strong"],
-  ];
-  const regressions = [];
-  for (const [combination, tokens] of readThemeTokens()) {
-    const app = resolve(tokens.get("--anc-app"), tokens);
-    const panel = resolve(tokens.get("--anc-panel"), tokens);
-    assert.ok(app && panel, `${combination} does not define --anc-app and --anc-panel`);
+test("surfaces, lines and palette are the handoff's, value for value", () => {
+  /*
+   * The whole point of this file. A theme family owns colour and nothing else, and the handoff
+   * is where that colour is decided; anything here that disagrees with it is drift, whether it
+   * arrived by hand or by a well-meant contrast pass.
+   *
+   * Deviating is allowed — it just has to be done here, by name, with the reason.
+   *
+   * Monochrome is the one family that has to. With hue removed, lightness is the only channel
+   * left to tell one status from another, and the handoff's own greys do not use it: success
+   * #cfcfcf and accent #d0d0d0 sit 0.007 apart in luminance, which is one value, and warning
+   * and violet land under AA on their own chip fills in both modes. `theme-integrity.test.mjs`
+   * holds mono to a 0.02 luminance floor between adjacent statuses, and that test is the point
+   * of the family — six statuses nobody can tell apart is not a monochrome theme, it is a
+   * broken one. Every other mono token, including all six surfaces and both line registers,
+   * is the handoff's.
+   */
+  const ALLOWED_DEVIATIONS = new Set([
+    "mono/dark --anc-accent",
+    "mono/dark --anc-success",
+    "mono/dark --anc-warning",
+    "mono/dark --anc-danger",
+    "mono/dark --anc-violet",
+    "mono/dark --anc-blue",
+    "mono/light --anc-accent",
+    "mono/light --anc-success",
+    "mono/light --anc-warning",
+    "mono/light --anc-violet",
+    "mono/light --anc-blue",
+  ]);
 
-    const floors = SURFACE_FLOORS[combination];
-    const panelRatio = contrast(panel, app);
-    if (panelRatio < floors.panel) {
-      regressions.push(
-        `${combination}: panel against app fell to ${panelRatio.toFixed(3)}, floor ${floors.panel}`,
-      );
-    }
-    for (const [token, name] of EDGES) {
-      const edge = resolve(tokens.get(token), tokens, panel);
-      assert.ok(edge, `${combination} does not define ${token}`);
-      const measured = contrast(edge, panel);
-      if (measured < floors[name]) {
-        regressions.push(
-          `${combination}: ${name} against panel fell to ${measured.toFixed(3)}, floor ${floors[name]}`,
-        );
+  const handoff = readHandoffTokens();
+  const drift = [];
+  for (const [combination, tokens] of readThemeTokens()) {
+    const source = handoff.get(combination);
+    if (!source) continue;
+    for (const [handoffName, appName] of Object.entries(HANDOFF_EQUIVALENTS)) {
+      const want = source.get(handoffName);
+      const got = tokens.get(`--anc-${appName}`);
+      if (want === undefined) continue;
+      if (ALLOWED_DEVIATIONS.has(`${combination} --anc-${appName}`)) continue;
+      if (got === undefined) {
+        drift.push(`${combination}: --anc-${appName} is not defined`);
+      } else if (normalise(got) !== normalise(want)) {
+        drift.push(`${combination}: --anc-${appName} is ${got}, handoff says ${want}`);
       }
     }
   }
-  assert.deepEqual(
-    regressions,
-    [],
-    "a surface lost separation it used to have; raising these is welcome, lowering them is not",
-  );
+  assert.deepEqual(drift, [], "a theme has drifted from the handoff");
 });
 
-test("every mode keeps its edges in the order their names imply", () => {
+test("the hairline is the border softened, not a wash laid over it", () => {
   /*
-   * `--anc-line-strong` measured weaker than `--anc-line-control` in four of six light families
-   * and in most dark ones, so a rule reaching for the strongest edge quietly got a fainter one.
-   * The names are the contract. This asserted light only while dark still had the inversion;
-   * both run the same hierarchy now, so both are checked.
+   * The handoff defines `--hairline` as `color-mix(in srgb, var(--bd) 62%, transparent)`. Written
+   * that way it inherits the family's hue and follows the border whenever the border moves. It
+   * had been replaced by `rgba(255,255,255,0.045)` and `rgba(23,23,26,0.055)` — a neutral wash,
+   * the same in every family, and 0.06 lighter than the border it was standing in for.
+   *
+   * Asserted structurally rather than by measurement, because the number is a consequence: what
+   * matters is that one token derives from the other, so they cannot come apart again.
    */
   for (const [combination, tokens] of readThemeTokens()) {
-    const panel = resolve(tokens.get("--anc-panel"), tokens);
-    const edge = (token) => contrast(resolve(tokens.get(token), tokens, panel), panel);
-    const border = edge("--anc-line-border");
-    const control = edge("--anc-line-control");
-    const strong = edge("--anc-line-strong");
-    assert.ok(
-      strong >= control && control >= border,
-      `${combination}: edges are out of order — border ${border.toFixed(2)}, control ${control.toFixed(2)}, strong ${strong.toFixed(2)}`,
+    const hairline = tokens.get("--anc-line-hairline");
+    assert.ok(hairline, `${combination} does not define --anc-line-hairline`);
+    assert.equal(
+      normalise(hairline),
+      normalise("color-mix(in srgb, var(--anc-line-border) 62%, transparent)"),
+      `${combination}: the hairline no longer derives from the border`,
     );
   }
 });
 
-test("the hairline is recorded as decorative, because it is invisible in every theme", () => {
+test("every mode keeps its edges in the order their names imply", () => {
   /*
-   * `--anc-line-hairline` measures 1.11–1.15 against the panel in all twelve combinations. It
-   * is not a divider anyone can see, and a layout that depends on it to separate two regions is
-   * relying on nothing. This does not fail the build — plenty of places use it as a decorative
-   * seam and that is fine — but it is asserted so the number is on the record rather than
-   * rediscovered by the next person who wonders why a section boundary vanished.
+   * `--anc-line-strong` once measured *weaker* than `--anc-line-control` in four of six light
+   * families, so a rule reaching for the strongest edge quietly got a fainter one. Both now
+   * resolve to the handoff's `--bd-strong` — the register it draws inputs, toggle rings and
+   * dashed wells with — so this holds by equality rather than by margin, which is why it is
+   * `>=`. They stay two names because they carry different intent; if one ever needs to move,
+   * this is what stops it moving the wrong way.
    */
   for (const [combination, tokens] of readThemeTokens()) {
     const panel = resolve(tokens.get("--anc-panel"), tokens);
-    const hairline = resolve(tokens.get("--anc-line-hairline"), tokens, panel);
-    assert.ok(hairline, `${combination} does not define --anc-line-hairline`);
+    const edge = (token) => contrast(resolve(tokens.get(token), tokens, panel), panel);
+    const hairline = edge("--anc-line-hairline");
+    const border = edge("--anc-line-border");
+    const control = edge("--anc-line-control");
+    const strong = edge("--anc-line-strong");
     assert.ok(
-      contrast(hairline, panel) < 1.6,
-      `${combination} hairline is now visible enough to be load-bearing — if that was deliberate, move it out of this test`,
+      strong >= control && control >= border && border >= hairline,
+      `${combination}: edges are out of order — hairline ${hairline.toFixed(2)}, border ${border.toFixed(2)}, control ${control.toFixed(2)}, strong ${strong.toFixed(2)}`,
     );
   }
 });
@@ -338,24 +399,42 @@ test("every filled control can be read in every theme and mode", () => {
 
 test("the de-emphasis ramp stays readable, and stays a ramp", () => {
   /*
-   * `--anc-text-faint` measured 2.71-3.18 on panel across five dark families and
-   * `--anc-text-dimmer` 3.37-3.95 — well under AA for the 10-11px labels they are used on. They
-   * were raised, but raising them all to the floor would have collapsed three de-emphasis levels
-   * into one, so each family's three steps are spaced between 4.5 and its own `secondary`.
-   * Both properties are asserted: readable, and still distinguishable from each other.
+   * The one place the app knowingly leaves the handoff. `--fg-5` and `--fg-6` measure 2.71-3.95
+   * on panel across the dark families, and `--anc-text-dimmer` and `--anc-text-faint` carry 130
+   * call sites of 10-11px label between them — small text, so AA is 4.5 and not 3.0.
+   *
+   * Each is lifted by the smallest step toward `--fg-2` that reaches the floor. Toward `--fg-2`
+   * rather than toward `--fg`, because nous dark splits the ramp by temperature on purpose —
+   * warm cream for emphasis, cool blue for anything receding — and pulling a receding step
+   * toward the cream desaturates it out of the family it belongs to.
+   *
+   * Both properties are asserted, and the second matters as much as the first: pinning every
+   * failing step to exactly 4.5 clears the floor and collapses the ramp, which is how
+   * github/light ended up with `--fg-2` through `--fg-7` all on #656d76.
    */
   for (const [combination, tokens] of readThemeTokens()) {
     const panel = resolve(tokens.get("--anc-panel"), tokens);
     const step = (name) => contrast(resolve(tokens.get(`--anc-text-${name}`), tokens), panel);
-    const [secondary, muted, dimmer, faint] = ["secondary", "muted", "dimmer", "faint"].map(step);
+    const names = ["secondary", "muted", "dim", "dimmer", "faint", "quiet"];
+    const measured = names.map(step);
 
-    for (const [name, value] of [["muted", muted], ["dimmer", dimmer], ["faint", faint]]) {
-      assert.ok(value >= 4.5, `${combination}: --anc-text-${name} is ${value.toFixed(2)}, under AA`);
+    names.forEach((name, index) => {
+      assert.ok(
+        measured[index] >= 4.5,
+        `${combination}: --anc-text-${name} is ${measured[index].toFixed(2)}, under AA`,
+      );
+    });
+    for (let index = 1; index < names.length; index += 1) {
+      assert.ok(
+        measured[index] <= measured[index - 1] + 0.01,
+        `${combination}: the ramp is out of order at ${names[index]} — ${names.map((name, i) => `${name} ${measured[i].toFixed(2)}`).join(", ")}`,
+      );
     }
-    // github states all three at one value on purpose, so this is >= rather than >.
+    // `quiet` takes `faint` and `dim` is the midpoint of its neighbours, so four distinct values
+    // is the most this can have. Fewer means a lift flattened something.
     assert.ok(
-      secondary >= muted && muted >= dimmer && dimmer >= faint,
-      `${combination}: the ramp is out of order — secondary ${secondary.toFixed(2)}, muted ${muted.toFixed(2)}, dimmer ${dimmer.toFixed(2)}, faint ${faint.toFixed(2)}`,
+      new Set(measured.map((value) => value.toFixed(2))).size >= 4,
+      `${combination}: the ramp has collapsed — ${measured.map((value) => value.toFixed(2)).join(", ")}`,
     );
   }
 });

@@ -11,7 +11,7 @@
 :root[data-theme="docker"][data-color-mode="dark"] {
   color-scheme: dark;
 
-  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.09);
 
   --anc-desk: #061220;
   --anc-desk-glow: #123a63;
@@ -67,19 +67,17 @@
   --anc-text-body: #cadcf0;
   --anc-text-mono: #bed4ec;
   --anc-text-secondary: #8ba3bd;
-  --anc-text-muted: #869cb4;
-  --anc-text-dim: #6b839d;
-  --anc-text-dimmer: #8192a7;
-  --anc-text-faint: #78899d;
-  --anc-text-quiet: #445872;
-  --anc-text-subdued: #5d748e;
-  --anc-text-emphasis-muted: #8ba3bd;
+  --anc-text-muted: #7b93ad;
+  --anc-text-dim: #7991ab;
+  --anc-text-dimmer: #778ea8;
+  --anc-text-faint: #7289a3;
+  --anc-text-quiet: #7289a3;
   --anc-update-text: #8ba3bd;
 
-  --anc-line-hairline: rgba(255, 255, 255, 0.045);
-  --anc-line-border: #435871;
-  --anc-line-strong: #576c88;
-  --anc-line-control: #3e6391;
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-border: #1e3a5f;
+  --anc-line-strong: #2a5285;
+  --anc-line-control: #2a5285;
 
   --anc-scrim: rgba(6, 18, 32, 0.78);
   --anc-scrim-soft: rgba(6, 18, 32, 0.68);
@@ -108,7 +106,7 @@
 :root[data-theme="docker"][data-color-mode="light"] {
   color-scheme: light;
 
-  --anc-frame-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  --anc-frame-shadow: 0 30px 70px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.07);
 
   --anc-desk: #dce8f7;
   --anc-desk-glow: #ffffff;
@@ -162,15 +160,13 @@
   --anc-text-dim: #4b6280;
   --anc-text-dimmer: #52698a;
   --anc-text-faint: #58708f;
-  --anc-text-quiet: #5f7695;
-  --anc-text-subdued: #52698a;
-  --anc-text-emphasis-muted: #3d526c;
+  --anc-text-quiet: #58708f;
   --anc-update-text: #0b4ecb;
 
-  --anc-line-hairline: rgba(11, 28, 51, 0.055);
-  --anc-line-border: #a5abb4;
-  --anc-line-strong: #88929f;
-  --anc-line-control: #8d9eb5;
+  --anc-line-hairline: color-mix(in srgb, var(--anc-line-border) 62%, transparent);
+  --anc-line-border: #cddcf0;
+  --anc-line-strong: #b3c9e6;
+  --anc-line-control: #b3c9e6;
 
   --anc-scrim: rgba(11, 28, 51, 0.34);
   --anc-scrim-soft: rgba(11, 28, 51, 0.24);
