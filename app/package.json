@@ -22,7 +22,7 @@
     "package:linux:dir": "node scripts/package-desktop.mjs --dir",
     "package:linux": "node scripts/package-desktop.mjs --linux",
     "preview": "vite preview",
-    "test": "npm run test:renderer && npm run test:protocol && npm run test:security-evidence && npm run test:package-evidence && npm run test:theme-integrity && npm run test:theme-surface && npm run test:core-freshness && npm run test:design-doc && npm run test:theme-desk && npm run test:electron && npm run test:sites",
+    "test": "npm run test:renderer && npm run test:protocol && npm run test:security-evidence && npm run test:package-evidence && npm run test:theme-integrity && npm run test:theme-surface && npm run test:core-freshness && npm run test:design-doc && npm run test:theme-desk && npm run test:dev-desktop && npm run test:electron && npm run test:sites",
     "test:electron": "node --test electron/*.test.mjs",
     "test:protocol": "tsc -p ../protocol/tsconfig.json && node --test ../protocol/schema.test.mjs",
     "test:package-evidence": "node --test scripts/package-evidence-policy.test.mjs",
@@ -34,7 +34,8 @@
     "test:theme-surface": "node --test scripts/theme-surface-contrast.test.mjs",
     "test:core-freshness": "node --test scripts/core-binary-freshness.test.mjs",
     "test:design-doc": "node --test scripts/design-qa-doc-freshness.test.mjs",
-    "test:theme-desk": "node --test electron/theme-desk.test.mjs"
+    "test:theme-desk": "node --test electron/theme-desk.test.mjs",
+    "test:dev-desktop": "node --test scripts/dev-desktop.test.mjs"
   },
   "devDependencies": {
     "@fontsource/ibm-plex-mono": "5.3.0",

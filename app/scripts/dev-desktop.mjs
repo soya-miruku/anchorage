@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createConnection } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -69,10 +70,46 @@ async function shutdown(exitCode = 0) {
   process.exitCode = exitCode;
 }
 
+/**
+ * Whether something is already listening on the dev port.
+ *
+ * Vite runs with `--strictPort`, deliberately: a renderer that silently moves to 5174 while the
+ * Electron main process is still told 5173 fails later and less clearly. But the failure it
+ * produces is three lines long and the only one carrying this script's own prefix — the line
+ * anyone actually reads — says "Vite exited before the renderer became available", which
+ * describes a crash. Reported as "bun run dev:desktop is not showing the desktop app anymore",
+ * and it was a session from twenty minutes earlier still holding the port.
+ */
+export function portInUse(port) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    const settle = (value) => {
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(500);
+    socket.once("connect", () => settle(true));
+    socket.once("timeout", () => settle(false));
+    socket.once("error", () => settle(false));
+  });
+}
+
 async function main() {
   const developmentPort = parseDevPort(process.env.ANCHORAGE_DEV_PORT);
   const rendererUrl = `http://127.0.0.1:${developmentPort}/`;
   const proof = createDevServerProof();
+
+  if (await portInUse(developmentPort)) {
+    throw new Error(
+      `Port ${developmentPort} is already in use, which is almost always an earlier ` +
+        `\`dev:desktop\` still running — its window may be on another workspace, or its ` +
+        `Electron process may have outlived the window. Stop it and try again:\n` +
+        `    pkill -f 'electron/dist/electron .*anchorage'\n` +
+        `    pkill -f 'vite/bin/vite.js .*--port ${developmentPort}'\n` +
+        `Or set ANCHORAGE_DEV_PORT to run a second one alongside it.`,
+    );
+  }
+
   vite = spawn(
     process.execPath,
     [
@@ -120,13 +157,18 @@ async function main() {
   });
 }
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
-  process.once(signal, () => {
-    void shutdown(0);
+// Only when run, never when imported. `portInUse` is exported so it can be tested against a
+// real listening socket, and a module that starts Vite as a side effect of being imported would
+// make that test spawn a dev server.
+if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.once(signal, () => {
+      void shutdown(0);
+    });
+  }
+
+  main().catch((error) => {
+    console.error(`[anchorage] Desktop development startup failed: ${error.message}`);
+    void shutdown(1);
   });
 }
-
-main().catch((error) => {
-  console.error(`[anchorage] Desktop development startup failed: ${error.message}`);
-  void shutdown(1);
-});
