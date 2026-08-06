@@ -359,3 +359,30 @@ test("the de-emphasis ramp stays readable, and stays a ramp", () => {
     );
   }
 });
+
+test("the volume name cell clips, whatever element it is", () => {
+  /*
+   * `.volume-row` truncated `> span`. The name cell was then changed from a span to a button so
+   * it could open the file browser, and a 64-character volume name immediately rendered on top
+   * of the DRIVER column — reported as the table looking "duplicated and glitchy".
+   *
+   * Scoped to this one rule on purpose. Sweeping every row that truncates a span produced four
+   * more findings, none of which renders a button in that position, and a check that cries wolf
+   * four times out of five teaches people to add rules they do not need.
+   *
+   * Worth stating plainly: nothing else in this gate can see a layout regression. jsdom does no
+   * layout, and the volume browser is not one of the captured design states. A CSS rule that
+   * silently stops matching an element is invisible to every other test here.
+   */
+  const css = stripComments(
+    readFileSync(new URL("../src/styles/resources.css", import.meta.url), "utf8"),
+  );
+  const rule = /([^{}]*\.volume-row *> *span[^{}]*)\{([^{}]*)\}/u.exec(css);
+  assert.ok(rule, "expected .volume-row to truncate its cells");
+  assert.match(rule[2], /text-overflow:\s*ellipsis/u);
+  assert.match(
+    rule[1],
+    /\.volume-row *> *button/u,
+    "the name cell is a button; a rule naming only > span leaves it unable to clip",
+  );
+});

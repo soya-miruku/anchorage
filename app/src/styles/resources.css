@@ -383,7 +383,12 @@
   cursor: pointer;
 }
 
-.volume-row > span {
+/* `> span, > button` rather than `> span`. The name cell became a button when it became the
+   way into the file browser, and a grid item that is not covered by this clips nothing — a
+   64-character volume name then overflowed its column and rendered on top of DRIVER, which is
+   what "duplicated and glitchy" was. */
+.volume-row > span,
+.volume-row > button {
   overflow: hidden;
   font-size: 11.5px;
   text-overflow: ellipsis;

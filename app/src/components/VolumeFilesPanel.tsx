@@ -100,7 +100,9 @@ export function VolumeFilesPanel({ store }: { store: AnchorageStore }) {
       <nav className="files-breadcrumb" aria-label="Volume path">
         {crumbs.map((crumb, index) => (
           <span key={crumb.path}>
-            {index > 0 && <span aria-hidden="true">/</span>}
+            {/* Not after the root: its own label is already "/", so a separator here rendered
+                the first hop as "/ / global". */}
+            {index > 1 && <span aria-hidden="true">/</span>}
             <button
               type="button"
               onClick={() => void store.browseVolume(volume, crumb.path)}

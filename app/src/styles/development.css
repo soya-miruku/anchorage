@@ -794,11 +794,17 @@ select option {
   color: var(--anc-text-primary);
 }
 
-/* Scoped to the host browser's own panel. `.files-row` is also the fixture Files tab's row
-   class (detail.css), which renders five cells into a five-column grid; unscoped, this
-   four-column rule loaded later and shattered that table into two overflowing rows. */
+/* Scoped to the two panels that render four cells. `.files-row` is also the fixture Files
+   tab's row class (detail.css), which renders five into a five-column grid; unscoped, this
+   four-column rule loaded later and shattered that table into two overflowing rows.
+
+   `.volume-browser` was missing from this list, so the volume file browser had no grid at all:
+   its header rendered as NAMESIZEMODEMODIFIED and every row drew its size on top of its name.
+   Scoping is the right mechanism and the selector was simply incomplete. */
 .container-files .files-table__head,
-.container-files .files-row {
+.container-files .files-row,
+.volume-browser .files-table__head,
+.volume-browser .files-row {
   display: grid;
   grid-template-columns: minmax(0, 2.4fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.2fr);
   gap: 12px;
@@ -808,7 +814,8 @@ select option {
   font-size: 12px;
 }
 
-.container-files .files-table__head {
+.container-files .files-table__head,
+.volume-browser .files-table__head {
   background: var(--anc-table-head);
   color: var(--anc-text-faint);
   font-size: 10.5px;
@@ -816,11 +823,13 @@ select option {
   letter-spacing: 0.7px;
 }
 
-.container-files .files-row {
+.container-files .files-row,
+.volume-browser .files-row {
   border-top: 1px solid var(--anc-line-hairline);
 }
 
-.container-files .files-row:hover {
+.container-files .files-row:hover,
+.volume-browser .files-row:hover {
   background: var(--anc-row-hover);
 }
 
