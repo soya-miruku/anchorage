@@ -84,7 +84,7 @@ removed rather than faked.
 | | |
 |---|---|
 | **Models** | Docker Model Runner: what is pulled, what the runner is doing, what it costs on disk. Search Docker Hub, pull, unload, remove |
-| **Agents** | Docker Agent: which models it can reach, which credentials are visible, which tool types an agent can be granted |
+| **Agents** | Chat with a model Model Runner already holds, with read-only engine tools it can use to look before it answers. Plus Docker Agent's own readiness: which models it can reach, which credentials are visible, which tool types an agent can be granted |
 | **Tools** | The MCP Toolkit: browse catalogues and see, for each server, exactly which tools it would expose and which credentials it would demand |
 
 ### Two more things
@@ -137,9 +137,15 @@ rejected for a stated reason, not overlooked.
 
 ### Present, but bounded on purpose
 
-- **Agents does not run agents.** `docker agent run` is an interactive terminal
-  application. Rebuilding it here would mean maintaining a chat client and
-  claiming parity with something that changes weekly.
+- **The chat reads and cannot act.** A model on the Agents screen can list and
+  inspect containers, images, volumes and networks and read logs. It cannot
+  start, stop, remove or change anything, and that is the tool catalogue rather
+  than the prompt — instructions describe intent, tools are the boundary.
+- **Agents does not run agents.** `docker agent run` is a separate interactive
+  terminal application driven by a YAML file, and stays in the terminal:
+  rebuilding it would mean claiming parity with something that changes weekly.
+  The chat above is a different thing — a local model answering about this
+  engine, not an agent configuration being executed.
 - **Tools browses but does not enable.** Adding an MCP server to a profile is one
   command away and stays a deliberate one — a mis-click hands an agent someone
   else's credentials.
