@@ -473,3 +473,55 @@ describe("tagImage", () => {
     });
   });
 });
+
+/**
+ * The network list's caveat has to reach a reader.
+ *
+ * The core reports when the Docker API version it is talking to cannot say how many containers
+ * are attached, which is why the Attached column shows "Unknown" for those rows. The store read
+ * that off the wire and dropped it, so the explanation existed in the protocol and nowhere on
+ * screen. It also used to name a remedy — "open a network to inspect them" — for a
+ * networks.inspect verb that does not exist.
+ */
+describe("refreshNetworks limitations", () => {
+  it("keeps the caveat the core sent instead of discarding it", async () => {
+    window.anchorage = createHost(async () => ({
+      ...listResult("networks", []),
+      limitations: ["The Attached count is unknown for some networks."],
+    }));
+    const { result } = renderHook(() => useAnchorageStore());
+
+    await act(async () => {
+      await result.current.refreshNetworks();
+    });
+
+    await waitFor(() => {
+      expect(result.current.networkLimitations).toEqual([
+        "The Attached count is unknown for some networks.",
+      ]);
+    });
+  });
+
+  it("clears the caveat when the list fails, so it cannot outlive its subject", async () => {
+    let failing = false;
+    window.anchorage = createHost(async () => {
+      if (failing) throw new Error("engine unreachable");
+      return {
+        ...listResult("networks", []),
+        limitations: ["The Attached count is unknown for some networks."],
+      };
+    });
+    const { result } = renderHook(() => useAnchorageStore());
+    await act(async () => {
+      await result.current.refreshNetworks();
+    });
+    await waitFor(() => expect(result.current.networkLimitations).toHaveLength(1));
+
+    failing = true;
+    await act(async () => {
+      await expect(result.current.refreshNetworks()).rejects.toThrow();
+    });
+
+    await waitFor(() => expect(result.current.networkLimitations).toEqual([]));
+  });
+});

@@ -29,11 +29,13 @@ const createStore = (
   overrides: {
     networks?: NetworkSummary[];
     networksState?: AnchorageStore["hostDomainState"]["networks"];
+    networkLimitations?: string[];
   } = {},
 ) =>
   ({
     isHost: true,
     networks: overrides.networks ?? [],
+    networkLimitations: overrides.networkLimitations ?? [],
     networkMutationPending: false,
     hostDomainState: {
       snapshot: { status: "ready" },
@@ -89,4 +91,26 @@ describe("NetworksScreen", () => {
       screen.getByText("Live networks unavailable: engine unreachable"),
     ).toBeInTheDocument();
   });
+});
+
+/**
+ * The Attached column shows "Unknown" when the Docker API version cannot report attachments.
+ * The core says why; the store used to read that off the wire and drop it, so the explanation
+ * existed in the protocol and nowhere a reader could reach.
+ */
+it("shows the caveat explaining an unknown attachment count", () => {
+  render(
+    <NetworksScreen
+      store={createStore({
+        networks: [network("bridge")],
+        networkLimitations: [
+          "This Docker API version does not report container attachments on the network list, so the Attached count is unknown for some networks.",
+        ],
+      })}
+    />,
+  );
+
+  expect(screen.getByTestId("networks-limitation")).toHaveTextContent(
+    "does not report container attachments",
+  );
 });

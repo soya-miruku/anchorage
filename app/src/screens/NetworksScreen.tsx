@@ -94,6 +94,16 @@ export function NetworksScreen({ store }: { store: AnchorageStore }) {
               Live networks unavailable: {networksState.error}
             </p>
           )}
+          {/* A caveat, not a failure: the rows are real, one column of them is not knowable. */}
+          {store.networkLimitations.map((limitation) => (
+            <p
+              key={limitation}
+              className="resource-dim"
+              data-testid="networks-limitation"
+            >
+              {limitation}
+            </p>
+          ))}
         </div>
         <div className="screen-header__actions">
           <button

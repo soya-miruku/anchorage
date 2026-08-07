@@ -2322,10 +2322,26 @@ func (s *Service) networksList(parent context.Context, params NetworksListParams
 		networks = append(networks, projectNetwork(item))
 	}
 	sortNetworks(networks)
+	/*
+	 * Stated only when it is true of something on screen.
+	 *
+	 * This was unconditional, and it read "open a network to inspect them" — a remedy that
+	 * does not exist, since there is no networks.inspect verb. The list endpoint does carry
+	 * Containers on the versions that populate it, so on those the caveat described a
+	 * limitation none of the rows had.
+	 */
+	limitations := []string{}
+	for _, network := range networks {
+		if network.ContainerCount < 0 {
+			limitations = append(limitations,
+				"This Docker API version does not report container attachments on the network list, so the Attached count is unknown for some networks.")
+			break
+		}
+	}
 	return NetworksListResult{
 		Context: contextName, Source: "engine-api", APIVersion: client.apiVersion,
 		Networks: networks, ObservedAt: nowUTC(), EndpointHash: endpoint.endpointHash,
-		Limitations: []string{"The network list endpoint does not report container attachments; open a network to inspect them."},
+		Limitations: limitations,
 	}, nil
 }
 

@@ -336,6 +336,24 @@ export function ContainersScreen({ store }: { store: AnchorageStore }) {
         </div>
       </header>
 
+      {/*
+        A metrics cap that is not stated reads as a metrics failure. Past the cap the extra rows
+        show an empty CPU and MEMORY column, and the engine card totals — summed from these same
+        samples — cover only the rows that were sampled.
+      */}
+      {store.statsPartial && (
+        <p
+          className="resource-dim"
+          role="status"
+          data-testid="containers-stats-coverage"
+        >
+          Live CPU and memory cover {store.statsCoverage.sampled} of{" "}
+          {store.statsCoverage.running} running containers. Each sample costs the
+          daemon a full collection cycle, so the rest are left unsampled — including
+          in the engine totals.
+        </p>
+      )}
+
       {someSelected && (
         <div className="bulk-bar" role="toolbar" data-testid="container-bulk-bar">
           <strong>{selectedCount} selected</strong>

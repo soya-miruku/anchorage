@@ -591,7 +591,6 @@ export function Shell({
   store,
   children,
 }: PropsWithChildren<{ store: AnchorageStore }>) {
-  const inSettings = store.view === "settings";
   const captureSurface =
     typeof window !== "undefined" && isCaptureSurface(window.location.search);
   const [maturityOpen, setMaturityOpen] = useState(false);

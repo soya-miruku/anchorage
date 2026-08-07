@@ -903,6 +903,8 @@ export function useAnchorageStore() {
     [bridge, isHost],
   );
 
+  const [networkLimitations, setNetworkLimitations] = useState<string[]>([]);
+
   const refreshNetworks = useCallback(async (): Promise<NetworkSummary[]> => {
     if (!isHost) return [];
     const context = dockerContextRef.current;
@@ -914,6 +916,10 @@ export function useAnchorageStore() {
       const result = await bridge.networks.list(context);
       if (context !== dockerContextRef.current) return [];
       setNetworks(result.networks);
+      // The core reports when the list endpoint could not tell it how many containers are
+      // attached. That was read off the wire and thrown away, so the caveat existed in the
+      // protocol and nowhere a reader could find it.
+      setNetworkLimitations(result.limitations);
       setHostDomainState((current) => ({
         ...current,
         networks: { status: "ready" },
@@ -921,6 +927,7 @@ export function useAnchorageStore() {
       return result.networks;
     } catch (reason) {
       if (context === dockerContextRef.current) {
+        setNetworkLimitations([]);
         setHostDomainState((current) => ({
           ...current,
           networks: {
@@ -2206,10 +2213,22 @@ export function useAnchorageStore() {
 
     const sample = async () => {
       if (disposed || inFlight || document.visibilityState === "hidden") return;
-      const ids = containersRef.current
-        .filter((container) => container.state === "running")
+      const running = containersRef.current.filter(
+        (container) => container.state === "running",
+      );
+      const ids = running
         .slice(0, LIST_STATS_BATCH_LIMIT)
         .map((container) => container.id);
+      /*
+       * How much of the engine this sample actually covers.
+       *
+       * The cap is a real bound — each sample costs the daemon a full collection cycle — but it
+       * was applied in silence. Past 32 running containers the extra rows showed an empty CPU
+       * and MEMORY column forever with nothing saying why, and the engine card's CPU and memory
+       * totals are summed from these same samples, so they quietly reported a fraction of the
+       * engine as the whole of it.
+       */
+      setStatsCoverage({ sampled: ids.length, running: running.length });
       if (ids.length === 0) return;
       inFlight = true;
       try {
@@ -2684,6 +2703,13 @@ export function useAnchorageStore() {
 
   // Divided by the engine's real core count, not a constant. This was `/ 8`, which overstated
   // load eightfold on a 64-core host; see store/engineUtilisation.ts.
+  const [statsCoverage, setStatsCoverage] = useState<{
+    sampled: number;
+    running: number;
+  }>({ sampled: 0, running: 0 });
+  /** True when the engine totals below are summed from only part of what is running. */
+  const statsPartial = statsCoverage.running > statsCoverage.sampled;
+
   const engineCpu = useMemo(
     () =>
       aggregateEngineCpuPercent(
@@ -4952,6 +4978,8 @@ export function useAnchorageStore() {
     stoppedCount,
     engineCpu,
     engineMemory,
+    statsCoverage,
+    statsPartial,
     error,
     engineStatus,
     engineStatusMessage,
@@ -5163,6 +5191,7 @@ export function useAnchorageStore() {
     secretsSwarm,
     secretsStatus,
     secretsError,
+    networkLimitations,
     secretsLimitations,
     refreshSecrets,
     composeProjectList,
