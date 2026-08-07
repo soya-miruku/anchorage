@@ -104,9 +104,16 @@ jobs:
         # state the read-only half reads. It stays up for the whole job because
         # package:linux runs read-only acceptance again against the freshly staged core.
         run: |
+          set -euo pipefail
           docker pull alpine:3.21
-          docker run -d --name anchorage-ci-fixture --restart no \
-            alpine:3.21 sleep infinity
+          # Four, because that is the release performance profile's stats fan-out width and its
+          # floor — ANCHORAGE_PERF_STATS_FANOUT will not go below 4, since a fan-out measured
+          # across fewer containers is not measuring a fan-out. With one the soak failed with
+          # "requires 4 running containers".
+          for index in 1 2 3 4; do
+            docker run -d --name "anchorage-ci-fixture-$index" --restart no \
+              alpine:3.21 sleep infinity
+          done
           docker volume create anchorage-ci-fixture
           docker network create anchorage-ci-fixture
           docker ps --format '{{.Names}} {{.Status}}'
@@ -230,7 +237,9 @@ jobs:
         # and would matter the moment this runs anywhere persistent.
         if: always()
         run: |
-          docker rm -f anchorage-ci-fixture || true
+          for index in 1 2 3 4; do
+            docker rm -f "anchorage-ci-fixture-$index" || true
+          done
           docker volume rm -f anchorage-ci-fixture || true
           docker network rm anchorage-ci-fixture || true
 
