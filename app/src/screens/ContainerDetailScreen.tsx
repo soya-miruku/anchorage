@@ -186,6 +186,10 @@ function DetailHeader({
   // but its processes are frozen and it answers nothing, so replacing it interrupts no traffic.
   const isServing = isRunning && container.rawState !== "paused";
   const [rebindOpen, setRebindOpen] = useState(false);
+  const [killOpen, setKillOpen] = useState(false);
+  // The same states the store's killContainer will act on; offering it anywhere else would
+  // present a control that silently resolves without doing anything.
+  const canKill = ["running", "paused", "restarting"].includes(container.state);
 
   return (
     <>
@@ -303,6 +307,24 @@ function DetailHeader({
           >
             Restart
           </button>
+          {/*
+            Kill was wired the whole way down — store, bridge, IPC channel, contract validator,
+            core verb — and no surface ever called it, while the README listed it among the
+            things you can do. It sits next to Restart rather than in the row's icon strip
+            because SIGKILL gives a process no chance to shut down: it is the deliberate one.
+          */}
+          {canKill && (
+            <button
+              className="detail-action detail-action--delete"
+              type="button"
+              data-testid="container-kill"
+              disabled={isPending}
+              title="Send SIGKILL. The process is not asked to stop, it is stopped."
+              onClick={() => setKillOpen(true)}
+            >
+              Kill
+            </button>
+          )}
           {store.isHost && (
             <button
               className="detail-action"
@@ -373,6 +395,57 @@ function DetailHeader({
           }}
         />
       )}
+      {killOpen && (
+        <div className="dialog-backdrop" role="presentation">
+          <div
+            className="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="container-kill-title"
+            data-testid="container-kill-dialog"
+          >
+            <div className="dialog-panel__heading">
+              <div>
+                <h2 id="container-kill-title">Kill {container.name}?</h2>
+                <p>
+                  SIGKILL cannot be caught or ignored. The process is not asked to
+                  shut down — it stops where it is, so anything it was part-way
+                  through writing stays part-way written. Stop sends SIGTERM first
+                  and gives it a chance to finish.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close kill"
+                onClick={() => setKillOpen(false)}
+              >
+                <AnchorageIcon name="delete" size={13} />
+              </button>
+            </div>
+            <div className="dialog-panel__actions">
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => setKillOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button primary-button--danger"
+                type="button"
+                data-testid="container-kill-confirm"
+                onClick={() => {
+                  setKillOpen(false);
+                  void store.killContainer(container);
+                }}
+              >
+                Send SIGKILL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {commitOpen && (
         <div className="dialog-backdrop" role="presentation">
           <form

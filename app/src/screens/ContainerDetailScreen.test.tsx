@@ -65,6 +65,7 @@ function renderDetail(overrides: Partial<AnchorageContainer> = {}, isHost = true
     renameContainer: vi.fn(async () => undefined),
     toggleContainer: vi.fn(async () => undefined),
     restartContainer: vi.fn(async () => undefined),
+    killContainer: vi.fn(async () => undefined),
     setDetailTab: vi.fn(),
     clearSelection: vi.fn(),
   } as unknown as AnchorageStore;
@@ -241,5 +242,42 @@ describe("ContainerDetailScreen primary action label", () => {
     cleanup();
     renderDetail();
     expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Kill was wired the whole way down and never reachable.
+ *
+ * The store's killContainer, the bridge method, the IPC channel, its contract validator and the
+ * core verb all existed; no surface called any of them, while the README listed kill among the
+ * things you can do. It is offered only in the states the store will act on, because a control
+ * that resolves without doing anything is worse than an absent one.
+ */
+describe("ContainerDetailScreen kill", () => {
+  it("offers kill while the container is running", () => {
+    renderDetail({ state: "running", rawState: "running", status: "Up 2 hours" });
+    expect(screen.getByTestId("container-kill")).toBeInTheDocument();
+  });
+
+  it("does not offer kill for a container that is already stopped", () => {
+    renderDetail();
+    expect(screen.queryByTestId("container-kill")).toBeNull();
+  });
+
+  it("confirms before sending SIGKILL, and says what SIGKILL means", () => {
+    const store = renderDetail({
+      state: "running",
+      rawState: "running",
+      status: "Up 2 hours",
+    });
+
+    fireEvent.click(screen.getByTestId("container-kill"));
+    expect(screen.getByTestId("container-kill-dialog")).toHaveTextContent(
+      "cannot be caught or ignored",
+    );
+    expect(store.killContainer).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("container-kill-confirm"));
+    expect(store.killContainer).toHaveBeenCalledWith(store.selectedContainer);
   });
 });
