@@ -486,10 +486,27 @@ async function hashPackagedElectronRuntime() {
   };
 }
 
+/*
+Re-derives the digest of the design handoff, when the handoff is on this machine.
+
+Must reproduce `tools/measure-design-parity.mjs`'s digest byte for byte: same files, same
+workspace-relative names, same sort. The baseline moved out of the handoff directory when it was
+regenerated from the v2 comp, so the names are relative to the repository root now.
+
+Returns null when the handoff is absent, which is the ordinary case anywhere but the machine the
+review was done on. The comp and its renders are deliberately not distributed, so a build host
+that does not have them cannot re-derive this — and requiring it would mean shipping the design
+document to every machine that packages a release, which is the opposite of the intent.
+
+The ledger still carries its own recorded handoffSource digest, and that claim travels with the
+commit. What is lost without the files is the ability to confirm that claim locally, and the
+release report says so per build rather than letting a re-derived digest and an asserted one look
+identical.
+*/
 async function hashDesignHandoffSource() {
-  // Must reproduce `tools/measure-design-parity.mjs`'s digest byte for byte: same files, same
-  // workspace-relative names, same sort. The baseline moved out of the handoff directory when it
-  // was regenerated from the v2 comp, so the names are relative to the repository root now.
+  if (!existsSync(DESIGN_HANDOFF_DIRECTORY) || !existsSync(DESIGN_REFERENCE_DIRECTORY)) {
+    return null;
+  }
   const files = [
     join(DESIGN_HANDOFF_DIRECTORY, "Anchorage v2.dc.html"),
     join(DESIGN_HANDOFF_DIRECTORY, "README.md"),
@@ -832,7 +849,10 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
     expectedRendererBuild,
     expectedCaptureHarnessSha256: designCaptureHarnessSha256,
     expectedDesignGeneratorSha256: designGeneratorSha256,
-    expectedDesignHandoffSource,
+    // null means "not on this machine", and the policy skips a comparison it is handed
+    // undefined for. Mapped rather than passed through, so an absent handoff cannot be
+    // mistaken for a digest of nothing.
+    expectedDesignHandoffSource: expectedDesignHandoffSource ?? undefined,
     expectedVisualReviewAttestation:
       designVisualReviewAttestation.evidence,
     expectedVisualReviewSource,
@@ -1042,6 +1062,9 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
         reviewedStates: designLedger.evidence.rows.length,
         generatorSha256: designGeneratorSha256,
         handoffSource: designLedger.evidence.handoffSource,
+        // Whether this build re-derived that digest from the handoff on disk, or carried the
+        // ledger's claim forward because the handoff is not distributed to build hosts.
+        handoffSourceReDerived: expectedDesignHandoffSource !== null,
         visualReviewAttestation: manifestEvidenceEntry(
           DESIGN_VISUAL_REVIEW_ATTESTATION,
           designVisualReviewAttestation,
@@ -2231,6 +2254,8 @@ async function main() {
     CORE_MANIFEST,
     "staged release manifest",
   );
+  const designHandoffReDerived =
+    manifest.evidence.designConformance.handoffSourceReDerived === true;
   const releaseVerification = {
     schemaVersion: 1,
     status: "passed",
@@ -2244,6 +2269,27 @@ async function main() {
     hostCapturedElectronBinary:
       manifest.evidence.hostCandidate.electronBinary,
     unpackedPayload,
+    /*
+     * Whether the design handoff was on this machine to be re-derived.
+     *
+     * The comp and its rendered baseline are deliberately not distributed, so anywhere but the
+     * machine the review was done on, the ledger's handoffSource digest is an assertion carried
+     * in the commit rather than something this build confirmed. Both are legitimate; a reader
+     * comparing two release reports is entitled to know which one they are holding, and the
+     * difference is invisible otherwise.
+     */
+    designHandoff: {
+      reDerived: designHandoffReDerived,
+      ...(designHandoffReDerived
+        ? {}
+        : {
+            reason:
+              "The design handoff and its rendered baseline are not present on this build " +
+              "host, so the ledger's recorded handoffSource digest was carried forward rather " +
+              "than recomputed. The per-state visual review it attests to happened on the " +
+              "machine that has them.",
+          }),
+    },
     appImage: appImageVerification,
     nativePackages: nativePackageVerification,
     // Says which digests survive a rebuild of the same commit, because the answer is not "all
