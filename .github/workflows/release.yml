@@ -94,6 +94,20 @@ jobs:
         working-directory: app
         run: bun install --frozen-lockfile
 
+      - name: Build the core the evidence will be measured against
+        # The same flags package-desktop.mjs uses for its staged core, because the evidence and
+        # the package must describe one binary: it rebuilds the core itself and compares hashes,
+        # so a drift here fails the release with "mutation-tested core hash is stale" rather than
+        # shipping evidence about a different binary. A plain `go build` embeds vcs.revision and
+        # buildid and would differ on every commit.
+        working-directory: core
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath -buildvcs=false -ldflags="-s -w -buildid=" \
+            -o bin/anchorage-core ./cmd/anchorage-core
+          sha256sum bin/anchorage-core
+
       - name: Core acceptance, including disposable mutations
         # ANCHORAGE_ACCEPTANCE_MUTATIONS is what turns 11 read-only checks into the full 26;
         # the packaging policy refuses evidence with mutationsEnabled=false.
