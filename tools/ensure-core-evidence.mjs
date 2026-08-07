@@ -143,7 +143,11 @@ if (!stale) {
 
 const reason = force
   ? "--force"
-  : conformance?.coreSha256 !== coreSha256
+  : !conformance || !capability
+    // A first run, or one whose predecessor was interrupted before writing. Worth its own words:
+    // "core changed (evidence names undefined)" describes a comparison that never happened.
+    ? "no core evidence has been recorded yet"
+    : conformance?.coreSha256 !== coreSha256
     ? `core changed (evidence names ${String(conformance?.coreSha256).slice(0, 16)}, ` +
       `this core is ${coreSha256.slice(0, 16)})`
     : conformance?.mutationsEnabled !== true
