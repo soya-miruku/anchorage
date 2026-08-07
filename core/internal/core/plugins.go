@@ -11,6 +11,35 @@ import (
 )
 
 /*
+Whether stderr says the CLI has no such plugin, as opposed to a plugin that ran and failed.
+
+Three phrasings, because the Docker CLI has more than one. `docker: 'model' is not a docker
+command.` is the familiar one. `unknown command` covers the variants that say it that way. The
+third was found by running the acceptance suite on a runner with no Scout plugin, where the CLI
+answered a `docker scout cves --format sarif …` invocation with:
+
+	unknown flag: --format
+
+	Usage:  docker [OPTIONS] COMMAND [ARG...]
+
+	Run 'docker --help' for more information
+
+— exit 125, and not a word about `scout`. Seven call sites tested only the first two strings, so
+every one of them reported an absent plugin as a broken one. That is the distinction the Scan
+screen makes on purpose ("not installed" and "installed but faulty" need different words and
+different actions), and the core was collapsing it for this phrasing.
+
+The discriminator is the *top-level* usage block. A plugin that ran and rejected a flag prints
+its own usage; only the CLI refusing to dispatch at all prints `Usage:  docker [OPTIONS]
+COMMAND`. Matching `unknown flag` alone would turn a real plugin failure into a silent skip.
+*/
+func dockerPluginMissing(stderr string) bool {
+	return strings.Contains(stderr, "is not a docker command") ||
+		strings.Contains(stderr, "unknown command") ||
+		strings.Contains(stderr, "Usage:  docker [OPTIONS] COMMAND")
+}
+
+/*
 Plugin installation health.
 
 `docker info` reports the plugins the CLI successfully loaded and says nothing at all about

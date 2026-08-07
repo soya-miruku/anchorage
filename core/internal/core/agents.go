@@ -55,8 +55,7 @@ func agentEnvironment() map[string]string {
 }
 
 func agentsUnavailable(stderr string) bool {
-	return strings.Contains(stderr, "is not a docker command") ||
-		strings.Contains(stderr, "unknown command")
+	return dockerPluginMissing(stderr)
 }
 
 func agentsPluginError(stderr string) *OpError {

@@ -72,8 +72,7 @@ type modelListEntry struct {
 // operator's fix is to install it, not to retry, and Settings → Engine → Capabilities carries
 // the command for this host.
 func modelsUnavailable(stderr string) bool {
-	return strings.Contains(stderr, "is not a docker command") ||
-		strings.Contains(stderr, "unknown command")
+	return dockerPluginMissing(stderr)
 }
 
 func modelsPluginError(stderr string) *OpError {

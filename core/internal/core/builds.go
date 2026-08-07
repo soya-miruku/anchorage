@@ -129,8 +129,7 @@ func decodeStreamedJSON(stdout []byte, decode func(json.RawMessage) error) error
 }
 
 func buildxUnavailable(stderr string) bool {
-	return strings.Contains(stderr, "is not a docker command") ||
-		strings.Contains(stderr, "unknown command")
+	return dockerPluginMissing(stderr)
 }
 
 func (s *Service) buildsList(parent context.Context, params BuildsListParams) (BuildsListResult, error) {

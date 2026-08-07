@@ -44,8 +44,7 @@ const (
 )
 
 func mcpUnavailable(stderr string) bool {
-	return strings.Contains(stderr, "is not a docker command") ||
-		strings.Contains(stderr, "unknown command")
+	return dockerPluginMissing(stderr)
 }
 
 func mcpPluginError(stderr string) *OpError {

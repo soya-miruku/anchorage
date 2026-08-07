@@ -219,8 +219,7 @@ func (s *Service) imagesScout(parent context.Context, params ImagesScoutParams) 
 			map[string]any{"reference": reference})
 	}
 	if result.exitCode != 0 {
-		if strings.Contains(stderr, "is not a docker command") ||
-			strings.Contains(stderr, "unknown command") {
+		if dockerPluginMissing(stderr) {
 			return ImagesScoutResult{}, opError("scout_unavailable",
 				"The Docker Scout plugin is not installed for this Docker CLI.", nil,
 				map[string]any{"stderr": stderr})

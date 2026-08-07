@@ -148,8 +148,7 @@ func (s *Service) composeConfig(parent context.Context, params ComposeConfigPara
 	if result.exitCode != 0 {
 		// Compose is an optional CLI plugin. Saying so is more useful than a generic failure,
 		// because the operator's fix is to install it, not to retry.
-		if strings.Contains(stderr, "is not a docker command") ||
-			strings.Contains(stderr, "unknown command") {
+		if dockerPluginMissing(stderr) {
 			return ComposeConfigResult{}, opError("compose_unavailable",
 				"The Docker Compose plugin is not installed for this Docker CLI.", nil,
 				map[string]any{"stderr": stderr})
