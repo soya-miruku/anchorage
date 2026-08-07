@@ -1674,3 +1674,41 @@ test("the RPC transport still refuses a malformed method name", () => {
     );
   }
 });
+
+test("every builder verb the schema permits is accepted by the main process", () => {
+  /*
+   * The invariant that actually broke.
+   *
+   * `remove-context` was added to the schema, to preload.cjs and to the Go core, and not to
+   * contracts.mjs. The main process then rejected the exact request the other three layers had
+   * agreed to accept, so Settings → Builders rendered a Remove context button that could not
+   * work — and that button exists precisely because `buildx rm` refuses a context builder, so
+   * the one route out of that state was the one that was dead.
+   *
+   * Triple validation is a safety property only while the layers agree. Where they disagree it
+   * is a fourth way to break a feature, and it fails closed from the operator's side: no crash,
+   * no log they will read, a verb that does nothing. Nothing caught it because each layer's own
+   * tests passed — every one of them was self-consistent.
+   *
+   * Driven from the schema rather than from a second hand-written list, because a hand-written
+   * list is the thing that drifted. This reaches contracts.mjs only, which is the layer that was
+   * wrong; preload.cjs runs in a sandboxed VM and is exercised the same way in preload.test.mjs.
+   */
+  const actions =
+    protocol.$defs.buildsBuilderActionRequest.properties.params.properties.action.enum;
+  assert.ok(
+    actions.includes("remove-context"),
+    "the schema should still fix the three builder verbs",
+  );
+
+  for (const action of actions) {
+    const params = { context: "default", name: "desktop-linux", action };
+    // Anything that destroys demands agreement; ask the way the renderer does rather than
+    // guessing which verbs need it.
+    if (action !== "bootstrap") params.confirmed = true;
+    assert.doesNotThrow(
+      () => validateBuildsBuilderAction(params),
+      `contracts.mjs rejects ${action}, which the schema permits`,
+    );
+  }
+});

@@ -721,3 +721,29 @@ test("preload preserves structured desktop errors and rejects malformed response
     },
   );
 });
+
+test("the exposed bridge defines each namespace exactly once", () => {
+  /*
+   * `secrets` was defined twice in the object literal handed to `exposeInMainWorld`. The second
+   * was list-only and won, so `window.anchorage.secrets.action` did not exist — a method with a
+   * validator and a channel of its own, unreachable. Duplicate keys are legal JavaScript, the
+   * file is 2,500 lines, and the renderer's adapter falls back to the generic `invoke` path when
+   * a namespace method is missing, so nothing failed and nobody noticed.
+   *
+   * The first version of this test asserted that every RPC method appears on its own namespace,
+   * and that is not true: `system.capabilityInstall` is reachable through `invoke` by design.
+   * Testing the duplicate directly is both narrower and exactly the defect.
+   */
+  const exposed = preloadSource.slice(preloadSource.indexOf("const api = Object.freeze({"));
+  const seen = new Map();
+  for (const [, key] of exposed.matchAll(/^  ([a-zA-Z][a-zA-Z0-9]*): Object\.freeze\(\{/gmu)) {
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  assert.ok(seen.size > 5, "expected to find the bridge's namespaces");
+  const duplicated = [...seen].filter(([, count]) => count > 1).map(([key]) => key);
+  assert.deepEqual(
+    duplicated,
+    [],
+    "a namespace is defined more than once; the later definition silently shadows the earlier",
+  );
+});

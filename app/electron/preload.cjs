@@ -2509,9 +2509,6 @@ const api = Object.freeze({
     list: (request) => call(CHANNELS.networksList, networksList(request)),
     action: (request) => call(CHANNELS.networksAction, networksAction(request)),
   }),
-  secrets: Object.freeze({
-    list: (request) => call(CHANNELS.secretsList, secretsList(request)),
-  }),
   cli: Object.freeze({
     run: (request) => call(CHANNELS.cliRun, cliRun(request)),
   }),

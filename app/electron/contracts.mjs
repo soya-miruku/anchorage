@@ -1031,7 +1031,16 @@ export function validateBuildsInspect(value) {
   return { context: validateContext(value.context), ref };
 }
 
-const BUILDER_ACTIONS = new Set(["remove", "bootstrap"]);
+/*
+ * Three verbs, and this set is the one that was missed.
+ *
+ * `remove-context` was added to the schema, the preload validator and the core, and not here —
+ * so the main process rejected the exact request the other three layers had just agreed to
+ * accept, and the Remove context button on Settings → Builders could not work at all. Triple
+ * validation is only a safety property while the three agree; where they disagree it is a fourth
+ * way to break a feature, and it fails closed and silently from the operator's side.
+ */
+const BUILDER_ACTIONS = new Set(["remove", "bootstrap", "remove-context"]);
 const BUILDER_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
 
 /**
@@ -1057,13 +1066,15 @@ export function validateBuildsBuilderAction(value) {
   }
   const normalized = { context: validateContext(value.context), name, action };
   const confirmed = optionalBoolean(value.confirmed, "request.confirmed");
-  if (action === "remove") {
+  // Both removals destroy something and both demand agreement: `remove` discards the builder's
+  // cache, `remove-context` discards the connection entry. Only `bootstrap` destroys nothing.
+  if (action === "remove" || action === "remove-context") {
     if (confirmed !== true) {
       fail("request.confirmed must be true to remove a builder");
     }
     normalized.confirmed = true;
   } else if (confirmed !== undefined) {
-    fail("request.confirmed is only valid for builder remove");
+    fail("request.confirmed is only valid for builder removal");
   }
   return normalized;
 }
