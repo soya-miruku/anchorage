@@ -190,19 +190,52 @@ if (!verifyOnly) {
   console.log(`Signed with ${fingerprint}`);
 }
 
-// Verify what was actually produced rather than trusting that signing succeeded. A signature
-// that does not verify is worse than none: it looks like protection and is not.
-const verification = await gpg(["--verify", signaturePath, sumsPath], {
-  allowFailure: true,
-});
+/*
+Verify what was actually produced rather than trusting that signing succeeded. A signature that
+does not verify is worse than none: it looks like protection and is not.
+
+Read from --status-fd rather than from gpg's prose, for two reasons that both bit this check.
+
+Prose is formatted for people: gpg prints the signing key compactly ("using EDDSA key <fpr>")
+and the primary spaced out ("Primary key fingerprint: 6EC9 EBF7 …"). A substring test for the
+compact fingerprint therefore only ever matched when the primary itself signed, and rejected a
+perfectly good signature the moment a signing subkey existed — which is the layout a signing key
+should have, and the one CI uses so that a runner never holds a key that can certify.
+
+Prose is also translatable. `Good signature` is a localised string, so a runner with a different
+locale would have failed a valid signature. VALIDSIG and GOODSIG are not localised.
+
+VALIDSIG's first field is the key that signed, and its last is that key's primary. Comparing the
+primary is what "signed by this identity" means in OpenPGP: it accepts the primary and any of its
+signing subkeys, and still rejects a different key entirely.
+*/
+const verification = await gpg(
+  ["--status-fd=1", "--verify", signaturePath, sumsPath],
+  { allowFailure: true },
+);
 const verifyOutput = `${verification.stdout}${verification.stderr}`;
-if (!/Good signature/u.test(verifyOutput)) {
+const statusLines = verification.stdout
+  .split("\n")
+  .filter((line) => line.startsWith("[GNUPG:] "))
+  .map((line) => line.slice("[GNUPG:] ".length).trim());
+if (!statusLines.some((line) => line.startsWith("GOODSIG "))) {
   fail(`The produced signature did not verify:\n${verifyOutput.trim()}`);
 }
-if (!verifyOutput.includes(fingerprint)) {
+const validSig = statusLines.find((line) => line.startsWith("VALIDSIG "));
+if (!validSig) {
+  fail(`gpg reported no VALIDSIG for the signature:\n${verifyOutput.trim()}`);
+}
+const validSigFields = validSig.split(/\s+/u);
+const signedByKey = validSigFields[1];
+const signedByPrimary = validSigFields.at(-1);
+if (signedByPrimary !== fingerprint) {
   fail(
-    `The signature verified but was not made by ${fingerprint}:\n${verifyOutput.trim()}`,
+    `The signature verified but its primary key is ${signedByPrimary}, not ${fingerprint}:\n` +
+      verifyOutput.trim(),
   );
+}
+if (signedByKey !== fingerprint) {
+  console.log(`Signed by subkey ${signedByKey} of ${fingerprint}`);
 }
 
 // Re-check every recorded digest against the file on disk, so the receipt cannot certify a

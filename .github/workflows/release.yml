@@ -162,9 +162,20 @@ jobs:
         # and the release notes say which. Failing a sound build over a missing secret would be
         # the worse trade.
         #
-        # Worth deciding deliberately before setting these: a signing key in Actions secrets
-        # can sign whatever a workflow-write compromise asks it to. If that is not wanted,
-        # leave the secrets unset and sign locally against the published checksums instead.
+        # GPG_PRIVATE_KEY must be a **signing subkey only**, never the primary:
+        #
+        #   gpg --quick-add-key <primary-fpr> ed25519 sign 1y
+        #   gpg --armor --export-secret-subkeys <subkey-fpr>!    # the ! matters
+        #
+        # The exported bundle carries a stub primary with no secret — `gpg -K` shows it as
+        # `sec#` — so a compromised runner can sign and cannot certify other keys as you. If it
+        # ever is compromised, revoke the subkey; the release identity and every signature made
+        # before it survive. The primary stays on your machine and never reaches CI.
+        #
+        # GPG_KEY_ID is still the **primary** fingerprint. sign-release.mjs resolves the
+        # identity from it and lets gpg pick the signing subkey, then checks the signature's
+        # primary key rather than the key that signed — which is what makes the subkey layout
+        # work at all.
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
