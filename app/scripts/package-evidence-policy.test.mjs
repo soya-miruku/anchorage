@@ -101,6 +101,7 @@ test("canonical packaged package metadata matches electron-builder's runtime sub
     productName: "Anchorage",
     desktopName: "anchorage",
     version: "0.1.0",
+    homepage: "https://example.invalid/anchorage",
     description: "Docker desktop",
     author: { name: "Anchorage Contributors" },
     private: true,
@@ -118,6 +119,9 @@ test("canonical packaged package metadata matches electron-builder's runtime sub
     productName: source.productName,
     desktopName: source.desktopName,
     version: source.version,
+    // Joined the subset when the deb and rpm targets did: FpmTarget refuses to build without
+    // a homepage, and electron-builder then ships it in the asar's package.json.
+    homepage: source.homepage,
     description: source.description,
     author: source.author,
     private: source.private,

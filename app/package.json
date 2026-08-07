@@ -3,6 +3,7 @@
   "productName": "Anchorage",
   "desktopName": "anchorage",
   "version": "0.1.0",
+  "homepage": "https://github.com/soya-miruku/anchorage",
   "description": "A fast, capability-complete desktop interface for Docker Engine and the installed Docker CLI.",
   "author": {
     "name": "Anchorage Contributors"

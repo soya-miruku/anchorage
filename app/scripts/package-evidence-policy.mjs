@@ -156,11 +156,21 @@ export const DESIGN_VISUAL_REVIEW_CRITERIA = Object.freeze([
   "state-specific-content",
 ]);
 
+/*
+ * The keys electron-builder actually writes into the asar's package.json, in its order.
+ *
+ * Order is load-bearing: canonicalPackagedPackageJson rebuilds the object by iterating this
+ * list and the result is compared byte-for-byte against the extracted file, so a key in the
+ * wrong position fails as loudly as a missing one. `homepage` joined when the deb and rpm
+ * targets did — FpmTarget refuses to build without one, and electron-builder then ships it.
+ * Verified against a real --dir build rather than assumed.
+ */
 const PACKAGED_PACKAGE_JSON_KEYS = Object.freeze([
   "name",
   "productName",
   "desktopName",
   "version",
+  "homepage",
   "description",
   "author",
   "private",

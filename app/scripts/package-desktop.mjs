@@ -5,6 +5,7 @@ import {
   chmod,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rm,
@@ -345,6 +346,62 @@ function run(command, args, {
       );
     });
   });
+}
+
+/**
+ * Runs a command with its stdout redirected straight into a file.
+ *
+ * `run` either inherits stdio or buffers it into a string, and neither suits a program whose
+ * output *is* the artifact: `rpm2archive -n` writes an uncompressed tar to stdout, which for a
+ * desktop application is tens of megabytes. Buffering that through a JS string to write it back
+ * out again would be pure waste, so the descriptor is handed to the child directly.
+ */
+async function runToFile(command, args, outputPath, { cwd = APP_DIRECTORY, timeoutMs = 0 } = {}) {
+  const handle = await open(outputPath, "w");
+  try {
+    await new Promise((resolveRun, rejectRun) => {
+      const child = spawn(command, args, {
+        cwd,
+        env: process.env,
+        shell: false,
+        stdio: ["ignore", handle.fd, "pipe"],
+      });
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+      let timer = null;
+      let timedOut = false;
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+          setTimeout(() => child.kill("SIGKILL"), 2_000).unref();
+        }, timeoutMs);
+        timer.unref();
+      }
+      child.once("error", (error) => {
+        clearTimeout(timer);
+        rejectRun(error);
+      });
+      child.once("exit", (code, signal) => {
+        clearTimeout(timer);
+        if (code === 0 && !timedOut) {
+          resolveRun();
+          return;
+        }
+        rejectRun(
+          new Error(
+            `${basename(command)} failed${timedOut ? " after timing out" : ""} ` +
+              `(code ${String(code)}, signal ${String(signal)})\n${stderr}`.trimEnd(),
+          ),
+        );
+      });
+    });
+  } finally {
+    await handle.close();
+  }
 }
 
 async function sha256File(path) {
@@ -1870,6 +1927,125 @@ async function verifyAppImagePayload(appImage, manifest) {
   }
 }
 
+/*
+The native installers, unpacked and checked rather than counted.
+
+deb, rpm and pacman all ship the same tree the AppImage does — the Electron executable, the
+asar, and the staged core beside it — so they get the same payload verification rather than a
+size check and a hash. A format that is emitted but never opened is a format nobody has
+confirmed contains the build: the AppImage is extracted and smoke-tested precisely because
+"electron-builder exited zero" is not evidence, and that reasoning does not stop at one target.
+
+libarchive reads all three (ar+tar for deb, cpio for rpm, zstd tar for pacman), so none of
+dpkg, rpmbuild or makepkg has to be installed to look inside one — which matters, because the
+machine that builds these is an Arch machine that has none of them.
+*/
+const NATIVE_PACKAGE_FORMATS = Object.freeze([
+  { extension: ".deb", label: "deb" },
+  { extension: ".rpm", label: "rpm" },
+  // electron-builder expands `${ext}` to the target name, so the pacman artifact is named
+  // `.pacman` rather than the `.pkg.tar.zst` makepkg would produce. The contents are the same
+  // compressed tar either way, which is what libarchive reads.
+  { extension: ".pacman", label: "pacman" },
+]);
+
+async function extractNativePackage(path, label, destination) {
+  if (label === "rpm") {
+    /*
+     * libarchive on this machine cannot open an rpm — "Unrecognized archive format" — so the
+     * payload is converted to a plain tar first. `rpm2archive` ships with the same rpm-tools
+     * that provides the `rpmbuild` fpm shells out to, so this adds no dependency the rpm
+     * target did not already have: a machine that can build one can open one.
+     *
+     * With `-n` it writes the tar to stdout rather than to a file — it has no output flag —
+     * so the descriptor is redirected instead of the output being buffered.
+     */
+    const payload = join(destination, "payload.tar");
+    await runToFile("rpm2archive", ["-n", path], payload, { timeoutMs: 180_000 });
+    await run("bsdtar", ["-xf", "payload.tar"], {
+      cwd: destination,
+      capture: true,
+      timeoutMs: 180_000,
+    });
+    return;
+  }
+  if (label === "deb") {
+    // A .deb is an ar archive holding data.tar.<compression>. bsdtar reads the outer ar, and
+    // the inner tarball's compression varies with the fpm build, so it is discovered rather
+    // than assumed.
+    await run("bsdtar", ["-xf", path], { cwd: destination, capture: true, timeoutMs: 120_000 });
+    const payloads = (await readdir(destination)).filter((name) =>
+      name.startsWith("data.tar"),
+    );
+    if (payloads.length !== 1) {
+      fail(`Expected one data.tar payload in ${basename(path)}; found ${JSON.stringify(payloads)}`);
+    }
+    await run("bsdtar", ["-xf", payloads[0]], {
+      cwd: destination,
+      capture: true,
+      timeoutMs: 120_000,
+    });
+    return;
+  }
+  await run("bsdtar", ["-xf", path], { cwd: destination, capture: true, timeoutMs: 120_000 });
+}
+
+async function verifyNativePackagePayload(installer, manifest) {
+  const extractionDirectory = await mkdtemp(
+    resolve(tmpdir(), `anchorage-${installer.format}-verify-`),
+  );
+  try {
+    log(`Extracting ${installer.name} for exact payload verification`);
+    await extractNativePackage(installer.path, installer.format, extractionDirectory);
+
+    const archiveCandidates = await collectFiles(
+      extractionDirectory,
+      (path) => basename(path) === "app.asar",
+    );
+    if (archiveCandidates.length !== 1) {
+      fail(
+        `Expected one app.asar in the extracted ${installer.format}; found ` +
+          `${JSON.stringify(archiveCandidates)}`,
+      );
+    }
+    const archive = archiveCandidates[0];
+    const resourcesDirectory = resolve(archive, "..");
+
+    const expectedElectronBinary = manifest.evidence.hostCandidate.electronBinary;
+    const executableCandidates = await collectFiles(
+      extractionDirectory,
+      (path) => basename(path) === "anchorage",
+    );
+    const executableMatches = [];
+    for (const candidate of executableCandidates) {
+      const info = await stat(candidate);
+      if (
+        info.size === expectedElectronBinary.bytes &&
+        (await sha256File(candidate)) === expectedElectronBinary.sha256
+      ) {
+        executableMatches.push(candidate);
+      }
+    }
+    if (executableMatches.length !== 1) {
+      fail(
+        `Expected exactly one extracted Anchorage executable matching the host-captured ` +
+          `Electron binary in the ${installer.format}; found ` +
+          `${JSON.stringify(executableMatches)} among ${JSON.stringify(executableCandidates)}`,
+      );
+    }
+
+    return await verifyPackagedPayload(manifest, {
+      executable: executableMatches[0],
+      archive,
+      core: join(resourcesDirectory, "core", "anchorage-core"),
+      manifestPath: join(resourcesDirectory, "core", "manifest.json"),
+      label: `extracted ${installer.format} payload`,
+    });
+  } finally {
+    await rm(extractionDirectory, { recursive: true, force: true });
+  }
+}
+
 async function verifyInstallers() {
   const artifacts = (await readdir(RELEASE_DIRECTORY, { withFileTypes: true }))
     .filter((entry) => entry.isFile())
@@ -1891,12 +2067,26 @@ async function verifyInstallers() {
     await access(path, constants.X_OK);
     const sha256 = await sha256File(path);
     log(`${name}: ${info.size} bytes, sha256 ${sha256}`);
-    installers.push({
-      name,
-      path,
-      sha256,
-      bytes: info.size,
-    });
+    installers.push({ name, path, sha256, bytes: info.size, format: "AppImage" });
+  }
+
+  for (const { extension, label } of NATIVE_PACKAGE_FORMATS) {
+    const matches = artifacts.filter((name) => name.endsWith(extension));
+    if (matches.length !== 1) {
+      fail(`Expected one ${label} artifact; found ${JSON.stringify(matches)}`);
+    }
+    const name = matches[0];
+    const path = join(RELEASE_DIRECTORY, name);
+    const info = await assertFile(path, `${label} release artifact`);
+    if (info.size === 0) {
+      fail(`${label} release artifact is empty: ${path}`);
+    }
+    // Deliberately no executable-bit check: a native package is data to be installed, not a
+    // program to be run, and the AppImage is the only artifact for which that check is a
+    // property rather than an accident.
+    const sha256 = await sha256File(path);
+    log(`${name}: ${info.size} bytes, sha256 ${sha256}`);
+    installers.push({ name, path, sha256, bytes: info.size, format: label });
   }
   return installers;
 }
@@ -1959,8 +2149,9 @@ async function main() {
     label: "unpacked application",
   });
   let appImageVerification = null;
+  let nativePackageVerification = null;
   if (MODE === "--linux") {
-    const [appImage] = await verifyInstallers();
+    const [appImage, ...nativePackages] = await verifyInstallers();
     const extractedPayload = await verifyAppImagePayload(
       appImage,
       manifest,
@@ -1983,6 +2174,37 @@ async function main() {
       extractedPayload,
       mountedStartup,
     };
+
+    /*
+     * The native formats are opened and checked, but not run.
+     *
+     * Their payload is verified to be the same executable, asar and core the AppImage carries,
+     * which is what makes them the same build. They are not smoke-tested, because running one
+     * means installing it: a .deb unpacked into a temp directory is not what a deb does, and
+     * the honest place to test that is a machine of that distribution. This is recorded rather
+     * than glossed, so the report says which artifacts were executed and which were inspected.
+     */
+    nativePackageVerification = [];
+    for (const installer of nativePackages) {
+      nativePackageVerification.push({
+        format: installer.format,
+        artifact: {
+          path: normalizedRelative(REPOSITORY_DIRECTORY, installer.path),
+          sha256: installer.sha256,
+          bytes: installer.bytes,
+        },
+        extractedPayload: await verifyNativePackagePayload(installer, manifest),
+        smokeTested: false,
+        smokeTestedReason:
+          "Running this format means installing it; unpacking it into a temp directory would " +
+          "not exercise what the package actually does. Its payload is verified byte-for-byte " +
+          "against the AppImage's, which was executed.",
+      });
+    }
+    log(
+      `Verified ${nativePackageVerification.length} native package payloads: ` +
+        nativePackageVerification.map((entry) => entry.format).join(", "),
+    );
   }
   const stagedManifestInfo = await assertFile(
     CORE_MANIFEST,
@@ -2002,6 +2224,7 @@ async function main() {
       manifest.evidence.hostCandidate.electronBinary,
     unpackedPayload,
     appImage: appImageVerification,
+    nativePackages: nativePackageVerification,
     // Says which digests survive a rebuild of the same commit, because the answer is not "all
     // of them" and a reader comparing the wrong one would conclude two identical builds carry
     // different software.

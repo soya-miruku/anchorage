@@ -94,7 +94,22 @@ async function resolveSigningKey(selector) {
   return fingerprints[0];
 }
 
-/** Everything a downloader receives, and therefore everything that must be covered. */
+/*
+Everything a downloader receives, and therefore everything that must be covered.
+
+Listed explicitly rather than by "any file in the directory", so that adding a target is a
+deliberate decision to sign it rather than something that happens silently — and so that a
+stray file in the release directory cannot end up inside a signature. The inverse mistake has
+already happened once: the deb, rpm and pacman targets shipped while this filter still named
+only the AppImage, which left three of the four downloads uncovered by SHA256SUMS.
+*/
+const SIGNED_INSTALLER_EXTENSIONS = Object.freeze([
+  ".AppImage",
+  ".deb",
+  ".rpm",
+  ".pacman",
+]);
+
 async function releaseArtifacts() {
   let entries;
   try {
@@ -110,7 +125,7 @@ async function releaseArtifacts() {
     .map((entry) => entry.name)
     .filter(
       (name) =>
-        name.endsWith(".AppImage") ||
+        SIGNED_INSTALLER_EXTENSIONS.some((extension) => name.endsWith(extension)) ||
         name === "release-verification.json" ||
         name === "latest-linux.yml",
     )

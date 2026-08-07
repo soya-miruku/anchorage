@@ -40,9 +40,24 @@ linux:
     - target: AppImage
       arch:
         - x64
-  # A deb target requires a canonical project homepage. Keep it disabled until
-  # the project publishes one; substituting an unrelated or invented URL would
-  # make the installed package metadata incorrect.
+    # The three native formats, all produced by electron-builder's bundled fpm, so none of
+    # them needs dpkg, rpmbuild or makepkg installed. They carry the same staged core and
+    # renderer as the AppImage and are verified alongside it rather than merely emitted:
+    # verifyInstallers unpacks each one and checks the core and the asar inside it.
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+    - target: pacman
+      arch:
+        - x64
+  # deb and rpm record a homepage in their metadata. It is read from package.json rather than
+  # from here — FpmTarget takes `info.metadata.homepage` and refuses to build without it, which
+  # is what the note that used to sit here was describing. The URL is the project's own, so it
+  # is neither invented nor unrelated; it is a private repository today, so it will 404 for
+  # anyone without access, which makes it unreachable rather than incorrect.
   category: Development
   icon: build/icon.png
   executableName: anchorage
