@@ -17,6 +17,7 @@ import {
   looksUnauthenticated,
   registryHostForReference,
 } from "../utils/registry";
+import { formatBytes } from "../utils/bytes";
 
 const IMAGE_COLUMNS: ReadonlyArray<
   ColumnSort<AnchorageImage, "repository" | "tag" | "created" | "size" | "usage">
@@ -445,6 +446,38 @@ export function ImagesScreen({ store }: { store: AnchorageStore }) {
           </button>
         </div>
       </header>
+
+      {store.imagePruneResult && (
+        <div
+          className="prune-result"
+          role="status"
+          aria-live="polite"
+          data-testid="image-prune-result"
+        >
+          <div>
+            <strong>
+              Reclaimed {formatBytes(store.imagePruneResult.spaceReclaimedBytes)}
+            </strong>
+            <ul>
+              <li>
+                {store.imagePruneResult.removed} image
+                {store.imagePruneResult.removed === 1 ? "" : "s"} removed
+                {store.imagePruneResult.untagged > 0 &&
+                  `, ${store.imagePruneResult.untagged} tag${
+                    store.imagePruneResult.untagged === 1 ? "" : "s"
+                  } dropped`}
+              </li>
+            </ul>
+          </div>
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={store.dismissImagePruneResult}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="resource-tabs" role="tablist" aria-label="Images">
         <button

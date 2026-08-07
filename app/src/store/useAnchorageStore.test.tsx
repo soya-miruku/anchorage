@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAnchorageStore } from "./useAnchorageStore";
 import { createFixtureCapabilities } from "../data/commandFixtures";
-import type { HostAnchorageApi } from "../types";
+import type { AnchorageContainer, HostAnchorageApi } from "../types";
 
 const observedAt = "2026-08-02T12:00:00.000Z";
 
@@ -287,6 +287,145 @@ describe("openImageDetail failures", () => {
     });
     await waitFor(() => {
       expect(result.current.imageDetailError).toBe("second failed");
+    });
+  });
+});
+
+/**
+ * A bulk delete where some containers fail must say so.
+ *
+ * `deleteContainer` reports its own failure through `setError` and returns rather than throwing.
+ * `runBulkContainerAction` collected failures from a `try/catch` around the call, so for deletes
+ * the catch never fired and the "N of M failed" summary never appeared. Worse, every container
+ * that removed cleanly afterwards called `setError(null)`, wiping the message left by one that
+ * had not — delete five, two fail, and the UI reported nothing at all.
+ */
+describe("runBulkContainerAction delete", () => {
+  const stopped = (id: string, name: string) =>
+    ({
+      id,
+      name,
+      image: "node:20",
+      ports: "",
+      state: "exited",
+      rawState: "exited",
+      status: "Exited (0) 1 hour ago",
+      exitCode: 0,
+      kind: "service",
+      health: "none",
+    }) as unknown as AnchorageContainer;
+
+  const rows = [stopped("a1", "alpha"), stopped("b2", "bravo"), stopped("c3", "charlie")];
+
+  it("reports the containers that failed even when a later one succeeds", async () => {
+    const host = createHost(async () => listResult("networks", [])) as
+      HostAnchorageApi & { containers: { list: unknown; action: unknown } };
+    // The list is stateful: deleteContainer re-lists to confirm the row is gone, so a static
+    // list would fail reconciliation for the successes too and prove nothing about the summary.
+    const present = new Set(rows.map((row) => row.id));
+    host.containers.list = vi.fn(async () =>
+      listResult("containers", rows.filter((row) => present.has(row.id))),
+    );
+    // bravo fails; charlie is deleted afterwards and used to clear the banner.
+    host.containers.action = vi.fn(async ({ id }: { id: string }) => {
+      if (id === "b2") throw new Error("device or resource busy");
+      present.delete(id);
+      return { ok: true };
+    });
+    window.anchorage = host;
+
+    const { result } = renderHook(() => useAnchorageStore());
+    await waitFor(() => expect(result.current.containers).toHaveLength(3));
+
+    act(() => result.current.setContainerSelection(["a1", "b2", "c3"]));
+    await act(async () => {
+      await result.current.runBulkContainerAction("delete");
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toContain("1 of 3 failed");
+    });
+    expect(result.current.error).toContain("bravo");
+    expect(result.current.error).toContain("device or resource busy");
+  });
+
+  it("leaves no error when every delete succeeds", async () => {
+    const host = createHost(async () => listResult("networks", [])) as
+      HostAnchorageApi & { containers: { list: unknown; action: unknown } };
+    const present = new Set(rows.map((row) => row.id));
+    host.containers.list = vi.fn(async () =>
+      listResult("containers", rows.filter((row) => present.has(row.id))),
+    );
+    host.containers.action = vi.fn(async ({ id }: { id: string }) => {
+      present.delete(id);
+      return { ok: true };
+    });
+    window.anchorage = host;
+
+    const { result } = renderHook(() => useAnchorageStore());
+    await waitFor(() => expect(result.current.containers).toHaveLength(3));
+
+    act(() => result.current.setContainerSelection(["a1", "b2", "c3"]));
+    await act(async () => {
+      await result.current.runBulkContainerAction("delete");
+    });
+
+    expect(result.current.error).toBeNull();
+  });
+});
+
+/**
+ * A prune must report the daemon's own reclaim figure.
+ *
+ * `cleanUpImages` awaited `images.action` and discarded the result, so a prune finished in
+ * silence — the list just had fewer rows. The number cannot be recovered on this side either:
+ * summing the sizes of the removed images counts every shared layer once per image that
+ * referenced it, and Docker already computes the real total in `SpaceReclaimed`.
+ */
+describe("cleanUpImages", () => {
+  /** The core's projection shape, not the store's — the store derives its rows from this. */
+  const dangling = (id: string) => ({
+    id,
+    repoTags: [] as string[],
+    created: "2026-08-01T00:00:00.000Z",
+    sizeBytes: 200_000_000,
+    containers: 0,
+  });
+
+  it("surfaces the reclaimed bytes the daemon reported", async () => {
+    const host = createHost(async () => listResult("networks", [])) as
+      HostAnchorageApi & { images: { list: unknown; action: unknown } };
+    let pruned = false;
+    host.images.list = vi.fn(async () =>
+      listResult("images", pruned ? [] : [dangling("sha256:a")]),
+    );
+    host.images.action = vi.fn(async () => {
+      pruned = true;
+      return {
+        action: "prune",
+        receipt: {},
+        prune: {
+          // Two layers shared between the images: 400 MB listed, 220 MB actually freed.
+          imagesDeleted: [{ deleted: "sha256:a" }, { untagged: "old:1" }],
+          spaceReclaimedBytes: 220_000_000,
+        },
+      };
+    });
+    window.anchorage = host;
+
+    const { result } = renderHook(() => useAnchorageStore());
+    await waitFor(() => expect(result.current.images).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.cleanUpImages("dangling");
+    });
+
+    await waitFor(() => {
+      expect(result.current.imagePruneResult).toEqual({
+        removed: 1,
+        untagged: 1,
+        spaceReclaimedBytes: 220_000_000,
+      });
     });
   });
 });

@@ -496,6 +496,14 @@ export type ImagesActionParams =
 export interface ImagesActionResult {
   action: "remove" | "prune" | "pull" | "save" | "load" | "tag" | "push";
   receipt: Record<string, unknown>;
+  /**
+   * The daemon's own accounting for a prune, which is the only correct one: summing the sizes
+   * of the removed images double-counts every layer more than one of them shared.
+   */
+  prune?: {
+    imagesDeleted: { deleted?: string; untagged?: string }[];
+    spaceReclaimedBytes: number;
+  };
   session?: SessionStartResult;
   /** Where a push is going, derived from the reference. */
   registry?: string;

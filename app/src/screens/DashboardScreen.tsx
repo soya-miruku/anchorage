@@ -9,6 +9,7 @@ import {
   DISK_USAGE_FIXTURES,
 } from "../data/fixtures";
 import type { AnchorageStore } from "../store/useAnchorageStore";
+import { formatBytes } from "../utils/bytes";
 
 interface StatCardProps {
   label: string;
@@ -65,17 +66,6 @@ function Bars({
     </div>
   );
 }
-
-const formatHostBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(
-    units.length - 1,
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-  );
-  const value = bytes / 1024 ** index;
-  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
-};
 
 function HostDashboard({ store }: { store: AnchorageStore }) {
   const [pruneOpen, setPruneOpen] = useState(false);
@@ -241,7 +231,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
         />
         <StatCard
           label="Reclaimable"
-          value={formatHostBytes(reclaimableImages + reclaimableCache)}
+          value={formatBytes(reclaimableImages + reclaimableCache)}
           unit=""
           detail="unused images and build cache"
           percent={
@@ -288,7 +278,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
           All unused images
         </button>
         <span className="dashboard-reclaim-actions__note resource-dim">
-          {formatHostBytes(reclaimableImages + reclaimableCache)} reclaimable · volumes are
+          {formatBytes(reclaimableImages + reclaimableCache)} reclaimable · volumes are
           excluded and stay a deliberate choice
         </span>
       </div>
@@ -372,7 +362,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
             >
               <div className="disk-item__heading">
                 <span>{item.label}</span>
-                <strong>{formatHostBytes(item.bytes)}</strong>
+                <strong>{formatBytes(item.bytes)}</strong>
               </div>
               <div className="disk-item__track" aria-hidden="true">
                 <span
@@ -407,7 +397,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
         >
           <div>
             <strong>
-              Reclaimed {formatHostBytes(store.systemPruneResult.spaceReclaimedBytes)}
+              Reclaimed {formatBytes(store.systemPruneResult.spaceReclaimedBytes)}
             </strong>
             <ul>
               {store.systemPruneResult.stages.map((stage) => (
@@ -415,7 +405,7 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
                   {stage.resource}:{" "}
                   {stage.error
                     ? `failed — ${stage.error}`
-                    : `${stage.deleted.length} removed, ${formatHostBytes(stage.spaceReclaimedBytes)}`}
+                    : `${stage.deleted.length} removed, ${formatBytes(stage.spaceReclaimedBytes)}`}
                 </li>
               ))}
             </ul>

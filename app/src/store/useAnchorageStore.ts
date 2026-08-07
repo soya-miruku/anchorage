@@ -5,6 +5,7 @@ import {
   type Activity,
 } from "./activity";
 import { aggregateEngineCpuPercent } from "./engineUtilisation";
+import { formatBytes } from "../utils/bytes";
 import {
   BUILD_FIXTURES,
   DEFAULT_ENGINE_RESOURCES,
@@ -98,6 +99,7 @@ import type {
   PluginRepair,
   BuilderAction,
   ImageProjection,
+  ImagesActionResult,
   ImagesInspectResult,
   VolumeProjection,
 } from "../types";
@@ -111,17 +113,6 @@ const formatClock = () =>
     second: "2-digit",
     hour12: false,
   }).format(new Date());
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const index = Math.min(
-    units.length - 1,
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-  );
-  const value = bytes / 1024 ** index;
-  return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
-};
 
 const formatCreated = (seconds: number, fallback?: string) => {
   if (fallback) return fallback;
@@ -1626,10 +1617,21 @@ export function useAnchorageStore() {
       container: AnchorageContainer,
       options: ContainerRemoveOptions = {},
     ) => {
-      if (!canOfferRemove(container)) return;
+      /*
+       * Returns the failure message, or null when the container is gone.
+       *
+       * It used to return void and report only through `setError`, which made a bulk delete
+       * silent: `runBulkContainerAction` collected failures from a `try/catch` this never threw
+       * into, so its summary saw none — and every container that removed cleanly afterwards
+       * called `setError(null)` and wiped the message from one that had not. Deleting five where
+       * two fail said nothing at all.
+       */
+      if (!canOfferRemove(container)) return "not removable in this state";
       // Docker cannot remove a running/paused/restarting container without --force, so require
       // the caller to have obtained explicit consent for it rather than silently escalating.
-      if (requiresForceRemove(container) && !options.force) return;
+      if (requiresForceRemove(container) && !options.force) {
+        return "needs force to remove while running";
+      }
       setPendingIds((current) => new Set(current).add(container.id));
       try {
         try {
@@ -1639,10 +1641,10 @@ export function useAnchorageStore() {
             options,
           );
         } catch (reason) {
-          setError(
-            reason instanceof Error ? reason.message : "Container delete failed",
-          );
-          return;
+          const message =
+            reason instanceof Error ? reason.message : "Container delete failed";
+          setError(message);
+          return message;
         }
         setContainers((current) =>
           current.filter((item) => item.id !== container.id),
@@ -1669,10 +1671,9 @@ export function useAnchorageStore() {
             dockerContextRef.current,
           );
         } catch (reason) {
-          setError(
-            reconciliationFailureMessage("Container delete", reason),
-          );
-          return;
+          const message = reconciliationFailureMessage("Container delete", reason);
+          setError(message);
+          return message;
         }
         setContainers((current) => reconcileContainerIdentity(current, reconciled));
         if (isHost) void refreshSnapshot().catch(() => undefined);
@@ -1683,6 +1684,7 @@ export function useAnchorageStore() {
           setSelectedId(null);
         }
         setError(null);
+        return null;
       } finally {
         setPendingIds((current) => {
           const next = new Set(current);
@@ -1711,10 +1713,13 @@ export function useAnchorageStore() {
           if (action === "delete") {
             const force = requiresForceRemove(container);
             if (!canOfferRemove(container)) continue;
-            await deleteContainer(container, {
+            // The returned message, not a thrown one: deleteContainer handles its own failure
+            // and never throws, which is why this loop's catch saw nothing for deletes.
+            const failure = await deleteContainer(container, {
               ...options,
               ...(force ? { force: true } : {}),
             });
+            if (failure) failures.push(`${container.name}: ${failure}`);
           } else if (action === "start") {
             if (container.state === "running") continue;
             await bridge.containers.start(container.id, dockerContextRef.current);
@@ -2782,6 +2787,14 @@ export function useAnchorageStore() {
    * The button used to be hardcoded to dangling while its own header advertised the far
    * larger unused total, and it was a silent no-op whenever nothing was dangling.
    */
+  const [imagePruneResult, setImagePruneResult] = useState<{
+    removed: number;
+    untagged: number;
+    spaceReclaimedBytes: number;
+  } | null>(null);
+
+  const dismissImagePruneResult = useCallback(() => setImagePruneResult(null), []);
+
   const cleanUpImages = useCallback(
     async (scope: "dangling" | "all" = "dangling") => {
     if (!isHost) {
@@ -2797,9 +2810,11 @@ export function useAnchorageStore() {
           );
     if (!hasTarget) return;
     setImageMutationPending(true);
+    setImagePruneResult(null);
     try {
+      let outcome: ImagesActionResult;
       try {
-        await bridge.images.action({
+        outcome = await bridge.images.action({
           context: dockerContextRef.current,
           action: "prune",
           confirmed: true,
@@ -2820,6 +2835,21 @@ export function useAnchorageStore() {
         return;
       }
       void refreshSnapshot().catch(() => undefined);
+      /*
+       * Report what the daemon says it freed, not what we can infer.
+       *
+       * This receipt was awaited and thrown away, so a prune finished in silence — the list
+       * simply had fewer rows. The one figure worth showing cannot be reconstructed here
+       * either: adding up the sizes of the removed images counts every shared layer once per
+       * image that referenced it, and an image list is mostly shared layers.
+       */
+      if (outcome.prune) {
+        setImagePruneResult({
+          removed: outcome.prune.imagesDeleted.filter((entry) => entry.deleted).length,
+          untagged: outcome.prune.imagesDeleted.filter((entry) => entry.untagged).length,
+          spaceReclaimedBytes: outcome.prune.spaceReclaimedBytes,
+        });
+      }
       setError(null);
     } finally {
       setImageMutationPending(false);
@@ -5034,6 +5064,8 @@ export function useAnchorageStore() {
     deleteContainer,
     setImageTab,
     pruneSystem,
+    imagePruneResult,
+    dismissImagePruneResult,
     systemPruneResult,
     systemPrunePending,
     dismissSystemPruneResult: () => setSystemPruneResult(null),
