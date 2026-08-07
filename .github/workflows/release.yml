@@ -94,6 +94,23 @@ jobs:
         working-directory: app
         run: bun install --frozen-lockfile
 
+      - name: Give the daemon something to be inspected
+        # Two read-only conformance checks need a container that is actually running — native
+        # inspect/stats, and streaming a long-lived session — and a fresh runner's daemon is
+        # empty. The suite aborts on the first failure, so without this it reported "3 of 4
+        # checks executed" and the other 22 never ran at all.
+        #
+        # The mutation checks create and destroy their own resources; this is only the ambient
+        # state the read-only half reads. It stays up for the whole job because
+        # package:linux runs read-only acceptance again against the freshly staged core.
+        run: |
+          docker pull alpine:3.21
+          docker run -d --name anchorage-ci-fixture --restart no \
+            alpine:3.21 sleep infinity
+          docker volume create anchorage-ci-fixture
+          docker network create anchorage-ci-fixture
+          docker ps --format '{{.Names}} {{.Status}}'
+
       - name: Build the core the evidence will be measured against
         # The same flags package-desktop.mjs uses for its staged core, because the evidence and
         # the package must describe one binary: it rebuilds the core itself and compares hashes,
@@ -206,6 +223,16 @@ jobs:
             mv release-signature.json "release-signature-$ARCH.json"
           fi
           ls -la
+
+      - name: Remove the fixture
+        # `always()` so a failed build still leaves the daemon as it was found. The runner is
+        # discarded either way, but a job that only cleans up on success teaches the wrong habit
+        # and would matter the moment this runs anywhere persistent.
+        if: always()
+        run: |
+          docker rm -f anchorage-ci-fixture || true
+          docker volume rm -f anchorage-ci-fixture || true
+          docker network rm anchorage-ci-fixture || true
 
       - uses: actions/upload-artifact@v4
         with:
