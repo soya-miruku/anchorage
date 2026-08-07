@@ -1000,12 +1000,27 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
     ),
   ]);
 
+  /*
+   * Every input the ledger was derived from, so the ledger can be shown to be newer than all of
+   * them — a review is only about the thing it looked at.
+   *
+   * The comp and the rendered baseline are not distributed to build hosts, so they are included
+   * when present and skipped when not. What remains on a host without them is the check that
+   * actually matters there: `app/src` and the captures. A renderer edited after the review still
+   * fails, which is the guarantee CI is there to enforce; what is lost is only the ability to
+   * notice the comp itself moving, and the comp only moves on the machine that has it.
+   *
+   * Filtered rather than made tolerant inside collectFiles, because `app/src` going missing is a
+   * real fault and should keep failing loudly.
+   */
   const designSourceFiles = await Promise.all([
     collectFiles(
       join(APP_DIRECTORY, "src"),
       (path) => !/\.test\.[cm]?[jt]sx?$/u.test(path),
     ),
-    collectFiles(DESIGN_REFERENCE_DIRECTORY),
+    existsSync(DESIGN_REFERENCE_DIRECTORY)
+      ? collectFiles(DESIGN_REFERENCE_DIRECTORY)
+      : [],
     collectFiles(
       join(REPOSITORY_DIRECTORY, "docs", "design-qa", "final-actual"),
     ),
@@ -1013,7 +1028,7 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
       join(DESIGN_HANDOFF_DIRECTORY, "Anchorage v2.dc.html"),
       join(DESIGN_HANDOFF_DIRECTORY, "README.md"),
       join(DESIGN_HANDOFF_DIRECTORY, "support.js"),
-    ],
+    ].filter((path) => existsSync(path)),
   ]);
   await assertArtifactNewerThan(
     designLedger,
