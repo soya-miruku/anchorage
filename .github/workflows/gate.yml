@@ -1,0 +1,77 @@
+# The gate that runs on everything.
+#
+# Deliberately narrow: it runs what needs no Docker daemon, no X server and no evidence bundle,
+# so it stays fast and its failures are unambiguous. The expensive verification — a live daemon,
+# a real window, a thirty-minute soak — lives in release.yml, where it is worth the wall clock.
+#
+# `bun run test` is the whole suite the repository already gates on, so this does not maintain a
+# second, drifting list of what counts. The strict typecheck is separate only because it is a
+# separate script.
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A newer push supersedes an older one on the same ref: nobody is waiting on the result of a
+  # commit that has already been replaced.
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          # package-desktop.mjs shells out to `npm run …` for its source gates, so npm has to be
+          # present and pinned rather than left to whatever the runner image ships. Bun stays the
+          # runtime the scripts are invoked through; this is only the tool they call.
+          node-version: "24"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: core/go.sum
+
+      - name: Install renderer dependencies
+        working-directory: app
+        # `--frozen-lockfile` so CI cannot silently resolve a different tree from the one that
+        # was tested locally; the packaging gate pins dev dependencies for the same reason.
+        run: bun install --frozen-lockfile
+
+      - name: Build the core the freshness test expects
+        # `bun run test` includes test:core-freshness, which compares the built binary's mtime
+        # against the Go sources. Without a build there is nothing to compare and the check
+        # passes vacuously — building here is what makes it mean something in CI.
+        working-directory: core
+        run: go build -o bin/anchorage-core ./cmd/anchorage-core
+
+      - name: Suite
+        working-directory: app
+        run: bun run test
+
+      - name: Strict renderer typecheck
+        working-directory: app
+        run: bun run typecheck:renderer
+
+      - name: Go vet
+        working-directory: core
+        run: go vet ./...
+
+      - name: Go tests under the race detector
+        # The renderer suite covers the core's behaviour through `bun run test`, but not its
+        # concurrency: the volume listing fan-out and the stats batch are goroutine fan-outs
+        # whose bugs only appear under -race.
+        working-directory: core
+        run: go test -race ./...

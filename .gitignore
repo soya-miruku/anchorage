@@ -34,7 +34,16 @@ docs/design-qa/invalid/
 # Nothing in `npm test` needs any of it: the checks that cite a digest generated into artifacts/
 # run only when the file is present, and say so when it is not. A release is still judged against
 # the bundle; the bundle is now produced and kept locally rather than versioned.
-artifacts/
+artifacts/*
+# ...except the design ledger, which is the one piece of release evidence CI can never
+# regenerate. The comp and the rendered reference are both untracked, and the per-state
+# review is a person looking at two images — that is the point of the attestation, not an
+# automation gap. So the ledger travels with the commit and CI validates it: change the
+# renderer without redoing the review and the release fails, which is the gate working.
+# It is hashes and figures, no comp content — the diffs and contact sheets stay ignored.
+!artifacts/design/
+artifacts/design/*
+!artifacts/design/design-ledger.json
 
 # Local environment. No .env exists today; this is here so one never lands by accident.
 .env

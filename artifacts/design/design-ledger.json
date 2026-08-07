@@ -1,0 +1,2305 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-07T15:02:34.708Z",
+  "claim": "reviewed-visual-conformance-not-pixel-identity",
+  "canonicalViewport": {
+    "width": 1656,
+    "height": 1056
+  },
+  "designViewport": {
+    "width": 1600,
+    "height": 1000
+  },
+  "referenceSource": "docs/design-qa/reference, generated from docs/design_handoff_anchorage/Anchorage v2.dc.html",
+  "reviewRecorded": true,
+  "generator": {
+    "path": "tools/measure-design-parity.mjs",
+    "sha256": "b5e759676e7743784c39890ecffdb455b339a70edb498699042a6826718226be"
+  },
+  "handoffSource": {
+    "scope": "anchorage-design-handoff-v2",
+    "sha256": "8b32cd6f6386890839afd1c2417b6abb6935557ae4c0b500c46a18291e35199c",
+    "files": 25,
+    "bytes": 3699304,
+    "declaredSources": [
+      "docs/design_handoff_anchorage/Anchorage v2.dc.html",
+      "docs/design_handoff_anchorage/README.md",
+      "docs/design_handoff_anchorage/support.js"
+    ],
+    "referenceDirectory": "docs/design-qa/reference",
+    "referenceGeneratedFrom": {
+      "path": "docs/design_handoff_anchorage/Anchorage v2.dc.html",
+      "sha256": "4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe",
+      "bytes": 372457
+    },
+    "referenceHarness": {
+      "path": "tools/capture-design-reference.mjs",
+      "sha256": "56f3d94e06a15261d2dd14a1047705815a600c616fdd1daa0e3ac1a97257ddf8",
+      "bytes": 8340
+    },
+    "supersededBaseline": {
+      "path": "docs/design_handoff_anchorage/reference-captures",
+      "note": "Renders of Anchorage.dc.html (v1) from the initial commit, kept as shipped. Stored as quality-80 JPEG under a .png extension, which alone costs ~0.004 normalized MAE against any exact render."
+    }
+  },
+  "visualReviewAttestation": {
+    "source": {
+      "path": "docs/design-qa/visual-review-attestation.json",
+      "sha256": "dc2a8f43d23b1f54c75162d7af37deebfee53d44c1169e96a3671d8b6db6f132",
+      "bytes": 37037
+    },
+    "attestation": {
+      "schemaVersion": 1,
+      "claim": "reviewed-visual-conformance-not-pixel-identity",
+      "reviewedAt": "2026-08-07T15:02:23.273Z",
+      "baseline": {
+        "directory": "docs/design-qa/reference",
+        "generatedFrom": "docs/design_handoff_anchorage/Anchorage v2.dc.html",
+        "supersedes": "docs/design_handoff_anchorage/reference-captures (renders of the v1 comp)"
+      },
+      "states": [
+        {
+          "state": "builds",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01031 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/builds.png",
+            "sha256": "3d193ae0e3c1fe4be909167c6e3c4d2883a427fccf6c79c5cac556ed769b6d56",
+            "bytes": 183149,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/builds.png",
+            "sha256": "691c193e58a44aea4abc2bf7ec0c21e54bf9b8f36d257cde26b482db3cf31333",
+            "bytes": 186288,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-exec",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00863 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-exec.png",
+            "sha256": "83a3383fa0060d642b338efdff5df5f189f4ed6877e663d63cc9532246e6101e",
+            "bytes": 131718,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-exec.png",
+            "sha256": "bafa867d1268742b50427ffdc79b51670fa8e358d327eaac5bd9999aa3cd392b",
+            "bytes": 131017,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-files",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01049 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-files.png",
+            "sha256": "95ff321483bb0702ed4945f2685f7cdddfd48e979c1ea3b6ea68e76acf2a1848",
+            "bytes": 157625,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-files.png",
+            "sha256": "1c5d6fa007c147083b79f0ec24912ef635cc9af52141eaef4c13067b56ef59d9",
+            "bytes": 159160,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-inspect",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01213 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-inspect.png",
+            "sha256": "cdc5dab9c534d80481854f958afca06affa41a20bed289d547aa023e83de7cff",
+            "bytes": 166326,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-inspect.png",
+            "sha256": "8f8eb687fe071c7bae31cbda07657900200fa5203f524b526e5183c194944e3c",
+            "bytes": 171080,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-logs",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01956 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-logs.png",
+            "sha256": "08c64c8d0fc4a33c7841e6487dcb8a8d9b9fdcf0ce23626235b29a94b8cb6e40",
+            "bytes": 182190,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-logs.png",
+            "sha256": "e0a9b370c9fc56dabbab899ea0c9ba11789388f96160f6f34724801713ee4735",
+            "bytes": 274891,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-mounts",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00878 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-mounts.png",
+            "sha256": "e90e611f0c239d9e3eae39b920b3423a6d710c07b6cec5489b3919d93d6685fd",
+            "bytes": 137322,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-mounts.png",
+            "sha256": "8bebda332ad90eb40f558a65c68c22a4b51a8fdd59fb099b1c2aa7dc92e9ca75",
+            "bytes": 136266,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "container-detail-stats",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01692 unmasked; the recorded figure is the masked one, which excludes the live CPU and memory sample regions. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/container-detail-stats.png",
+            "sha256": "979f20d1a00b60d77526d09470e27d4c7f5ad74ad0dfe30903f2dc0c4ccc1f80",
+            "bytes": 161520,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/container-detail-stats.png",
+            "sha256": "cd5b0ff4059714648a29f210c7e42adeb2723abdd613c34d7baa385ca1fd79bd",
+            "bytes": 153823,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01838. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: the previously approved capture of this state carried a hovered first row (srgb(17,40,64)) while the containers-row-hover capture carried none — the two were inverted, so each was measured against the wrong reference. Both now match the comp's intent: this state's first row is the plain srgb(10,25,41).",
+          "reference": {
+            "path": "docs/design-qa/reference/containers.png",
+            "sha256": "a0edeaf1f69f5c2eac20c8f73fa727c238706344cd22fd14c8ba92e63a47a60b",
+            "bytes": 183142,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers.png",
+            "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+            "bytes": 207992,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers-banner-dismissed",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01726 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/containers-banner-dismissed.png",
+            "sha256": "faf99388ecb32b96a31b07b92f26f322cbade365dd9dcde37f11eef8ff5a0927",
+            "bytes": 152645,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers-banner-dismissed.png",
+            "sha256": "45a797037980f3743e4007484832b395f2fe28c02b227e3c8a10beeda8654985",
+            "bytes": 187400,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers-current",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01840 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/containers-current.png",
+            "sha256": "2400b819c86b9914dae375965d305b0dcd7cb3fa98892f5115dc2a62066819e7",
+            "bytes": 183179,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers-current.png",
+            "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+            "bytes": 207992,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers-only-running",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01557 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/containers-only-running.png",
+            "sha256": "85210bb602a8a28f1293f1fa01faa8f1f5d9f0351928cf8815a69ce4039ec447",
+            "bytes": 161384,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers-only-running.png",
+            "sha256": "8eda42b8ce1d58dbc540ed9accb01674e56e8848cb67b0374d4f22ef1a2177b3",
+            "bytes": 180472,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers-row-hover",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01883. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: this state previously captured without its hover. The first row now carries it at srgb(17,40,64) against the comp's srgb(16,38,62).",
+          "reference": {
+            "path": "docs/design-qa/reference/containers-row-hover.png",
+            "sha256": "8051475125190315da319013ee3c249c7dd4a2c4aec39f9267c0a9878fe2364a",
+            "bytes": 183092,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers-row-hover.png",
+            "sha256": "9745d903a1af5250ae25dbb1efd111f27f072973425fdb87a672f45c8df14ae9",
+            "bytes": 207766,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "containers-search-empty",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/containers-search-empty.png",
+            "sha256": "e6fc00d4d0be5a6ff5b38784510ec1bf282f4a6ee66abbbcd628d76c0742c612",
+            "bytes": 129443,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/containers-search-empty.png",
+            "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
+            "bytes": 139191,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "dashboard",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.01583 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/dashboard.png",
+            "sha256": "a36bf241f8cc389ef27781595579d1aa8c4ad8f4c2974c358f4ec750cafc5572",
+            "bytes": 193912,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/dashboard.png",
+            "sha256": "5c6b41d1b9ec825240ae0f1587471ad7a2c2439f56bbed5ee299b001585e01f4",
+            "bytes": 188089,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "images-local",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00717 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/images-local.png",
+            "sha256": "ba81bd3451e4c95f79e37bbdecc1168eab0f11b5a6d73653fc01e366a0bbda97",
+            "bytes": 163631,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/images-local.png",
+            "sha256": "ee1f986604a7a17c80d61ad7e6ea1a23d7ea80b9ee35aa73b5885e11a31cc7d2",
+            "bytes": 165548,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "images-registry",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00916 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/images-registry.png",
+            "sha256": "6dbcbeff884325fc754dbb0f015511d3b166cb5fbd85dd42f8610d01dfb60814",
+            "bytes": 170548,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/images-registry.png",
+            "sha256": "a6453e11048b44b8cc35bcc30c014e028551a261e459e088d7d362913feb8537",
+            "bytes": 175008,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "settings-advanced",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00525 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/settings-advanced.png",
+            "sha256": "76cd2d1123bb80696be3e0217b0668feefd4978b4114fd030aa495025cf71907",
+            "bytes": 112986,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/settings-advanced.png",
+            "sha256": "a20b6b712c90e3c3ae3a9bec9d5a1eb66127bc7df6039ece37e49d75eaf29164",
+            "bytes": 110250,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "settings-engine",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00672 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/settings-engine.png",
+            "sha256": "6f9a1b3e74d0927a1306637160e2ef217729249ec652ecd369d8123ff095c80c",
+            "bytes": 124762,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/settings-engine.png",
+            "sha256": "afb0cdaa1bf9b37c4420259e11423554f820bc39d3d48491ceb13fccab27f1b9",
+            "bytes": 124649,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "settings-resources",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00897 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/settings-resources.png",
+            "sha256": "c6ef890b0a28039c2c880c2a197fe968fdd6ad6819566ef061ae67e3c025159b",
+            "bytes": 116796,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/settings-resources.png",
+            "sha256": "78a1f61b8e569a04ad0a71f92223f1632dd750d2a90ca4c5d060fc903790accc",
+            "bytes": 115067,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "settings-updates",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00513 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/settings-updates.png",
+            "sha256": "4f2f6c67cf5e25362c5e4bba2295e610f2905aa478b8b6425871fad0688c994f",
+            "bytes": 109173,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/settings-updates.png",
+            "sha256": "c0645fa54e997ff319b5baa36a7186e1a83a289661a6becb90429732e3a80029",
+            "bytes": 106734,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        },
+        {
+          "state": "volumes",
+          "status": "approved",
+          "reviewer": {
+            "kind": "agent-visual-review",
+            "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+          },
+          "criteria": [
+            "geometry",
+            "typography",
+            "colour",
+            "borders-and-radii",
+            "spacing",
+            "iconography",
+            "layer-order",
+            "clipping",
+            "scroll-behavior",
+            "state-specific-content"
+          ],
+          "notes": "MAE 0.00676 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "reference": {
+            "path": "docs/design-qa/reference/volumes.png",
+            "sha256": "adb44c6442a522308a896b856910323ce33a1570763ad8f9c85c14c126d6c322",
+            "bytes": 141232,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          },
+          "actual": {
+            "path": "docs/design-qa/final-actual/volumes.png",
+            "sha256": "563f1d7f765f0c5e861ce85cd1e08d71cb39fd0e18a9097e633c6bdb5c85569f",
+            "bytes": 140559,
+            "dimensions": {
+              "width": 1656,
+              "height": 1056
+            }
+          }
+        }
+      ]
+    }
+  },
+  "rendererBuild": {
+    "sha256": "f17ad7996756af3ec74992cd9a2f89aa0a0728c009dc156871432432f94dbcff",
+    "files": 20,
+    "bytes": 1465127
+  },
+  "captureProvenance": {
+    "schemaVersion": 1,
+    "captureMode": "fixture-browser",
+    "bridgeMode": "fixture",
+    "capturedAt": "2026-08-07T14:59:16.021Z",
+    "source": "app/dist/client",
+    "canonicalViewport": {
+      "width": 1656,
+      "height": 1056
+    },
+    "rendererBuild": {
+      "sha256": "f17ad7996756af3ec74992cd9a2f89aa0a0728c009dc156871432432f94dbcff",
+      "files": 20,
+      "bytes": 1465127
+    },
+    "harness": {
+      "path": "tools/capture-design-parity.mjs",
+      "sha256": "26416023709a1b9958d92355504088107b3030566c6b5552b52be0cd32f3d97b"
+    },
+    "runtime": {
+      "executable": "app/node_modules/electron/dist/electron",
+      "product": "Chrome/150.0.7871.129",
+      "protocolVersion": "1.3",
+      "revision": "@e69b30bba288603e514cffb4c79c359cac68e923",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.129 Electron/43.2.0 Safari/537.36",
+      "jsVersion": "15.0.1240245"
+    },
+    "states": [
+      {
+        "state": "containers",
+        "path": "final-actual/containers.png",
+        "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+        "bytes": 207992,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "containers-current",
+        "path": "final-actual/containers-current.png",
+        "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+        "bytes": 207992,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "containers-only-running",
+        "path": "final-actual/containers-only-running.png",
+        "sha256": "8eda42b8ce1d58dbc540ed9accb01674e56e8848cb67b0374d4f22ef1a2177b3",
+        "bytes": 180472,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "containers-search-empty",
+        "path": "final-actual/containers-search-empty.png",
+        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
+        "bytes": 139191,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "containers-row-hover",
+        "path": "final-actual/containers-row-hover.png",
+        "sha256": "9745d903a1af5250ae25dbb1efd111f27f072973425fdb87a672f45c8df14ae9",
+        "bytes": 207766,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "containers-banner-dismissed",
+        "path": "final-actual/containers-banner-dismissed.png",
+        "sha256": "45a797037980f3743e4007484832b395f2fe28c02b227e3c8a10beeda8654985",
+        "bytes": 187400,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-logs",
+        "path": "final-actual/container-detail-logs.png",
+        "sha256": "e0a9b370c9fc56dabbab899ea0c9ba11789388f96160f6f34724801713ee4735",
+        "bytes": 274891,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-inspect",
+        "path": "final-actual/container-detail-inspect.png",
+        "sha256": "8f8eb687fe071c7bae31cbda07657900200fa5203f524b526e5183c194944e3c",
+        "bytes": 171080,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-mounts",
+        "path": "final-actual/container-detail-mounts.png",
+        "sha256": "8bebda332ad90eb40f558a65c68c22a4b51a8fdd59fb099b1c2aa7dc92e9ca75",
+        "bytes": 136266,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-exec",
+        "path": "final-actual/container-detail-exec.png",
+        "sha256": "bafa867d1268742b50427ffdc79b51670fa8e358d327eaac5bd9999aa3cd392b",
+        "bytes": 131017,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-files",
+        "path": "final-actual/container-detail-files.png",
+        "sha256": "1c5d6fa007c147083b79f0ec24912ef635cc9af52141eaef4c13067b56ef59d9",
+        "bytes": 159160,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "container-detail-stats",
+        "path": "final-actual/container-detail-stats.png",
+        "sha256": "cd5b0ff4059714648a29f210c7e42adeb2723abdd613c34d7baa385ca1fd79bd",
+        "bytes": 153823,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "dashboard",
+        "path": "final-actual/dashboard.png",
+        "sha256": "5c6b41d1b9ec825240ae0f1587471ad7a2c2439f56bbed5ee299b001585e01f4",
+        "bytes": 188089,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "images-local",
+        "path": "final-actual/images-local.png",
+        "sha256": "ee1f986604a7a17c80d61ad7e6ea1a23d7ea80b9ee35aa73b5885e11a31cc7d2",
+        "bytes": 165548,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "images-registry",
+        "path": "final-actual/images-registry.png",
+        "sha256": "a6453e11048b44b8cc35bcc30c014e028551a261e459e088d7d362913feb8537",
+        "bytes": 175008,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "volumes",
+        "path": "final-actual/volumes.png",
+        "sha256": "563f1d7f765f0c5e861ce85cd1e08d71cb39fd0e18a9097e633c6bdb5c85569f",
+        "bytes": 140559,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "builds",
+        "path": "final-actual/builds.png",
+        "sha256": "691c193e58a44aea4abc2bf7ec0c21e54bf9b8f36d257cde26b482db3cf31333",
+        "bytes": 186288,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "settings-resources",
+        "path": "final-actual/settings-resources.png",
+        "sha256": "78a1f61b8e569a04ad0a71f92223f1632dd750d2a90ca4c5d060fc903790accc",
+        "bytes": 115067,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "settings-engine",
+        "path": "final-actual/settings-engine.png",
+        "sha256": "afb0cdaa1bf9b37c4420259e11423554f820bc39d3d48491ceb13fccab27f1b9",
+        "bytes": 124649,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "settings-updates",
+        "path": "final-actual/settings-updates.png",
+        "sha256": "c0645fa54e997ff319b5baa36a7186e1a83a289661a6becb90429732e3a80029",
+        "bytes": 106734,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      {
+        "state": "settings-advanced",
+        "path": "final-actual/settings-advanced.png",
+        "sha256": "a20b6b712c90e3c3ae3a9bec9d5a1eb66127bc7df6039ece37e49d75eaf29164",
+        "bytes": 110250,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      }
+    ]
+  },
+  "automatedMetric": "ImageMagick normalized mean absolute pixel error, used for triage rather than as a substitute for paired visual review",
+  "summary": {
+    "total": 21,
+    "passed": 21
+  },
+  "rows": [
+    {
+      "state": "containers",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1204.6,
+        "normalized": 0.018381
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "a0edeaf1f69f5c2eac20c8f73fa727c238706344cd22fd14c8ba92e63a47a60b",
+        "bytes": 183142,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+        "bytes": 207992,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01838. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: the previously approved capture of this state carried a hovered first row (srgb(17,40,64)) while the containers-row-hover capture carried none — the two were inverted, so each was measured against the wrong reference. Both now match the comp's intent: this state's first row is the plain srgb(10,25,41)."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers.png",
+      "actual": "actual/containers.png",
+      "diff": "diffs/containers.png"
+    },
+    {
+      "state": "containers-current",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1205.87,
+        "normalized": 0.0184003
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "2400b819c86b9914dae375965d305b0dcd7cb3fa98892f5115dc2a62066819e7",
+        "bytes": 183179,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+        "bytes": 207992,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01840 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers-current.png",
+      "actual": "actual/containers-current.png",
+      "diff": "diffs/containers-current.png"
+    },
+    {
+      "state": "containers-only-running",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1020.28,
+        "normalized": 0.0155686
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "85210bb602a8a28f1293f1fa01faa8f1f5d9f0351928cf8815a69ce4039ec447",
+        "bytes": 161384,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "8eda42b8ce1d58dbc540ed9accb01674e56e8848cb67b0374d4f22ef1a2177b3",
+        "bytes": 180472,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01557 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers-only-running.png",
+      "actual": "actual/containers-only-running.png",
+      "diff": "diffs/containers-only-running.png"
+    },
+    {
+      "state": "containers-search-empty",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 749.248,
+        "normalized": 0.0114328
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "e6fc00d4d0be5a6ff5b38784510ec1bf282f4a6ee66abbbcd628d76c0742c612",
+        "bytes": 129443,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
+        "bytes": 139191,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers-search-empty.png",
+      "actual": "actual/containers-search-empty.png",
+      "diff": "diffs/containers-search-empty.png"
+    },
+    {
+      "state": "containers-row-hover",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1234.26,
+        "normalized": 0.0188336
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "8051475125190315da319013ee3c249c7dd4a2c4aec39f9267c0a9878fe2364a",
+        "bytes": 183092,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "9745d903a1af5250ae25dbb1efd111f27f072973425fdb87a672f45c8df14ae9",
+        "bytes": 207766,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01883. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: this state previously captured without its hover. The first row now carries it at srgb(17,40,64) against the comp's srgb(16,38,62)."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers-row-hover.png",
+      "actual": "actual/containers-row-hover.png",
+      "diff": "diffs/containers-row-hover.png"
+    },
+    {
+      "state": "containers-banner-dismissed",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1131.2,
+        "normalized": 0.017261
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "faf99388ecb32b96a31b07b92f26f322cbade365dd9dcde37f11eef8ff5a0927",
+        "bytes": 152645,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "45a797037980f3743e4007484832b395f2fe28c02b227e3c8a10beeda8654985",
+        "bytes": 187400,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01726 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/containers-banner-dismissed.png",
+      "actual": "actual/containers-banner-dismissed.png",
+      "diff": "diffs/containers-banner-dismissed.png"
+    },
+    {
+      "state": "container-detail-logs",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1282,
+        "normalized": 0.0195621
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "08c64c8d0fc4a33c7841e6487dcb8a8d9b9fdcf0ce23626235b29a94b8cb6e40",
+        "bytes": 182190,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "e0a9b370c9fc56dabbab899ea0c9ba11789388f96160f6f34724801713ee4735",
+        "bytes": 274891,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01956 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-logs.png",
+      "actual": "actual/container-detail-logs.png",
+      "diff": "diffs/container-detail-logs.png"
+    },
+    {
+      "state": "container-detail-inspect",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 795.089,
+        "normalized": 0.0121323
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "cdc5dab9c534d80481854f958afca06affa41a20bed289d547aa023e83de7cff",
+        "bytes": 166326,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "8f8eb687fe071c7bae31cbda07657900200fa5203f524b526e5183c194944e3c",
+        "bytes": 171080,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01213 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-inspect.png",
+      "actual": "actual/container-detail-inspect.png",
+      "diff": "diffs/container-detail-inspect.png"
+    },
+    {
+      "state": "container-detail-mounts",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 575.557,
+        "normalized": 0.00878243
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "e90e611f0c239d9e3eae39b920b3423a6d710c07b6cec5489b3919d93d6685fd",
+        "bytes": 137322,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "8bebda332ad90eb40f558a65c68c22a4b51a8fdd59fb099b1c2aa7dc92e9ca75",
+        "bytes": 136266,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00878 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-mounts.png",
+      "actual": "actual/container-detail-mounts.png",
+      "diff": "diffs/container-detail-mounts.png"
+    },
+    {
+      "state": "container-detail-exec",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 565.394,
+        "normalized": 0.00862736
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "83a3383fa0060d642b338efdff5df5f189f4ed6877e663d63cc9532246e6101e",
+        "bytes": 131718,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "bafa867d1268742b50427ffdc79b51670fa8e358d327eaac5bd9999aa3cd392b",
+        "bytes": 131017,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00863 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-exec.png",
+      "actual": "actual/container-detail-exec.png",
+      "diff": "diffs/container-detail-exec.png"
+    },
+    {
+      "state": "container-detail-files",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 687.307,
+        "normalized": 0.0104876
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "95ff321483bb0702ed4945f2685f7cdddfd48e979c1ea3b6ea68e76acf2a1848",
+        "bytes": 157625,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "1c5d6fa007c147083b79f0ec24912ef635cc9af52141eaef4c13067b56ef59d9",
+        "bytes": 159160,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01049 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-files.png",
+      "actual": "actual/container-detail-files.png",
+      "diff": "diffs/container-detail-files.png"
+    },
+    {
+      "state": "container-detail-stats",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 466.707,
+        "normalized": 0.00712149
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [
+        {
+          "x": 294,
+          "y": 430,
+          "width": 1284,
+          "height": 127,
+          "reason": "CPU history samples are live values; the surrounding panel, label, and chart geometry remain unmasked."
+        },
+        {
+          "x": 294,
+          "y": 700,
+          "width": 1284,
+          "height": 70,
+          "reason": "Memory history samples are live values; the surrounding panel, label, and chart geometry remain unmasked."
+        }
+      ],
+      "referenceEvidence": {
+        "sha256": "979f20d1a00b60d77526d09470e27d4c7f5ad74ad0dfe30903f2dc0c4ccc1f80",
+        "bytes": 161520,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "cd5b0ff4059714648a29f210c7e42adeb2723abdd613c34d7baa385ca1fd79bd",
+        "bytes": 153823,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01692 unmasked; the recorded figure is the masked one, which excludes the live CPU and memory sample regions. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/container-detail-stats.png",
+      "actual": "actual/container-detail-stats.png",
+      "diff": "diffs/container-detail-stats.png"
+    },
+    {
+      "state": "dashboard",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 1037.57,
+        "normalized": 0.0158323
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "a36bf241f8cc389ef27781595579d1aa8c4ad8f4c2974c358f4ec750cafc5572",
+        "bytes": 193912,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "5c6b41d1b9ec825240ae0f1587471ad7a2c2439f56bbed5ee299b001585e01f4",
+        "bytes": 188089,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01583 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/dashboard.png",
+      "actual": "actual/dashboard.png",
+      "diff": "diffs/dashboard.png"
+    },
+    {
+      "state": "images-local",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 469.981,
+        "normalized": 0.00717144
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "ba81bd3451e4c95f79e37bbdecc1168eab0f11b5a6d73653fc01e366a0bbda97",
+        "bytes": 163631,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "ee1f986604a7a17c80d61ad7e6ea1a23d7ea80b9ee35aa73b5885e11a31cc7d2",
+        "bytes": 165548,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00717 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/images-local.png",
+      "actual": "actual/images-local.png",
+      "diff": "diffs/images-local.png"
+    },
+    {
+      "state": "images-registry",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 600.467,
+        "normalized": 0.00916253
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "6dbcbeff884325fc754dbb0f015511d3b166cb5fbd85dd42f8610d01dfb60814",
+        "bytes": 170548,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "a6453e11048b44b8cc35bcc30c014e028551a261e459e088d7d362913feb8537",
+        "bytes": 175008,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00916 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/images-registry.png",
+      "actual": "actual/images-registry.png",
+      "diff": "diffs/images-registry.png"
+    },
+    {
+      "state": "volumes",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 442.889,
+        "normalized": 0.00675805
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "adb44c6442a522308a896b856910323ce33a1570763ad8f9c85c14c126d6c322",
+        "bytes": 141232,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "563f1d7f765f0c5e861ce85cd1e08d71cb39fd0e18a9097e633c6bdb5c85569f",
+        "bytes": 140559,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00676 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/volumes.png",
+      "actual": "actual/volumes.png",
+      "diff": "diffs/volumes.png"
+    },
+    {
+      "state": "builds",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 675.496,
+        "normalized": 0.0103074
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "3d193ae0e3c1fe4be909167c6e3c4d2883a427fccf6c79c5cac556ed769b6d56",
+        "bytes": 183149,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "691c193e58a44aea4abc2bf7ec0c21e54bf9b8f36d257cde26b482db3cf31333",
+        "bytes": 186288,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.01031 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/builds.png",
+      "actual": "actual/builds.png",
+      "diff": "diffs/builds.png"
+    },
+    {
+      "state": "settings-resources",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 588.022,
+        "normalized": 0.00897264
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "c6ef890b0a28039c2c880c2a197fe968fdd6ad6819566ef061ae67e3c025159b",
+        "bytes": 116796,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "78a1f61b8e569a04ad0a71f92223f1632dd750d2a90ca4c5d060fc903790accc",
+        "bytes": 115067,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00897 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/settings-resources.png",
+      "actual": "actual/settings-resources.png",
+      "diff": "diffs/settings-resources.png"
+    },
+    {
+      "state": "settings-engine",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 440.635,
+        "normalized": 0.00672366
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "6f9a1b3e74d0927a1306637160e2ef217729249ec652ecd369d8123ff095c80c",
+        "bytes": 124762,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "afb0cdaa1bf9b37c4420259e11423554f820bc39d3d48491ceb13fccab27f1b9",
+        "bytes": 124649,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00672 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/settings-engine.png",
+      "actual": "actual/settings-engine.png",
+      "diff": "diffs/settings-engine.png"
+    },
+    {
+      "state": "settings-updates",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 336.377,
+        "normalized": 0.00513279
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "4f2f6c67cf5e25362c5e4bba2295e610f2905aa478b8b6425871fad0688c994f",
+        "bytes": 109173,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "c0645fa54e997ff319b5baa36a7186e1a83a289661a6becb90429732e3a80029",
+        "bytes": 106734,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00513 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/settings-updates.png",
+      "actual": "actual/settings-updates.png",
+      "diff": "diffs/settings-updates.png"
+    },
+    {
+      "state": "settings-advanced",
+      "status": "passed",
+      "canonicalDimensions": {
+        "width": 1656,
+        "height": 1056
+      },
+      "mae": {
+        "absolute": 344.364,
+        "normalized": 0.00525466
+      },
+      "reviewThreshold": 0.02,
+      "divergenceCeiling": 0.05,
+      "maskedRegions": [],
+      "referenceEvidence": {
+        "sha256": "76cd2d1123bb80696be3e0217b0668feefd4978b4114fd030aa495025cf71907",
+        "bytes": 112986,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "actualEvidence": {
+        "sha256": "a20b6b712c90e3c3ae3a9bec9d5a1eb66127bc7df6039ece37e49d75eaf29164",
+        "bytes": 110250,
+        "dimensions": {
+          "width": 1656,
+          "height": 1056
+        }
+      },
+      "visualReview": {
+        "status": "approved",
+        "reviewer": {
+          "kind": "agent-visual-review",
+          "name": "Claude agent visual review (first pass against a Docker Dark reference: the shipped default moved from Y2K Dark square, the theme tokens were restored to the handoff, and the status bar was raised to 32px; both sides recaptured together and read as two diff contact sheets)"
+        },
+        "criteria": [
+          "geometry",
+          "typography",
+          "colour",
+          "borders-and-radii",
+          "spacing",
+          "iconography",
+          "layer-order",
+          "clipping",
+          "scroll-behavior",
+          "state-specific-content"
+        ],
+        "notes": "MAE 0.00525 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+      },
+      "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
+      "reference": "reference/settings-advanced.png",
+      "actual": "actual/settings-advanced.png",
+      "diff": "diffs/settings-advanced.png"
+    }
+  ]
+}

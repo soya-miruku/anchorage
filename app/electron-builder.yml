@@ -36,10 +36,14 @@ electronLanguages:
   - en-US
 
 linux:
+  # Both architectures are listed, but only one is ever built: package-desktop.mjs passes the
+  # host's own arch to electron-builder, because everything it claims about a package it
+  # establishes by running it. Cross-compiling would emit arm64 artifacts carrying x64 evidence.
   target:
     - target: AppImage
       arch:
         - x64
+        - arm64
     # The three native formats, all produced by electron-builder's bundled fpm, so none of
     # them needs dpkg, rpmbuild or makepkg installed. They carry the same staged core and
     # renderer as the AppImage and are verified alongside it rather than merely emitted:
@@ -47,12 +51,15 @@ linux:
     - target: deb
       arch:
         - x64
+        - arm64
     - target: rpm
       arch:
         - x64
+        - arm64
     - target: pacman
       arch:
         - x64
+        - arm64
   # deb and rpm record a homepage in their metadata. It is read from package.json rather than
   # from here — FpmTarget takes `info.metadata.homepage` and refuses to build without it, which
   # is what the note that used to sit here was describing. The URL is the project's own, so it

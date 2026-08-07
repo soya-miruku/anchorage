@@ -1,0 +1,272 @@
+# Builds and publishes a release, one architecture per machine.
+#
+# Nothing here cross-compiles. Everything package-desktop.mjs claims about a package it
+# establishes by running it — a real window through xvfb, the payload executed, the AppImage
+# timed over its own squashfs mount — and none of that is possible for a foreign architecture.
+# So x64 builds on an x64 runner and arm64 on an arm64 one, and both get identical verification
+# rather than one of them getting an assertion.
+#
+# What this workflow cannot do, and does not pretend to:
+#
+#   The design evidence is not regenerated. The comp and the rendered reference are both
+#   untracked, and the per-state review is a person looking at two images — that is what the
+#   attestation is for, not a gap waiting to be automated. `artifacts/design/design-ledger.json`
+#   travels with the commit and package-desktop.mjs validates it against the renderer it just
+#   built. Change the renderer without redoing the review locally and the release fails here,
+#   which is the gate working as designed.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Also create the GitHub release, rather than only building and verifying
+        type: boolean
+        default: false
+
+concurrency:
+  # Never two releases of one tag at once, and never cancelled halfway: a half-published release
+  # is worse than a late one.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      # One architecture failing must not hide whether the other is sound. The publish job
+      # requires both, so a partial success still cannot become a release.
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+          - arch: arm64
+            # Needs a public repository or a Team/Enterprise plan. On a private repository
+            # without one, this job fails with "no runner matching the labels" — which is a
+            # plan question, not a build failure, and is why it says so here.
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # The soak alone is thirty minutes, and acceptance drives a real daemon before it.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@v4
+        with:
+          # package-desktop.mjs shells out to `npm run …` for its source gates, so npm has to be
+          # present and pinned rather than left to whatever the runner image ships. Bun stays the
+          # runtime the scripts are invoked through; this is only the tool they call.
+          node-version: "24"
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: core/go.sum
+
+      - name: Install the packaging toolchain
+        # rpm supplies both halves of the rpm story: rpmbuild, which fpm shells out to, and
+        # rpm2archive, which the payload verification needs because libarchive will not open an
+        # rpm. libarchive-tools is bsdtar, for the deb and pacman payloads. xvfb is what makes a
+        # real window possible on a headless runner, and libfuse2t64 is what lets the AppImage
+        # mount its own squashfs — without it the startup timing has nothing to measure.
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            rpm libarchive-tools xvfb libfuse2t64
+
+      - name: Confirm the Docker daemon answers
+        # The whole core evidence chain talks to a live daemon. Failing here, before an hour of
+        # work, says "no daemon" rather than letting acceptance report it as a Docker fault.
+        run: |
+          docker version
+          docker info --format 'server {{.ServerVersion}}, {{.OSType}}/{{.Architecture}}'
+
+      - name: Install renderer dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Core acceptance, including disposable mutations
+        # ANCHORAGE_ACCEPTANCE_MUTATIONS is what turns 11 read-only checks into the full 26;
+        # the packaging policy refuses evidence with mutationsEnabled=false.
+        env:
+          ANCHORAGE_ACCEPTANCE_MUTATIONS: "1"
+        run: node tools/run-core-acceptance.mjs
+
+      - name: Capability ledger
+        run: node tools/generate-capability-ledger.mjs
+
+      - name: Performance and RSS soak
+        # Runs alone, deliberately, and after acceptance has finished rather than beside it. The
+        # SLO is a threshold on a shared daemon, so a concurrent acceptance run measures the
+        # daemon instead of the core: one such overlap recorded 542 ms against a 500 ms limit
+        # and a clean re-run of the same binary recorded 298 ms.
+        run: node tools/run-performance-evidence.mjs
+
+      - name: Build and verify the ${{ matrix.arch }} packages
+        working-directory: app
+        run: bun run package:linux
+
+      - name: Sign
+        # Optional on purpose, and the check is inside the shell rather than in an `if:`
+        # expression, because a step's own `env` is not in scope for its own condition — the
+        # form that reads correctly silently never runs.
+        #
+        # Without a key the artifacts are still built and verified, they are simply unsigned,
+        # and the release notes say which. Failing a sound build over a missing secret would be
+        # the worse trade.
+        #
+        # Worth deciding deliberately before setting these: a signing key in Actions secrets
+        # can sign whatever a workflow-write compromise asks it to. If that is not wanted,
+        # leave the secrets unset and sign locally against the published checksums instead.
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+        working-directory: app
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_KEY_ID:-}" ]; then
+            echo "No signing key configured; leaving this build unsigned."
+            exit 0
+          fi
+
+          # tools/sign-release.mjs takes no passphrase and relies on gpg-agent for it, which is
+          # the right shape for a human at a terminal and needs the agent primed here instead.
+          # Loopback plus a preset passphrase does that without the signer learning about CI.
+          mkdir -p "$HOME/.gnupg"
+          chmod 700 "$HOME/.gnupg"
+          {
+            echo "allow-loopback-pinentry"
+            echo "allow-preset-passphrase"
+          } >> "$HOME/.gnupg/gpg-agent.conf"
+          echo "pinentry-mode loopback" >> "$HOME/.gnupg/gpg.conf"
+          gpgconf --kill gpg-agent || true
+          gpgconf --launch gpg-agent
+
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+          if [ -n "${GPG_PASSPHRASE:-}" ]; then
+            keygrip=$(gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
+              | awk '/Keygrip/ { print $3; exit }')
+            if [ -z "$keygrip" ]; then
+              echo "Imported no secret key matching $GPG_KEY_ID" >&2
+              exit 1
+            fi
+            preset=$(gpgconf --list-dirs libexecdir)/gpg-preset-passphrase
+            printf '%s' "$GPG_PASSPHRASE" | "$preset" --preset "$keygrip"
+          fi
+
+          bun run release:sign -- --key "$GPG_KEY_ID"
+
+      - name: Name the metadata for its own architecture
+        # Eight installers can share one release; two files called SHA256SUMS cannot. Each
+        # architecture keeps its own list, which is also the more honest arrangement: a checksum
+        # file signed by a machine should cover what that machine actually built.
+        #
+        # Spelled out per file rather than derived from the name. The installers already carry
+        # their architecture and are left alone; only these four collide.
+        env:
+          ARCH: ${{ matrix.arch }}
+        working-directory: app/release
+        run: |
+          set -euo pipefail
+          mv SHA256SUMS "SHA256SUMS-$ARCH"
+          mv release-verification.json "release-verification-$ARCH.json"
+          # Both exist only when the build was signed, and the checksum file must keep the name
+          # its signature was made over — so the .asc follows the file, not a pattern.
+          #
+          # if-blocks rather than `[ -f x ] && mv`: under `set -e` a false test is a non-zero
+          # command at the end of a script, so the unsigned path would fail the step.
+          if [ -f SHA256SUMS.asc ]; then
+            mv SHA256SUMS.asc "SHA256SUMS-$ARCH.asc"
+          fi
+          if [ -f release-signature.json ]; then
+            mv release-signature.json "release-signature-$ARCH.json"
+          fi
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.arch }}
+          if-no-files-found: error
+          # The unpacked tree is an intermediate the size of the installers again; only what a
+          # downloader receives is worth carrying between jobs.
+          path: |
+            app/release/*.AppImage
+            app/release/*.deb
+            app/release/*.rpm
+            app/release/*.pacman
+            app/release/SHA256SUMS*
+            app/release/release-verification*
+            app/release/release-signature*
+
+  publish:
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.publish }}
+    runs-on: ubuntu-24.04
+    permissions:
+      # The only job that writes anything, and the only one that needs to.
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Report what is about to be published
+        run: |
+          ls -la artifacts
+          for sums in artifacts/SHA256SUMS-*; do
+            [ -f "$sums" ] || continue
+            echo "--- $sums ---"
+            cat "$sums"
+          done
+
+      - name: Verify every checksum against the file beside it
+        # The checksums were computed on the machine that built each package; this confirms the
+        # bytes survived the journey through two artifact uploads intact. A release whose own
+        # checksum file does not match its own artifacts is worse than no release.
+        working-directory: artifacts
+        run: |
+          for sums in SHA256SUMS-*; do
+            [ -f "$sums" ] || continue
+            echo "checking $sums"
+            sha256sum -c "$sums"
+          done
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.sha) }}
+        run: |
+          signed=unsigned
+          if ls artifacts/SHA256SUMS-*.asc >/dev/null 2>&1; then
+            signed=signed
+          fi
+          {
+            echo "Linux packages for x64 and arm64, each built and verified on its own"
+            echo "architecture. Nothing here is cross-compiled: the AppImage payload is"
+            echo "executed and timed on the machine that produced it, and the deb, rpm and"
+            echo "pacman payloads are unpacked and checked byte-for-byte against it."
+            echo
+            echo "Artifacts are **$signed**."
+            echo
+            echo "\`release-verification-*.json\` records what was executed and what was only"
+            echo "inspected, per artifact. Verify a download against its own architecture's"
+            echo "\`SHA256SUMS-<arch>\` before installing it."
+          } > notes.md
+          gh release create "$TAG" \
+            --title "Anchorage $TAG" \
+            --notes-file notes.md \
+            --draft \
+            artifacts/*

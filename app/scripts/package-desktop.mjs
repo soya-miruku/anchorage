@@ -232,6 +232,12 @@ const BUILDER_ENTRY = join(
 );
 const BUILDER_CONFIG = join(APP_DIRECTORY, "electron-builder.yml");
 const MODE = process.argv[2];
+/**
+ * Architectures this script will build for, which is exactly the set it can also run.
+ * electron-builder spells both the same way Node does, so `--${process.arch}` is its flag.
+ */
+const SUPPORTED_ARCHITECTURES = new Set(["x64", "arm64"]);
+
 const VALID_MODES = new Set(["--preflight", "--dir", "--linux"]);
 let candidateWorkStarted = false;
 
@@ -2095,8 +2101,22 @@ async function main() {
   if (!VALID_MODES.has(MODE) || process.argv.length !== 3) {
     fail("Usage: package-desktop.mjs --preflight|--dir|--linux");
   }
-  if (process.platform !== "linux" || process.arch !== "x64") {
-    fail(`Linux x64 packaging requires linux/x64, got ${process.platform}/${process.arch}`);
+  /*
+   * Native builds only, one architecture per machine.
+   *
+   * Everything this script claims about a package it establishes by running it: the
+   * host-candidate capture drives a real window, the smoke tests execute the payload, and the
+   * AppImage is timed over its own squashfs mount. None of that is possible for a foreign
+   * architecture, so cross-compiling would mean emitting arm64 artifacts carrying x64 evidence
+   * — a package asserted rather than tested. Building on an arm64 machine instead gives arm64
+   * exactly the same verification x64 gets, and the CI workflow runs one job per architecture
+   * for that reason.
+   */
+  if (process.platform !== "linux" || !SUPPORTED_ARCHITECTURES.has(process.arch)) {
+    fail(
+      `Linux packaging requires linux/${[...SUPPORTED_ARCHITECTURES].join(" or linux/")}, ` +
+        `got ${process.platform}/${process.arch}`,
+    );
   }
 
   candidateWorkStarted = true;
@@ -2128,7 +2148,8 @@ async function main() {
     "--config",
     BUILDER_CONFIG,
     "--linux",
-    "--x64",
+    // The host's architecture, never a chosen one: see the guard in main().
+    `--${process.arch}`,
     "--publish",
     "never",
   ];
