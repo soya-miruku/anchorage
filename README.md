@@ -251,10 +251,20 @@ the supported path. Locally, the first thing the build says is which file it wan
 artifacts/docker/conformance-results.json
 ```
 
-The generators are in `tools/` — `run-core-acceptance.mjs`,
-`generate-capability-ledger.mjs`, `run-performance-evidence.mjs`,
-`generate-security-evidence.mjs`, `capture-host-candidate.mjs`. Regenerating the
-bundle is the prerequisite, and it is a real piece of work rather than a flag.
+One command regenerates the core half, and only when it needs to:
+
+```bash
+node tools/ensure-core-evidence.mjs
+```
+
+The evidence is bound by SHA-256 to one core binary, so it is reused when it
+already describes the current one and re-measured when it does not — which is
+whenever any `core/**/*.go` changes. Most commits touch only the renderer, and
+for those this is a few seconds rather than the forty minutes the soak costs.
+`--force` measures it again regardless.
+
+The generators it drives are in `tools/`, alongside `generate-security-evidence.mjs`
+and `capture-host-candidate.mjs`, which `package:linux` runs itself.
 
 That refusal is the design working. A packaged build is a release candidate only
 once `app/release/release-verification.json` reports `"status": "passed"`, and

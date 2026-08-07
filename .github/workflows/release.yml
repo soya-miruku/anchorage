@@ -132,22 +132,29 @@ jobs:
             -o bin/anchorage-core ./cmd/anchorage-core
           sha256sum bin/anchorage-core
 
-      - name: Core acceptance, including disposable mutations
-        # ANCHORAGE_ACCEPTANCE_MUTATIONS is what turns 11 read-only checks into the full 26;
-        # the packaging policy refuses evidence with mutationsEnabled=false.
-        env:
-          ANCHORAGE_ACCEPTANCE_MUTATIONS: "1"
-        run: node tools/run-core-acceptance.mjs
+      - name: Hash the core, so the evidence cache is keyed on what the evidence describes
+        id: corehash
+        run: echo "sha=$(sha256sum core/bin/anchorage-core | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - name: Capability ledger
-        run: node tools/generate-capability-ledger.mjs
+      - uses: actions/cache@v4
+        with:
+          # Docker's version belongs in the key because acceptance and the capability ledger
+          # measure the core against a daemon: the same binary on a different daemon is a
+          # different measurement. The runner image pins it, so this changes when that does.
+          key: core-evidence-${{ matrix.arch }}-${{ steps.corehash.outputs.sha }}-${{ hashFiles('.github/workflows/release.yml') }}
+          path: |
+            artifacts/docker
+            artifacts/performance
 
-      - name: Performance and RSS soak
-        # Runs alone, deliberately, and after acceptance has finished rather than beside it. The
-        # SLO is a threshold on a shared daemon, so a concurrent acceptance run measures the
-        # daemon instead of the core: one such overlap recorded 542 ms against a 500 ms limit
-        # and a clean re-run of the same binary recorded 298 ms.
-        run: node tools/run-performance-evidence.mjs
+      - name: Core evidence, regenerated only if it does not describe this core
+        # A content-addressed skip rather than an unconditional forty minutes. The evidence set
+        # is bound by SHA-256 to one core binary and package:linux refuses a set naming a
+        # different one, so reusing it for an unchanged core is the binding doing its job rather
+        # than an optimisation that weakens it.
+        #
+        # On a fresh runner it always regenerates, because there is nothing to reuse — the value
+        # is local, and in CI once the cache below is warm for a renderer-only commit.
+        run: node tools/ensure-core-evidence.mjs
 
       - name: Build and verify the ${{ matrix.arch }} packages
         working-directory: app
