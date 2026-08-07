@@ -525,3 +525,171 @@ describe("refreshNetworks limitations", () => {
     await waitFor(() => expect(result.current.networkLimitations).toEqual([]));
   });
 });
+
+/**
+ * The tool loop: the model asks, the renderer reads, the model answers.
+ *
+ * `models.chat` is a proxy with no memory — the whole conversation is sent each turn — so the
+ * loop lives here, and it is what makes the transcript on screen and the transcript the model
+ * saw the same object. A second history kept in the core could drift from what the operator
+ * can read, and a wrong answer would then be unaccountable.
+ */
+describe("sendChatMessage", () => {
+  const chatHost = (chat: (request: unknown) => Promise<unknown>) => {
+    const host = createHost(async () => listResult("networks", [])) as
+      HostAnchorageApi & {
+        containers: { list: unknown };
+        models: { list: unknown; chat: unknown };
+      };
+    host.containers.list = vi.fn(async () =>
+      listResult("containers", [
+        {
+          id: "a1b2c3d4e5f6",
+          name: "api",
+          image: "node:20",
+          state: "running",
+          status: "Up 2 hours",
+          ports: [],
+        },
+      ]),
+    );
+    host.models = { list: vi.fn(), chat: vi.fn(chat) };
+    return host;
+  };
+
+  it("runs the tool the model asked for and sends the result back", async () => {
+    const turns: unknown[] = [];
+    window.anchorage = chatHost(async (request) => {
+      turns.push(request);
+      if (turns.length === 1) {
+        return {
+          protocolVersion: "1",
+          context: "default",
+          model: "m",
+          message: {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id: "call-1",
+                type: "function",
+                function: { name: "list_containers", arguments: "{}" },
+              },
+            ],
+          },
+          finishReason: "tool_calls",
+          usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+          observedAt,
+        };
+      }
+      return {
+        protocolVersion: "1",
+        context: "default",
+        model: "m",
+        message: { role: "assistant", content: "One container is running: api." },
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        observedAt,
+      };
+    });
+
+    const { result } = renderHook(() => useAnchorageStore());
+    act(() => result.current.setChatModel("m"));
+    await act(async () => {
+      await result.current.sendChatMessage("what is running?");
+    });
+
+    expect(turns).toHaveLength(2);
+    const transcript = result.current.chatMessages;
+    // system, user, assistant-asking, tool-result, assistant-answering.
+    expect(transcript.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "tool",
+      "assistant",
+    ]);
+    expect(transcript.at(-1)?.content).toContain("api");
+    // The tool result the model saw is the one on screen, not a summary of it.
+    expect(transcript[3]?.content).toContain("api");
+    expect(transcript[3]?.tool_call_id).toBe("call-1");
+  });
+
+  it("stops a model that only ever calls tools, and says so", async () => {
+    let calls = 0;
+    window.anchorage = chatHost(async () => {
+      calls += 1;
+      return {
+        protocolVersion: "1",
+        context: "default",
+        model: "m",
+        message: {
+          role: "assistant",
+          content: "",
+          tool_calls: [
+            {
+              id: `call-${calls}`,
+              type: "function",
+              function: { name: "list_containers", arguments: "{}" },
+            },
+          ],
+        },
+        finishReason: "tool_calls",
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        observedAt,
+      };
+    });
+
+    const { result } = renderHook(() => useAnchorageStore());
+    act(() => result.current.setChatModel("m"));
+    await act(async () => {
+      await result.current.sendChatMessage("loop forever");
+    });
+
+    expect(calls).toBe(6);
+    expect(result.current.chatError).toContain("without answering");
+    expect(result.current.chatPending).toBe(false);
+  });
+
+  it("offers no tools at all when the grant is switched off", async () => {
+    let received: { tools?: unknown } = {};
+    window.anchorage = chatHost(async (request) => {
+      received = request as { tools?: unknown };
+      return {
+        protocolVersion: "1",
+        context: "default",
+        model: "m",
+        message: { role: "assistant", content: "Nothing to read." },
+        finishReason: "stop",
+        usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
+        observedAt,
+      };
+    });
+
+    const { result } = renderHook(() => useAnchorageStore());
+    act(() => {
+      result.current.setChatModel("m");
+      result.current.setChatToolsEnabled(false);
+    });
+    await act(async () => {
+      await result.current.sendChatMessage("hello");
+    });
+
+    expect(received.tools).toBeUndefined();
+  });
+
+  it("reports a refusal from the runner instead of leaving the composer spinning", async () => {
+    window.anchorage = chatHost(async () => {
+      throw new Error("Docker Model Runner is not running");
+    });
+
+    const { result } = renderHook(() => useAnchorageStore());
+    act(() => result.current.setChatModel("m"));
+    await act(async () => {
+      await result.current.sendChatMessage("hello");
+    });
+
+    expect(result.current.chatError).toContain("not running");
+    expect(result.current.chatPending).toBe(false);
+  });
+});

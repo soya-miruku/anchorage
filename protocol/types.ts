@@ -904,6 +904,7 @@ export type RPCRequest =
   | MCPCatalogRequest
   | AgentsListRequest
   | ModelsListRequest
+  | ModelsChatRequest
   | ModelsSearchRequest
   | ModelsActionRequest
   | ComposeListRequest
@@ -1763,6 +1764,49 @@ export interface ModelDiskUsage {
   size: string;
 }
 
+/** A function the model asked for. `arguments` is a JSON document as a string, as on the wire. */
+export interface ChatToolCall {
+  id: string;
+  type: string;
+  function: { name: string; arguments: string };
+}
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  /** Set on a tool result, naming the call it answers. */
+  tool_call_id?: string;
+  name?: string;
+  tool_calls?: ChatToolCall[];
+}
+
+/** `parameters` is a JSON Schema, relayed verbatim: re-encoding one changes it by accident. */
+export interface ChatTool {
+  type: "function";
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  };
+}
+
+export interface ChatUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface ModelsChatResult {
+  protocolVersion: string;
+  context: string;
+  model: string;
+  message: ChatMessage;
+  /** `stop` when the model finished, `tool_calls` when it is waiting on the caller. */
+  finishReason?: string;
+  usage: ChatUsage;
+  observedAt: string;
+}
+
 export interface ModelsListResult {
   protocolVersion: "1";
   context: string;
@@ -2012,6 +2056,29 @@ export interface AgentsListResult {
   /** Anchorage set TELEMETRY_ENABLED=false for its own calls; the operator's terminal is not affected. */
   telemetryDisabled: boolean;
   observedAt: string;
+}
+
+/**
+ * One turn of a conversation with a model already on this machine.
+ *
+ * Docker Model Runner serves an OpenAI-compatible API on a loopback port. The renderer's CSP is
+ * `connect-src 'self'`, so it cannot call that port; the core forwards the request and returns
+ * the answer, and does nothing else. It runs no agent loop and keeps no history — the caller
+ * sends the whole conversation each turn, because the caller is the only party that knows which
+ * tool results the operator has actually seen.
+ */
+export interface ModelsChatRequest {
+  id: RequestId;
+  method: "models.chat";
+  params: {
+    context: string;
+    /** A reference from `models.list`, e.g. `docker.io/ai/llama3.2:latest`. */
+    model: string;
+    messages: ChatMessage[];
+    /** Functions the model may ask for. The core never calls one; it only relays the request. */
+    tools?: ChatTool[];
+    temperature?: number;
+  };
 }
 
 export interface ModelsListRequest {

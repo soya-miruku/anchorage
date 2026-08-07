@@ -416,6 +416,15 @@ func (s *Service) Handle(ctx context.Context, method string, raw json.RawMessage
 			return nil, invalidParams(err)
 		}
 		return s.modelsSearch(ctx, params)
+	case "models.chat":
+		if err := s.requireDocker(); err != nil {
+			return nil, err
+		}
+		var params ModelsChatParams
+		if err := decodeStrict(raw, &params); err != nil {
+			return nil, invalidParams(err)
+		}
+		return s.modelsChat(ctx, params)
 	case "models.action":
 		if err := s.requireDocker(); err != nil {
 			return nil, err

@@ -44,6 +44,8 @@ import type {
   InstallableCapability,
   ModelActionRequest,
   ModelActionResult,
+  ModelsChatRequest,
+  ModelsChatResult,
   ModelsListResult,
   ModelsSearchResult,
   BuilderAction,
@@ -991,6 +993,7 @@ class FixtureBridge implements AnchorageBridge {
 
   readonly models = {
     list: async () => fixtureUnsupported("models.list"),
+    chat: async () => fixtureUnsupported("models.chat"),
     search: async () => fixtureUnsupported("models.search"),
     action: async () => fixtureUnsupported("models.action"),
   };
@@ -1755,6 +1758,22 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     }
     return structuredClone(raw) as unknown as SecretsActionResult;
   };
+  const modelsChat = async (
+    request: ModelsChatRequest,
+  ): Promise<ModelsChatResult> => {
+    const result = host.models?.chat
+      ? await host.models.chat(request)
+      : host.invoke
+        ? await host.invoke("models.chat", request)
+        : await Promise.reject(new Error("Model Runner is unavailable"));
+    const raw = requireObjectResult(result, "models.chat");
+    // The message is the whole point of the call. Everything else is reportable detail; a
+    // completion with no message is not a completion the caller can append to its history.
+    if (!raw.message || typeof raw.message !== "object") {
+      throw new Error("models.chat returned no message");
+    }
+    return structuredClone(raw) as unknown as ModelsChatResult;
+  };
   const modelsList = async (context: string) => {
     const request = { context };
     const result = host.models
@@ -2176,6 +2195,7 @@ function createHostBridge(host: HostAnchorageApi): AnchorageBridge {
     },
     models: {
       list: (context = "default") => modelsList(context),
+      chat: modelsChat,
       search: (query, source, context = "default") =>
         modelsSearch(query, source, context),
       action: modelsAction,

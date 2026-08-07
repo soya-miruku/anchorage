@@ -1792,6 +1792,69 @@ type ModelsListResult struct {
 	ObservedAt string            `json:"observedAt"`
 }
 
+/*
+A conversation with a local model, in the OpenAI shape Docker Model Runner speaks.
+
+Carried through rather than modelled: `content` is a string on every message the runner
+produces and every message this application sends, and `arguments` on a tool call is a JSON
+document encoded as a string, which is the wire format and not a decision made here.
+*/
+type ChatToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name string `json:"name"`
+		// A JSON object, as a string. The model writes it; nothing here parses it, because the
+		// caller is what decides whether the call is one it is willing to make.
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	// Set on a tool result, naming the call it answers.
+	ToolCallID string         `json:"tool_call_id,omitempty"`
+	Name       string         `json:"name,omitempty"`
+	ToolCalls  []ChatToolCall `json:"tool_calls,omitempty"`
+}
+
+// ChatTool is a function offered to the model. Parameters is a JSON Schema, passed through
+// verbatim: re-encoding a schema is a way to change it by accident.
+type ChatTool struct {
+	Type     string `json:"type"`
+	Function struct {
+		Name        string          `json:"name"`
+		Description string          `json:"description,omitempty"`
+		Parameters  json.RawMessage `json:"parameters,omitempty"`
+	} `json:"function"`
+}
+
+type ChatUsage struct {
+	PromptTokens     int `json:"promptTokens"`
+	CompletionTokens int `json:"completionTokens"`
+	TotalTokens      int `json:"totalTokens"`
+}
+
+type ModelsChatParams struct {
+	Context  string        `json:"context"`
+	Model    string        `json:"model"`
+	Messages []ChatMessage `json:"messages"`
+	Tools    []ChatTool    `json:"tools,omitempty"`
+	// A pointer so "not specified" and "0" are different requests; 0 is a valid temperature.
+	Temperature *float64 `json:"temperature,omitempty"`
+}
+
+type ModelsChatResult struct {
+	ProtocolVersion string      `json:"protocolVersion"`
+	Context         string      `json:"context"`
+	Model           string      `json:"model"`
+	Message         ChatMessage `json:"message"`
+	FinishReason    string      `json:"finishReason,omitempty"`
+	Usage           ChatUsage   `json:"usage"`
+	ObservedAt      string      `json:"observedAt"`
+}
+
 type ModelsSearchParams struct {
 	Context string `json:"context"`
 	Query   string `json:"query,omitempty"`

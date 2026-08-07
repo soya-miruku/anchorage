@@ -53,6 +53,7 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "mcp.catalog",
   "agents.list",
   "models.list",
+  "models.chat",
   "models.search",
   "models.action",
   "compose.list",
@@ -154,6 +155,7 @@ export const IPC_CHANNELS = Object.freeze({
   mcpCatalog: "anchorage:mcp.catalog",
   agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
+  modelsChat: "anchorage:models.chat",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
   composeList: "anchorage:compose.list",
@@ -1341,6 +1343,158 @@ export function validateModelsList(value) {
   assertPlainObject(value, "request");
   assertOnlyKeys(value, new Set(["context"]), "request");
   return { context: validateContext(value.context) };
+}
+
+const CHAT_ROLES = new Set(["system", "user", "assistant", "tool"]);
+const MAX_CHAT_MESSAGES = 200;
+const MAX_CHAT_TOOLS = 32;
+const MAX_CHAT_TOOL_CALLS = 32;
+
+/*
+ * A conversation is caller-supplied and reaches a model verbatim, so it is checked the same way
+ * every other caller-supplied payload here is: known keys only, bounded lengths, enumerated
+ * roles. `content` is generous because a tool result can legitimately be a whole container
+ * listing, and `arguments` is a JSON document the model wrote — carried as the string it is on
+ * the wire rather than parsed here, since nothing at this boundary is entitled to decide what a
+ * tool call means.
+ */
+function validateChatToolCall(value, name) {
+  assertPlainObject(value, name);
+  assertOnlyKeys(value, new Set(["id", "type", "function"]), name);
+  if (value.type !== "function") {
+    fail(`${name}.type must be "function"`);
+  }
+  assertPlainObject(value.function, `${name}.function`);
+  assertOnlyKeys(value.function, new Set(["name", "arguments"]), `${name}.function`);
+  return {
+    id: boundedString(value.id, `${name}.id`, 256),
+    type: "function",
+    function: {
+      name: boundedString(value.function.name, `${name}.function.name`, 128),
+      arguments: boundedString(
+        value.function.arguments,
+        `${name}.function.arguments`,
+        65_536,
+        { allowEmpty: true },
+      ),
+    },
+  };
+}
+
+function validateChatMessage(value, name) {
+  assertPlainObject(value, name);
+  assertOnlyKeys(
+    value,
+    new Set(["role", "content", "tool_call_id", "name", "tool_calls"]),
+    name,
+  );
+  const message = {
+    role: validateEnum(value.role, `${name}.role`, CHAT_ROLES),
+    // An assistant turn that only asks for tools has empty content, which is a real message.
+    content: boundedString(value.content, `${name}.content`, 1_048_576, {
+      allowEmpty: true,
+    }),
+  };
+  if (value.tool_call_id !== undefined) {
+    message.tool_call_id = boundedString(
+      value.tool_call_id,
+      `${name}.tool_call_id`,
+      256,
+    );
+  }
+  if (value.name !== undefined) {
+    message.name = boundedString(value.name, `${name}.name`, 128);
+  }
+  if (value.tool_calls !== undefined) {
+    if (!Array.isArray(value.tool_calls)) {
+      fail(`${name}.tool_calls must be an array`);
+    }
+    if (value.tool_calls.length > MAX_CHAT_TOOL_CALLS) {
+      fail(`${name}.tool_calls must contain at most ${MAX_CHAT_TOOL_CALLS} entries`);
+    }
+    message.tool_calls = value.tool_calls.map((call, index) =>
+      validateChatToolCall(call, `${name}.tool_calls[${index}]`),
+    );
+  }
+  return message;
+}
+
+function validateChatTool(value, name) {
+  assertPlainObject(value, name);
+  assertOnlyKeys(value, new Set(["type", "function"]), name);
+  if (value.type !== "function") {
+    fail(`${name}.type must be "function"`);
+  }
+  assertPlainObject(value.function, `${name}.function`);
+  assertOnlyKeys(
+    value.function,
+    new Set(["name", "description", "parameters"]),
+    `${name}.function`,
+  );
+  const fn = { name: boundedString(value.function.name, `${name}.function.name`, 128) };
+  if (value.function.description !== undefined) {
+    fn.description = boundedString(
+      value.function.description,
+      `${name}.function.description`,
+      4_096,
+    );
+  }
+  if (value.function.parameters !== undefined) {
+    // A JSON Schema. Checked for shape and size and otherwise relayed as written, because
+    // re-encoding a schema is a way to change it by accident.
+    assertPlainObject(value.function.parameters, `${name}.function.parameters`);
+    if (JSON.stringify(value.function.parameters).length > 16_384) {
+      fail(`${name}.function.parameters is too large`);
+    }
+    fn.parameters = value.function.parameters;
+  }
+  return { type: "function", function: fn };
+}
+
+export function validateModelsChat(value) {
+  assertPlainObject(value, "request");
+  assertOnlyKeys(
+    value,
+    new Set(["context", "model", "messages", "tools", "temperature"]),
+    "request",
+  );
+  const model = boundedString(value.model, "request.model", 512);
+  if (!Array.isArray(value.messages) || value.messages.length === 0) {
+    fail("request.messages must contain at least one message");
+  }
+  if (value.messages.length > MAX_CHAT_MESSAGES) {
+    fail(`request.messages must contain at most ${MAX_CHAT_MESSAGES} messages`);
+  }
+  const normalized = {
+    context: validateContext(value.context),
+    model,
+    messages: value.messages.map((message, index) =>
+      validateChatMessage(message, `request.messages[${index}]`),
+    ),
+  };
+  if (value.tools !== undefined) {
+    if (!Array.isArray(value.tools)) {
+      fail("request.tools must be an array");
+    }
+    if (value.tools.length > MAX_CHAT_TOOLS) {
+      fail(`request.tools must contain at most ${MAX_CHAT_TOOLS} tools`);
+    }
+    normalized.tools = value.tools.map((tool, index) =>
+      validateChatTool(tool, `request.tools[${index}]`),
+    );
+  }
+  if (value.temperature !== undefined) {
+    if (
+      typeof value.temperature !== "number" ||
+      !Number.isFinite(value.temperature) ||
+      value.temperature < 0 ||
+      value.temperature > 2
+    ) {
+      fail("request.temperature must be a number between 0 and 2");
+    }
+    normalized.temperature = value.temperature;
+  }
+  return normalized;
 }
 
 export function validateModelsSearch(value) {

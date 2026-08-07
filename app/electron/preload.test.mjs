@@ -432,6 +432,21 @@ test("generic invoke is exhaustive for protocol methods without exposing arbitra
       value: "c2VjcmV0",
     },
     "models.list": { context: "default" },
+    "models.chat": {
+      context: "default",
+      model: "ai/smollm2:latest",
+      messages: [{ role: "user", content: "which containers are running?" }],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "list_containers",
+            description: "List containers on the engine",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+      ],
+    },
     "models.search": { context: "default", query: "smollm", source: "docker-hub" },
     "models.action": {
       context: "default",

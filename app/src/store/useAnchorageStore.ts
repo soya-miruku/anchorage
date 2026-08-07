@@ -6,6 +6,7 @@ import {
 } from "./activity";
 import { aggregateEngineCpuPercent } from "./engineUtilisation";
 import { formatBytes } from "../utils/bytes";
+import { engineToolCatalogue, runEngineTool } from "./engineTools";
 import {
   BUILD_FIXTURES,
   DEFAULT_ENGINE_RESOURCES,
@@ -99,6 +100,7 @@ import type {
   PluginRepair,
   BuilderAction,
   ImageProjection,
+  ChatMessage,
   ImagesActionResult,
   ImagesInspectResult,
   VolumeProjection,
@@ -358,6 +360,25 @@ const POLL_FAILURE_TOLERANCE = 3;
  * inside one interval.
  */
 const LIST_STATS_BATCH_LIMIT = 32;
+
+/**
+ * What the model is told about where it is.
+ *
+ * Short on purpose. It states the one fact the model cannot infer — that its tools read and
+ * cannot change anything — so that it says "you would need to run X" rather than claiming to
+ * have done it. It is not a boundary and is not relied on as one; the boundary is that the
+ * catalogue contains no mutating tool.
+ */
+const CHAT_SYSTEM_PROMPT =
+  "You are answering questions about a Docker engine from inside Anchorage, a Docker GUI. " +
+  "Your tools read the engine: they can list and inspect containers, images, volumes and " +
+  "networks and read logs. You cannot start, stop, remove or change anything, so when an " +
+  "action is needed, say which command or control would do it rather than implying you have. " +
+  "Call a tool when the answer depends on what is actually on this machine; answer directly " +
+  "when it does not. Be concise and concrete, and name containers and images exactly.";
+
+/** Tool rounds before the loop is abandoned. See sendChatMessage. */
+const CHAT_MAX_TOOL_TURNS = 6;
 /** Slower than the 2s container poll: metrics are supplementary, not authoritative. */
 const LIST_STATS_INTERVAL_MS = 8_000;
 /** One subprocess per source, so this is a real resource bound rather than a UI preference. */
@@ -2813,6 +2834,109 @@ export function useAnchorageStore() {
    * The button used to be hardcoded to dangling while its own header advertised the far
    * larger unused total, and it was a silent no-op whenever nothing was dangling.
    */
+  /*
+   * A conversation with a local model, and the loop that lets it read this engine.
+   *
+   * The model never touches Docker. It asks for a tool by name; this runs that tool through the
+   * same bridge every button uses, hands back the result as text, and asks again. The catalogue
+   * in engineTools.ts is read-only, which is the actual boundary — a system prompt telling a
+   * model to be careful is not one, as this screen's own posture note says.
+   *
+   * The whole conversation is sent each turn because the core keeps none of it. That is what
+   * makes the transcript on screen and the transcript the model sees the same object: there is
+   * no second history anywhere that could drift from what the operator can read.
+   */
+  const [chatModel, setChatModel] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatPending, setChatPending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatToolsEnabled, setChatToolsEnabled] = useState(true);
+  /** Names of the tools run this turn, so the transcript can show what the model actually did. */
+  const [chatActivity, setChatActivity] = useState<string[]>([]);
+
+  const clearChat = useCallback(() => {
+    setChatMessages([]);
+    setChatError(null);
+    setChatActivity([]);
+  }, []);
+
+  const sendChatMessage = useCallback(
+    async (text: string) => {
+      const prompt = text.trim();
+      const model = chatModel;
+      if (!isHost || !prompt || !model || chatPending) return;
+
+      const opening: ChatMessage[] = [
+        ...(chatMessages.length === 0 ? [{ role: "system" as const, content: CHAT_SYSTEM_PROMPT }] : []),
+        ...chatMessages,
+        { role: "user" as const, content: prompt },
+      ];
+      setChatMessages(opening);
+      setChatPending(true);
+      setChatError(null);
+      setChatActivity([]);
+
+      const tools = chatToolsEnabled ? engineToolCatalogue() : undefined;
+      let conversation = opening;
+      try {
+        /*
+         * Bounded, because a model that keeps asking for tools is a model that never answers.
+         * Six turns is enough for "list the containers, read that one's logs, explain them" and
+         * short enough that a loop costs seconds rather than the rest of the afternoon.
+         */
+        for (let turn = 0; turn < CHAT_MAX_TOOL_TURNS; turn += 1) {
+          const answer = await bridge.models.chat({
+            context: dockerContextRef.current,
+            model,
+            messages: conversation,
+            ...(tools ? { tools } : {}),
+          });
+          conversation = [...conversation, answer.message];
+          setChatMessages(conversation);
+
+          const calls = answer.message.tool_calls ?? [];
+          if (calls.length === 0) return;
+
+          setChatActivity((current) => [
+            ...current,
+            ...calls.map((call) => call.function.name),
+          ]);
+          // Sequential, not concurrent: these are reads against one daemon on behalf of one
+          // sentence, and a model that asked for six at once should not become six simultaneous
+          // engine calls.
+          const results: ChatMessage[] = [];
+          for (const call of calls) {
+            const outcome = await runEngineTool(
+              bridge,
+              dockerContextRef.current,
+              call,
+            );
+            results.push({
+              role: "tool",
+              content: outcome.content,
+              tool_call_id: outcome.callId,
+              name: outcome.name,
+            });
+          }
+          conversation = [...conversation, ...results];
+          setChatMessages(conversation);
+        }
+        // Falling out of the loop is not an answer, and presenting the last tool result as one
+        // would be. Said plainly instead.
+        setChatError(
+          `The model called tools ${CHAT_MAX_TOOL_TURNS} times without answering. Try a narrower question.`,
+        );
+      } catch (reason) {
+        setChatError(
+          reason instanceof Error ? reason.message : "The model did not answer.",
+        );
+      } finally {
+        setChatPending(false);
+      }
+    },
+    [bridge, chatMessages, chatModel, chatPending, chatToolsEnabled, isHost],
+  );
+
   const [imagePruneResult, setImagePruneResult] = useState<{
     removed: number;
     untagged: number;
@@ -5109,6 +5233,16 @@ export function useAnchorageStore() {
     pruneSystem,
     imagePruneResult,
     dismissImagePruneResult,
+    chatModel,
+    setChatModel,
+    chatMessages,
+    chatPending,
+    chatError,
+    chatToolsEnabled,
+    setChatToolsEnabled,
+    chatActivity,
+    sendChatMessage,
+    clearChat,
     systemPruneResult,
     systemPrunePending,
     dismissSystemPruneResult: () => setSystemPruneResult(null),

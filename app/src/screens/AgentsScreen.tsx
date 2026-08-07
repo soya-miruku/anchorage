@@ -1,21 +1,27 @@
 import { useEffect } from "react";
 
 import { CapabilitySetup } from "../components/CapabilitySetup";
+import { ModelChat } from "../components/ModelChat";
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import { capabilityForView } from "../data/capabilities";
 import type { AnchorageStore } from "../store/useAnchorageStore";
 
 /**
- * Docker Agent.
+ * Docker Agent, and a model you can actually talk to.
  *
- * This screen is deliberately not a chat window. `docker agent run` is an interactive terminal
- * application, and reimplementing it here would mean building a chat client and claiming parity
- * with a TUI that changes weekly — and there is no list of "your agents" to show either, because
- * an agent is a YAML file the operator points the CLI at.
+ * Two different things, deliberately, because they answer different questions.
  *
- * What a GUI is genuinely better at is the setup question, which is otherwise three commands and
- * a careful read: can this machine run an agent at all, what would it think with, what could it
- * be granted, and which credentials are actually visible. That is what this answers.
+ * The chat is a model Model Runner already has, answering about the engine in front of you,
+ * with a read-only tool catalogue it can use to look before it answers. That is the thing this
+ * screen previously could not do and the reason it read as empty: an operator who had just
+ * pulled a model arrived expecting to use it and found a readiness report.
+ *
+ * Everything below the chat is still that readiness report, and it is not redundant. It is
+ * about `docker agent run` — a separate, interactive terminal application driven by a YAML
+ * file, which is not reimplemented here and would be a poor thing to reimplement, since it
+ * changes weekly and there is no list of "your agents" to show. What a GUI is genuinely better
+ * at there is the setup question: can this machine run one at all, what would it think with,
+ * what could it be granted, which credentials are visible.
  */
 
 const POSTURE =
@@ -105,6 +111,22 @@ export function AgentsScreen({ store }: { store: AnchorageStore }) {
           {agentsError}
         </div>
       )}
+
+      {/*
+        Chat first, because it is the only thing on this screen that does something.
+        Everything below it answers "could this machine run an agent" — a real question, and
+        the one this screen was built for, but not one you can act on here. This is a model
+        that is already pulled, answering about the engine in front of you.
+      */}
+      <section className="agents-block">
+        <h2>Ask a local model about this engine</h2>
+        <p className="agents-block__lede">
+          A model pulled by Model Runner, answering here rather than in a terminal. Give
+          it the read-only engine tools and it can look before it answers — the whole
+          transcript, including what each tool returned, is on screen.
+        </p>
+        <ModelChat store={store} />
+      </section>
 
       {/*
         Models first, because it is the question that decides whether anything else matters:

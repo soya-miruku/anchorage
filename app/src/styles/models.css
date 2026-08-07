@@ -987,3 +987,188 @@ while every notification without one kept its padding, in the same stack.
   line-height: 1.5;
   color: var(--anc-text-muted);
 }
+
+/* ── Talking to a local model ──────────────────────────────────────────────────────────── */
+
+.agents-block__lede {
+  margin: 0 0 12px;
+  max-width: 84ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--anc-text-muted);
+}
+
+.model-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid var(--anc-line-soft);
+  border-radius: 10px;
+  background: var(--anc-panel);
+  padding: 12px;
+}
+
+.model-chat__bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.model-chat__picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--anc-text-faint);
+}
+
+.model-chat__picker select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 7px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-size: 11.5px;
+  font-family: var(--anc-font-mono);
+}
+
+.model-chat__tools-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: 62ch;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--anc-text-body);
+}
+
+/* The grant is spelled out next to the switch that makes it, not in a tooltip: what a model
+   may reach is the whole question this screen's posture note is about. */
+.model-chat__tools-toggle em {
+  font-style: normal;
+  color: var(--anc-text-muted);
+}
+
+.model-chat__transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 2px;
+  max-height: 420px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.model-chat__empty {
+  padding: 18px 4px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--anc-text-faint);
+}
+
+.model-chat__turn {
+  max-width: 74ch;
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.model-chat__turn--user {
+  align-self: flex-end;
+  border: 1px solid var(--anc-line-control);
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+}
+
+.model-chat__turn--assistant {
+  align-self: flex-start;
+  border: 1px solid var(--anc-line-soft);
+  background: var(--anc-chrome);
+  color: var(--anc-text-body);
+}
+
+.model-chat__tool {
+  align-self: flex-start;
+  max-width: 74ch;
+  width: 100%;
+}
+
+.model-chat__tool-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px dashed var(--anc-line-soft);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--anc-text-muted);
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.model-chat__tool-head:hover {
+  background: rgb(var(--anc-overlay-rgb) / 6%);
+}
+
+.model-chat__tool-name {
+  font-family: var(--anc-font-mono);
+  color: var(--anc-text-mono);
+}
+
+.model-chat__tool-hint {
+  margin-left: auto;
+  color: var(--anc-text-faint);
+}
+
+.model-chat__tool-body {
+  margin: 6px 0 0;
+  padding: 9px 11px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--anc-line-soft);
+  border-radius: 7px;
+  background: var(--anc-input);
+  color: var(--anc-text-muted);
+  font-family: var(--anc-font-mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.model-chat__pending {
+  align-self: flex-start;
+  padding: 6px 4px;
+  font-size: 11.5px;
+  color: var(--anc-text-faint);
+}
+
+.model-chat__composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+}
+
+.model-chat__composer textarea {
+  flex: 1;
+  padding: 9px 11px;
+  border: 1px solid var(--anc-line-control);
+  border-radius: 8px;
+  background: var(--anc-input);
+  color: var(--anc-text-body);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.model-chat__composer textarea:disabled {
+  color: var(--anc-text-faint);
+}

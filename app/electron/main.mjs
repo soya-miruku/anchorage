@@ -49,6 +49,7 @@ import {
   validateMcpCatalog,
   validateMcpList,
   validateModelsAction,
+  validateModelsChat,
   validateModelsList,
   validateModelsSearch,
   validateComposePs,
@@ -962,6 +963,13 @@ function registerIpcHandlers() {
   // run on a cold machine into a failure indistinguishable from a broken install.
   registerHandler(IPC_CHANNELS.modelsList, (request) =>
     core.request("models.list", validateModelsList(request), { timeoutMs: 300_000 }),
+  );
+  // A completion is a model thinking. A small local model answers in under a second and a
+  // large one on CPU can take minutes, so this is budgeted above the core's own ten-minute
+  // bound rather than below it — a renderer timeout that fires while the model is still
+  // working would report a failure that did not happen.
+  registerHandler(IPC_CHANNELS.modelsChat, (request) =>
+    core.request("models.chat", validateModelsChat(request), { timeoutMs: 660_000 }),
   );
   // Search leaves the machine, so it gets a short budget of its own: a slow registry must not
   // hold a window open for the length of a model pull.

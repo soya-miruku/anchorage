@@ -40,6 +40,7 @@ const CHANNELS = Object.freeze({
   mcpCatalog: "anchorage:mcp.catalog",
   agentsList: "anchorage:agents.list",
   modelsList: "anchorage:models.list",
+  modelsChat: "anchorage:models.chat",
   modelsSearch: "anchorage:models.search",
   modelsAction: "anchorage:models.action",
   composeList: "anchorage:compose.list",
@@ -1334,6 +1335,117 @@ function modelsList(value) {
   return { context: context(value.context) };
 }
 
+const CHAT_ROLES = new Set(["system", "user", "assistant", "tool"]);
+
+/*
+ * The same shape check the main process applies, applied again on this side.
+ *
+ * Both boundaries validate independently on purpose: preload is what the renderer can reach,
+ * main is what the core can be told, and a payload that only one of them examined has been
+ * examined by whichever one an attacker did not have to go through.
+ */
+function chatToolCall(value, name) {
+  plainObject(value, name);
+  onlyKeys(value, new Set(["id", "type", "function"]), name);
+  if (value.type !== "function") fail(`${name}.type must be "function"`);
+  plainObject(value.function, `${name}.function`);
+  onlyKeys(value.function, new Set(["name", "arguments"]), `${name}.function`);
+  return {
+    id: text(value.id, `${name}.id`, 256),
+    type: "function",
+    function: {
+      name: text(value.function.name, `${name}.function.name`, 128),
+      arguments: text(value.function.arguments, `${name}.function.arguments`, 65_536, true),
+    },
+  };
+}
+
+function chatMessage(value, name) {
+  plainObject(value, name);
+  onlyKeys(value, new Set(["role", "content", "tool_call_id", "name", "tool_calls"]), name);
+  if (!CHAT_ROLES.has(value.role)) {
+    fail(`${name}.role must be one of: system, user, assistant, tool`);
+  }
+  // An assistant turn that only asks for tools carries no content, which is a real message.
+  const message = {
+    role: value.role,
+    content: text(value.content, `${name}.content`, 1_048_576, true),
+  };
+  if (value.tool_call_id !== undefined) {
+    message.tool_call_id = text(value.tool_call_id, `${name}.tool_call_id`, 256);
+  }
+  if (value.name !== undefined) {
+    message.name = text(value.name, `${name}.name`, 128);
+  }
+  if (value.tool_calls !== undefined) {
+    if (!Array.isArray(value.tool_calls) || value.tool_calls.length > 32) {
+      fail(`${name}.tool_calls must be an array of at most 32 entries`);
+    }
+    message.tool_calls = value.tool_calls.map((call, index) =>
+      chatToolCall(call, `${name}.tool_calls[${index}]`),
+    );
+  }
+  return message;
+}
+
+function chatTool(value, name) {
+  plainObject(value, name);
+  onlyKeys(value, new Set(["type", "function"]), name);
+  if (value.type !== "function") fail(`${name}.type must be "function"`);
+  plainObject(value.function, `${name}.function`);
+  onlyKeys(value.function, new Set(["name", "description", "parameters"]), `${name}.function`);
+  const fn = { name: text(value.function.name, `${name}.function.name`, 128) };
+  if (value.function.description !== undefined) {
+    fn.description = text(value.function.description, `${name}.function.description`, 4_096);
+  }
+  if (value.function.parameters !== undefined) {
+    plainObject(value.function.parameters, `${name}.function.parameters`);
+    if (JSON.stringify(value.function.parameters).length > 16_384) {
+      fail(`${name}.function.parameters is too large`);
+    }
+    fn.parameters = value.function.parameters;
+  }
+  return { type: "function", function: fn };
+}
+
+function modelsChat(value) {
+  plainObject(value, "request");
+  onlyKeys(value, new Set(["context", "model", "messages", "tools", "temperature"]), "request");
+  if (!Array.isArray(value.messages) || value.messages.length === 0) {
+    fail("request.messages must contain at least one message");
+  }
+  if (value.messages.length > 200) {
+    fail("request.messages must contain at most 200 messages");
+  }
+  const normalized = {
+    context: context(value.context),
+    model: text(value.model, "request.model", 512),
+    messages: value.messages.map((message, index) =>
+      chatMessage(message, `request.messages[${index}]`),
+    ),
+  };
+  if (value.tools !== undefined) {
+    if (!Array.isArray(value.tools) || value.tools.length > 32) {
+      fail("request.tools must be an array of at most 32 tools");
+    }
+    normalized.tools = value.tools.map((tool, index) =>
+      chatTool(tool, `request.tools[${index}]`),
+    );
+  }
+  if (value.temperature !== undefined) {
+    if (
+      typeof value.temperature !== "number" ||
+      !Number.isFinite(value.temperature) ||
+      value.temperature < 0 ||
+      value.temperature > 2
+    ) {
+      fail("request.temperature must be a number between 0 and 2");
+    }
+    normalized.temperature = value.temperature;
+  }
+  return normalized;
+}
+
 function modelsSearch(value) {
   plainObject(value, "request");
   onlyKeys(value, new Set(["context", "query", "source"]), "request");
@@ -2367,6 +2479,8 @@ function invoke(method, payload) {
       return call(CHANNELS.secretsAction, secretsAction(payload));
     case "models.list":
       return call(CHANNELS.modelsList, modelsList(payload));
+    case "models.chat":
+      return call(CHANNELS.modelsChat, modelsChat(payload));
     case "models.search":
       return call(CHANNELS.modelsSearch, modelsSearch(payload));
     case "models.action":
@@ -2478,6 +2592,7 @@ const api = Object.freeze({
   }),
   models: Object.freeze({
     list: (request) => call(CHANNELS.modelsList, modelsList(request)),
+    chat: (request) => call(CHANNELS.modelsChat, modelsChat(request)),
     search: (request) => call(CHANNELS.modelsSearch, modelsSearch(request)),
     action: (request) => call(CHANNELS.modelsAction, modelsAction(request)),
   }),

@@ -40,6 +40,18 @@ function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
     // of two very different problems the operator has.
     models: [],
     refreshModels: vi.fn(async () => undefined),
+    // The chat panel at the top of the screen. Its own behaviour is covered by
+    // ModelChat.test.tsx; here it only has to render.
+    chatModel: null,
+    setChatModel: vi.fn(),
+    chatMessages: [],
+    chatPending: false,
+    chatError: null,
+    chatToolsEnabled: true,
+    setChatToolsEnabled: vi.fn(),
+    chatActivity: [],
+    sendChatMessage: vi.fn(async () => undefined),
+    clearChat: vi.fn(),
     openCommandCenter: vi.fn(),
     ...overrides,
   } as unknown as AnchorageStore;

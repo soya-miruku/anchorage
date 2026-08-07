@@ -1535,6 +1535,7 @@ export interface HostAnchorageApi {
   };
   models?: {
     list: (request: { context: string }) => Promise<unknown>;
+    chat?: (request: ModelsChatRequest) => Promise<unknown>;
     search: (request: Record<string, unknown>) => Promise<unknown>;
     action?: (request: ModelActionRequest) => Promise<unknown>;
   };
@@ -2091,6 +2092,57 @@ export interface ModelDiskUsage {
   size: string;
 }
 
+/** A function the model asked for. `arguments` is a JSON document as a string, as on the wire. */
+export interface ChatToolCall {
+  id: string;
+  type: string;
+  function: { name: string; arguments: string };
+}
+
+export interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  /** Set on a tool result, naming the call it answers. */
+  tool_call_id?: string;
+  name?: string;
+  tool_calls?: ChatToolCall[];
+}
+
+/** `parameters` is a JSON Schema, relayed verbatim: re-encoding one changes it by accident. */
+export interface ChatTool {
+  type: "function";
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  };
+}
+
+export interface ChatUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface ModelsChatRequest {
+  context: string;
+  model: string;
+  messages: ChatMessage[];
+  tools?: ChatTool[];
+  temperature?: number;
+}
+
+export interface ModelsChatResult {
+  protocolVersion: string;
+  context: string;
+  model: string;
+  message: ChatMessage;
+  /** `stop` when the model finished, `tool_calls` when it is waiting on the caller. */
+  finishReason?: string;
+  usage: ChatUsage;
+  observedAt: string;
+}
+
 export interface ModelsListResult {
   protocolVersion: "1";
   context: string;
@@ -2284,6 +2336,11 @@ export interface AgentsOperations {
 
 export interface ModelsOperations {
   list(context?: string): Promise<ModelsListResult>;
+  /**
+   * One turn. The caller owns the conversation and the tool loop: the core forwards the
+   * request and returns the answer, and never calls a tool itself.
+   */
+  chat(request: ModelsChatRequest): Promise<ModelsChatResult>;
   search(
     query?: string,
     source?: "docker-hub" | "huggingface" | "all",
