@@ -1131,10 +1131,29 @@ function requirePassingChecks(evidence, description, mutationsEnabled) {
     .filter((check) => check?.status === "skipped")
     .map((check) => check.id)
     .sort();
+  /*
+   * Each entry is `{ id, reason }`, not a bare id — the reason is the whole point of recording
+   * a skip where a release signer will see it, so it is required rather than merely tolerated.
+   *
+   * This compared the entries against a list of id strings, which is only ever equal when both
+   * are empty. Every local run had nothing skipped, so it passed for as long as the machine
+   * happened to have Compose and Scout; the first run on one without Scout failed the release
+   * — blocking precisely the case the comment above says is allowed.
+   */
   requireCondition(
     Array.isArray(evidence.skippedChecks) &&
-      sameStringArray([...evidence.skippedChecks].sort(), skippedInChecks),
-    `${description} skippedChecks must record exactly the checks that were skipped`,
+      evidence.skippedChecks.every(
+        (entry) =>
+          entry &&
+          typeof entry.id === "string" &&
+          typeof entry.reason === "string" &&
+          entry.reason.trim().length > 0,
+      ) &&
+      sameStringArray(
+        evidence.skippedChecks.map((entry) => entry.id).sort(),
+        skippedInChecks,
+      ),
+    `${description} skippedChecks must record exactly the checks that were skipped, each with a reason`,
   );
   const actualIds = evidence.checks.map((check) => check.id);
   requireCondition(
