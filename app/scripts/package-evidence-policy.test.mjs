@@ -192,8 +192,33 @@ test("acceptance evidence permits a skip only for an absent optional plugin, and
   permitted.checks = permitted.checks.map((check) =>
     check.id === skippableId ? { ...check, status: "skipped" } : check,
   );
-  permitted.skippedChecks = [skippableId];
+  /*
+   * `{ id, reason }`, which is what tools/run-core-acceptance.mjs actually writes.
+   *
+   * This fixture used bare id strings, and so did the policy's comparison — they agreed with
+   * each other and both disagreed with the tool. Two empty arrays are equal, so with nothing
+   * skipped the mismatch was invisible; the first release on a machine without Scout failed on
+   * the one path this test exists to permit.
+   */
+  permitted.skippedChecks = [
+    { id: skippableId, reason: "The plugin is not installed for this Docker CLI." },
+  ];
   validateMutationConformance(permitted, { corePath: "/tmp/anchorage-core", coreSha256: SHA });
+
+  // A recorded skip with no reason is a name on a list. The reason is why the field exists.
+  const unexplained = acceptanceFixture(true);
+  unexplained.checks = unexplained.checks.map((check) =>
+    check.id === skippableId ? { ...check, status: "skipped" } : check,
+  );
+  unexplained.skippedChecks = [{ id: skippableId }];
+  assert.throws(
+    () =>
+      validateMutationConformance(unexplained, {
+        corePath: "/tmp/anchorage-core",
+        coreSha256: SHA,
+      }),
+    /skippedChecks must record exactly/u,
+  );
 
   // A skip that is not recorded reads as a pass to anyone signing the release off.
   const unrecorded = acceptanceFixture(true);
@@ -211,7 +236,7 @@ test("acceptance evidence permits a skip only for an absent optional plugin, and
 
   // A skip claimed on the record but not actually skipped is equally misleading.
   const overclaimed = acceptanceFixture(true);
-  overclaimed.skippedChecks = [skippableId];
+  overclaimed.skippedChecks = [{ id: skippableId, reason: "claimed but not skipped" }];
   assert.throws(
     () =>
       validateMutationConformance(overclaimed, {
