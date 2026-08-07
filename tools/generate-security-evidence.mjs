@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -242,6 +243,24 @@ export async function generateSecurityEvidence() {
     rm(dependencyEvidencePath, { force: true }),
   ]);
 
+  /*
+   * npm's lockfile, derived rather than committed.
+   *
+   * Bun is the package runtime and `bun.lock` is what the repository carries. `bun audit --json`
+   * exists but answers `{}` — no `auditReportVersion`, no `metadata.vulnerabilities` — so it
+   * cannot satisfy validateNpmAuditResult, and weakening that check to fit the tool would be
+   * trading a security gate for a convenience. npm's advisory database is still the source, and
+   * `npm audit` reads a lockfile it understands.
+   *
+   * So one is derived here from the same package.json, with no install and no scripts. It is a
+   * build input rather than a source of truth: two committed lockfiles for one dependency set is
+   * two answers to the same question. Verified against the installed tree when the runtime moved
+   * to bun — TypeScript 7.0.2, Electron 43.2.0, Vite 6.4.3, React 19.2.0 and Vitest 4.1.10 all
+   * resolve identically either way — and the audit below reports on whatever this produces, so a
+   * divergence would show up as a different dependency set rather than pass silently.
+   */
+  await ensureNpmLockfile();
+
   const [
     mainSource,
     preloadSource,
@@ -395,4 +414,33 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
     );
     process.exitCode = 1;
   });
+}
+
+/**
+ * Writes app/package-lock.json from package.json when it is absent.
+ *
+ * `--package-lock-only` resolves the tree and writes the lockfile without installing anything;
+ * `--ignore-scripts` means nothing in the dependency graph executes to produce it.
+ */
+async function ensureNpmLockfile() {
+  const lockPath = resolve(appDirectory, "package-lock.json");
+  if (existsSync(lockPath)) {
+    return;
+  }
+  const derive = await runBoundedProcess(
+    "npm",
+    [
+      "install",
+      "--package-lock-only",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+    ],
+    { cwd: appDirectory, timeoutMs: auditTimeoutMs },
+  );
+  if (derive.code !== 0 || !existsSync(lockPath)) {
+    throw new Error(
+      `Could not derive package-lock.json for npm audit: ${derive.stderr || derive.stdout}`,
+    );
+  }
 }

@@ -710,9 +710,15 @@ function validHostSemanticObservation(id, actual, evidence) {
       return (
         typeof actual === "string" &&
         /^visited .+; no inert control$/u.test(actual) &&
-        // "Engine" since the tab took the handoff's own name; "Docker Engine" was ours, and
-        // this list kept asserting the old one. See the note at SettingsScreen.tsx.
-        ["Resources", "Engine", "Kubernetes", "Software updates", "Advanced"].every(
+        // The tabs that used to carry inert controls, named so the record distinguishes "every
+        // tab was clean" from "the walk never ran". This list has now been wrong twice, and both
+        // times for the same reason — it names labels rather than deriving them, so it keeps
+        // asserting a product that no longer exists. First "Docker Engine", which became
+        // "Engine" when the tab took the handoff's own name. Then "Kubernetes", which was
+        // removed outright: it needs cluster state Anchorage does not read, and Desktop can only
+        // offer it because it manages a VM. The walk visits eight tabs and no Kubernetes among
+        // them, so requiring one made a passing capture unpackageable.
+        ["Resources", "Engine", "Software updates", "Advanced"].every(
           (label) => actual.includes(label),
         )
       );
