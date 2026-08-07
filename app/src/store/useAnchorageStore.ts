@@ -402,6 +402,38 @@ const reconciliationFailureMessage = (
   return `${action} succeeded, but the live view could not be reconciled (${detail}). The displayed data may be stale; do not repeat the action solely to refresh it.`;
 };
 
+/**
+ * One streaming Docker session, as a screen needs to render it.
+ *
+ * `kind` decides which screen shows it: image transfers, Compose actions and model pulls all run
+ * through the same machinery, and without it a `compose down` rendered its panel on Images.
+ */
+export type TransferSession = {
+  kind: "image" | "compose" | "model";
+  /** "Pull" | "Save" | "Load" | "Export" — what the progress panel is reporting on. */
+  title: string;
+  reference: string;
+  status: "starting" | "running" | "exited" | "error";
+  output: string;
+  error?: string;
+};
+
+/**
+ * The slot image transfers and Compose actions share.
+ *
+ * They own a single progress panel each, and starting a second cancels the first — the same
+ * rule Docker Desktop applies to its pull panel. Model pulls do not share it; see `transfers`.
+ */
+const SHARED_TRANSFER_SLOT = "shared";
+
+/**
+ * How long a finished transfer stays on screen before its own slot is released.
+ *
+ * Long enough to read "Model pulled successfully" and see the bar reach the end; short enough
+ * that six pulls do not leave six panels behind.
+ */
+const TRANSFER_SETTLE_MS = 4_000;
+
 export function useAnchorageStore() {
   const bridgeRef = useRef(createAnchorageBridge());
   const bridge = bridgeRef.current;
@@ -533,23 +565,31 @@ export function useAnchorageStore() {
   /**
    * The one in-flight session-backed transfer: pull, save, load or export.
    *
-   * Only one is tracked at a time because they share a single progress surface and starting
-   * a second cancels the first — the same rule Docker Desktop applies to its pull panel.
+   * Keyed, because how many can run at once is a property of the surface rather than of the
+   * machinery. Image transfers and Compose actions share one key: they own a single progress
+   * panel, and starting a second genuinely does cancel the first. Model pulls key by reference,
+   * because a model is gigabytes and nothing about the engine stops two downloading at once —
+   * reported as "when we download a model we should be able to download others too, right now
+   * it disables all the other buttons".
    */
-  const [imageTransfer, setImageTransfer] = useState<{
-    /**
-     * Which screen owns this session. Image transfers, Compose actions and model pulls share
-     * one slot, so without this a `compose down` rendered its panel on Images and an image pull
-     * rendered one on Compose. Each screen shows only its own.
-     */
-    kind: "image" | "compose" | "model";
-    /** "Pull" | "Save" | "Load" | "Export" — what the progress panel is reporting on. */
-    title: string;
-    reference: string;
-    status: "starting" | "running" | "exited" | "error";
-    output: string;
-    error?: string;
-  } | null>(null);
+  /*
+   * `Partial<Record<…>>` rather than `Record<…>`: the keys are arbitrary strings, so a lookup
+   * genuinely may find nothing. With the non-partial form TypeScript types `transfers[slot]` as
+   * always present, which then narrows `?? null` away entirely and exports `imageTransfer` as
+   * non-nullable — a lie every screen that checks it for null would have been told.
+   */
+  const [transfers, setTransfers] = useState<Partial<Record<string, TransferSession>>>({});
+  /**
+   * The shared slot, under the name every screen already reads it by.
+   *
+   * Images, Compose and Container detail each show one panel and cancel on a second start, so
+   * they are unchanged by the above. Only Models opted into more than one.
+   */
+  const imageTransfer = transfers[SHARED_TRANSFER_SLOT] ?? null;
+  const modelTransfers = useMemo(
+    () => Object.values(transfers).filter((entry) => entry?.kind === "model") as TransferSession[],
+    [transfers],
+  );
   const [imageMutationPending, setImageMutationPending] = useState(false);
   // Distinct from `composeProjects` below, which is only the set of project *names* found
   // on container labels and drives the Containers filter. This is the plugin's own project
@@ -701,7 +741,7 @@ export function useAnchorageStore() {
   const [selectedBuildId, setSelectedBuildId] = useState(
     BUILD_FIXTURES[0]?.id ?? "",
   );
-  const transferCleanupRef = useRef<(() => void) | null>(null);
+  const transferCleanupsRef = useRef<Map<string, () => void>>(new Map());
   // Monotonic, so a superseded volume listing can be recognised and dropped.
   const volumeBrowseTicket = useRef(0);
   // Which volume the current listing describes, so a hop inside one can keep its entries on
@@ -1116,8 +1156,9 @@ export function useAnchorageStore() {
     return () => {
       engineRequestRef.current += 1;
       unsubscribe?.();
-      transferCleanupRef.current?.();
-      transferCleanupRef.current = null;
+      // Every slot, not just the shared one: a context switch invalidates all of them.
+      for (const cleanup of transferCleanupsRef.current.values()) cleanup();
+      transferCleanupsRef.current.clear();
     };
   }, [
     bridge,
@@ -3144,6 +3185,24 @@ export function useAnchorageStore() {
    * acknowledging output so the core's window does not stall, and cancelling the session if
    * the caller starts another transfer first.
    */
+  /**
+   * Updates one slot, and only if it is still the transfer that was started.
+   *
+   * The guard is what the old `current ? … : current` shape was doing when there was a single
+   * slot. It still matters: a session that is cancelled and cleared can emit one more event
+   * before its unsubscribe lands, and without this that event resurrects a dead panel.
+   */
+  const patchTransfer = useCallback(
+    (slot: string, patch: (current: TransferSession) => TransferSession) => {
+      setTransfers((current) => {
+        const existing = current[slot];
+        if (!existing) return current;
+        return { ...current, [slot]: patch(existing) };
+      });
+    },
+    [],
+  );
+
   const runTransferSession = useCallback(
     async (options: {
       kind: "image" | "compose" | "model";
@@ -3152,8 +3211,15 @@ export function useAnchorageStore() {
       failureMessage: string;
       start: () => Promise<{ session?: SessionStartResult }>;
       onSettled?: () => void;
+      /**
+       * Which slot this occupies. Omitted means the shared one, which cancels whatever was in
+       * it — the existing behaviour for images and Compose. A caller that passes a distinct key
+       * per transfer gets concurrency; passing the reference is what Models does.
+       */
+      slot?: string;
     }) => {
-      transferCleanupRef.current?.();
+      const slot = options.slot ?? SHARED_TRANSFER_SLOT;
+      transferCleanupsRef.current.get(slot)?.();
       let disposed = false;
       let owner: string | null = null;
       let pending: SessionEvent[] = [];
@@ -3171,65 +3237,49 @@ export function useAnchorageStore() {
       const accept = (event: SessionEvent) => {
         if (event.event === "session.output") {
           const text = decodeSessionData(event);
-          setImageTransfer((current) =>
-            current
-              ? {
-                  ...current,
-                  status: "running",
-                  output: `${current.output}${text}`.slice(-64 * 1024),
-                }
-              : current,
-          );
+          patchTransfer(slot, (current) => ({
+            ...current,
+            status: "running",
+            output: `${current.output}${text}`.slice(-64 * 1024),
+          }));
           void bridge.sessions
             .ack({
               sessionId: event.payload.sessionId,
               throughSequence: event.payload.sequence,
             })
             .catch((reason) => {
-              setImageTransfer((current) =>
-                current
-                  ? {
-                      ...current,
-                      status: "error",
-                      error:
-                        reason instanceof Error
-                          ? reason.message
-                          : "Transfer output ACK failed",
-                    }
-                  : current,
-              );
+              patchTransfer(slot, (current) => ({
+                ...current,
+                status: "error",
+                error:
+                  reason instanceof Error
+                    ? reason.message
+                    : "Transfer output ACK failed",
+              }));
             });
         } else if (event.event === "session.error") {
-          setImageTransfer((current) =>
-            current
-              ? {
-                  ...current,
-                  status: "error",
-                  error: `${event.payload.code}: ${event.payload.message}`,
-                }
-              : current,
-          );
+          patchTransfer(slot, (current) => ({
+            ...current,
+            status: "error",
+            error: `${event.payload.code}: ${event.payload.message}`,
+          }));
           patchActivity(activityId, {
             state: "failed",
             detail: `${event.payload.code}: ${event.payload.message}`,
             endedAt: new Date().toISOString(),
           });
         } else if (event.event === "session.exited") {
-          setImageTransfer((current) =>
-            current
-              ? {
-                  ...current,
-                  status:
-                    event.payload.exitCode === 0 && !event.payload.timedOut
-                      ? "exited"
-                      : "error",
-                  error:
-                    event.payload.exitCode === 0
-                      ? current.error
-                      : `${options.title} exited with code ${event.payload.exitCode}`,
-                }
-              : current,
-          );
+          patchTransfer(slot, (current) => ({
+            ...current,
+            status:
+              event.payload.exitCode === 0 && !event.payload.timedOut
+                ? "exited"
+                : "error",
+            error:
+              event.payload.exitCode === 0
+                ? current.error
+                : `${options.title} exited with code ${event.payload.exitCode}`,
+          }));
           const ok = event.payload.exitCode === 0 && !event.payload.timedOut;
           patchActivity(activityId, {
             state: ok ? "succeeded" : "failed",
@@ -3241,6 +3291,25 @@ export function useAnchorageStore() {
             endedAt: new Date().toISOString(),
           });
           finish();
+          /*
+           * A slot of its own has to give it back.
+           *
+           * The shared slot is overwritten by whatever starts next, so it never accumulated.
+           * A per-reference slot would: pull six models and six finished panels stay on screen
+           * for the rest of the session. Success clears itself because the list above is the
+           * real confirmation — the same rule the activity centre already applies — and a
+           * failure stays, because an error nobody read is an error that did not happen.
+           */
+          if (ok && slot !== SHARED_TRANSFER_SLOT) {
+            window.setTimeout(() => {
+              transferCleanupsRef.current.delete(slot);
+              setTransfers((current) => {
+                if (current[slot]?.status !== "exited") return current;
+                const { [slot]: _done, ...rest } = current;
+                return rest;
+              });
+            }, TRANSFER_SETTLE_MS);
+          }
         }
       };
       const unsubscribe = bridge.sessions.subscribe((event) => {
@@ -3265,14 +3334,17 @@ export function useAnchorageStore() {
             .catch(() => undefined);
         }
       };
-      transferCleanupRef.current = cleanup;
-      setImageTransfer({
-        kind: options.kind,
-        title: options.title,
-        reference: options.reference,
-        status: "starting",
-        output: "",
-      });
+      transferCleanupsRef.current.set(slot, cleanup);
+      setTransfers((current) => ({
+        ...current,
+        [slot]: {
+          kind: options.kind,
+          title: options.title,
+          reference: options.reference,
+          status: "starting",
+          output: "",
+        },
+      }));
       // The same session, recorded where it can be seen from any screen. The inline panel stays
       // for the screen that started the work; this is what makes a failure visible to an operator
       // who has already navigated away.
@@ -3309,16 +3381,12 @@ export function useAnchorageStore() {
           return;
         }
         if (!result.session) {
-          setImageTransfer((current) =>
-            current ? { ...current, status: "exited" } : current,
-          );
+          patchTransfer(slot, (current) => ({ ...current, status: "exited" }));
           finish();
           return;
         }
         owner = result.session.sessionId;
-        setImageTransfer((current) =>
-          current ? { ...current, status: "running" } : current,
-        );
+        patchTransfer(slot, (current) => ({ ...current, status: "running" }));
         const buffered = pending;
         pending = [];
         buffered
@@ -3326,19 +3394,14 @@ export function useAnchorageStore() {
           .forEach(accept);
       } catch (reason) {
         cleanup();
-        setImageTransfer((current) =>
-          current
-            ? {
-                ...current,
-                status: "error",
-                error:
-                  reason instanceof Error ? reason.message : options.failureMessage,
-              }
-            : current,
-        );
+        patchTransfer(slot, (current) => ({
+          ...current,
+          status: "error",
+          error: reason instanceof Error ? reason.message : options.failureMessage,
+        }));
       }
     },
-    [bridge, refreshImages, refreshModels, refreshSnapshot],
+    [bridge, patchTransfer, refreshImages, refreshModels, refreshSnapshot],
   );
 
   /**
@@ -3553,6 +3616,9 @@ export function useAnchorageStore() {
           title: "Pull",
           reference: request.reference,
           failureMessage: "Model pull failed",
+          // One slot per model, so a second pull does not cancel the first. The engine has no
+          // objection to concurrent downloads; only the single-panel assumption did.
+          slot: `model:${request.reference}`,
           start: () =>
             bridge.models.action({
               ...request,
@@ -4853,6 +4919,7 @@ export function useAnchorageStore() {
     imageSummary,
     pulledRegistryImages,
     imageTransfer,
+    modelTransfers,
     imageMutationPending,
     volumes,
     volumeSummary,

@@ -901,3 +901,50 @@ while every notification without one kept its padding, in the same stack.
   outline: 2px solid var(--anc-accent);
   outline-offset: -2px;
 }
+
+/*
+ * A download's real position, under the panel reporting it.
+ *
+ * The handoff's meter, exactly: 3px, 2px radius, the well behind it, overflow hidden so the fill
+ * cannot square off the ends. The figure beside it is the same numbers the bar is drawn from, in
+ * mono, because a bar is a shape and someone checking on a 2GB download wants the count.
+ */
+.model-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 8px;
+}
+
+.model-progress__track {
+  flex: 1;
+  height: 3px;
+  min-width: 0;
+  border-radius: 2px;
+  background: var(--anc-input);
+  overflow: hidden;
+}
+
+.model-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--anc-accent);
+  /* Docker reports at its own pace and the jumps are large; easing the width keeps the bar from
+     reading as a series of separate states. Not an animation of progress — the width is only
+     ever set from a figure Docker printed. */
+  transition: width 240ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-progress__fill {
+    transition: none;
+  }
+}
+
+.model-progress__figure {
+  flex: none;
+  color: var(--anc-text-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}

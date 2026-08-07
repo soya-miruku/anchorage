@@ -33,6 +33,7 @@ function createStore(overrides: Partial<AnchorageStore> = {}): AnchorageStore {
     modelsError: null,
     modelsBusy: null,
     imageTransfer: null,
+    modelTransfers: [],
     modelSearchResults: null,
     modelSearchStatus: "idle",
     modelSearchError: null,
@@ -278,9 +279,7 @@ describe("ModelsScreen", () => {
     /*
       The defect this covers: a pull returns as soon as the download *starts*, so the screen
       used to re-read the list immediately, find nothing new, and report that nothing had
-      happened — while the download was still running with nobody following it. The transfer
-      slot holds one session, so a second pull would cancel the first; both Pull buttons are
-      disabled while one is in flight rather than only the row that was pressed.
+      happened — while the download was still running with nobody following it.
     */
     const store = createStore({
       modelSearchStatus: "ready",
@@ -288,25 +287,111 @@ describe("ModelsScreen", () => {
         { name: "ai/smollm2", reference: "ai/smollm2", sizeBytes: 270_601_982 },
         { name: "ai/qwen3", reference: "ai/qwen3", sizeBytes: 1_000_000 },
       ],
-      imageTransfer: {
-        kind: "model",
-        title: "Pull",
-        reference: "ai/smollm2",
-        status: "running",
-        output: "Downloading 42%",
-      },
+      modelTransfers: [
+        {
+          kind: "model",
+          title: "Pull",
+          reference: "ai/smollm2",
+          status: "running",
+          output: "Downloaded 113.65MB of 270.60MB",
+        },
+      ],
     });
     render(<ModelsScreen store={store} />);
 
-    expect(screen.getByTestId("model-pull-output")).toHaveTextContent("Downloading 42%");
-    for (const button of screen.getAllByRole("button", { name: /Pull|Pulling/u })) {
-      expect(button).toBeDisabled();
-    }
+    expect(screen.getByTestId("model-pull-output")).toHaveTextContent(
+      "Downloaded 113.65MB of 270.60MB",
+    );
+    // Only the one being downloaded. Every Pull button used to read a single screen-wide
+    // boolean, so starting one download greyed out all the others — reported as "when we
+    // download a model we should be able to download others too".
+    expect(
+      within(screen.getByTestId("model-hit-ai/smollm2")).getByRole("button"),
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId("model-hit-ai/qwen3")).getByRole("button"),
+    ).toBeEnabled();
+  });
+
+  it("draws the bar from Docker's own byte count, and draws none without one", () => {
+    /*
+     * `docker model pull` publishes no percentage and no JSON. It does publish
+     * "Downloaded 113.65MB of 270.60MB", which is exact, so the bar is that figure and nothing
+     * else — no timer, no easing toward an imagined finish.
+     *
+     * The absence case is the half worth pinning. An indeterminate bar and a stalled download
+     * look identical, and on a two-gigabyte file that is the difference between waiting and
+     * giving up. Where Docker has said nothing yet, the screen says nothing either.
+     */
+    const withProgress = createStore({
+      modelTransfers: [
+        {
+          kind: "model",
+          title: "Pull",
+          reference: "ai/smollm2",
+          status: "running",
+          output: "Downloaded 7.71kB of 270.60MB\nDownloaded 113.65MB of 270.60MB",
+        },
+      ],
+    });
+    const { unmount } = render(<ModelsScreen store={withProgress} />);
+    const bar = screen.getByTestId("model-progress-ai/smollm2");
+    // 113.65 / 270.60 = 42%. The last line, not the first: the buffer keeps both.
+    expect(within(bar).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+    expect(bar).toHaveTextContent("42%");
+    unmount();
+
+    render(
+      <ModelsScreen
+        store={createStore({
+          modelTransfers: [
+            {
+              kind: "model",
+              title: "Pull",
+              reference: "ai/qwen3",
+              status: "running",
+              output: "Pulling from registry",
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("model-progress-ai/qwen3")).toBeNull();
+  });
+
+  it("shows every download at once, because they run at once", () => {
+    render(
+      <ModelsScreen
+        store={createStore({
+          modelTransfers: [
+            {
+              kind: "model",
+              title: "Pull",
+              reference: "ai/smollm2",
+              status: "running",
+              output: "Downloaded 1.00MB of 10.00MB",
+            },
+            {
+              kind: "model",
+              title: "Pull",
+              reference: "ai/qwen3",
+              status: "running",
+              output: "Downloaded 5.00MB of 10.00MB",
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByTestId("model-pull-output")).toHaveTextContent("ai/smollm2");
+    expect(screen.getByTestId("model-pull-output-ai/qwen3")).toHaveTextContent("ai/qwen3");
+    expect(screen.getByTestId("model-progress-ai/smollm2")).toHaveTextContent("10%");
+    expect(screen.getByTestId("model-progress-ai/qwen3")).toHaveTextContent("50%");
   });
 
   it("does not show another screen's transfer", () => {
-    // Image transfers and Compose actions share this slot. Before it was filtered by kind, an
-    // image pull rendered its progress on Compose and vice versa.
+    // Image transfers and Compose actions share one slot and this screen reads a different
+    // list. Before the two were separated, an image pull rendered its progress on Compose and
+    // a model pull rendered one on Images.
     render(
       <ModelsScreen
         store={createStore({
@@ -317,6 +402,7 @@ describe("ModelsScreen", () => {
             status: "running",
             output: "Downloading",
           },
+          modelTransfers: [],
         })}
       />,
     );

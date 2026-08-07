@@ -4,7 +4,8 @@ import { CapabilitySetup } from "../components/CapabilitySetup";
 import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import { capabilityForView } from "../data/capabilities";
-import type { AnchorageStore } from "../store/useAnchorageStore";
+import type { AnchorageStore, TransferSession } from "../store/useAnchorageStore";
+import { parseTransferProgress } from "../store/transferProgress";
 import type { DockerModel, ModelSearchResult } from "../types";
 
 /**
@@ -162,6 +163,38 @@ function ModelRow({
   );
 }
 
+/**
+ * How far a download has actually got.
+ *
+ * Measured, not animated. `docker model pull` writes "Downloaded 223.94MB of 270.60MB" and
+ * nothing else machine-readable, and that line is exact — see store/transferProgress.ts. Where
+ * it has not written one yet this renders nothing, rather than a bar at zero or a spinner that
+ * implies knowledge it does not have: an indeterminate bar and a stalled download look identical,
+ * which is the failure mode worth avoiding on a two-gigabyte file.
+ */
+function ModelPullProgress({ transfer }: { transfer: TransferSession }) {
+  const progress = parseTransferProgress(transfer.output);
+  if (!progress || transfer.status === "error") return null;
+  const percent = Math.round(progress.fraction * 100);
+  return (
+    <div className="model-progress" data-testid={`model-progress-${transfer.reference}`}>
+      <div
+        className="model-progress__track"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        aria-label={`${transfer.reference} download`}
+      >
+        <span className="model-progress__fill" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="model-progress__figure resource-mono">
+        {formatBytes(progress.doneBytes)} / {formatBytes(progress.totalBytes)} · {percent}%
+      </span>
+    </div>
+  );
+}
+
 function SearchHit({
   hit,
   busy,
@@ -209,7 +242,7 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
 
   const {
     isHost,
-    imageTransfer,
+    modelTransfers,
     models,
     modelRunner,
     modelDisk,
@@ -261,9 +294,19 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
   // Past the two early returns, so the store is the real one. This was a useMemo above them,
   // which meant it ran before the host check and read a field the browser-preview path never
   // supplies — memoising a find over two entries bought nothing and cost a crash.
-  const pulling =
-    imageTransfer?.kind === "model" &&
-    (imageTransfer.status === "starting" || imageTransfer.status === "running");
+  /*
+   * Which references are downloading right now, rather than whether anything is.
+   *
+   * This was a single boolean, and every Pull button on the screen read it — so starting one
+   * download greyed out all the others. Reported as "when we download a model we should be able
+   * to download others too". Nothing in the engine required that; it came from the store
+   * tracking one transfer at a time, which it no longer does.
+   */
+  const active = new Map(
+    modelTransfers
+      .filter((entry) => entry.status === "starting" || entry.status === "running")
+      .map((entry) => [entry.reference, entry]),
+  );
 
   const totalDisk = modelDisk.find((entry) =>
     /model/iu.test(entry.label),
@@ -338,18 +381,21 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
       )}
 
       {/*
-        A pull streams, so it needs somewhere to stream to. Filtered on `kind` because image
-        transfers and Compose actions share this slot — without that an image pull would render
-        its progress here, and a model pull would render on Images.
+        One panel per download, because there can now be several. The first keeps the original
+        test id: it is what the screen's own tests and the design captures name, and a stable
+        handle for "the pull that is happening" is worth more than symmetry.
       */}
-      {imageTransfer?.kind === "model" && (
+      {modelTransfers.map((transfer, index) => (
         <SessionActivityPanel
-          session={imageTransfer}
-          testId="model-pull-output"
+          key={transfer.reference}
+          session={transfer}
+          testId={index === 0 ? "model-pull-output" : `model-pull-output-${transfer.reference}`}
           runningMessage="Pulling — waiting for the registry."
           idleMessage="Waiting for Docker…"
-        />
-      )}
+        >
+          <ModelPullProgress transfer={transfer} />
+        </SessionActivityPanel>
+      ))}
 
       <section className="models-local">
         <h2>On this machine</h2>
@@ -448,7 +494,7 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
               <SearchHit
                 key={hit.name}
                 hit={hit}
-                busy={pulling || modelsBusy === hit.reference}
+                busy={active.has(hit.reference) || modelsBusy === hit.reference}
                 onPull={() =>
                   // `hit.reference`, never `hit.name`. They differ for every Hugging Face
                   // result, and sending the name pulls from Docker Hub, where it is not.
