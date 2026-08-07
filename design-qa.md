@@ -222,11 +222,23 @@ For the designer-facing breakdown of every budget and the decision each needs, s
 
 ## Open questions
 
-1. **Is the Containers hover fill correct at roughly twice the comp's strength?**
+1. **The build reaches for the harder border where the comp reaches for the soft
+   one.** Counting 1px border declarations: the comp uses `--bd-soft` 82 times,
+   `--bd` 39 and `--bd-strong` 39; the build uses the equivalent of `--bd-soft`
+   8 times, `--bd` 60 and `--bd-strong` 51. The token *values* were restored to
+   the handoff in the theme pass, so every line is the right colour — but most
+   card-like surfaces are drawn with the separator register rather than the card
+   register, which is what makes the separation lines read as heavier than the
+   design. Not a threshold failure: the states measure inside 0.02 because a
+   border is a small share of a screen's pixels. Deferred deliberately, because
+   fixing it changes most surfaces at once and needs a recapture and a full
+   re-review; `--hairline` is a fourth register in its own right and is not part
+   of this, being used 46 times in the comp against 36 in the build.
+2. **Is the Containers hover fill correct at roughly twice the comp's strength?**
    Measured 0.0046 against the design's 0.0022. Either the build should match the
    design or the design should adopt the stronger fill; nothing depends on it
    staying as it is.
-2. **Nine of the ten budgets are meant to be temporary.** A budget is a recorded
+3. **Nine of the ten budgets are meant to be temporary.** A budget is a recorded
    licence for one state to differ from the design by a stated amount — see the
    Result section for the list and what accounts for each. Every one except the
    `Networks` row above should end by the design absorbing the addition or the
