@@ -57,6 +57,14 @@ jobs:
         working-directory: core
         run: go build -o bin/anchorage-core ./cmd/anchorage-core
 
+      - name: Build the renderer, so the Sites payload check has something to inspect
+        # test:sites asserts on what a build emits and skips when there is nothing built. That
+        # skip is correct for a clean clone and useless in CI, where the whole point is to check
+        # it — so the build happens here rather than the test being made to tolerate its absence
+        # silently. This is what the first CI run on a fresh checkout found.
+        working-directory: app
+        run: bun run build
+
       - name: Suite
         working-directory: app
         run: bun run test

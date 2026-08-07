@@ -61,8 +61,37 @@ test("does not turn missing API or write requests into the app shell", async () 
   }
 });
 
-test("emits the files required by Sites packaging", async () => {
-  await access(new URL("../dist/client/index.html", import.meta.url));
-  await access(new URL("../dist/server/index.js", import.meta.url));
-  await access(new URL("../dist/.openai/hosting.json", import.meta.url));
+/*
+This asserts on build output, so it can only run after a build.
+
+It used to call `access` on three paths in `dist/` and fail with a bare ENOENT when they were
+absent, which made it pass on any machine that had built once and fail on a clean clone — the
+first CI run on a fresh checkout is what found it. Skipping when there is no build to inspect
+matches how the rest of this repository treats generated inputs: the checks that cite a digest
+under `artifacts/` run only when the file is present and say so when it is not.
+
+Saying so is the point. A silent skip here would mean nothing ever checks the Sites payload,
+so the reason is stated, and the release path builds before it runs this.
+*/
+test("emits the files required by Sites packaging", async (t) => {
+  const required = [
+    "../dist/client/index.html",
+    "../dist/server/index.js",
+    "../dist/.openai/hosting.json",
+  ].map((path) => new URL(path, import.meta.url));
+
+  const built = await access(required[0]).then(
+    () => true,
+    () => false,
+  );
+  if (!built) {
+    t.skip(
+      "No renderer build to inspect: run `npm run build` first. This checks what a build " +
+        "emits, so with nothing built there is nothing to check.",
+    );
+    return;
+  }
+  for (const path of required) {
+    await access(path);
+  }
 });
