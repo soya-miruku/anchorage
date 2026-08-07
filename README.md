@@ -154,8 +154,8 @@ rejected for a stated reason, not overlooked.
   otherwise.
 - **Anchorage does not update itself.** Nothing contacts a server or installs
   anything in the background. You verify a release by hand — see below.
-- **Linux only.** The packaged build is an x86-64 AppImage. There is no macOS or
-  Windows build.
+- **Linux only.** Packaged as an AppImage, `.deb`, `.rpm` and `.pacman`, for
+  x86-64 and arm64. There is no macOS or Windows build.
 
 ---
 
@@ -236,12 +236,15 @@ cd app
 bun run package:linux
 ```
 
-**This does not currently succeed from a clean checkout.** `package-desktop.mjs`
+**This does not succeed from a clean checkout, and cannot.** `package-desktop.mjs`
 refuses to build without the release evidence bundle under `artifacts/` — mutation
 conformance, the capability ledger, performance results, the host-candidate
-captures — and that bundle is generated against a live Docker daemon rather than
-committed. It has not been in the tree for some time; the first thing the build
-says is which file it wants:
+captures — and that bundle is measured against a live Docker daemon rather than
+committed. The one exception is `artifacts/design/design-ledger.json`, which is
+committed because it is the output of a review a machine cannot perform.
+
+The release workflow does that generation for you, on both architectures, which is
+the supported path. Locally, the first thing the build says is which file it wants:
 
 ```
 [anchorage-package] Error: mutation conformance evidence is missing:
@@ -262,13 +265,43 @@ produce one.
 
 ## Verifying a download
 
+Each architecture has its own checksum list, because a checksum file signed by a
+machine should cover what that machine actually built:
+
 ```bash
-gpg --verify SHA256SUMS.asc SHA256SUMS
-sha256sum -c SHA256SUMS
+gpg --verify SHA256SUMS-x64.asc SHA256SUMS-x64
+sha256sum -c SHA256SUMS-x64
 ```
 
 Both are stock tools. A signature that does not verify means the download is not
 the release that was published, whatever the file happens to be called.
+
+`release-verification-<arch>.json` records what was **executed** and what was only
+**inspected**. The AppImage payload is run and timed on the machine that built it;
+the `.deb`, `.rpm` and `.pacman` payloads are unpacked and checked byte-for-byte
+against it but never installed, because unpacking a `.deb` into a temp directory
+does not exercise what a `.deb` does. The report says which is which rather than
+implying they were all run.
+
+## Continuous integration
+
+`.github/workflows/gate.yml` runs on every push and pull request: the suite, the
+strict typecheck, `go vet`, and the core tests under `-race`.
+
+`.github/workflows/release.yml` runs on a `v*` tag. It builds one job per
+architecture on a runner of that architecture — nothing is cross-compiled,
+because everything the packaging claims about a package it establishes by running
+it, and a foreign architecture cannot be run. Each job regenerates the core
+acceptance, capability and performance evidence against a live daemon, builds and
+verifies all four formats, signs if a key is configured, and the artifacts land on
+a draft release.
+
+The design evidence is the exception, and deliberately so. The comp and the
+rendered reference are both untracked, and the per-state review is a person
+looking at two images — so `artifacts/design/design-ledger.json` travels with the
+commit and the packaging validates it against the renderer it just built. Change
+the renderer without redoing the review locally and the release fails in CI. That
+is the gate working, not a missing feature.
 
 ---
 
