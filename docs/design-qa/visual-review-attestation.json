@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "claim": "reviewed-visual-conformance-not-pixel-identity",
-  "reviewedAt": "2026-08-07T12:24:04.301Z",
+  "reviewedAt": "2026-08-07T15:02:23.273Z",
   "baseline": {
     "directory": "docs/design-qa/reference",
     "generatedFrom": "docs/design_handoff_anchorage/Anchorage v2.dc.html",
@@ -27,7 +27,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01031 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01031 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/builds.png",
         "sha256": "3d193ae0e3c1fe4be909167c6e3c4d2883a427fccf6c79c5cac556ed769b6d56",
@@ -66,7 +66,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00855 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00863 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-exec.png",
         "sha256": "83a3383fa0060d642b338efdff5df5f189f4ed6877e663d63cc9532246e6101e",
@@ -78,8 +78,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-exec.png",
-        "sha256": "4b432c84838da347e15e577e4f29ab2a6ce0c5fa6cb44111edc5fbebf7ff8c76",
-        "bytes": 130662,
+        "sha256": "bafa867d1268742b50427ffdc79b51670fa8e358d327eaac5bd9999aa3cd392b",
+        "bytes": 131017,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -105,7 +105,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01041 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01049 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-files.png",
         "sha256": "95ff321483bb0702ed4945f2685f7cdddfd48e979c1ea3b6ea68e76acf2a1848",
@@ -117,8 +117,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-files.png",
-        "sha256": "516ad447fda3244fa8f43d3e8472c933352fa223f3cdf9dc440349241cebdc8f",
-        "bytes": 158801,
+        "sha256": "1c5d6fa007c147083b79f0ec24912ef635cc9af52141eaef4c13067b56ef59d9",
+        "bytes": 159160,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -144,7 +144,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01206 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01213 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-inspect.png",
         "sha256": "cdc5dab9c534d80481854f958afca06affa41a20bed289d547aa023e83de7cff",
@@ -156,8 +156,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-inspect.png",
-        "sha256": "a7969f00490cdfc5f3ffd72e269eeab0391bb6e194f597a551e52c9775c528de",
-        "bytes": 170719,
+        "sha256": "8f8eb687fe071c7bae31cbda07657900200fa5203f524b526e5183c194944e3c",
+        "bytes": 171080,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -183,7 +183,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01949 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01956 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-logs.png",
         "sha256": "08c64c8d0fc4a33c7841e6487dcb8a8d9b9fdcf0ce23626235b29a94b8cb6e40",
@@ -195,8 +195,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-logs.png",
-        "sha256": "707f5f8f5f9bbc3da60f1d257a18b132865a0bb588f846c76a64542fd4cdafb7",
-        "bytes": 274525,
+        "sha256": "e0a9b370c9fc56dabbab899ea0c9ba11789388f96160f6f34724801713ee4735",
+        "bytes": 274891,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -222,7 +222,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00871 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00878 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-mounts.png",
         "sha256": "e90e611f0c239d9e3eae39b920b3423a6d710c07b6cec5489b3919d93d6685fd",
@@ -234,8 +234,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-mounts.png",
-        "sha256": "5d1a17fedcdd2f06b2b0f156fb6034d59b68f787cf9d59250726ef101c7f02d7",
-        "bytes": 135908,
+        "sha256": "8bebda332ad90eb40f558a65c68c22a4b51a8fdd59fb099b1c2aa7dc92e9ca75",
+        "bytes": 136266,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -261,7 +261,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00706 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01692 unmasked; the recorded figure is the masked one, which excludes the live CPU and memory sample regions. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/container-detail-stats.png",
         "sha256": "979f20d1a00b60d77526d09470e27d4c7f5ad74ad0dfe30903f2dc0c4ccc1f80",
@@ -273,8 +273,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/container-detail-stats.png",
-        "sha256": "2244a6b930a226df079457c2fa90f785718a6484dd3daade6a31d7a1c1d6d06f",
-        "bytes": 153462,
+        "sha256": "cd5b0ff4059714648a29f210c7e42adeb2723abdd613c34d7baa385ca1fd79bd",
+        "bytes": 153823,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -300,16 +300,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02060 — over the 0.02 threshold and inside its recorded budget of 0.028, which was not raised. The additions the build carries beyond the comp: a selection checkbox column, the All projects filter, the isolation posture paragraph, and the engine card in the sidebar footer. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
-      "divergence": {
-        "budget": 0.028,
-        "reasons": [
-          "The nav column: eight destinations the comp lists cannot be served against a standalone Linux Engine, and the product carries Networks and Settings instead. This will not converge and is not drift.",
-          "Four additions beyond the comp: the selection checkbox column, the All projects filter, the isolation posture paragraph, and the engine card in the sidebar footer.",
-          "The titlebar strip and the banner, which carry different content on the two sides.",
-          "The status bar is 32px against the comp's 26px, asked for directly and recorded in docs/design-divergences.md."
-        ]
-      },
+      "notes": "MAE 0.01838. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: the previously approved capture of this state carried a hovered first row (srgb(17,40,64)) while the containers-row-hover capture carried none — the two were inverted, so each was measured against the wrong reference. Both now match the comp's intent: this state's first row is the plain srgb(10,25,41).",
       "reference": {
         "path": "docs/design-qa/reference/containers.png",
         "sha256": "a0edeaf1f69f5c2eac20c8f73fa727c238706344cd22fd14c8ba92e63a47a60b",
@@ -321,8 +312,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers.png",
-        "sha256": "9745d903a1af5250ae25dbb1efd111f27f072973425fdb87a672f45c8df14ae9",
-        "bytes": 207766,
+        "sha256": "fc4f3cc46642e45d0a1dd3cf480afd91f2e05a813b4d8395e90b707fbc0e195a",
+        "bytes": 207992,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -348,7 +339,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01726 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01726 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/containers-banner-dismissed.png",
         "sha256": "faf99388ecb32b96a31b07b92f26f322cbade365dd9dcde37f11eef8ff5a0927",
@@ -387,7 +378,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01840 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01840 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/containers-current.png",
         "sha256": "2400b819c86b9914dae375965d305b0dcd7cb3fa98892f5115dc2a62066819e7",
@@ -426,7 +417,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01557 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01557 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/containers-only-running.png",
         "sha256": "85210bb602a8a28f1293f1fa01faa8f1f5d9f0351928cf8815a69ce4039ec447",
@@ -465,16 +456,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.02036 — over the 0.02 threshold and inside its recorded budget of 0.029, which was not raised. As containers, with the hover on a row; the tint is present and confined to that row. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
-      "divergence": {
-        "budget": 0.029,
-        "reasons": [
-          "The nav column: eight destinations the comp lists cannot be served against a standalone Linux Engine, and the product carries Networks and Settings instead. This will not converge and is not drift.",
-          "Four additions beyond the comp: the selection checkbox column, the All projects filter, the isolation posture paragraph, and the engine card in the sidebar footer.",
-          "The titlebar strip and the banner, which carry different content on the two sides.",
-          "The status bar is 32px against the comp's 26px, asked for directly and recorded in docs/design-divergences.md."
-        ]
-      },
+      "notes": "MAE 0.01883. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: this state previously captured without its hover. The first row now carries it at srgb(17,40,64) against the comp's srgb(16,38,62).",
       "reference": {
         "path": "docs/design-qa/reference/containers-row-hover.png",
         "sha256": "8051475125190315da319013ee3c249c7dd4a2c4aec39f9267c0a9878fe2364a",
@@ -486,8 +468,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-row-hover.png",
-        "sha256": "faeec88af85fe6f5f720230e32bdba1aa6d1e69864d015cc1ce65565629b4019",
-        "bytes": 207863,
+        "sha256": "9745d903a1af5250ae25dbb1efd111f27f072973425fdb87a672f45c8df14ae9",
+        "bytes": 207766,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -513,7 +495,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01149 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/containers-search-empty.png",
         "sha256": "e6fc00d4d0be5a6ff5b38784510ec1bf282f4a6ee66abbbcd628d76c0742c612",
@@ -525,8 +507,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-search-empty.png",
-        "sha256": "0d65116f785d7a8335d5a4ef4595b9b3bfe9a2df1a04546fbeebbecbd89c3253",
-        "bytes": 138069,
+        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
+        "bytes": 139191,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -552,7 +534,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.01583 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.01583 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/dashboard.png",
         "sha256": "a36bf241f8cc389ef27781595579d1aa8c4ad8f4c2974c358f4ec750cafc5572",
@@ -591,7 +573,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00717 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00717 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/images-local.png",
         "sha256": "ba81bd3451e4c95f79e37bbdecc1168eab0f11b5a6d73653fc01e366a0bbda97",
@@ -630,7 +612,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00916 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00916 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/images-registry.png",
         "sha256": "6dbcbeff884325fc754dbb0f015511d3b166cb5fbd85dd42f8610d01dfb60814",
@@ -669,7 +651,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00525 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00525 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/settings-advanced.png",
         "sha256": "76cd2d1123bb80696be3e0217b0668feefd4978b4114fd030aa495025cf71907",
@@ -708,7 +690,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00672 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00672 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/settings-engine.png",
         "sha256": "6f9a1b3e74d0927a1306637160e2ef217729249ec652ecd369d8123ff095c80c",
@@ -747,7 +729,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00897 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00897 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/settings-resources.png",
         "sha256": "c6ef890b0a28039c2c880c2a197fe968fdd6ad6819566ef061ae67e3c025159b",
@@ -786,7 +768,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00513 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00513 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/settings-updates.png",
         "sha256": "4f2f6c67cf5e25362c5e4bba2295e610f2905aa478b8b6425871fad0688c994f",
@@ -825,7 +807,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "0.00676 — within the 0.02 review threshold. The nav column diverges in every state and always will: the comp lists Kubernetes, Bosun, Sandboxes, Hardened, Governance, Cloud, Dev Environments and Extensions, none of which can be served against a standalone Linux Engine, and the product carries Networks and Settings instead. So do the titlebar (version and maturity chip), the banner (update notice against the browser-preview notice) and the status bar, which is 32px against the comp's 26px and is recorded in docs/design-divergences.md. This pass follows the sidebar moving onto --anc-chrome: it had been left on --anc-panel when that token was introduced, which inverted figure and ground against a comp that wraps its content in one continuous recessive frame. Five states that needed budgets no longer do. Measured by ImageMagick MAE against the recaptured reference, then every diff read as contact sheets — good for catching a fault of kind (geometry shifted, a panel gone, content clipped) rather than a pixel census. None is present.",
+      "notes": "MAE 0.00676 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
       "reference": {
         "path": "docs/design-qa/reference/volumes.png",
         "sha256": "adb44c6442a522308a896b856910323ce33a1570763ad8f9c85c14c126d6c322",

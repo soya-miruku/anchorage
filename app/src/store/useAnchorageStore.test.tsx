@@ -539,7 +539,7 @@ describe("sendChatMessage", () => {
     const host = createHost(async () => listResult("networks", [])) as
       HostAnchorageApi & {
         containers: { list: unknown };
-        models: { list: unknown; chat: unknown };
+        models: { list: unknown; chat: unknown; search: unknown };
       };
     host.containers.list = vi.fn(async () =>
       listResult("containers", [
@@ -553,7 +553,7 @@ describe("sendChatMessage", () => {
         },
       ]),
     );
-    host.models = { list: vi.fn(), chat: vi.fn(chat) };
+    host.models = { list: vi.fn(), chat: vi.fn(chat), search: vi.fn() };
     return host;
   };
 
