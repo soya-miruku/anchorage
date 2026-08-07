@@ -101,6 +101,7 @@ import type {
   ImagesInspectResult,
   VolumeProjection,
 } from "../types";
+import { diagnoseModelPull } from "./modelPullDiagnosis";
 import { readFileAsBase64 } from "../utils/fileEncoding";
 
 const formatClock = () =>
@@ -433,6 +434,23 @@ const SHARED_TRANSFER_SLOT = "shared";
  * that six pulls do not leave six panels behind.
  */
 const TRANSFER_SETTLE_MS = 4_000;
+
+/**
+ * A failure detail worth putting in a notification, when the output supplies one.
+ *
+ * Only model pulls have a classifier today, and it exists because that one failure is genuinely
+ * illegible in Docker's own words — see store/modelPullDiagnosis.ts. Returning null everywhere
+ * else is deliberate: a wrong summary in a notification is worse than an exit code, because the
+ * exit code at least admits it is not an explanation.
+ */
+function failureDetail(kind: TransferSession["kind"], output: string): string | null {
+  if (kind !== "model") return null;
+  const diagnosis = diagnoseModelPull(output);
+  if (!diagnosis) return null;
+  return diagnosis.missingPath
+    ? `${diagnosis.summary} Missing: ${diagnosis.missingPath}`
+    : diagnosis.summary;
+}
 
 export function useAnchorageStore() {
   const bridgeRef = useRef(createAnchorageBridge());
@@ -3223,6 +3241,9 @@ export function useAnchorageStore() {
       let disposed = false;
       let owner: string | null = null;
       let pending: SessionEvent[] = [];
+      // Mirrors what goes into the slot. `patchTransfer` is a setState callback, so the exit
+      // handler cannot read the accumulated text back out of it without a render in between.
+      let latestOutput = "";
       const finish = () => {
         // A model pull changes no image and no disk-usage figure the snapshot reports, so it
         // re-reads the model list instead. Refreshing everything regardless would be two
@@ -3237,6 +3258,7 @@ export function useAnchorageStore() {
       const accept = (event: SessionEvent) => {
         if (event.event === "session.output") {
           const text = decodeSessionData(event);
+          latestOutput = `${latestOutput}${text}`.slice(-64 * 1024);
           patchTransfer(slot, (current) => ({
             ...current,
             status: "running",
@@ -3287,7 +3309,11 @@ export function useAnchorageStore() {
               ? undefined
               : event.payload.timedOut
                 ? `${options.title} timed out`
-                : `Exited with code ${event.payload.exitCode}`,
+                : // "Exited with code 1" tells an operator who has navigated away nothing they
+                  // can act on. Where the output names a cause the notification carries it, so
+                  // the inbox is as informative as the panel they left behind.
+                  (failureDetail(options.kind, latestOutput) ??
+                  `Exited with code ${event.payload.exitCode}`),
             endedAt: new Date().toISOString(),
           });
           finish();

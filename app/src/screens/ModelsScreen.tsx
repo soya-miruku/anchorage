@@ -5,6 +5,7 @@ import { SessionActivityPanel } from "../components/SessionActivityPanel";
 import { UnsupportedSurface } from "../components/UnsupportedSurface";
 import { capabilityForView } from "../data/capabilities";
 import type { AnchorageStore, TransferSession } from "../store/useAnchorageStore";
+import { diagnoseModelPull } from "../store/modelPullDiagnosis";
 import { parseTransferProgress } from "../store/transferProgress";
 import type { DockerModel, ModelSearchResult } from "../types";
 
@@ -191,6 +192,35 @@ function ModelPullProgress({ transfer }: { transfer: TransferSession }) {
       <span className="model-progress__figure resource-mono">
         {formatBytes(progress.doneBytes)} / {formatBytes(progress.totalBytes)} · {percent}%
       </span>
+    </div>
+  );
+}
+
+/**
+ * The one fact worth pulling out of a failed pull.
+ *
+ * `docker model pull` starts Model Runner before it downloads anything, and when that container
+ * cannot start the reason arrives as five nested causes at the bottom of a wall of registry
+ * output. It is all true and none of it is legible — see store/modelPullDiagnosis.ts, and the
+ * driver upgrade that produced it here, where the symptom was simply "models are broken".
+ *
+ * Above Docker's text rather than instead of it. Anchorage does not get to decide the operator
+ * has read enough.
+ */
+function ModelPullFailure({ transfer }: { transfer: TransferSession }) {
+  const diagnosis = diagnoseModelPull(transfer.output);
+  if (!diagnosis) return null;
+  return (
+    <div
+      className="model-pull-failure"
+      role="alert"
+      data-testid={`model-pull-failure-${transfer.reference}`}
+    >
+      <p className="model-pull-failure__summary">{diagnosis.summary}</p>
+      {diagnosis.missingPath && (
+        <p className="model-pull-failure__path resource-mono">{diagnosis.missingPath}</p>
+      )}
+      {diagnosis.hint && <p className="model-pull-failure__hint">{diagnosis.hint}</p>}
     </div>
   );
 }
@@ -394,6 +424,7 @@ export function ModelsScreen({ store }: { store: AnchorageStore }) {
           idleMessage="Waiting for Docker…"
         >
           <ModelPullProgress transfer={transfer} />
+          <ModelPullFailure transfer={transfer} />
         </SessionActivityPanel>
       ))}
 

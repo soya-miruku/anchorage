@@ -948,3 +948,42 @@ while every notification without one kept its padding, in the same stack.
   font-size: 10.5px;
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * What actually went wrong, above Docker's own account of it.
+ *
+ * Danger-tinted rather than danger-filled: it sits inside a panel that already reports the
+ * failure in its header, so a solid red block would be the third time the screen says the same
+ * thing. The path is mono because it is a path and someone is going to check whether it exists.
+ */
+.model-pull-failure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgb(var(--anc-danger-rgb) / 34%);
+  border-radius: 8px;
+  background: rgb(var(--anc-danger-rgb) / 8%);
+}
+
+.model-pull-failure__summary {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--anc-text-body);
+}
+
+.model-pull-failure__path {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: var(--anc-danger-fg);
+}
+
+.model-pull-failure__hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--anc-text-muted);
+}

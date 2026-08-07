@@ -388,6 +388,68 @@ describe("ModelsScreen", () => {
     expect(screen.getByTestId("model-progress-ai/qwen3")).toHaveTextContent("50%");
   });
 
+  it("names the runner's own failure instead of leaving it at the bottom of the log", () => {
+    /*
+     * `docker model pull` starts Docker Model Runner before it downloads anything, and when that
+     * container cannot start the pull fails before a byte moves. Docker says so — at the end of
+     * a sentence assembled from six nested causes, under a wall of registry output. On the
+     * machine this was found on the real cause was a driver upgrade that left one package
+     * behind, and what the operator saw was "models are broken".
+     *
+     * Above Docker's text, never instead of it: the raw output stays in the panel underneath.
+     */
+    const output = [
+      "Successfully pulled docker/model-runner:latest-cuda",
+      "Starting model runner container docker-model-runner...",
+      "unable to initialize standalone model runner: unable to initialize standalone model" +
+        " runner container: failed to start container docker-model-runner: OCI runtime create" +
+        " failed: error during container init: failed to fulfil mount request:" +
+        " open /usr/lib/libnvidia-gtk3.so.610.57.04: no such file or directory",
+    ].join("\n");
+    render(
+      <ModelsScreen
+        store={createStore({
+          modelTransfers: [
+            {
+              kind: "model",
+              title: "Pull",
+              reference: "ai/smollm2",
+              status: "error",
+              output,
+            },
+          ],
+        })}
+      />,
+    );
+
+    const notice = screen.getByTestId("model-pull-failure-ai/smollm2");
+    expect(notice).toHaveTextContent(/could not start its own container/u);
+    expect(notice).toHaveTextContent("/usr/lib/libnvidia-gtk3.so.610.57.04");
+    // Docker's own account is still there. Anchorage does not decide the reader has had enough.
+    expect(screen.getByTestId("model-pull-output")).toHaveTextContent(
+      "Starting model runner container",
+    );
+  });
+
+  it("adds no notice to a download that is simply downloading", () => {
+    render(
+      <ModelsScreen
+        store={createStore({
+          modelTransfers: [
+            {
+              kind: "model",
+              title: "Pull",
+              reference: "ai/smollm2",
+              status: "running",
+              output: "Downloaded 1.00MB of 10.00MB",
+            },
+          ],
+        })}
+      />,
+    );
+    expect(screen.queryByTestId("model-pull-failure-ai/smollm2")).toBeNull();
+  });
+
   it("does not show another screen's transfer", () => {
     // Image transfers and Compose actions share one slot and this screen reads a different
     // list. Before the two were separated, an image pull rendered its progress on Compose and
