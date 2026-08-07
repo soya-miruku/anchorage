@@ -64,7 +64,7 @@ removed rather than faked.
 | **Containers** | Live list with CPU and memory. Start, stop, restart, pause, kill, rename, change resource limits, act on many at once |
 | **Container detail** | Logs, inspect, mounts, an interactive shell, running processes, filesystem changes, live stats |
 | **Files** | Browse a container's filesystem, read a file, upload into it |
-| **Ports** | Republish a running container's ports. Docker fixes these when a container is created, so Anchorage replaces the container — and says that is what it is doing |
+| **Ports** | Republish a stopped or paused container's ports. Docker fixes bindings when a container is created, so Anchorage replaces the container — and says that is what it is doing |
 
 ### Everything around them
 

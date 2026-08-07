@@ -122,6 +122,16 @@ func (s *Service) closeEngineClients() {
 func (s *Service) inspectEngineEndpoint(parent context.Context, contextName string) (contextEndpoint, error) {
 	ctx, cancel := context.WithTimeout(parent, discoveryCommandTimeout)
 	defer cancel()
+	// The one place a context name becomes a bare positional rather than the value of
+	// --context, so it is the one place a leading dash turns it into a flag. Every other
+	// caller-supplied argv element in this codebase is checked for this — model references,
+	// compose paths, MCP references, search terms, plugin names — and this was the gap.
+	if strings.HasPrefix(contextName, "-") {
+		return contextEndpoint{}, opError("invalid_context",
+			"A Docker context name cannot begin with a dash.", nil, map[string]any{
+				"context": contextName,
+			})
+	}
 	args := []string{"context", "inspect", contextName}
 	result, err := s.docker.run(ctx, args, s.defaultCWD, nil, discoveryOutputLimit)
 	if err != nil {

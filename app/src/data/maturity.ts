@@ -270,9 +270,15 @@ const CATALOGUE: Partial<Record<ViewId, MaturityEntry[]>> = {
     },
   ],
   logs: [
-    // Every row here grades Docker Desktop's unified Logs view (docker-features.md:527-537).
-    // Anchorage streams one container at a time and has no merged view, so the rows a reader
-    // could otherwise take for a promise about this build name their subject.
+    // Every row here grades Docker Desktop's unified Logs view (docker-features.md:527-537),
+    // not this build's, so each row names its subject rather than reading as a promise.
+    //
+    // The premise used to be "Anchorage streams one container at a time and has no merged
+    // view", which stopped being true: this screen follows several containers at once and
+    // merges them into one filtered stream, capped at mergedLogSourceLimit because each
+    // source is a separate follow process. What it still does not have is what the rows below
+    // describe — substring filtering rather than regex, no export, no saved filters, and a
+    // 2000-line buffer rather than a retained history.
     {
       name: "Unified stream",
       level: "ga",

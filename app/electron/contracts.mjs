@@ -79,6 +79,23 @@ export const RENDERER_RPC_METHODS = Object.freeze([
   "session.ack",
 ]);
 
+/**
+ * The domains the core stamps on a DomainOperationReceipt. Kept in step with the Go source by
+ * contracts-event-domains.test.mjs rather than by memory.
+ */
+export const RECEIPT_DOMAINS = Object.freeze(
+  new Set([
+    "container",
+    "image",
+    "volume",
+    "network",
+    "system",
+    "compose",
+    "model",
+    "secret",
+  ]),
+);
+
 export const CORE_EVENTS = Object.freeze([
   "operation.started",
   "operation.completed",
@@ -2567,11 +2584,21 @@ function validateOperationReceipt(value, name) {
     eventTimestamp(value.completedAt, `${name}.completedAt`);
     eventInteger(value.durationMs, `${name}.durationMs`);
   } else {
-    validateEnum(
-      value.domain,
-      `${name}.domain`,
-      new Set(["image", "volume"]),
-    );
+    /*
+     * Every domain the core actually stamps on a receipt.
+     *
+     * This was `image` and `volume`. The core emits eight: main.mjs catches a rejected
+     * envelope, logs it to the Electron console and drops it, so a network mutation, a system
+     * prune, a model pull, a secret create, a compose lifecycle verb, and container
+     * create/commit/rebind-ports all completed without the renderer — or the audit trail —
+     * ever hearing about it. Silently, because the drop is a console.error in a process the
+     * operator is not reading.
+     *
+     * RECEIPT_DOMAINS is pinned to the core's own newDomainReceipt call sites by
+     * contracts-event-domains.test.mjs, so adding a ninth in Go fails the gate here rather
+     * than going quiet in production.
+     */
+    validateEnum(value.domain, `${name}.domain`, RECEIPT_DOMAINS);
     if (value.resourceId !== undefined) {
       eventText(value.resourceId, `${name}.resourceId`, 4_096);
     }
