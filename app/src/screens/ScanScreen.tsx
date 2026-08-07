@@ -143,7 +143,18 @@ type ScoutAvailability =
   | { state: "checking" }
   | { state: "installed"; version?: string }
   | { state: "missing" }
-  | { state: "faulty"; note: string };
+  | { state: "faulty"; note: string }
+  /*
+   * The probe finished without an answer.
+   *
+   * `checking` used to absorb both failures — a host with no plugin inventory capability
+   * returned early and left it set, and a rejected probe set it back deliberately. Either way
+   * the screen went on saying "Checking for the Docker Scout plugin…" for the rest of the
+   * session, describing work that had already stopped. Not knowing is genuinely different from
+   * knowing the plugin is absent, so it keeps its own state rather than collapsing into
+   * `missing` — it just has to stop claiming to be in progress.
+   */
+  | { state: "unknown"; note: string };
 
 /**
  * Whether `docker scout` is installed, asked before anything is analysed.
@@ -161,7 +172,13 @@ function useScoutAvailability(store: AnchorageStore): ScoutAvailability {
   const context = store.dockerContext;
 
   useEffect(() => {
-    if (typeof bridge?.system?.plugins !== "function") return;
+    if (typeof bridge?.system?.plugins !== "function") {
+      setAvailability({
+        state: "unknown",
+        note: "This host cannot report its Docker CLI plugins, so whether Scout is installed is unknown.",
+      });
+      return;
+    }
     let active = true;
     void bridge.system
       .plugins(context)
@@ -183,11 +200,16 @@ function useScoutAvailability(store: AnchorageStore): ScoutAvailability {
           });
         }
       })
-      .catch(() => {
+      .catch((reason: unknown) => {
         if (!active) return;
-        // Not knowing is not the same as it being missing, so the failure reads as an
-        // unfinished check rather than as an absent plugin.
-        setAvailability({ state: "checking" });
+        // Not knowing is not the same as it being missing, so the failure keeps its own state
+        // rather than reading as an absent plugin — but the check has ended either way.
+        setAvailability({
+          state: "unknown",
+          note: `Could not read the Docker CLI plugin inventory: ${
+            reason instanceof Error ? reason.message : "the check failed"
+          }`,
+        });
       });
     return () => {
       active = false;
@@ -213,6 +235,13 @@ function ScoutAvailabilityLine({
   if (availability.state === "faulty") {
     return (
       <p className="capability-error" data-testid="scan-scout-faulty">
+        {availability.note}
+      </p>
+    );
+  }
+  if (availability.state === "unknown") {
+    return (
+      <p className="capability-error" data-testid="scan-scout-unknown">
         {availability.note}
       </p>
     );

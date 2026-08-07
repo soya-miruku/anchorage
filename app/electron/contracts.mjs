@@ -2023,9 +2023,9 @@ export function validateNetworksList(value) {
 }
 
 /**
- * The whole secrets surface. There is no inspect and no mutation to validate: Docker never
- * returns a secret's value, and creating or removing one is out of scope, so the context is
- * the only thing that crosses.
+ * Listing secrets. There is no inspect verb to validate — Docker never returns a secret's
+ * value after creation — so the context is the only thing that crosses here. Creating and
+ * removing go through validateSecretsAction.
  */
 export function validateSecretsList(value) {
   assertPlainObject(value, "request");

@@ -429,3 +429,47 @@ describe("cleanUpImages", () => {
     });
   });
 });
+
+/**
+ * A tag whose list refresh failed is not a clean tag.
+ *
+ * `tagImage` awaited one `Promise.allSettled` and then cleared the banner unconditionally, so a
+ * rejected refresh was discarded: the daemon had the new reference, the table still showed the
+ * old one, and the UI reported success. Every other mutation in the store surfaces that gap.
+ */
+describe("tagImage", () => {
+  it("reports a reconciliation failure instead of clearing the banner", async () => {
+    const host = createHost(async () => listResult("networks", [])) as
+      HostAnchorageApi & { images: { list: unknown; action: unknown } };
+    let tagged = false;
+    host.images.list = vi.fn(async () => {
+      if (tagged) throw new Error("engine went away");
+      return listResult("images", [
+        {
+          id: "sha256:a",
+          repoTags: ["app:1"],
+          created: "2026-08-01T00:00:00.000Z",
+          sizeBytes: 200_000_000,
+          containers: 0,
+        },
+      ]);
+    });
+    host.images.action = vi.fn(async () => {
+      tagged = true;
+      return { action: "tag", receipt: {} };
+    });
+    window.anchorage = host;
+
+    const { result } = renderHook(() => useAnchorageStore());
+    await waitFor(() => expect(result.current.images).toHaveLength(1));
+    const image = result.current.images[0]!;
+
+    await act(async () => {
+      await result.current.tagImage(image, "app:2");
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toContain("engine went away");
+    });
+  });
+});

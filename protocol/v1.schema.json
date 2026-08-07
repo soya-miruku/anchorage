@@ -1226,7 +1226,7 @@
       "additionalProperties": false
     },
     "secretsListRequest": {
-      "description": "Lists Swarm secret references. There is no inspect verb and no write verb: Docker never returns a secret's value after creation, and creating or removing one is out of scope for this protocol version.",
+      "description": "Lists Swarm secret references. There is no inspect verb: Docker never returns a secret's value after creation, so listing carries names and timestamps only. Creating and removing are separate verbs on secrets.action.",
       "type": "object",
       "required": ["id", "method", "params"],
       "properties": {

@@ -3122,18 +3122,33 @@ export function useAnchorageStore() {
       if (!isHost) return;
       setImageMutationPending(true);
       try {
-        await bridge.images.action({
-          context: dockerContextRef.current,
-          action: "tag",
-          id: image.imageId,
-          reference,
-        });
-        await Promise.allSettled([refreshImages(), refreshSnapshot()]);
+        try {
+          await bridge.images.action({
+            context: dockerContextRef.current,
+            action: "tag",
+            id: image.imageId,
+            reference,
+          });
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : "Image tag failed");
+          return;
+        }
+        /*
+         * A failed reconciliation is not a successful tag.
+         *
+         * This was one `Promise.allSettled` followed by an unconditional `setError(null)`, so a
+         * refresh that rejected was discarded and the banner cleared anyway: the tag had been
+         * applied to the daemon, the list still showed the old references, and the UI said
+         * everything was fine. Every other mutation here reports that gap; this one hid it.
+         */
+        try {
+          await refreshImages();
+        } catch (reason) {
+          setError(reconciliationFailureMessage("Image tag", reason));
+          return;
+        }
+        void refreshSnapshot().catch(() => undefined);
         setError(null);
-      } catch (reason) {
-        setError(
-          reason instanceof Error ? reason.message : "Image tag failed",
-        );
       } finally {
         setImageMutationPending(false);
       }

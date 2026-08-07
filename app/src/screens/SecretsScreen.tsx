@@ -291,9 +291,9 @@ function HostSecrets({ store }: { store: AnchorageStore }) {
         <div className="empty-state" data-testid="secrets-empty">
           <strong>This Swarm holds no secrets</strong>
           <p>
-            The engine is a Swarm manager and its secret store answered — it is empty.
-            Creating and removing secrets is out of scope for this build; that stays with{" "}
-            <code>docker secret create</code>.
+            The engine is a Swarm manager and its secret store answered — it is empty. Use
+            the form above to add one; the value goes to the Engine API and never becomes a
+            command argument.
           </p>
         </div>
       ) : (
