@@ -16,8 +16,20 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
+
+/*
+ * How many `HEAD /archive` stats run at once while listing a directory.
+ *
+ * maxFileEntries is 500 and each stat is a round trip that spends its time waiting, so serially
+ * this was up to 500 sequential requests per hop. Held below the stats fan-out (32) because a
+ * volume listing shares the daemon with whatever else the app is doing and a directory hop is
+ * one user action, not a poll — 16 collapses the wait without making a single click the
+ * daemon's largest concurrent caller.
+ */
+const volumeStatConcurrency = 16
 
 // The volume is mounted here inside the helper container. The name is deliberately
 // distinctive so a listing can never be confused with the helper image's own filesystem.
@@ -1158,22 +1170,40 @@ func (s *Service) listVolumeChildren(ctx context.Context, client *engineClient,
 		if err != nil {
 			return nil, false, "exec", err
 		}
-		{
-			entries := make([]ContainerFileEntry, 0, len(names))
-			for _, name := range names {
+		/*
+		 * The stats are fanned out because they are latency, not work.
+		 *
+		 * Each entry costs one `HEAD /archive`, and this ran them one after another: a
+		 * directory at the entry cap meant up to maxFileEntries round trips in series, about
+		 * 1.5-2 s per hop through a volume for requests that spend all their time waiting on
+		 * the daemon. Same shape as containersStatsBatch, and the same reasoning — a wider
+		 * window costs nothing here because nothing is computing.
+		 *
+		 * Results are written by index rather than appended, so the listing does not reorder
+		 * itself run to run according to which stat happened to answer first.
+		 */
+		entries := make([]ContainerFileEntry, len(names))
+		gate := make(chan struct{}, volumeStatConcurrency)
+		var wait sync.WaitGroup
+		for index, name := range names {
+			wait.Add(1)
+			go func(index int, name string) {
+				defer wait.Done()
+				gate <- struct{}{}
+				defer func() { <-gate }()
+				target := path.Join(internal, name)
 				// A name that cannot be stat-ed is still listed. A broken symlink or a file
 				// removed between the listing and the stat is a real thing to see, and
 				// dropping it would make the directory look emptier than it is.
-				if entry, ok := statArchiveEntry(ctx, client, containerID, path.Join(internal, name)); ok {
-					entries = append(entries, entry)
-					continue
+				if entry, ok := statArchiveEntry(ctx, client, containerID, target); ok {
+					entries[index] = entry
+					return
 				}
-				entries = append(entries, ContainerFileEntry{
-					Name: name, Path: path.Join(internal, name), Mode: "?",
-				})
-			}
-			return entries, len(names) >= maxFileEntries, "exec", nil
+				entries[index] = ContainerFileEntry{Name: name, Path: target, Mode: "?"}
+			}(index, name)
 		}
+		wait.Wait()
+		return entries, len(names) >= maxFileEntries, "exec", nil
 	}
 	entries, truncated, err := listArchiveChildren(ctx, client, containerID, internal)
 	return entries, truncated, "archive", err
