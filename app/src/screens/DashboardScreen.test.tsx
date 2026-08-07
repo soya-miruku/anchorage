@@ -210,3 +210,29 @@ describe("DashboardScreen reclaim shortcuts", () => {
     expect(screen.getByTestId("system-prune-volumes")).not.toBeChecked();
   });
 });
+
+it("survives the snapshot going away and coming back", () => {
+  /*
+   * `HostDashboard` called two `useState`, returned early when `systemSnapshot` was null, and
+   * then called `useEffect` further down. Hook count went 2 on the empty render and 3 on the
+   * populated one, which is not a warning — React throws "Rendered more hooks than during the
+   * previous render" and the render tree unmounts.
+   *
+   * There is no error boundary in the app, so that is a blank window until relaunch. And the
+   * transition is routine rather than exotic: `selectDockerContext` sets the snapshot to null
+   * (useAnchorageStore.ts:1763) and reloads it, so switching Docker context did it every time.
+   * Cold start can too — `setEngineStatus("ready")` fires before `refreshSnapshot` is awaited,
+   * so the first paint can land on the null branch.
+   *
+   * Asserted as a rerender across the transition rather than as two separate renders, because
+   * two separate renders each mount fresh and cannot reproduce it — which is why the existing
+   * tests here, which cover both states, missed it.
+   */
+  const { rerender } = render(
+    <DashboardScreen store={createHostStore({ systemSnapshot: null })} />,
+  );
+  expect(screen.getByTestId("dashboard-screen")).toBeInTheDocument();
+
+  rerender(<DashboardScreen store={createHostStore()} />);
+  expect(screen.getByTestId("dashboard-screen")).toBeInTheDocument();
+});

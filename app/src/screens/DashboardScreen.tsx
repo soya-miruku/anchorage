@@ -80,6 +80,25 @@ const formatHostBytes = (bytes: number) => {
 function HostDashboard({ store }: { store: AnchorageStore }) {
   const [pruneOpen, setPruneOpen] = useState(false);
   const [prunePreset, setPrunePreset] = useState<{ all: boolean; volumes: boolean } | undefined>(undefined);
+  /*
+   * Above the early return, and it has to stay there.
+   *
+   * This effect used to sit two hundred lines down, past the `if (!snapshot) return`. That made
+   * the hook count 2 on the empty render and 3 on the populated one, and React does not warn
+   * about that — it throws "Rendered more hooks than during the previous render" and unmounts
+   * the tree. With no error boundary in the app, that is a blank window until relaunch.
+   *
+   * The transition is ordinary: `selectDockerContext` nulls the snapshot and reloads it, so
+   * switching Docker context did it every time. Cold start can too, because `engineStatus`
+   * becomes "ready" before the snapshot is awaited.
+   *
+   * Compose is still loaded here rather than at startup: it costs a subprocess and the startup
+   * path carries measured SLOs. Loading it while the snapshot is still in flight is harmless —
+   * it was never the snapshot this waited on.
+   */
+  useEffect(() => {
+    void store.refreshCompose();
+  }, [store.refreshCompose]);
   const snapshot = store.systemSnapshot;
   if (!snapshot) {
     return (
@@ -150,11 +169,6 @@ function HostDashboard({ store }: { store: AnchorageStore }) {
   );
   const memoryGb = engine.memoryBytes / 1024 ** 3;
 
-  useEffect(() => {
-    // Compose is loaded by whichever surface needs it rather than at startup: it costs a
-    // subprocess, and the startup path carries measured SLOs.
-    void store.refreshCompose();
-  }, [store.refreshCompose]);
 
   return (
     <section className="dashboard-screen screen" data-testid="dashboard-screen">

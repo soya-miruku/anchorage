@@ -57,7 +57,7 @@
 .container-table__head {
   height: 34px;
   flex: none;
-  border-bottom: 1px solid var(--anc-line-strong);
+  border-bottom: 1px solid var(--anc-line-border);
   background: var(--anc-table-head);
   color: var(--anc-text-faint);
   font-size: 10.5px;

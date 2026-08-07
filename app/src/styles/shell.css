@@ -327,8 +327,21 @@
   flex: none;
   flex-direction: column;
   padding: 12px 10px;
-  border-right: 1px solid var(--anc-line-strong);
-  background: var(--anc-panel);
+  border-right: 1px solid var(--anc-line-border);
+  /*
+   * `--anc-chrome`, the third consumer, missed when the token was introduced.
+   *
+   * The titlebar and the status bar were moved onto it and the sidebar was not, which inverts
+   * figure and ground: in docker dark `--anc-chrome` #071320 is darker than the content area
+   * #0a1929, while `--anc-panel` #0f2137 is lighter. The comp wraps content in one continuous
+   * recessive frame — titlebar, sidebar, status bar — and the sidebar was advancing out of it
+   * instead of receding into it.
+   *
+   * It read as correct because it was correct in v1, where the sidebar and titlebar shared one
+   * hex that was lighter than the window. v2 inverted that relationship and this line kept the
+   * old one.
+   */
+  background: var(--anc-chrome);
 }
 
 /*
