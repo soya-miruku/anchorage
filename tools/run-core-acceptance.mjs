@@ -2195,9 +2195,7 @@ try {
     const seededEntry = nestedListing.entries.find(
       (entry) => entry.name === "anchorage.txt",
     );
-    // The helper is created and never started, and must not survive the read: a leaked helper
-    // holds a reference on the volume and silently blocks its removal.
-    const leakedHelpers = await dockerLinesAt(dindSocketContext, [
+    const helperQuery = [
       "container",
       "ls",
       "--all",
@@ -2205,13 +2203,31 @@ try {
       "--no-trunc",
       "--filter",
       "label=io.anchorage.helper=volume-browse",
-    ]);
+    ];
+    /*
+     * A helper surviving the read is now the design, not a leak.
+     *
+     * This used to assert zero helpers here, when the helper was created and never started. It
+     * is now started and parked, because reusing it takes a directory hop from 8s to 0.04s, and
+     * a browse that leaves one behind is what makes the second hop fast. What must still be
+     * bounded is how many: walking a tree must pin one container, not one per directory.
+     */
+    const parkedDuringBrowse = await dockerLinesAt(dindSocketContext, helperQuery);
     const removedBrowseVolume = await client.request("volumes.action", {
       context: dindContext,
       action: "remove",
       name: browseVolumeName,
       confirmed: true,
     });
+    /*
+     * After the removal, though, nothing may remain.
+     *
+     * This is the property whose absence was the actual defect: a parked helper holds a
+     * reference on its volume, so `docker volume rm` fails with "volume is in use" until the
+     * core lets go. Counted after the remove rather than before, because "the helper is gone by
+     * the time the volume is" is the contract, and it is the one that was broken.
+     */
+    const leakedHelpers = await dockerLinesAt(dindSocketContext, helperQuery);
     const afterBrowseRemove = await client.request("volumes.list", {
       context: dindContext,
     });
@@ -2235,6 +2251,8 @@ try {
         fileRead.content.trim() === browseMarker &&
         fileRead.sizeBytes === browseMarker.length + 1 &&
         !fileRead.truncated &&
+        // One container for a whole tree walk, not one per directory.
+        parkedDuringBrowse.length <= 1 &&
         leakedHelpers.length === 0 &&
         removedBrowseVolume.receipt.outcome === "succeeded" &&
         !volumeNames(afterBrowseRemove).includes(browseVolumeName),
@@ -2252,7 +2270,8 @@ try {
         readSizeBytes: fileRead.sizeBytes,
         readEncoding: fileRead.encoding,
         readMatched: fileRead.content.trim() === browseMarker,
-        leakedHelperContainers: leakedHelpers.length,
+        parkedHelperContainersDuringBrowse: parkedDuringBrowse.length,
+        leakedHelperContainersAfterRemove: leakedHelpers.length,
         volumeVerifiedAbsent: !volumeNames(afterBrowseRemove).includes(
           browseVolumeName,
         ),
@@ -2875,11 +2894,23 @@ const result = {
     errors: cleanupErrors,
     evidence: cleanupEvidence,
   },
+  /*
+   * The code and details, not only the message.
+   *
+   * The RPC client already keeps both on the thrown error — the code so the optional-plugin
+   * checks can match exactly rather than by prose, the details because that is where the core
+   * puts Docker's own stderr. Recording only the message threw the reason away at the last
+   * step: a run that failed reported "volume_action_failed: Docker CLI rejected the volume
+   * mutation" and nothing about which mutation or what Docker said, which is a whole re-run to
+   * learn something the process already knew.
+   */
   error: failure
     ? {
         name: failure instanceof Error ? failure.name : "Error",
         message:
           failure instanceof Error ? failure.message : String(failure),
+        code: failure instanceof Error ? (failure.code ?? null) : null,
+        details: failure instanceof Error ? (failure.details ?? null) : null,
       }
     : null,
 };
@@ -2895,6 +2926,11 @@ const summary =
 if (failure) {
   process.stderr.write(summary);
   process.stderr.write(`${result.error.message}\n`);
+  // Printed as well as recorded: whoever ran this is looking at a terminal, and the detail is
+  // the difference between "a volume mutation failed" and knowing which call and why.
+  if (result.error.details) {
+    process.stderr.write(`${JSON.stringify(result.error.details, null, 2)}\n`);
+  }
   process.exitCode = 1;
 } else {
   process.stdout.write(summary);

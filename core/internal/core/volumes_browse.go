@@ -321,8 +321,20 @@ const volumeHelperIdle = 90 * time.Second
 
 type parkedVolumeHelper struct {
 	containerID string
-	release     func()
-	timer       *time.Timer
+	/*
+		The client that created it, and therefore the only one that can remove it.
+
+		A container ID means nothing to a daemon that did not make the container. Eviction used
+		the *incoming* caller's client instead, so browsing a volume on one daemon and then a
+		volume on another deleted the first helper's ID against the second daemon: the call
+		found no such container, the helper kept running, and it held its volume until something
+		swept that daemon. The core acceptance suite hits this every run — it browses on the
+		host and again inside a disposable dind — and the visible symptom was `docker volume rm`
+		failing with "volume is in use".
+	*/
+	client  *engineClient
+	release func()
+	timer   *time.Timer
 }
 
 func volumeHelperKey(volume string, writable bool) string {
@@ -371,12 +383,12 @@ func (s *Service) parkVolumeHelper(key, containerID string, client *engineClient
 		}
 		helper.timer.Stop()
 		delete(s.parkedHelpers, existing)
-		go func(id string, done func()) {
+		go func(id string, owner *engineClient, done func()) {
 			done()
 			removeCtx, cancel := context.WithTimeout(context.Background(), domainReadTimeout)
 			defer cancel()
-			s.removeVolumeHelper(removeCtx, client, id)
-		}(helper.containerID, helper.release)
+			s.removeVolumeHelper(removeCtx, owner, id)
+		}(helper.containerID, helper.client, helper.release)
 	}
 	if _, taken := s.parkedHelpers[key]; taken {
 		return false
@@ -393,7 +405,7 @@ func (s *Service) parkVolumeHelper(key, containerID string, client *engineClient
 		delete(s.liveHelpers, containerID)
 		s.helperMu.Unlock()
 	}
-	helper := &parkedVolumeHelper{containerID: containerID, release: hold}
+	helper := &parkedVolumeHelper{containerID: containerID, client: client, release: hold}
 	helper.timer = time.AfterFunc(volumeHelperIdle, func() {
 		s.helperMu.Lock()
 		current, still := s.parkedHelpers[key]
@@ -1200,6 +1212,51 @@ func demultiplex(raw []byte) (string, string) {
 }
 
 /*
+ReleaseVolumeHelpersFor removes the helpers holding one volume, and waits for them to go.
+
+A parked helper is a *running* container with the volume mounted, which is what makes the second
+hop through a directory tree fast. It is also, to the daemon, a reason the volume cannot be
+removed:
+
+	Error response from daemon: remove anchorage_browse_4d8dfef7:
+	volume is in use - [ad75365a2bb57de1ecf74701f446841d2aeaddbccf6fd7c58356a17ad520ab52]
+
+Found by the core acceptance suite, which browses a volume and then removes it — the exact
+sequence an operator performs when they look inside something before deleting it. The idle timer
+would have released it eventually, so this was a window rather than a wall, and a window is
+worse: the removal fails only if you are quick, which reads as Docker being flaky.
+
+Both spellings of the key, because a browse opens read-only and a write opens read-write, and
+whichever the operator did last is the one still parked. Synchronous on purpose: the caller is
+about to ask the daemon to remove the volume, and a release that has not finished is a release
+that has not happened.
+*/
+func (s *Service) ReleaseVolumeHelpersFor(ctx context.Context, volume string) {
+	name := strings.TrimSpace(volume)
+	if name == "" {
+		return
+	}
+	s.helperMu.Lock()
+	held := make([]*parkedVolumeHelper, 0, 2)
+	for _, writable := range []bool{false, true} {
+		key := volumeHelperKey(name, writable)
+		if helper, ok := s.parkedHelpers[key]; ok {
+			helper.timer.Stop()
+			held = append(held, helper)
+			delete(s.parkedHelpers, key)
+		}
+	}
+	s.helperMu.Unlock()
+	// Each through the client that created it. Resolving a fresh endpoint here was the first
+	// attempt and it was wrong twice over: against "default" it addressed the wrong daemon, and
+	// against the caller's context it still assumed the helper came from the same place.
+	for _, helper := range held {
+		helper.release()
+		s.removeVolumeHelper(ctx, helper.client, helper.containerID)
+	}
+}
+
+/*
 ReleaseVolumeHelpers removes any helper this process is holding.
 
 A parked helper is kept alive by an idle timer, and a timer dies with the process. Before the
@@ -1219,23 +1276,10 @@ func (s *Service) ReleaseVolumeHelpers(ctx context.Context) {
 		delete(s.parkedHelpers, key)
 	}
 	s.helperMu.Unlock()
-	if len(parked) == 0 {
-		return
-	}
-	// Resolved against the default context: a helper is removed by ID, and the ID is unique to
-	// the daemon that made it.
-	endpoint, err := s.resolveEngineEndpoint(ctx, "default")
-	if err != nil {
-		return
-	}
-	client, err := s.engineClient(ctx, endpoint)
-	if err != nil {
-		// Nothing to remove them with. The next browse sweeps by label, which is exactly the
-		// case that mechanism exists for.
-		return
-	}
+	// Each through the client that created it, for the same reason as above: this sweep can be
+	// holding helpers from more than one daemon, and a single endpoint would only reach one.
 	for _, helper := range parked {
 		helper.release()
-		s.removeVolumeHelper(ctx, client, helper.containerID)
+		s.removeVolumeHelper(ctx, helper.client, helper.containerID)
 	}
 }

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"context"
 	"encoding/binary"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -269,5 +271,134 @@ func TestHelperCapabilitiesAreTheSmallestSetThatWorks(t *testing.T) {
 	}
 	if len(write) != 2 {
 		t.Fatalf("nothing else belongs in the write set, got %v", write)
+	}
+}
+
+func TestReleaseVolumeHelpersForDropsTheHelperHoldingThatVolume(t *testing.T) {
+	/*
+		A parked helper is a running container with the volume mounted, and to the daemon that is
+		a reason the volume cannot be removed:
+
+			Error response from daemon: remove anchorage_browse_4d8dfef7:
+			volume is in use - [ad75365a2bb5...]
+
+		Found by the core acceptance suite, which browses a volume and then removes it — the
+		sequence an operator performs whenever they look inside something before deleting it. The
+		idle timer would have released the helper eventually, which made this a window rather
+		than a wall, and a window is the worse failure: the removal fails only if you are quick,
+		so it reads as Docker being unreliable rather than as anything with a cause.
+
+		Both keys are looked up because a browse parks read-only and a write parks read-write,
+		and only one helper is ever parked — whichever the operator did last. Checking one key
+		would leave the volume held exactly half the time.
+
+		The nil client is why this asserts the map rather than the container removal: the delete
+		runs against the engine and there is none here. What has to be true either way is that
+		the hold is gone.
+	*/
+	for _, writable := range []bool{false, true} {
+		service := &Service{}
+		if !service.parkVolumeHelper(volumeHelperKey("vol-a", writable), "container-a", nil) {
+			t.Fatal("the helper should park")
+		}
+
+		service.ReleaseVolumeHelpersFor(context.Background(), "vol-a")
+
+		service.helperMu.Lock()
+		parked := len(service.parkedHelpers)
+		service.helperMu.Unlock()
+		if parked != 0 {
+			t.Fatalf("writable=%v: %d helpers still parked, so the volume is still in use",
+				writable, parked)
+		}
+	}
+}
+
+func TestReleaseVolumeHelpersForLeavesAnotherVolumeAlone(t *testing.T) {
+	// Releasing everything on every remove would throw away the cache that takes a directory hop
+	// from 8s to 0.04s, and it would do it on a volume the operator did not mention.
+	service := &Service{}
+	if !service.parkVolumeHelper(volumeHelperKey("vol-b", false), "container-b", nil) {
+		t.Fatal("the helper should park")
+	}
+
+	service.ReleaseVolumeHelpersFor(context.Background(), "vol-a")
+
+	service.helperMu.Lock()
+	defer service.helperMu.Unlock()
+	if _, ok := service.parkedHelpers[volumeHelperKey("vol-b", false)]; !ok {
+		t.Fatal("removing vol-a must not release vol-b's helper")
+	}
+}
+
+func TestReleaseVolumeHelpersForIgnoresAnEmptyName(t *testing.T) {
+	// `prune` reaches the same code path with no volume named. Treating "" as a key would look
+	// up a helper nothing ever parks, which is harmless, but the early return says so out loud.
+	service := &Service{}
+	service.ReleaseVolumeHelpersFor(context.Background(), "   ")
+	service.helperMu.Lock()
+	defer service.helperMu.Unlock()
+	if len(service.parkedHelpers) != 0 {
+		t.Fatal("nothing should have been created")
+	}
+}
+
+func TestEvictedHelperIsRemovedThroughItsOwnClient(t *testing.T) {
+	/*
+		A container ID means nothing to a daemon that did not create the container.
+
+		Only one helper parks at a time, so browsing a second volume evicts the first. Eviction
+		used the *incoming* caller's client to remove the evicted container, which is correct
+		only while every browse happens on one daemon. Cross two — as the core acceptance suite
+		does every run, browsing on the host and again inside a disposable dind — and the delete
+		is addressed to a daemon that has no such container. It quietly does nothing, the helper
+		keeps running, and it holds its volume until something sweeps that daemon:
+
+			Error response from daemon: remove anchorage_browse_c4726086:
+			volume is in use - [b48f736ed717...]
+
+		Asserted on the recorded client rather than on a removal, because removing needs an
+		engine and there is none here. That the two helpers carry two different clients is the
+		whole property: with the old code the second park would have removed the first through
+		`clientB`, and this test would have had nothing to distinguish.
+	*/
+	service := &Service{}
+	// Real enough to be called: eviction removes on a goroutine, and a client with no
+	// http.Client panics there rather than failing, which takes the process down instead of the
+	// test. These have nowhere to connect to, so the removal errors and is discarded — which is
+	// the behaviour the sweep-by-label exists to back up.
+	newClient := func(version string) *engineClient {
+		return &engineClient{
+			apiVersion: version,
+			httpClient: &http.Client{Timeout: time.Millisecond},
+			endpoint:   contextEndpoint{},
+		}
+	}
+	clientA := newClient("1.44")
+	clientB := newClient("1.45")
+
+	if !service.parkVolumeHelper(volumeHelperKey("vol-a", false), "container-a", clientA) {
+		t.Fatal("the first helper should park")
+	}
+	service.helperMu.Lock()
+	parkedA := service.parkedHelpers[volumeHelperKey("vol-a", false)]
+	service.helperMu.Unlock()
+	if parkedA.client != clientA {
+		t.Fatal("a parked helper must remember the client that created it")
+	}
+
+	// Evicts the first. The removal runs on a goroutine against a client with no transport, so
+	// this asserts what the eviction was handed rather than what the daemon did with it.
+	if !service.parkVolumeHelper(volumeHelperKey("vol-b", false), "container-b", clientB) {
+		t.Fatal("the second helper should park")
+	}
+	service.helperMu.Lock()
+	defer service.helperMu.Unlock()
+	parkedB := service.parkedHelpers[volumeHelperKey("vol-b", false)]
+	if parkedB == nil || parkedB.client != clientB {
+		t.Fatal("the surviving helper must carry its own client")
+	}
+	if _, ok := service.parkedHelpers[volumeHelperKey("vol-a", false)]; ok {
+		t.Fatal("the first helper should have been evicted")
 	}
 }

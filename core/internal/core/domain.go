@@ -1432,6 +1432,31 @@ func (s *Service) volumesAction(parent context.Context, params VolumesActionPara
 		resourceID = "volumes"
 	}
 	receipt := newDomainReceipt(operationID, contextName, "volume", resourceID, params.Action, "engine-api")
+	/*
+	 * Let go of our own helper before asking the daemon to touch the volume.
+	 *
+	 * The file browser keeps a running container with the volume mounted so a second hop through
+	 * a directory tree costs 0.04s instead of 8s. To the daemon that container is a reason the
+	 * volume is in use, and "browse a volume, then delete it" is what an operator does when they
+	 * look inside something before removing it. The acceptance suite does exactly that, and got:
+	 *
+	 *   remove anchorage_browse_4d8dfef7: volume is in use - [ad75365a2bb5...]
+	 *
+	 * `prune` names no volume, so it releases all of them. A parked helper makes its volume look
+	 * used, and prune skips volumes in use — silently, and with no row to explain why the one you
+	 * were just looking at survived. Prune is a deliberate sweep; giving up the browse cache for
+	 * it is the right trade, which is not true of a single remove.
+	 *
+	 * `create` has nothing to release. `empty`, `clone` and `restore` are separate verbs and do
+	 * not need this: several containers may mount one volume, so a helper never blocks a mount —
+	 * only a removal.
+	 */
+	switch params.Action {
+	case "remove":
+		s.ReleaseVolumeHelpersFor(parent, params.Name)
+	case "prune":
+		s.ReleaseVolumeHelpers(parent)
+	}
 	endpoint, err := s.resolveEngineEndpoint(parent, contextName)
 	if err != nil {
 		if errors.Is(err, errTransportUnsupported) {
