@@ -83,6 +83,34 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             rpm libarchive-tools xvfb libfuse2t64
 
+      - name: Let Chromium sandbox itself on this runner
+        # Every Electron launch in this job died before it drew anything:
+        #   FATAL:setuid_sandbox_host.cc:166 The SUID sandbox helper binary was found, but is
+        #   not configured correctly
+        # and the host-candidate capture then waited out its full 60s for a renderer that was
+        # never coming.
+        #
+        # Chromium sandboxes a renderer one of two ways. Given unprivileged user namespaces it
+        # uses those; denied them it falls back to the setuid helper, which must be root-owned
+        # and mode 4755. Ubuntu 24.04 sets apparmor_restrict_unprivileged_userns=1, which closes
+        # the first door, and `bun install` cannot chown anything to root, which leaves the
+        # second one locked. A developer machine that permits user namespaces never meets this,
+        # which is why the build passes locally and failed here.
+        #
+        # --no-sandbox is not the escape hatch it looks like: assertOSSandboxEnabled refuses to
+        # create a window when it sees that flag, deliberately, and the capture exists partly to
+        # attest that the renderer really is sandboxed. Turning the sandbox off to make the check
+        # pass would leave the check attesting nothing.
+        #
+        # So the namespace door is reopened rather than the setuid one propped up. It covers all
+        # three Electron trees this job runs — node_modules for the capture, release/linux-unpacked
+        # for the unpacked smoke, and the AppImage's own extraction — where fixing file modes
+        # would have to be repeated for each and cannot reach inside the squashfs at all. It is
+        # also the path a user on a normal desktop takes, so CI exercises what ships.
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "userns restriction now: $(sysctl -n kernel.apparmor_restrict_unprivileged_userns)"
+
       - name: Confirm the Docker daemon answers
         # The whole core evidence chain talks to a live daemon. Failing here, before an hour of
         # work, says "no daemon" rather than letting acceptance report it as a Docker fault.

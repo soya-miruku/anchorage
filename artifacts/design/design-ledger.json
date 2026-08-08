@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-07T15:02:34.708Z",
+  "generatedAt": "2026-08-08T10:50:36.227Z",
   "claim": "reviewed-visual-conformance-not-pixel-identity",
   "canonicalViewport": {
     "width": 1656,
@@ -45,8 +45,8 @@
   "visualReviewAttestation": {
     "source": {
       "path": "docs/design-qa/visual-review-attestation.json",
-      "sha256": "dc2a8f43d23b1f54c75162d7af37deebfee53d44c1169e96a3671d8b6db6f132",
-      "bytes": 37037
+      "sha256": "29dfdbf3b2e700ae8d4ff00f4d42c5a0ff64c6e0c932a8a37bad199d5f747667",
+      "bytes": 37731
     },
     "attestation": {
       "schemaVersion": 1,
@@ -545,7 +545,7 @@
             "scroll-behavior",
             "state-specific-content"
           ],
-          "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+          "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Re-reviewed 8 August 2026 after a renderer rebuild carrying a Settings > Builders CSS fix. 225 of 1,748,736 pixels differ from the previously attested capture — 0.013% — and the difference is antialiasing on the sidebar nav icon strokes, inspected at 150% against an auto-levelled difference image: no text, geometry, spacing or content moved. The CSS in that rebuild touches .builders-table and .builders-row__actions, neither of which renders on this screen, so the drift is the same environmental re-rasterisation this state has shown before rather than a consequence of the change. Previous attested actual was 5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7.",
           "reference": {
             "path": "docs/design-qa/reference/containers-search-empty.png",
             "sha256": "e6fc00d4d0be5a6ff5b38784510ec1bf282f4a6ee66abbbcd628d76c0742c612",
@@ -557,8 +557,8 @@
           },
           "actual": {
             "path": "docs/design-qa/final-actual/containers-search-empty.png",
-            "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
-            "bytes": 139191,
+            "sha256": "0d65116f785d7a8335d5a4ef4595b9b3bfe9a2df1a04546fbeebbecbd89c3253",
+            "bytes": 138069,
             "dimensions": {
               "width": 1656,
               "height": 1056
@@ -881,24 +881,24 @@
     }
   },
   "rendererBuild": {
-    "sha256": "f17ad7996756af3ec74992cd9a2f89aa0a0728c009dc156871432432f94dbcff",
+    "sha256": "02542d1622395c41975f98c9ee68425afcb54600e2a05dbb35ee6f51d349f56d",
     "files": 20,
-    "bytes": 1465127
+    "bytes": 1465350
   },
   "captureProvenance": {
     "schemaVersion": 1,
     "captureMode": "fixture-browser",
     "bridgeMode": "fixture",
-    "capturedAt": "2026-08-07T14:59:16.021Z",
+    "capturedAt": "2026-08-08T10:50:26.821Z",
     "source": "app/dist/client",
     "canonicalViewport": {
       "width": 1656,
       "height": 1056
     },
     "rendererBuild": {
-      "sha256": "f17ad7996756af3ec74992cd9a2f89aa0a0728c009dc156871432432f94dbcff",
+      "sha256": "02542d1622395c41975f98c9ee68425afcb54600e2a05dbb35ee6f51d349f56d",
       "files": 20,
-      "bytes": 1465127
+      "bytes": 1465350
     },
     "harness": {
       "path": "tools/capture-design-parity.mjs",
@@ -946,8 +946,8 @@
       {
         "state": "containers-search-empty",
         "path": "final-actual/containers-search-empty.png",
-        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
-        "bytes": 139191,
+        "sha256": "0d65116f785d7a8335d5a4ef4595b9b3bfe9a2df1a04546fbeebbecbd89c3253",
+        "bytes": 138069,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -1304,8 +1304,8 @@
         "height": 1056
       },
       "mae": {
-        "absolute": 749.248,
-        "normalized": 0.0114328
+        "absolute": 752.816,
+        "normalized": 0.0114872
       },
       "reviewThreshold": 0.02,
       "divergenceCeiling": 0.05,
@@ -1319,8 +1319,8 @@
         }
       },
       "actualEvidence": {
-        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
-        "bytes": 139191,
+        "sha256": "0d65116f785d7a8335d5a4ef4595b9b3bfe9a2df1a04546fbeebbecbd89c3253",
+        "bytes": 138069,
         "dimensions": {
           "width": 1656,
           "height": 1056
@@ -1344,7 +1344,7 @@
           "scroll-behavior",
           "state-specific-content"
         ],
-        "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own."
+        "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Re-reviewed 8 August 2026 after a renderer rebuild carrying a Settings > Builders CSS fix. 225 of 1,748,736 pixels differ from the previously attested capture — 0.013% — and the difference is antialiasing on the sidebar nav icon strokes, inspected at 150% against an auto-levelled difference image: no text, geometry, spacing or content moved. The CSS in that rebuild touches .builders-table and .builders-row__actions, neither of which renders on this screen, so the drift is the same environmental re-rasterisation this state has shown before rather than a consequence of the change. Previous attested actual was 5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7."
       },
       "reviewScope": "Visible geometry, typography, colour, borders, radii, spacing, icons, layer order, clipping, and scroll behavior. Only the recorded Stats history masks and operating-system font rasterization are expected variance in this deterministic fixture capture.",
       "reference": "reference/containers-search-empty.png",

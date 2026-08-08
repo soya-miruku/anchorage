@@ -1374,10 +1374,20 @@ function BuilderActions({
           {removal.label}
         </button>
       ) : (
-        <span className="resource-dim" data-testid={`builder-permanent-${builder.name}`}>
-          {builder.name === "default"
-            ? "The default builder cannot be removed."
-            : "This is the context Anchorage is connected through."}
+        // A short label, not a sentence. This column is sized for the two buttons beside it,
+        // and a sentence here is either clipped or ellipsised — neither of which reads. The
+        // reason is worth a few words, so it stays on hover, and the paragraph below the table
+        // already explains the rule in full.
+        <span
+          className="resource-dim"
+          data-testid={`builder-permanent-${builder.name}`}
+          title={
+            builder.name === "default"
+              ? "The default builder cannot be removed."
+              : "This is the context Anchorage is connected through."
+          }
+        >
+          {builder.name === "default" ? "Not removable" : "In use by Anchorage"}
         </span>
       )}
     </div>

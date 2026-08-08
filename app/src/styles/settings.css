@@ -569,21 +569,36 @@
   text-transform: uppercase;
 }
 
-/* Widths follow the handoff's grid: the name gets the slack, ACTIVE is a fixed gutter. */
+/* Widths follow the handoff's grid: the name gets the slack, ACTIVE is a fixed gutter.
+ *
+ * ACTIONS is declared too, and that is the point. Under `table-layout: fixed` a column with no
+ * width does not size to its contents — it splits whatever the declared columns leave over.
+ * With only 1, 2, 4 and 5 declared, PLATFORMS and ACTIONS halved the remainder and ACTIONS got
+ * ~177px to hold ~228px of buttons. Because the cell clips and its row is justified to
+ * flex-end, the overflow was cut from the LEFT: "Try to start" rendered as "y to start", and
+ * "The default builder cannot be removed." as "ılt builder cannot be removed."
+ *
+ * 232px is the two-button case — "Try to start" + "Remove context" plus the gap and the cell's
+ * own 32px of padding. DRIVER and STATUS give up the room: both hold one short word.
+ */
 .builders-table thead th:nth-child(1) {
   width: 22%;
 }
 
 .builders-table thead th:nth-child(2) {
-  width: 17%;
+  width: 12%;
 }
 
 .builders-table thead th:nth-child(4) {
-  width: 15%;
+  width: 12%;
 }
 
 .builders-table thead th:nth-child(5) {
   width: 92px;
+}
+
+.builders-table thead th:nth-child(6) {
+  width: 232px;
 }
 
 .builders-row > th,
@@ -994,6 +1009,17 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  min-width: 0;
+}
+
+/* Prose in this column is a statement, not a control, and it is the widest thing competing for
+   the space. If it has to give, it gives from the end with an ellipsis — a truncated sentence
+   still reads, a sentence missing its first four characters does not. */
+.builders-row__actions > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .builders-row__actions .ghost-button,

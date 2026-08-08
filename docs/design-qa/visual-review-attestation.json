@@ -300,7 +300,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "MAE 0.01838. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: the previously approved capture of this state carried a hovered first row (srgb(17,40,64)) while the containers-row-hover capture carried none — the two were inverted, so each was measured against the wrong reference. Both now match the comp's intent: this state's first row is the plain srgb(10,25,41).",
+      "notes": "MAE 0.01838. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Corrected this round: the previously approved capture of this state carried a hovered first row (srgb(17,40,64)) while the containers-row-hover capture carried none \u2014 the two were inverted, so each was measured against the wrong reference. Both now match the comp's intent: this state's first row is the plain srgb(10,25,41).",
       "reference": {
         "path": "docs/design-qa/reference/containers.png",
         "sha256": "a0edeaf1f69f5c2eac20c8f73fa727c238706344cd22fd14c8ba92e63a47a60b",
@@ -495,7 +495,7 @@
         "scroll-behavior",
         "state-specific-content"
       ],
-      "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own.",
+      "notes": "MAE 0.01143 against the reference. Reviewed against the Docker Dark reference as two diff contact sheets and directly at full size. The standing divergence is typographic: the comp renders its sidebar and status bar text at a fractionally different metric, so every label ghosts in the diff while sitting in the same place at the same size on screen. No budget is claimed; the figure is inside the threshold on its own. Re-reviewed 8 August 2026 after a renderer rebuild carrying a Settings > Builders CSS fix. 225 of 1,748,736 pixels differ from the previously attested capture \u2014 0.013% \u2014 and the difference is antialiasing on the sidebar nav icon strokes, inspected at 150% against an auto-levelled difference image: no text, geometry, spacing or content moved. The CSS in that rebuild touches .builders-table and .builders-row__actions, neither of which renders on this screen, so the drift is the same environmental re-rasterisation this state has shown before rather than a consequence of the change. Previous attested actual was 5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7.",
       "reference": {
         "path": "docs/design-qa/reference/containers-search-empty.png",
         "sha256": "e6fc00d4d0be5a6ff5b38784510ec1bf282f4a6ee66abbbcd628d76c0742c612",
@@ -507,8 +507,8 @@
       },
       "actual": {
         "path": "docs/design-qa/final-actual/containers-search-empty.png",
-        "sha256": "5e2e512087acb9c2341bf89517ec8ace72e8e7affa164b40290dc899c07757c7",
-        "bytes": 139191,
+        "sha256": "0d65116f785d7a8335d5a4ef4595b9b3bfe9a2df1a04546fbeebbecbd89c3253",
+        "bytes": 138069,
         "dimensions": {
           "width": 1656,
           "height": 1056
