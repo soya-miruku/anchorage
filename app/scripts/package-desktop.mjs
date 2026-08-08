@@ -775,21 +775,6 @@ async function assertCurrentFileHash(path, expectedSha256, description) {
   }
 }
 
-async function assertArtifactNewerThan(
-  artifact,
-  dependencies,
-  description,
-) {
-  for (const [path, dependencyDescription] of dependencies) {
-    const dependency = await assertFile(path, dependencyDescription);
-    if (artifact.modifiedMs < dependency.mtimeMs) {
-      fail(
-        `${description} is stale relative to ${dependencyDescription}: ${path}`,
-      );
-    }
-  }
-}
-
 function manifestEvidenceEntry(path, artifact, metadata = {}) {
   return {
     path: normalizedRelative(REPOSITORY_DIRECTORY, path),
@@ -946,18 +931,17 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
     evidenceCorePaths[0],
     "evidence-tested development core",
   );
-  const coreSourceFiles = await collectFiles(
-    CORE_DIRECTORY,
-    (path) =>
-      path.endsWith(".go") ||
-      path.endsWith("/go.mod") ||
-      path.endsWith("/go.sum"),
-  );
-  await assertArtifactNewerThan(
-    { modifiedMs: developmentCore.mtimeMs },
-    coreSourceFiles.map((path) => [path, "Go core source"]),
-    "Evidence-tested development core",
-  );
+  // No mtime comparison against the Go sources. Three content checks already close the loop
+  // more tightly than a timestamp could: the staged core is rebuilt from the current sources
+  // and its digest must equal all three evidence digests (validateStagedCoreEvidenceHashes),
+  // the development core the evidence names must still hash to what the evidence recorded
+  // (assertCurrentFileHash below), and the core is rebuilt a second time into a temp directory
+  // and must reproduce that digest exactly. Edit a source without regenerating and one of those
+  // fails; leave the sources alone and none of them can.
+  //
+  // The timestamp version also failed on things that cannot affect the binary. It listed every
+  // *.go file, including _test.go, which `go build ./cmd/anchorage-core` never compiles — so
+  // editing a test made the release refuse to build a core that was provably current.
 
   if (
     resolve(mutationConformance.evidence.generator.path) !==

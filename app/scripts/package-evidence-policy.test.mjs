@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 
 import {
   ACCEPTANCE_MATRIX_VERSION,
@@ -57,6 +58,36 @@ test("release-critical build and icon dependencies must remain exactly pinned", 
   }
 });
 
+test("the packaged metadata allow-list covers every key electron-builder ships", async () => {
+  // Reads the real manifest, not a fixture. The comparison the release makes is byte-for-byte
+  // between this canonical form and the copy inside the asar, so any key that survives
+  // electron-builder's cleanup and is missing here breaks packaging at its last gate — long
+  // after the tests have gone green.
+  const manifestPath = new URL("../package.json", import.meta.url);
+  const source = JSON.parse(await readFile(manifestPath, "utf8"));
+
+  // What cleanupPackageJson removes, from app-builder-lib/out/fileTransformer.js: underscore
+  // props, a fixed set of publish/tooling fields, and scripts/keywords/devDependencies/babel.
+  const stripped = new Set([
+    "scripts", "keywords", "devDependencies", "babel", "dist", "gitHead", "build", "jspm",
+    "ava", "xo", "nyc", "eslintConfig", "contributors", "bundleDependencies", "tags",
+  ]);
+  const shipped = Object.keys(source).filter(
+    (key) => !key.startsWith("_") && !stripped.has(key),
+  );
+
+  const canonical = Object.keys(
+    JSON.parse(canonicalPackagedPackageJson(JSON.stringify(source)).toString()),
+  );
+  assert.deepEqual(
+    canonical,
+    shipped,
+    "PACKAGED_PACKAGE_JSON_KEYS must list exactly the keys electron-builder ships, in the " +
+      "order app/package.json declares them — the asar copy keeps insertion order and the " +
+      "closure comparison is byte-for-byte",
+  );
+});
+
 test("the shipped manifest carries evidence digests but no wall clock", () => {
   // Two builds of one commit produced different AppImages purely because the evidence block
   // recorded when each ran. The digests are what bind the evidence; the times are what broke
@@ -104,6 +135,7 @@ test("canonical packaged package metadata matches electron-builder's runtime sub
     homepage: "https://example.invalid/anchorage",
     description: "Docker desktop",
     author: { name: "Anchorage Contributors" },
+    license: "MIT",
     private: true,
     type: "module",
     main: "electron/main.mjs",
@@ -124,6 +156,7 @@ test("canonical packaged package metadata matches electron-builder's runtime sub
     homepage: source.homepage,
     description: source.description,
     author: source.author,
+    license: source.license,
     private: source.private,
     type: source.type,
     main: source.main,

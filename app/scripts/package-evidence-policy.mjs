@@ -173,6 +173,11 @@ const PACKAGED_PACKAGE_JSON_KEYS = Object.freeze([
   "homepage",
   "description",
   "author",
+  // electron-builder passes `license` straight through — it is not in the set
+  // cleanupPackageJson strips — so the packaged copy carries it and the canonical form must
+  // too. Adding the field to app/package.json without adding it here put the two closures
+  // exactly 20 bytes apart and failed the release at its last gate.
+  "license",
   "private",
   "type",
   "main",
