@@ -1,4 +1,4 @@
-app/node_modules/
+node_modules/
 app/dist/
 app/release/
 app/build/core/anchorage-core
