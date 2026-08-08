@@ -203,7 +203,15 @@ const PERFORMANCE_EVIDENCE_SCRIPT = join(
   "tools",
   "run-performance-evidence.mjs",
 );
-const UNPACKED_DIRECTORY = join(RELEASE_DIRECTORY, "linux-unpacked");
+// electron-builder suffixes the output tree with the architecture and omits the suffix only
+// for its default, x64 (builder-util's getArchSuffix). Hardcoding the x64 name meant the arm64
+// job died at the first payload check — after the Go build, the host-candidate capture, the
+// acceptance run and the whole electron-builder pass — on a path that was never going to exist.
+// main() has already restricted process.arch to x64 or arm64 by the time this is used.
+const UNPACKED_DIRECTORY = join(
+  RELEASE_DIRECTORY,
+  process.arch === "x64" ? "linux-unpacked" : `linux-${process.arch}-unpacked`,
+);
 const PACKAGED_EXECUTABLE = join(UNPACKED_DIRECTORY, "anchorage");
 const PACKAGED_ASAR = join(UNPACKED_DIRECTORY, "resources", "app.asar");
 const PACKAGED_CORE = join(
@@ -1030,43 +1038,19 @@ async function collectRequiredReleaseEvidence(expectedRendererBuild) {
       join(DESIGN_HANDOFF_DIRECTORY, "support.js"),
     ].filter((path) => existsSync(path)),
   ]);
-  await assertArtifactNewerThan(
-    designLedger,
-    [
-      [DESIGN_EVIDENCE_SCRIPT, "visual conformance generator"],
-      [DESIGN_CAPTURE_SCRIPT, "visual conformance capture harness"],
-      [
-        DESIGN_VISUAL_REVIEW_ATTESTATION,
-        "canonical handoff visual review attestation",
-      ],
-      ...designSourceFiles
-        .flat()
-        .map((path) => [path, "visual conformance input"]),
-    ],
-    "Visual conformance ledger",
-  );
-  await Promise.all([
-    assertArtifactNewerThan(
-      mutationConformance,
-      [[CORE_ACCEPTANCE_SCRIPT, "mutation conformance generator"]],
-      "Mutation conformance evidence",
-    ),
-    assertArtifactNewerThan(
-      capabilityGeneration,
-      [[CAPABILITY_EVIDENCE_SCRIPT, "Docker capability generator"]],
-      "Docker capability generation record",
-    ),
-    assertArtifactNewerThan(
-      performanceResults,
-      [[PERFORMANCE_EVIDENCE_SCRIPT, "performance evidence harness"]],
-      "Performance results",
-    ),
-    assertArtifactNewerThan(
-      performanceEnvironment,
-      [[PERFORMANCE_EVIDENCE_SCRIPT, "performance evidence harness"]],
-      "Performance environment",
-    ),
-  ]);
+  // Freshness here is established by content, not by modification time. validateDesignLedger
+  // above compares the ledger's recorded digests against the capture harness, the generator,
+  // the handoff source and the visual review attestation as they exist right now, and the
+  // provenance is checked by deep equality — so an input that changed after the review is
+  // caught by its digest moving. An mtime comparison could only restate that, and it could not
+  // survive a clone: git stamps every checked-out file with the checkout time and writes
+  // artifacts/ before docs/, which made the ledger unconditionally "older" than its own inputs
+  // and the release gate unsatisfiable on any machine that had not just regenerated it.
+  // Each of these generators is already pinned to the digest its evidence recorded — see the
+  // assertCurrentFileHash calls above for the acceptance and capability harnesses, and the
+  // performance harness digest handed to validatePerformanceEvidence. Editing a harness without
+  // regenerating its evidence moves that digest and fails there, which is the property these
+  // mtime comparisons were reaching for and could not hold across a checkout.
 
   return {
     designConformance: manifestEvidenceEntry(
@@ -2376,7 +2360,15 @@ async function main() {
       entry.name?.endsWith(".AppImage"),
     );
     // The receipt has to describe the artifact that was just built, not an earlier one.
-    if (receipt.status === "signed" && appImageEntry?.digest !== appImageVerification.sha256) {
+    //
+    // The digest is on `.artifact`; reading it off the top level compared a real digest against
+    // undefined, so a correctly signed release reported STALE every time and a genuinely stale
+    // one was indistinguishable from it. The null guard is for --dir, where no AppImage was
+    // verified at all and the old expression threw into the catch below.
+    if (
+      receipt.status === "signed" &&
+      appImageEntry?.digest !== appImageVerification?.artifact?.sha256
+    ) {
       signatureState = "STALE SIGNATURE — the receipt describes a different AppImage";
     } else if (receipt.status === "signed") {
       // The receipt's own claim is not evidence: it is a JSON file that anyone could write.

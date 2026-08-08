@@ -216,10 +216,16 @@ For development, additionally:
 ## Running it
 
 ```bash
+go -C core build -o bin/anchorage-core ./cmd/anchorage-core
 cd app
 bun install
 bun run dev:desktop     # development
 ```
+
+The Go build is not optional and it comes first. `core/bin/` is not in the
+repository — the core is a binary, so a clone does not carry one — and
+`dev:desktop` launches whatever is at that path. Skip the build and the window
+opens onto a backend that was never there.
 
 Bun is the package runtime. `bun install` is what produces a working tree: the
 Electron binary is not in the npm tarball and Electron 43 dropped its own
@@ -358,4 +364,9 @@ Two conventions matter more than formatting:
 
 ## Licence
 
-Not yet chosen.
+MIT — see [LICENSE](LICENSE).
+
+Bundled third-party components keep their own terms. Electron and Chromium ship
+their notices in the package (`LICENSE.electron.txt`, `LICENSES.chromium.html`);
+IBM Plex Sans and Mono are SIL OFL-1.1 and their notice is not yet shipped
+alongside them, which is a known gap rather than a settled position.

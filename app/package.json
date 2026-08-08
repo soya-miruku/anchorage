@@ -8,6 +8,7 @@
   "author": {
     "name": "Anchorage Contributors"
   },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "electron/main.mjs",
