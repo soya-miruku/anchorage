@@ -56,7 +56,7 @@ measured against.
 
 Rejected alternatives:
 
-- **A separate sandbox-conformance harness.** `run-core-acceptance.mjs:23-26` records that a second
+- **A separate sandbox-conformance harness.** `run-core-acceptance.mjs:23-25` records that a second
   copy of the check matrix "is what broke packaging when the matrix last grew". This recreates that
   failure and leaves DinD leaking by default.
 - **Running the whole suite inside one sandbox with DinD still inside it.** The checks would still
@@ -82,7 +82,7 @@ whatever engine version, storage driver and kernel its rootfs happens to ship. s
 the person running the suite, and a release does not need to attest to that.
 
 What genuinely differentiates the two is **the daemon**, not the isolation — a principle this repo
-already states at `.github/workflows/release.yml:186-191`: *"the same binary on a different daemon
+already states at `.github/workflows/release.yml:189-191`: *"the same binary on a different daemon
 is a different measurement"*, which is why Docker's version is in the evidence cache key. The
 evidence must therefore describe the measurement environment, not merely label the backend.
 
@@ -152,7 +152,10 @@ produce explicitly non-interchangeable claims exactly where they differ.
 ```
 
 The policy validates coherence rather than presence alone: backend within the known set; if `dind`,
-engine major is 29; if `sbx`, engine version at or above a floor. Neither backend is ranked.
+engine major is 29; if `sbx`, the engine version is recorded and asserted non-empty rather than
+bounded — a floor cannot be chosen honestly until the spike observes what sbx's rootfs actually
+ships, and inventing one now would be a number no measurement supports. Choosing that floor is
+an explicit task in the implementation plan. Neither backend is ranked.
 
 ### Phase 2 — out of scope
 
