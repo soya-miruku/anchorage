@@ -1330,6 +1330,100 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 try {
+  // First thing in the run, and outside the mutation guard, for one reason each.
+  //
+  // Outside the guard: the host-clear claim at the end of teardown is made by every run, so a
+  // read-only run that finds a predecessor's leaked container fails — and used to fail with no
+  // code path anywhere in it able to remove what it was complaining about, which is a gate that
+  // reports a problem and withholds the remedy. The sweep touches only resources carrying this
+  // harness's own label AND matching its own anchored name pattern, so it is exactly as safe here
+  // as it is in a mutation run.
+  //
+  // First: every check below can throw, and a throw goes to the `finally` that runs teardown. Any
+  // later position gives back the same broken shape in the failure case — a run that names debris
+  // it never reached the code to remove. It is also the honest reading of "preflight": the checks
+  // that follow compare what the core reports against what the CLI reports, and both of them see a
+  // steadier host once the debris of a dead run is gone.
+  {
+    // The collision check further down asks "does my own random name already exist", which is a
+    // different and much weaker question than "is this host clear of acceptance debris". An
+    // interrupted run leaves a privileged daemon that no later run would ever notice, because its
+    // suffix is random and unrelated. Enumerating by label is what lets `cleanup: passed` mean the
+    // host is clear, rather than only that this run tidied up after itself.
+    //
+    // No `accountableSuffix`: this run has created nothing yet. Should that ever cease to be true,
+    // the survey spares this run's own container anyway — its creating process is this process,
+    // which the liveness rule finds alive — so the failure mode of moving this call is a spared
+    // container rather than a run that sweeps itself.
+    const survey = await surveyAcceptanceResources();
+    for (const peer of survey.peers) {
+      cleanupEvidence.possibleLivePeers.push({ phase: "preflight", ...peer });
+    }
+    const orphans = survey.unaccountedFor;
+    // A name is recorded only after Docker says it is gone. Recording the attempt instead would
+    // put the one claim this sweep exists to make — "this debris is no longer here" — on the
+    // strength of having asked, which is the habit the whole task is meant to break.
+    const sweepOrphan = async (kind, name, args) => {
+      const removed = await dockerRun(context, args, { timeoutMs: 60_000 });
+      if (removed.code !== 0 || removed.timedOut) {
+        recordCleanupError(
+          new Error(
+            `Failed to sweep orphaned ${kind} ${name}` +
+              `${removed.timedOut ? " after timeout" : ""}: ` +
+              `${removed.stderr.trim() || `exit ${removed.code}`}`,
+          ),
+        );
+        return false;
+      }
+      return true;
+    };
+    for (const name of orphans.containers) {
+      // Read the mounts before the removal, because afterwards there is nothing left to ask.
+      // Restricted to the 64-hex names Docker gives anonymous volumes: --volumes removes only
+      // those, and claiming a named volume was removed — or failing the run because one survived
+      // a removal that was never going to touch it — would both be wrong.
+      const attached = (await containerVolumeMounts(context, name)).filter(
+        (volume) => /^[0-9a-f]{64}$/u.test(volume),
+      );
+      if (
+        !(await sweepOrphan("container", name, [
+          "rm",
+          "--force",
+          // docker:29-dind declares VOLUME /var/lib/docker. Without this the sweep would fix the
+          // visible half of each orphan and leave ~10MB of anonymous volume behind per orphan,
+          // which is the leak this harness already closed for its own container at the cost of
+          // finding it the hard way.
+          "--volumes",
+          name,
+        ]))
+      ) {
+        continue;
+      }
+      cleanupEvidence.orphansRemoved.containers.push(name);
+      const surviving = [];
+      for (const volume of attached) {
+        if (await volumeExistsAt(context, volume)) surviving.push(volume);
+        else cleanupEvidence.orphansRemoved.volumes.push(volume);
+      }
+      if (surviving.length > 0) {
+        recordCleanupError(
+          new Error(
+            `Swept orphaned container ${name} left anonymous volumes on ${context}: ${surviving.join(", ")}`,
+          ),
+        );
+      }
+    }
+    for (const name of orphans.contexts) {
+      if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
+        cleanupEvidence.orphansRemoved.contexts.push(name);
+      }
+    }
+    for (const name of orphans.scratchDirectories) {
+      await rm(resolve(outputDirectory, name), { recursive: true, force: true });
+      cleanupEvidence.orphansRemoved.scratchDirectories.push(name);
+    }
+  }
+
   {
     const started = process.hrtime.bigint();
     const health = await client.request("health", {});
@@ -2091,92 +2185,6 @@ try {
           scoutStarted,
         );
       }
-    }
-  }
-
-  // Outside the mutation guard on purpose. The host-clear claim at the end of teardown is made by
-  // every run, so a read-only run that finds a predecessor's leaked container fails — and used to
-  // fail with no code path anywhere in it able to remove what it was complaining about, which is a
-  // gate that reports a problem and withholds the remedy. The sweep touches only resources
-  // carrying this harness's own label AND matching its own anchored name pattern, so it is exactly
-  // as safe here as it is in a mutation run.
-  {
-    // The collision check further down asks "does my own random name already exist", which is a
-    // different and much weaker question than "is this host clear of acceptance debris". An
-    // interrupted run leaves a privileged daemon that no later run would ever notice, because its
-    // suffix is random and unrelated. Enumerating by label is what lets `cleanup: passed` mean the
-    // host is clear, rather than only that this run tidied up after itself.
-    //
-    // No `accountableSuffix`: this run has created nothing yet. Should that ever cease to be true,
-    // the survey spares this run's own container anyway — its creating process is this process,
-    // which the liveness rule finds alive — so the failure mode of moving this call is a spared
-    // container rather than a run that sweeps itself.
-    const survey = await surveyAcceptanceResources();
-    for (const peer of survey.peers) {
-      cleanupEvidence.possibleLivePeers.push({ phase: "preflight", ...peer });
-    }
-    const orphans = survey.unaccountedFor;
-    // A name is recorded only after Docker says it is gone. Recording the attempt instead would
-    // put the one claim this sweep exists to make — "this debris is no longer here" — on the
-    // strength of having asked, which is the habit the whole task is meant to break.
-    const sweepOrphan = async (kind, name, args) => {
-      const removed = await dockerRun(context, args, { timeoutMs: 60_000 });
-      if (removed.code !== 0 || removed.timedOut) {
-        recordCleanupError(
-          new Error(
-            `Failed to sweep orphaned ${kind} ${name}` +
-              `${removed.timedOut ? " after timeout" : ""}: ` +
-              `${removed.stderr.trim() || `exit ${removed.code}`}`,
-          ),
-        );
-        return false;
-      }
-      return true;
-    };
-    for (const name of orphans.containers) {
-      // Read the mounts before the removal, because afterwards there is nothing left to ask.
-      // Restricted to the 64-hex names Docker gives anonymous volumes: --volumes removes only
-      // those, and claiming a named volume was removed — or failing the run because one survived
-      // a removal that was never going to touch it — would both be wrong.
-      const attached = (await containerVolumeMounts(context, name)).filter(
-        (volume) => /^[0-9a-f]{64}$/u.test(volume),
-      );
-      if (
-        !(await sweepOrphan("container", name, [
-          "rm",
-          "--force",
-          // docker:29-dind declares VOLUME /var/lib/docker. Without this the sweep would fix the
-          // visible half of each orphan and leave ~10MB of anonymous volume behind per orphan,
-          // which is the leak this harness already closed for its own container at the cost of
-          // finding it the hard way.
-          "--volumes",
-          name,
-        ]))
-      ) {
-        continue;
-      }
-      cleanupEvidence.orphansRemoved.containers.push(name);
-      const surviving = [];
-      for (const volume of attached) {
-        if (await volumeExistsAt(context, volume)) surviving.push(volume);
-        else cleanupEvidence.orphansRemoved.volumes.push(volume);
-      }
-      if (surviving.length > 0) {
-        recordCleanupError(
-          new Error(
-            `Swept orphaned container ${name} left anonymous volumes on ${context}: ${surviving.join(", ")}`,
-          ),
-        );
-      }
-    }
-    for (const name of orphans.contexts) {
-      if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
-        cleanupEvidence.orphansRemoved.contexts.push(name);
-      }
-    }
-    for (const name of orphans.scratchDirectories) {
-      await rm(resolve(outputDirectory, name), { recursive: true, force: true });
-      cleanupEvidence.orphansRemoved.scratchDirectories.push(name);
     }
   }
 
