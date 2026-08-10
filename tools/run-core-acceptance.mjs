@@ -723,6 +723,18 @@ async function waitForDockerDaemon(contextName, timeoutMs = 90_000) {
 }
 
 const checks = [];
+// A skipped check is not a passing check. It is surfaced at the top of the artifact and in the
+// run summary so an optional plugin that is simply absent can never be read as coverage of the
+// verbs it would have exercised.
+//
+// Derived when the artifact is written rather than bound once, because an interrupted run has to
+// report the checks it had reached at the moment the signal arrived, not the empty list this
+// file starts with.
+function collectSkippedChecks() {
+  return checks
+    .filter((check) => check.status === "skipped")
+    .map((check) => ({ id: check.id, reason: check.reason }));
+}
 const startedAt = new Date().toISOString();
 await rm(outputPath, { force: true });
 const [generatorSha256, coreSha256] = await Promise.all([
@@ -731,6 +743,7 @@ const [generatorSha256, coreSha256] = await Promise.all([
 ]);
 const client = new CoreClient(corePath);
 let dindResource = null;
+let teardownPromise = null;
 let failure = null;
 const cleanupErrors = [];
 const cleanupEvidence = {
@@ -739,6 +752,201 @@ const cleanupEvidence = {
   dindContainer: null,
   scratchDirectory: null,
 };
+
+// One shape for the cleanup block, whichever artifact writes it. A completed run and an
+// interrupted run report the same three fields, so the packaging policy — which reads
+// `cleanup.status` and `cleanup.errors` — never has to know which kind of run it is holding.
+function collectCleanupResult() {
+  return {
+    status: cleanupErrors.length === 0 ? "passed" : "failed",
+    errors: cleanupErrors,
+    evidence: cleanupEvidence,
+  };
+}
+
+// Declared before the try so the signal handlers can reach it too. The body is the existing
+// finally block, moved rather than rewritten: this step changes when cleanup runs, not what it
+// does, and mixing those two changes would make a teardown regression impossible to bisect.
+//
+// A shared promise, not a boolean. With `if (teardownComplete) return`, a signal arriving while
+// the finally block is mid-teardown returns instantly, and the handler's process.exit() then
+// kills the teardown in flight — leaving the privileged container running, which is the exact
+// failure this task exists to prevent. Returning the in-flight promise makes the second caller
+// wait for the first to finish instead of racing past it.
+function runTeardown() {
+  if (teardownPromise) return teardownPromise;
+  teardownPromise = (async () => {
+    if (dindResource?.endpoint) {
+      try {
+        await cleanupDockerContext(
+          dindResource.contextName,
+          dindResource.endpoint,
+        );
+        cleanupEvidence.dockerContext = {
+          name: dindResource.contextName,
+          endpoint: dindResource.endpoint,
+          verifiedAbsent: true,
+        };
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error.message : String(error),
+        );
+        cleanupEvidence.dockerContext = {
+          name: dindResource.contextName,
+          endpoint: dindResource.endpoint,
+          verifiedAbsent: false,
+        };
+      }
+    }
+    if (dindResource?.socketContextName) {
+      try {
+        await cleanupDockerContext(
+          dindResource.socketContextName,
+          dindResource.socketEndpoint,
+        );
+        cleanupEvidence.dockerSocketContext = {
+          name: dindResource.socketContextName,
+          endpoint: dindResource.socketEndpoint,
+          verifiedAbsent: true,
+        };
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error.message : String(error),
+        );
+        cleanupEvidence.dockerSocketContext = {
+          name: dindResource.socketContextName,
+          endpoint: dindResource.socketEndpoint,
+          verifiedAbsent: false,
+        };
+      }
+    }
+    if (dindResource) {
+      try {
+        const disposed = await cleanupDisposable(
+          context,
+          dindResource.containerName,
+          dindResource.token,
+        );
+        const after = await verifyDisposableOwnership(
+          context,
+          dindResource.containerName,
+          dindResource.token,
+        );
+        cleanupEvidence.dindContainer = {
+          context,
+          name: dindResource.containerName,
+          ownershipLabel: dindResource.token,
+          verifiedAbsent: !after.exists,
+          anonymousVolumes: disposed.anonymousVolumes,
+          anonymousVolumesVerifiedAbsent: true,
+        };
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error.message : String(error),
+        );
+        cleanupEvidence.dindContainer = {
+          context,
+          name: dindResource.containerName,
+          ownershipLabel: dindResource.token,
+          verifiedAbsent: false,
+          anonymousVolumes: null,
+          anonymousVolumesVerifiedAbsent: false,
+        };
+      }
+    }
+    try {
+      await client.close();
+    } catch (error) {
+      cleanupErrors.push(
+        `Core shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    // The scratch tree is removed after the core exits, because the disposable daemon's Unix
+    // socket lives inside it and the core caches an open transport to that endpoint.
+    if (dindResource?.scratchDirectory) {
+      try {
+        await rm(dindResource.scratchDirectory, { recursive: true, force: true });
+        const stillPresent = await pathExists(dindResource.scratchDirectory);
+        if (stillPresent) {
+          throw new Error(
+            `Acceptance scratch directory ${dindResource.scratchDirectory} still exists after cleanup`,
+          );
+        }
+        cleanupEvidence.scratchDirectory = {
+          path: dindResource.scratchDirectory,
+          verifiedAbsent: true,
+        };
+      } catch (error) {
+        cleanupErrors.push(
+          error instanceof Error ? error.message : String(error),
+        );
+        cleanupEvidence.scratchDirectory = {
+          path: dindResource.scratchDirectory,
+          verifiedAbsent: false,
+        };
+      }
+    }
+    if (!failure && cleanupErrors.length > 0) {
+      failure = new Error(cleanupErrors.join("; "));
+    }
+  })();
+  return teardownPromise;
+}
+
+/**
+ * The evidence an interrupted run leaves behind.
+ *
+ * Deliberately not a passing artifact and deliberately not absent: `status: "aborted"` is a third
+ * outcome the policy rejects for a release, while still recording which checks had completed and
+ * what teardown managed to remove. Silence is the one option that helps nobody.
+ */
+async function writeAbortedEvidence(signal) {
+  try {
+    const aborted = {
+      schemaVersion: ACCEPTANCE_SCHEMA_VERSION,
+      matrixVersion: ACCEPTANCE_MATRIX_VERSION,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      corePath,
+      coreSha256,
+      generator: { path: scriptPath, sha256: generatorSha256 },
+      mutationsEnabled: runMutations,
+      status: "aborted",
+      abortedBy: signal,
+      requiredChecks,
+      checks,
+      skippedChecks: collectSkippedChecks(),
+      cleanup: collectCleanupResult(),
+      error: null,
+    };
+    await mkdir(resolve(outputPath, ".."), { recursive: true });
+    await writeFile(outputPath, `${JSON.stringify(aborted, null, 2)}\n`);
+    process.stderr.write(`Recorded aborted run to ${outputPath}\n`);
+  } catch (error) {
+    process.stderr.write(`Could not record the aborted run: ${error}\n`);
+  }
+}
+
+// A run killed between the DinD launch and the finally block used to end here: Node exits, the
+// privileged container keeps running, and nothing is written — so the leak is invisible rather
+// than recorded. The next successful run overwrites the evidence path, and the file on disk is
+// then honest, passing, and silent about a root-equivalent daemon still on the host.
+//
+// Recording an interrupted run matters as much as cleaning up after it. An `aborted` evidence
+// file says what was left behind; no file at all says nothing happened.
+let interrupted = null;
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => {
+    if (interrupted) return;
+    interrupted = signal;
+    void (async () => {
+      process.stderr.write(`\n${signal} received; tearing down before exit.\n`);
+      await runTeardown();
+      await writeAbortedEvidence(signal);
+      process.exit(130);
+    })();
+  });
+}
 
 try {
   {
@@ -2746,119 +2954,7 @@ try {
 } catch (error) {
   failure = error;
 } finally {
-  if (dindResource?.endpoint) {
-    try {
-      await cleanupDockerContext(
-        dindResource.contextName,
-        dindResource.endpoint,
-      );
-      cleanupEvidence.dockerContext = {
-        name: dindResource.contextName,
-        endpoint: dindResource.endpoint,
-        verifiedAbsent: true,
-      };
-    } catch (error) {
-      cleanupErrors.push(
-        error instanceof Error ? error.message : String(error),
-      );
-      cleanupEvidence.dockerContext = {
-        name: dindResource.contextName,
-        endpoint: dindResource.endpoint,
-        verifiedAbsent: false,
-      };
-    }
-  }
-  if (dindResource?.socketContextName) {
-    try {
-      await cleanupDockerContext(
-        dindResource.socketContextName,
-        dindResource.socketEndpoint,
-      );
-      cleanupEvidence.dockerSocketContext = {
-        name: dindResource.socketContextName,
-        endpoint: dindResource.socketEndpoint,
-        verifiedAbsent: true,
-      };
-    } catch (error) {
-      cleanupErrors.push(
-        error instanceof Error ? error.message : String(error),
-      );
-      cleanupEvidence.dockerSocketContext = {
-        name: dindResource.socketContextName,
-        endpoint: dindResource.socketEndpoint,
-        verifiedAbsent: false,
-      };
-    }
-  }
-  if (dindResource) {
-    try {
-      const disposed = await cleanupDisposable(
-        context,
-        dindResource.containerName,
-        dindResource.token,
-      );
-      const after = await verifyDisposableOwnership(
-        context,
-        dindResource.containerName,
-        dindResource.token,
-      );
-      cleanupEvidence.dindContainer = {
-        context,
-        name: dindResource.containerName,
-        ownershipLabel: dindResource.token,
-        verifiedAbsent: !after.exists,
-        anonymousVolumes: disposed.anonymousVolumes,
-        anonymousVolumesVerifiedAbsent: true,
-      };
-    } catch (error) {
-      cleanupErrors.push(
-        error instanceof Error ? error.message : String(error),
-      );
-      cleanupEvidence.dindContainer = {
-        context,
-        name: dindResource.containerName,
-        ownershipLabel: dindResource.token,
-        verifiedAbsent: false,
-        anonymousVolumes: null,
-        anonymousVolumesVerifiedAbsent: false,
-      };
-    }
-  }
-  try {
-    await client.close();
-  } catch (error) {
-    cleanupErrors.push(
-      `Core shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  // The scratch tree is removed after the core exits, because the disposable daemon's Unix
-  // socket lives inside it and the core caches an open transport to that endpoint.
-  if (dindResource?.scratchDirectory) {
-    try {
-      await rm(dindResource.scratchDirectory, { recursive: true, force: true });
-      const stillPresent = await pathExists(dindResource.scratchDirectory);
-      if (stillPresent) {
-        throw new Error(
-          `Acceptance scratch directory ${dindResource.scratchDirectory} still exists after cleanup`,
-        );
-      }
-      cleanupEvidence.scratchDirectory = {
-        path: dindResource.scratchDirectory,
-        verifiedAbsent: true,
-      };
-    } catch (error) {
-      cleanupErrors.push(
-        error instanceof Error ? error.message : String(error),
-      );
-      cleanupEvidence.scratchDirectory = {
-        path: dindResource.scratchDirectory,
-        verifiedAbsent: false,
-      };
-    }
-  }
-  if (!failure && cleanupErrors.length > 0) {
-    failure = new Error(cleanupErrors.join("; "));
-  }
+  await runTeardown();
 }
 
 const observedCheckIds = checks.map((check) => check.id).sort();
@@ -2870,12 +2966,7 @@ if (!failure && !checkMatrixComplete) {
     `Acceptance check matrix mismatch: required=${requiredChecks.join(",")} observed=${observedCheckIds.join(",")}`,
   );
 }
-// A skipped check is not a passing check. It is surfaced at the top of the artifact and in the
-// run summary so an optional plugin that is simply absent can never be read as coverage of the
-// verbs it would have exercised.
-const skippedChecks = checks
-  .filter((check) => check.status === "skipped")
-  .map((check) => ({ id: check.id, reason: check.reason }));
+const skippedChecks = collectSkippedChecks();
 const result = {
   schemaVersion: ACCEPTANCE_SCHEMA_VERSION,
   matrixVersion: ACCEPTANCE_MATRIX_VERSION,
@@ -2901,11 +2992,7 @@ const result = {
   passedCheckCount: checks.filter((check) => check.status === "passed").length,
   skippedChecks,
   checks,
-  cleanup: {
-    status: cleanupErrors.length === 0 ? "passed" : "failed",
-    errors: cleanupErrors,
-    evidence: cleanupEvidence,
-  },
+  cleanup: collectCleanupResult(),
   /*
    * The code and details, not only the message.
    *
