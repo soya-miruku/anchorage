@@ -440,7 +440,11 @@ async function writeAbortedEvidence(signal) {
         : [...READ_ONLY_CHECK_IDS],
       checks,
       skippedChecks,
-      cleanup: cleanupEvidence,
+      // NOTE (corrected during execution): written as `cleanup: collectCleanupResult()`, not the
+      // bare `cleanupEvidence` this line originally showed. The policy reads `cleanup.status` and
+      // `cleanup.errors`; emitting the bare evidence object would leave both `undefined` and drop
+      // `cleanupErrors` entirely, so an aborted run would lose the record of what cleanup failed.
+      cleanup: collectCleanupResult(),
       error: null,
     };
     await mkdir(resolve(outputPath, ".."), { recursive: true });
@@ -489,7 +493,12 @@ Turns `cleanup: passed` from a per-run claim into a host-state claim, establishe
 
 **Interfaces:**
 - Consumes: `classifyOrphans`, `ACCEPTANCE_LABEL` from Task 1.
-- Produces: `cleanupEvidence.orphansRemoved: {containers: string[], contexts: string[], scratchDirectories: string[]}` and `cleanupEvidence.hostVerifiedClear: boolean`.
+- Produces: `cleanupEvidence.orphansRemoved: {containers: string[], contexts: string[], scratchDirectories: string[]}` and `cleanupEvidence.hostVerifiedClear: boolean`. Note where these land in the
+  artifact: `collectCleanupResult()` (added by Task 3) emits `{status, errors, evidence}`, so the
+  `cleanupEvidence` object is nested — a reader gets them at **`cleanup.evidence.orphansRemoved`**
+  and **`cleanup.evidence.hostVerifiedClear`**, alongside the existing `dindContainer` /
+  `dockerContext` fields. Task 5's policy read and this task's verification command both use that
+  nested path; `cleanup.hostVerifiedClear` is always `undefined`.
 
 - [ ] **Step 1: Add the preflight sweep**
 
@@ -581,8 +590,8 @@ ANCHORAGE_ACCEPTANCE_MUTATIONS=1 node tools/run-core-acceptance.mjs
 
 python3 -c "
 import json; d=json.load(open('artifacts/docker/conformance-results.json'))
-print('orphansRemoved:', d['cleanup']['orphansRemoved'])
-print('hostVerifiedClear:', d['cleanup']['hostVerifiedClear'])"
+print('orphansRemoved:', d['cleanup']['evidence']['orphansRemoved'])
+print('hostVerifiedClear:', d['cleanup']['evidence']['hostVerifiedClear'])"
 ```
 
 Expected: the pre-existing container and both stale contexts appear under `orphansRemoved`, and `hostVerifiedClear` is `true`.
@@ -643,23 +652,29 @@ In `app/scripts/package-evidence-policy.test.mjs`, add:
 ```js
 test("mutation conformance requires the host to have been verified clear", () => {
   const evidence = acceptanceFixture(true);
+  // The harness nests the per-resource cleanup evidence one level down, under `cleanup.evidence`
+  // (see `collectCleanupResult()`), so the new fields sit beside `dindContainer` — not at the top
+  // of the `cleanup` block. A fixture that puts them at the top would make the policy read below
+  // look correct while it silently read `undefined` against real evidence.
   evidence.cleanup = {
     status: "passed",
     errors: [],
-    hostVerifiedClear: true,
-    orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
+    evidence: {
+      hostVerifiedClear: true,
+      orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
+    },
   };
   assert.doesNotThrow(() => validateMutationConformance(evidence));
 
   // A run that tidied its own resources but left someone else's debris is not a clear host, and
   // the difference is exactly what an interrupted run produces.
   const dirty = structuredClone(evidence);
-  dirty.cleanup.hostVerifiedClear = false;
+  dirty.cleanup.evidence.hostVerifiedClear = false;
   assert.throws(() => validateMutationConformance(dirty), /host verified clear/u);
 
   // Absent is not the same as true: older evidence must not pass by omission.
   const legacy = structuredClone(evidence);
-  delete legacy.cleanup.hostVerifiedClear;
+  delete legacy.cleanup.evidence.hostVerifiedClear;
   assert.throws(() => validateMutationConformance(legacy), /host verified clear/u);
 });
 
@@ -682,7 +697,7 @@ In `validateMutationConformance`, beside the existing cleanup assertion:
 
 ```js
   requireCondition(
-    evidence.cleanup?.hostVerifiedClear === true,
+    evidence.cleanup?.evidence?.hostVerifiedClear === true,
     `${description} must record the host verified clear of acceptance resources — ` +
       "a run that removed its own resources has not established that nothing leaked, " +
       "which is precisely the gap an interrupted run falls into",
