@@ -87,7 +87,10 @@ function runProcess(executable, args, { input = "", timeoutMs = 30_000 } = {}) {
       clearTimeout(killTimer);
       rejectRun(error);
     });
-    child.on("exit", (code, signal) => {
+    // `close`, not `exit`: exit fires when the process ends, close fires once its stdio has
+    // also been drained. Nothing here needs the earlier event, and reading a command's output
+    // is the whole point of running it.
+    child.on("close", (code, signal) => {
       clearTimeout(timeout);
       clearTimeout(killTimer);
       resolveRun({
@@ -642,7 +645,16 @@ async function inspectDockerContext(name) {
   ) {
     return { exists: false, endpoint: null };
   }
-  throw new Error(`Could not inspect Docker context ${name}: ${result.stderr}`);
+  // Everything the process told us, because the alternative is a re-run. An arm64 release job
+  // failed here with nothing after the colon: not a timeout, not a recognised "no such context",
+  // just a non-zero exit and two empty streams. Whatever that was, the next occurrence should
+  // name itself rather than cost another hour of CI to reproduce.
+  throw new Error(
+    `Could not inspect Docker context ${name}` +
+      `${result.timedOut ? " after timeout" : ""}` +
+      ` (exit ${result.code}${result.signal ? `, signal ${result.signal}` : ""}):` +
+      ` ${result.stderr.trim() || result.stdout.trim() || "no output on either stream"}`,
+  );
 }
 
 async function cleanupDockerContext(name, expectedEndpoint) {

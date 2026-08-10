@@ -81,7 +81,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            rpm libarchive-tools xvfb libfuse2t64
+            rpm libarchive-tools xvfb x11-utils libfuse2t64
 
       - name: Let Chromium sandbox itself on this runner
         # Every Electron launch in this job died before it drew anything:
@@ -110,6 +110,26 @@ jobs:
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           echo "userns restriction now: $(sysctl -n kernel.apparmor_restrict_unprivileged_userns)"
+
+      - name: Give the capture an X server to draw into
+        # The sandbox fix got Electron as far as trying to open a window, and it died on the
+        # next thing: "Missing X server or $DISPLAY". The host-candidate capture spawns Electron
+        # directly and expects a display to already exist — package-desktop.mjs wraps its own
+        # smoke runs in `xvfb-run`, but nothing wraps the capture, and a developer machine
+        # always has a real display so it never came up locally.
+        #
+        # One long-lived server exported to the whole job, rather than another xvfb-run wrapper:
+        # the smokes keep starting their own, which is what their timing budget measures, and
+        # anything else in the job that needs a display now simply has one.
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          for _ in $(seq 1 50); do
+            xdpyinfo -display :99 >/dev/null 2>&1 && break
+            sleep 0.1
+          done
+          xdpyinfo -display :99 >/dev/null || { echo "Xvfb never came up" >&2; exit 1; }
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "X server ready on :99"
 
       - name: Confirm the Docker daemon answers
         # The whole core evidence chain talks to a live daemon. Failing here, before an hour of
