@@ -552,11 +552,21 @@ if (!cleanupEvidence.hostVerifiedClear) {
 
 - [ ] **Step 3: Prove the sweep finds real debris**
 
-The host currently has genuine debris from an interrupted run — use it rather than a synthetic fixture:
+Use whatever debris the host already carries, and plant some when it carries none — a test that
+silently finds nothing to sweep proves nothing, and the pre-existing container may have been
+removed by the time this runs:
 
 ```bash
 docker ps -a --filter "label=io.anchorage.acceptance" --format '{{.Names}}'
-# expect: anchorage-dind-40d348de   (or whatever is present)
+
+# If that printed nothing, plant a fixture that looks exactly like interrupted-run debris:
+if [ -z "$(docker ps -aq --filter label=io.anchorage.acceptance)" ]; then
+  docker run -d --name anchorage-dind-deadbeef \
+    --label io.anchorage.acceptance=deadbeef-0000-4000-8000-000000000000 \
+    alpine:3.21 sleep 600
+  docker context create anchorage-dind-deadbeef --docker host=tcp://127.0.0.1:2375
+  mkdir -p artifacts/docker/acceptance-scratch-deadbeef
+fi
 
 ANCHORAGE_ACCEPTANCE_MUTATIONS=1 node tools/run-core-acceptance.mjs
 
