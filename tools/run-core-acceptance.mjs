@@ -744,6 +744,10 @@ const [generatorSha256, coreSha256] = await Promise.all([
 const client = new CoreClient(corePath);
 let dindResource = null;
 let teardownPromise = null;
+// Assigned by the signal handlers further down, but bound here because teardown and the artifact
+// writers both read them, and they are declared above every one of those.
+let interrupted = null;
+let abortRecord = null;
 let failure = null;
 const cleanupErrors = [];
 const cleanupEvidence = {
@@ -752,6 +756,27 @@ const cleanupEvidence = {
   dindContainer: null,
   scratchDirectory: null,
 };
+
+// Each cleanup failure records the signal that was already in flight when it happened, or null
+// when nothing was interfering.
+//
+// Teardown started by a signal runs while checks are still executing: it closes the core and
+// removes the container out from under whatever the run was doing, so `client.close()` can report
+// a shutdown failure in an abort that cleaned up perfectly. Those errors really did occur and are
+// kept — dropping them would also hide the teardown that genuinely failed, which reports through
+// this same list. What the artifact owes its reader is the difference between the two, and
+// `afterSignal` is it: a name means this error was recorded by a teardown already racing an
+// interrupt, `null` means the failure is the teardown's own.
+//
+// Per error rather than per artifact, because a signal that arrives midway through teardown must
+// not retroactively excuse the failures teardown had already recorded before it arrived.
+function recordCleanupError(error, prefix = "") {
+  const message = error instanceof Error ? error.message : String(error);
+  cleanupErrors.push({
+    message: `${prefix}${message}`,
+    afterSignal: interrupted,
+  });
+}
 
 // One shape for the cleanup block, whichever artifact writes it. A completed run and an
 // interrupted run report the same three fields, so the packaging policy — which reads
@@ -788,9 +813,7 @@ function runTeardown() {
           verifiedAbsent: true,
         };
       } catch (error) {
-        cleanupErrors.push(
-          error instanceof Error ? error.message : String(error),
-        );
+        recordCleanupError(error);
         cleanupEvidence.dockerContext = {
           name: dindResource.contextName,
           endpoint: dindResource.endpoint,
@@ -810,9 +833,7 @@ function runTeardown() {
           verifiedAbsent: true,
         };
       } catch (error) {
-        cleanupErrors.push(
-          error instanceof Error ? error.message : String(error),
-        );
+        recordCleanupError(error);
         cleanupEvidence.dockerSocketContext = {
           name: dindResource.socketContextName,
           endpoint: dindResource.socketEndpoint,
@@ -841,9 +862,7 @@ function runTeardown() {
           anonymousVolumesVerifiedAbsent: true,
         };
       } catch (error) {
-        cleanupErrors.push(
-          error instanceof Error ? error.message : String(error),
-        );
+        recordCleanupError(error);
         cleanupEvidence.dindContainer = {
           context,
           name: dindResource.containerName,
@@ -857,9 +876,7 @@ function runTeardown() {
     try {
       await client.close();
     } catch (error) {
-      cleanupErrors.push(
-        `Core shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      recordCleanupError(error, "Core shutdown failed: ");
     }
     // The scratch tree is removed after the core exits, because the disposable daemon's Unix
     // socket lives inside it and the core caches an open transport to that endpoint.
@@ -877,9 +894,7 @@ function runTeardown() {
           verifiedAbsent: true,
         };
       } catch (error) {
-        cleanupErrors.push(
-          error instanceof Error ? error.message : String(error),
-        );
+        recordCleanupError(error);
         cleanupEvidence.scratchDirectory = {
           path: dindResource.scratchDirectory,
           verifiedAbsent: false,
@@ -887,10 +902,34 @@ function runTeardown() {
       }
     }
     if (!failure && cleanupErrors.length > 0) {
-      failure = new Error(cleanupErrors.join("; "));
+      failure = new Error(
+        cleanupErrors.map((entry) => entry.message).join("; "),
+      );
     }
   })();
   return teardownPromise;
+}
+
+// One artifact path, and by the end of an interrupted run two callers want it: the epilogue below
+// and the signal handler's aborted record.
+//
+// `writeFile` truncates, so letting both through is not "one of the two records wins". Two
+// truncating writes to one path interleave: a real run left a 13,181-byte file whose JSON ended
+// at byte 12,774, with the tail of the other record trailing after it — evidence that no reader
+// and no gate can parse at all. Even the tidy outcome is a lie, because the last writer to finish
+// decides whether an interrupted run is remembered as `aborted` or as `failed`.
+//
+// The claim is made synchronously, before the first await, which on a single-threaded loop makes
+// it a real mutex: the second caller cannot take it, and awaits the first writer's file rather
+// than racing it. Returns whether this caller was the one that wrote.
+let evidenceWrite = null;
+function writeEvidenceOnce(record) {
+  if (evidenceWrite) return evidenceWrite.then(() => false);
+  evidenceWrite = (async () => {
+    await mkdir(resolve(outputPath, ".."), { recursive: true });
+    await writeFile(outputPath, `${JSON.stringify(record, null, 2)}\n`);
+  })();
+  return evidenceWrite.then(() => true);
 }
 
 /**
@@ -919,9 +958,16 @@ async function writeAbortedEvidence(signal) {
       cleanup: collectCleanupResult(),
       error: null,
     };
-    await mkdir(resolve(outputPath, ".."), { recursive: true });
-    await writeFile(outputPath, `${JSON.stringify(aborted, null, 2)}\n`);
-    process.stderr.write(`Recorded aborted run to ${outputPath}\n`);
+    // A signal that lands after the run has already committed its own record finds the write
+    // taken. Waiting for it and leaving it alone is the honest outcome — that record describes a
+    // run that reached the end — and waiting is also what keeps the exit below from truncating a
+    // write still in flight.
+    const recorded = await writeEvidenceOnce(aborted);
+    process.stderr.write(
+      recorded
+        ? `Recorded aborted run to ${outputPath}\n`
+        : `The completed run reached ${outputPath} first; left its record in place.\n`,
+    );
   } catch (error) {
     process.stderr.write(`Could not record the aborted run: ${error}\n`);
   }
@@ -934,17 +980,27 @@ async function writeAbortedEvidence(signal) {
 //
 // Recording an interrupted run matters as much as cleaning up after it. An `aborted` evidence
 // file says what was left behind; no file at all says nothing happened.
-let interrupted = null;
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     if (interrupted) return;
+    // Both assignments, with nothing awaited between them: the epilogue waits on `abortRecord`
+    // whenever it sees `interrupted`, so a window where one is set without the other would put
+    // it back to racing this handler for the artifact.
     interrupted = signal;
-    void (async () => {
+    abortRecord = (async () => {
       process.stderr.write(`\n${signal} received; tearing down before exit.\n`);
       await runTeardown();
       await writeAbortedEvidence(signal);
       process.exit(130);
-    })();
+    })().catch((error) => {
+      // Nothing above can reject today — every await in teardown is individually caught, and
+      // writeAbortedEvidence catches its own. But the epilogue now parks on this promise, so a
+      // future unguarded await here would hang the run instead of ending it, and the exit that
+      // this task exists to reach would silently stop happening. Teardown has settled by the time
+      // a rejection can arrive, so exiting here still cannot cut a teardown short.
+      process.stderr.write(`Interrupt handling failed: ${error}\n`);
+      process.exit(130);
+    });
   });
 }
 
@@ -2957,6 +3013,17 @@ try {
   await runTeardown();
 }
 
+// Everything below states the run's verdict, and an interrupted run's verdict is the handler's to
+// state. Without this guard the two paths converge here: the handler tears down, the request that
+// was in flight fails, `catch`/`finally` unwind through an already-resolved `runTeardown()`, and
+// this epilogue writes `status: "failed"` over — or into — the `aborted` record being written to
+// the same path. Whoever read the result would be told the run failed its checks, when what
+// actually happened is that someone stopped it midway.
+//
+// Waiting, rather than skipping ahead, is the point: `abortRecord` settles only by way of the
+// handler's own exit, so there is no second narrator and no second writer.
+if (interrupted) await abortRecord;
+
 const observedCheckIds = checks.map((check) => check.id).sort();
 const checkMatrixComplete =
   checks.length === requiredChecks.length &&
@@ -3013,8 +3080,7 @@ const result = {
       }
     : null,
 };
-await mkdir(resolve(outputPath, ".."), { recursive: true });
-await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`);
+await writeEvidenceOnce(result);
 const summary =
   `${result.status.toUpperCase()}: ${result.passedCheckCount} of ${checks.length} ` +
   `core acceptance checks executed, ${skippedChecks.length} skipped ` +
