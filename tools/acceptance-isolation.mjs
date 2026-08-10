@@ -52,3 +52,52 @@ export function classifyOrphans({
     scratchDirectories: orphaned(scratchNames, SCRATCH_DIRECTORY_PATTERN),
   };
 }
+
+/**
+ * Teardown steps, run once, in reverse order, with failures recorded rather than thrown.
+ *
+ * Reverse order because the resources nest: the container must go before the context that points
+ * at it, and the scratch directory last because it holds the socket the context named. Failures
+ * are collected instead of propagated because the first failing step is exactly when the
+ * remaining steps matter most — abandoning them is how a privileged container survives.
+ *
+ * Idempotent because two callers race for it: the `finally` block on the normal path, and the
+ * signal handler when a run is interrupted. Whichever arrives first does the work.
+ */
+export function createTeardownRegistry() {
+  const steps = [];
+  let ran = false;
+
+  return {
+    add(name, fn) {
+      if (typeof name !== "string" || name.length === 0) {
+        throw new TypeError("teardown step needs a name");
+      }
+      if (typeof fn !== "function") {
+        throw new TypeError(`teardown step ${name} needs a function`);
+      }
+      steps.push({ name, fn });
+    },
+    get size() {
+      return steps.length;
+    },
+    async run() {
+      if (ran) return { alreadyRan: true, steps: [] };
+      ran = true;
+      const results = [];
+      for (const step of [...steps].reverse()) {
+        try {
+          await step.fn();
+          results.push({ name: step.name, ok: true, error: null });
+        } catch (error) {
+          results.push({
+            name: step.name,
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      return { alreadyRan: false, steps: results };
+    },
+  };
+}
