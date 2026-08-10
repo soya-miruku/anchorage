@@ -354,14 +354,23 @@ In `tools/run-core-acceptance.mjs`, the `finally` block at line 2748 currently i
 // Declared before the try so the signal handlers can reach it too. The body is the existing
 // finally block, moved rather than rewritten: this step changes when cleanup runs, not what it
 // does, and mixing those two changes would make a teardown regression impossible to bisect.
-async function runTeardown() {
-  if (teardownComplete) return;
-  teardownComplete = true;
-  // ... existing finally body, unchanged ...
+//
+// A shared promise, not a boolean. With `if (teardownComplete) return`, a signal arriving while
+// the finally block is mid-teardown returns instantly, and the handler's process.exit() then
+// kills the teardown in flight — leaving the privileged container running, which is the exact
+// failure this task exists to prevent. Returning the in-flight promise makes the second caller
+// wait for the first to finish instead of racing past it.
+let teardownPromise = null;
+function runTeardown() {
+  if (teardownPromise) return teardownPromise;
+  teardownPromise = (async () => {
+    // ... existing finally body, unchanged ...
+  })();
+  return teardownPromise;
 }
 ```
 
-with `let teardownComplete = false;` beside `let dindResource = null;` at line 733, and the `finally` becoming:
+with `let teardownPromise = null;` beside `let dindResource = null;` at line 733, and the `finally` becoming:
 
 ```js
 } finally {
