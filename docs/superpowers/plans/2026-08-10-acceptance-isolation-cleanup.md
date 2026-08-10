@@ -562,13 +562,35 @@ const leftover = classifyOrphans({
 cleanupEvidence.hostVerifiedClear =
   leftover.containers.length === 0 && leftover.contexts.length === 0;
 if (!cleanupEvidence.hostVerifiedClear) {
-  cleanupErrors.push(
-    `Acceptance resources survived teardown: ${[...leftover.containers, ...leftover.contexts].join(", ")}`,
+  // Via recordCleanupError, NOT cleanupErrors.push. Task 3 changed that array's element type to
+  // {message, afterSignal}; a bare string leaves collectCleanupResult's
+  // `.map((entry) => entry.message)` yielding undefined for exactly this entry — so the run's
+  // top-level error would read "undefined" for the single most important sentence the sweep can
+  // say. It would fail silently rather than loudly.
+  recordCleanupError(
+    new Error(
+      `Acceptance resources survived teardown: ${[...leftover.containers, ...leftover.contexts].join(", ")}`,
+    ),
   );
 }
 ```
 
 - [ ] **Step 3: Prove the sweep finds real debris**
+
+**Run this step from a short-path checkout, not from the worktree.** A Unix socket path cannot
+exceed 108 bytes (`sun_path`), and the DinD engine socket this harness creates is
+`<workspace>/artifacts/docker/acceptance-scratch-XXXXXXXX/engine/docker.sock` — 141 bytes under
+`.claude/worktrees/acceptance-isolation-cleanup/`, so **every mutation run in the worktree fails
+about 23 seconds in**, before the sweep it is meant to exercise. This is a property of where the
+worktree sits, not of any change in this plan. Verify in a detached checkout at a short path:
+
+```bash
+git worktree add --detach /tmp/anch-verify HEAD   # 71-byte socket path, same code
+cd /tmp/anch-verify && <build the core as the harness expects>
+```
+
+Run the commands below there, then `git worktree remove /tmp/anch-verify` when finished. Report the
+path you verified at — a mutation result claimed from the long-path worktree did not run.
 
 Use whatever debris the host already carries, and plant some when it carries none — a test that
 silently finds nothing to sweep proves nothing, and the pre-existing container may have been
