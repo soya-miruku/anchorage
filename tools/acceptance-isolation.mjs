@@ -11,6 +11,31 @@
 export const ACCEPTANCE_LABEL = "io.anchorage.acceptance";
 
 /**
+ * The label that says which process created a container, so a later run can ask whether that
+ * process is still here rather than guessing.
+ *
+ * Two acceptance runs share one Docker daemon on a developer machine, and the label above cannot
+ * tell "debris from a run that died" from "the container a run started ninety seconds ago and is
+ * using right now". Sweeping the second is destroying a colleague's work; refusing to sweep the
+ * first is the leak this whole task exists to close. The creator identity is what separates them.
+ */
+export const ACCEPTANCE_CREATOR_LABEL = "io.anchorage.acceptance.creator";
+
+/**
+ * How old an acceptance resource must be before a run that cannot identify its creator treats it
+ * as debris.
+ *
+ * Only the fallback: a resource stamped by this harness is judged by whether its creating process
+ * is still running, which is exact and needs no clock. This bound covers the cases where that
+ * question cannot be asked — a container created by a checkout that predates the creator label, or
+ * by a different kernel boot, or from another machine sharing this daemon. It is deliberately far
+ * longer than a run: a mutation suite takes minutes, so half an hour is roughly a ten-times margin
+ * over the longest run measured here, and the cost of being wrong in this direction is only that
+ * unidentifiable debris waits for a later run.
+ */
+export const ORPHAN_MIN_AGE_MS = 30 * 60_000;
+
+/**
  * Container and context names the harness creates.
  *
  * Anchored at both ends and exact about the suffix: `anchorage-dind-40d348de-extra` is somebody
@@ -29,27 +54,156 @@ function suffixOf(name, pattern) {
 }
 
 /**
- * Splits observed names into "debris from an earlier run" and "not ours / still in use".
+ * The run suffix a name belongs to, whichever of the two conventions it follows.
+ *
+ * One suffix ties a container, its two contexts and its scratch directory together, which is what
+ * lets a verdict reached about the container decide the fate of the rest.
+ */
+export function acceptanceSuffixOf(name) {
+  return (
+    suffixOf(name, ACCEPTANCE_RESOURCE_PATTERN) ??
+    suffixOf(name, SCRATCH_DIRECTORY_PATTERN)
+  );
+}
+
+/** `boot=<uuid>;ns=<pid-namespace-inode>;pid=<pid>;start=<clock ticks since boot>` */
+export function formatCreatorIdentity({
+  bootId = null,
+  pidNamespace = null,
+  pid = null,
+  startTicks = null,
+} = {}) {
+  return [
+    `boot=${bootId ?? ""}`,
+    `ns=${pidNamespace ?? ""}`,
+    `pid=${pid ?? ""}`,
+    `start=${startTicks ?? ""}`,
+  ].join(";");
+}
+
+/**
+ * Reads back what `formatCreatorIdentity` wrote, or null when the value is not one of ours.
+ *
+ * `null` rather than a partly-filled object: a half-understood identity would be evaluated as
+ * though it were understood, and the resource on the other end of it is a privileged daemon
+ * somebody may still be using.
+ */
+export function parseCreatorIdentity(raw) {
+  if (typeof raw !== "string" || raw.length === 0) return null;
+  const fields = new Map();
+  for (const part of raw.split(";")) {
+    const at = part.indexOf("=");
+    if (at > 0) fields.set(part.slice(0, at), part.slice(at + 1));
+  }
+  const bootId = fields.get("boot");
+  const pid = Number(fields.get("pid"));
+  if (!bootId || !Number.isInteger(pid) || pid <= 0) return null;
+  const startTicks = Number(fields.get("start"));
+  return {
+    bootId,
+    pidNamespace: fields.get("ns") || null,
+    pid,
+    startTicks: Number.isFinite(startTicks) && fields.get("start") !== ""
+      ? startTicks
+      : null,
+  };
+}
+
+/**
+ * Whether an observed acceptance resource may belong to a run that is still going.
+ *
+ * The whole sweep turns on this one question, so the order of the answers is the order of their
+ * certainty:
+ *
+ * 1. The creator identity was written by this kernel boot and this pid namespace, so the pid in it
+ *    means here what it meant there. A probe that finds that exact process still running is the
+ *    only positive proof of liveness available, and a probe that finds it gone is proof of debris
+ *    — which is what lets a killed run's container be swept seconds later rather than after a
+ *    timeout.
+ * 2. Anything else — no identity, an identity from another boot or another namespace, a probe that
+ *    cannot decide — falls back to age. Age cannot prove liveness; it only bounds how long a live
+ *    run could plausibly have been running, so it is used to spare, never to condemn quickly.
+ *
+ * Ties go to sparing throughout. Leaving debris costs a later run one sweep; removing a live run's
+ * privileged daemon destroys that run and blames it for the wreckage.
+ */
+export function judgeResourceLiveness({
+  creator = null,
+  ageMs = null,
+  local = {},
+  minAgeMs = ORPHAN_MIN_AGE_MS,
+  probeCreator = () => "unknown",
+} = {}) {
+  const identity = parseCreatorIdentity(creator);
+  const comparable =
+    identity !== null &&
+    typeof local.bootId === "string" &&
+    local.bootId.length > 0 &&
+    identity.bootId === local.bootId &&
+    identity.pidNamespace === (local.pidNamespace ?? null);
+  if (comparable) {
+    const verdict = probeCreator(identity);
+    if (verdict === "alive") {
+      return { possiblyLive: true, reason: "creator-process-alive" };
+    }
+    if (verdict === "gone") {
+      return { possiblyLive: false, reason: "creator-process-gone" };
+    }
+  }
+  if (typeof ageMs !== "number" || !Number.isFinite(ageMs)) {
+    return { possiblyLive: true, reason: "age-unknown" };
+  }
+  return ageMs < minAgeMs
+    ? { possiblyLive: true, reason: "younger-than-min-age" }
+    : { possiblyLive: false, reason: "older-than-min-age" };
+}
+
+/**
+ * Splits observed names into "debris from an earlier run", "may belong to a live run", and
+ * "not ours".
  *
  * `activeSuffix` is excluded because the caller runs this while its own resources exist; without
  * that exclusion the preflight would sweep the run that invoked it.
+ *
+ * `liveSuffixes` is the same protection extended to everybody else's runs. It is the caller's job
+ * to decide which suffixes those are — that needs a daemon and a process table, which this module
+ * deliberately does not have — but the separation happens here so that both the preflight and the
+ * final host check partition the same names the same way. A resource in `possiblyLive` is not
+ * swept and is not counted against the host being clear; it is somebody's, and the artifact says
+ * so by name.
  */
 export function classifyOrphans({
   containerNames = [],
   contextNames = [],
   scratchNames = [],
   activeSuffix = null,
+  liveSuffixes = [],
 } = {}) {
-  const orphaned = (names, pattern) =>
-    names.filter((name) => {
+  const live = new Set(liveSuffixes);
+  const split = (names, pattern) => {
+    const orphans = [];
+    const spared = [];
+    for (const name of names) {
       const suffix = suffixOf(name, pattern);
-      return suffix !== null && suffix !== activeSuffix;
-    });
+      if (suffix === null || suffix === activeSuffix) continue;
+      (live.has(suffix) ? spared : orphans).push(name);
+    }
+    return { orphans, spared };
+  };
+
+  const containers = split(containerNames, ACCEPTANCE_RESOURCE_PATTERN);
+  const contexts = split(contextNames, ACCEPTANCE_RESOURCE_PATTERN);
+  const scratch = split(scratchNames, SCRATCH_DIRECTORY_PATTERN);
 
   return {
-    containers: orphaned(containerNames, ACCEPTANCE_RESOURCE_PATTERN),
-    contexts: orphaned(contextNames, ACCEPTANCE_RESOURCE_PATTERN),
-    scratchDirectories: orphaned(scratchNames, SCRATCH_DIRECTORY_PATTERN),
+    containers: containers.orphans,
+    contexts: contexts.orphans,
+    scratchDirectories: scratch.orphans,
+    possiblyLive: {
+      containers: containers.spared,
+      contexts: contexts.spared,
+      scratchDirectories: scratch.spared,
+    },
   };
 }
 

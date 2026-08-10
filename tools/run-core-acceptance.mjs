@@ -12,6 +12,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { readFileSync, readlinkSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -21,8 +22,13 @@ import {
   READ_ONLY_ACCEPTANCE_CHECK_IDS,
 } from "./acceptance-check-ids.mjs";
 import {
+  ACCEPTANCE_CREATOR_LABEL,
   ACCEPTANCE_LABEL,
+  ORPHAN_MIN_AGE_MS,
+  acceptanceSuffixOf,
   classifyOrphans,
+  formatCreatorIdentity,
+  judgeResourceLiveness,
 } from "./acceptance-isolation.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -595,6 +601,227 @@ async function volumeExistsAt(contextName, name) {
   return result.code === 0;
 }
 
+// --- is somebody else's run still using this? --------------------------------------------------
+//
+// Everything below exists to answer one question about a container that is not this run's: is the
+// process that created it still running. Without an answer the sweep has to choose between
+// destroying a live peer's privileged daemon and never sweeping anything, and this host really
+// does carry two acceptance runs at once.
+
+/** The kernel boot a pid is meaningful within. Linux only; null elsewhere, which disables the pid rule. */
+function readBootId() {
+  try {
+    return readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The pid namespace a pid is meaningful within, as its inode number.
+ *
+ * A run inside a container shares this kernel's boot id but numbers its processes separately, so
+ * its pid 42 is not this namespace's pid 42. Comparing namespaces is what stops a
+ * containerised peer's live daemon from being read as debris because pid 42 here looks wrong.
+ */
+function readPidNamespace() {
+  try {
+    const link = readlinkSync("/proc/self/ns/pid");
+    return /\[(\d+)\]/u.exec(link)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Field 22 of /proc/<pid>/stat: the process's start time, in clock ticks since boot.
+ *
+ * This is what makes the liveness answer exact rather than probable. `kill(pid, 0)` says a pid is
+ * in use, not that it is in use by the process that took it out — and a dead run's pid gets reused
+ * on a busy machine, which would pin its debris as "live" forever. A start time that does not
+ * match is a different process wearing the same number.
+ *
+ * The comm field is parenthesised and may itself contain spaces and parentheses, so the split
+ * starts after the last `)`. Fields 1 and 2 are dropped by that slice, which puts field 22 at
+ * index 19.
+ */
+function readProcessStartTicks(pid) {
+  try {
+    const raw = readFileSync(`/proc/${pid}/stat`, "utf8");
+    const closing = raw.lastIndexOf(")");
+    if (closing < 0) return null;
+    const fields = raw.slice(closing + 1).trim().split(/\s+/u);
+    const ticks = Number(fields[19]);
+    return Number.isFinite(ticks) ? ticks : null;
+  } catch {
+    return null;
+  }
+}
+
+const localCreatorContext = {
+  bootId: readBootId(),
+  pidNamespace: readPidNamespace(),
+};
+const procTableReadable = readProcessStartTicks(process.pid) !== null;
+// Stamped on this run's own container so the next run can ask about this process by name rather
+// than by guesswork. Written once, at module load, because the answer cannot change afterwards.
+const runCreatorIdentity = formatCreatorIdentity({
+  bootId: localCreatorContext.bootId,
+  pidNamespace: localCreatorContext.pidNamespace,
+  pid: process.pid,
+  startTicks: readProcessStartTicks(process.pid),
+});
+
+/**
+ * "alive" | "gone" | "unknown" for a creator identity already known to share this boot and
+ * namespace.
+ *
+ * "gone" is only ever returned from the exact comparison, because it is the answer that authorises
+ * a removal. Where /proc cannot be read the probe degrades to `kill(pid, 0)`, which can say
+ * "something holds this pid" but never "nothing ever will", so its negative answer is "unknown"
+ * and the age rule decides instead.
+ */
+function probeCreatorProcess(identity) {
+  if (procTableReadable && identity.startTicks !== null) {
+    const ticks = readProcessStartTicks(identity.pid);
+    if (ticks === null) return "gone";
+    return ticks === identity.startTicks ? "alive" : "gone";
+  }
+  try {
+    process.kill(identity.pid, 0);
+    return "alive";
+  } catch (error) {
+    // EPERM means the pid exists and belongs to another user — a peer run started from a
+    // different account is exactly the case this must not mistake for debris.
+    return error?.code === "EPERM" ? "alive" : "unknown";
+  }
+}
+
+/** What Docker knows about an acceptance container: when it was made, and by whom. */
+async function inspectAcceptanceContainer(name) {
+  const result = await runProcess("docker", [
+    "--context",
+    context,
+    "container",
+    "inspect",
+    "--format",
+    `{{.Created}}\t{{index .Config.Labels "${ACCEPTANCE_CREATOR_LABEL}"}}`,
+    name,
+  ]);
+  if (result.code !== 0 || result.timedOut) {
+    return { exists: false, ageMs: null, creator: null };
+  }
+  const [created = "", creator = ""] = result.stdout.trim().split("\t");
+  const createdMs = Date.parse(created);
+  return {
+    exists: true,
+    ageMs: Number.isFinite(createdMs) ? Date.now() - createdMs : null,
+    creator: creator === "<no value>" || creator === "" ? null : creator,
+  };
+}
+
+/**
+ * Every acceptance-owned resource this host is carrying, split by whether a live run may own it.
+ *
+ * One function for both the preflight and the final check, because the two must partition the host
+ * identically. When the preflight spares a peer's container and the final check calls the same
+ * container survived teardown, the run accuses a healthy peer of being wreckage — which is worse
+ * than either mistake alone, since it is the artifact that lies.
+ *
+ * `accountableSuffix` is the caller's own run. At the end of a run its resources are supposed to be
+ * gone, and its own creating process is by definition still alive, so without this it would excuse
+ * its own leak on the strength of its own heartbeat.
+ */
+async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
+  const [containerNames, contextNames, scratchNames] = await Promise.all([
+    dockerLinesAt(context, [
+      "ps",
+      "--all",
+      "--filter",
+      `label=${ACCEPTANCE_LABEL}`,
+      "--format",
+      "{{.Names}}",
+    ]),
+    dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
+    readdir(outputDirectory).catch(() => []),
+  ]);
+  const matched = classifyOrphans({ containerNames, contextNames, scratchNames });
+  const verdicts = new Map();
+  // The container is the only resource Docker will date or attribute, so it decides for the whole
+  // suffix. Contexts carry no creation time and no labels at all, and the scratch directory of a
+  // peer running from another checkout is not even on this workspace's disk.
+  for (const name of matched.containers) {
+    const suffix = acceptanceSuffixOf(name);
+    const observed = await inspectAcceptanceContainer(name);
+    verdicts.set(suffix, {
+      ...judgeResourceLiveness({
+        creator: observed.creator,
+        ageMs: observed.ageMs,
+        local: localCreatorContext,
+        minAgeMs: ORPHAN_MIN_AGE_MS,
+        probeCreator: probeCreatorProcess,
+      }),
+      creator: observed.creator,
+      ageMs: observed.ageMs,
+      datedBy: "container",
+    });
+  }
+  // A scratch directory with no container is dated by its own mtime. That covers the seconds
+  // between a peer in this same workspace creating its scratch tree and launching the daemon that
+  // will speak for it.
+  for (const name of matched.scratchDirectories) {
+    const suffix = acceptanceSuffixOf(name);
+    if (verdicts.has(suffix)) continue;
+    const ageMs = await stat(resolve(outputDirectory, name)).then(
+      (info) => Date.now() - info.mtimeMs,
+      () => null,
+    );
+    verdicts.set(suffix, {
+      ...judgeResourceLiveness({
+        ageMs,
+        local: localCreatorContext,
+        minAgeMs: ORPHAN_MIN_AGE_MS,
+      }),
+      creator: null,
+      ageMs,
+      datedBy: "scratch-directory-mtime",
+    });
+  }
+  const liveSuffixes = [...verdicts]
+    .filter(([suffix, verdict]) => verdict.possiblyLive && suffix !== accountableSuffix)
+    .map(([suffix]) => suffix);
+  const split = classifyOrphans({
+    containerNames,
+    contextNames,
+    scratchNames,
+    liveSuffixes,
+  });
+  const peers = liveSuffixes.map((suffix) => ({
+    suffix,
+    reason: verdicts.get(suffix).reason,
+    datedBy: verdicts.get(suffix).datedBy,
+    creator: verdicts.get(suffix).creator,
+    ageMs: verdicts.get(suffix).ageMs,
+    containers: split.possiblyLive.containers.filter(
+      (name) => acceptanceSuffixOf(name) === suffix,
+    ),
+    contexts: split.possiblyLive.contexts.filter(
+      (name) => acceptanceSuffixOf(name) === suffix,
+    ),
+    scratchDirectories: split.possiblyLive.scratchDirectories.filter(
+      (name) => acceptanceSuffixOf(name) === suffix,
+    ),
+  }));
+  return {
+    unaccountedFor: {
+      containers: split.containers,
+      contexts: split.contexts,
+      scratchDirectories: split.scratchDirectories,
+    },
+    peers,
+  };
+}
+
 async function cleanupDisposable(contextName, name, token) {
   const before = await verifyDisposableOwnership(contextName, name, token);
   if (!before.exists) return { anonymousVolumes: [] };
@@ -770,11 +997,39 @@ const cleanupEvidence = {
   scratchDirectory: null,
   // Debris this run found already on the host and removed before starting. Names are appended
   // only once Docker has reported the removal succeeded, so the list is a record of what went,
-  // not of what was attempted.
-  orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
-  // Whether a final enumeration of the host found no acceptance resources at all. False until
-  // that enumeration has been made and has come back empty, so a run that could not ask — or
-  // never reached the question — never reads as a clear host.
+  // not of what was attempted. `volumes` holds the anonymous volumes those containers carried:
+  // docker:29-dind declares VOLUME /var/lib/docker, so sweeping a container without taking its
+  // volume leaves ~10MB of somebody's disk behind per orphan, which is the same silent
+  // accumulation this harness already fixed for its own container.
+  orphansRemoved: {
+    containers: [],
+    contexts: [],
+    volumes: [],
+    scratchDirectories: [],
+  },
+  // Acceptance resources this run found and deliberately left alone, because the rule below says a
+  // live run may own them. Not debris and not this run's business — but named here, because
+  // "left alone on purpose" and "never noticed" are indistinguishable from an absence.
+  possibleLivePeers: [],
+  // Acceptance resources still on the host at the end, with no live run to explain them. This is
+  // the unexplained residue: neither removed nor attributable to a peer.
+  survivedTeardown: { containers: [], contexts: [], scratchDirectories: [] },
+  // The rule that decided which of those three lists each resource went into, with its parameters,
+  // so the precision of the claim is legible rather than implied.
+  livenessRule: {
+    name: "creator-process-liveness-with-age-fallback",
+    creatorLabel: ACCEPTANCE_CREATOR_LABEL,
+    minOrphanAgeMs: ORPHAN_MIN_AGE_MS,
+    processProbe: procTableReadable ? "proc-stat-starttime" : "signal-0",
+    thisRunCreator: runCreatorIdentity,
+  },
+  // Whether every acceptance resource on this host is accounted for: removed by this run, or left
+  // alone because `livenessRule` says a live run may own it and recorded by name in
+  // `possibleLivePeers`. False when anything was unaccounted for, and false when the question
+  // could not be asked at all — a run that never reached the enumeration is not a clear host.
+  //
+  // It is not a claim that the host holds no acceptance resources. On a machine running two
+  // acceptance suites at once that claim can only be bought by destroying the other run.
   hostVerifiedClear: false,
 };
 
@@ -927,28 +1182,30 @@ function runTeardown() {
     // about a resource this run never knew about, and that is precisely the case — an interrupted
     // predecessor — where `cleanup: passed` was previously free to be wrong.
     //
-    // `activeSuffix: null`, because by this point nothing is exempt. This run's own container is
-    // supposed to be gone too, so if it is still here it is leftover like any other.
+    // Scratch directories are enumerated here too. A leftover acceptance-scratch-* tree with no
+    // container attached is still acceptance debris on disk, and a check named "host verified
+    // clear" that cannot see it is not honest about its own name.
+    //
+    // The survey is what keeps this from accusing the innocent. It used to enumerate with no
+    // notion of a peer at all, so a second suite running on this same daemon — which happens on
+    // this machine — had its healthy, seconds-old container named in this run's artifact as
+    // having "survived teardown". `accountableSuffix` is this run's own 8-character suffix, never
+    // the 36-character token: the one suffix that must not be excused by the liveness rule, since
+    // the process that rule would find alive is this one.
     try {
-      const [remainingContainers, remainingContexts] = await Promise.all([
-        dockerLinesAt(context, [
-          "ps",
-          "--all",
-          "--filter",
-          `label=${ACCEPTANCE_LABEL}`,
-          "--format",
-          "{{.Names}}",
-        ]),
-        dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
-      ]);
-      const leftover = classifyOrphans({
-        containerNames: remainingContainers,
-        contextNames: remainingContexts,
-        scratchNames: [],
-        activeSuffix: null,
+      const survey = await surveyAcceptanceResources({
+        accountableSuffix: dindResource?.suffix ?? null,
       });
-      cleanupEvidence.hostVerifiedClear =
-        leftover.containers.length === 0 && leftover.contexts.length === 0;
+      for (const peer of survey.peers) {
+        cleanupEvidence.possibleLivePeers.push({ phase: "teardown", ...peer });
+      }
+      cleanupEvidence.survivedTeardown = survey.unaccountedFor;
+      const survivors = [
+        ...survey.unaccountedFor.containers,
+        ...survey.unaccountedFor.contexts,
+        ...survey.unaccountedFor.scratchDirectories,
+      ];
+      cleanupEvidence.hostVerifiedClear = survivors.length === 0;
       if (!cleanupEvidence.hostVerifiedClear) {
         // Via recordCleanupError, not cleanupErrors.push: this array holds
         // {message, afterSignal} objects, and a bare string would leave
@@ -956,9 +1213,7 @@ function runTeardown() {
         // exactly this entry — so the run's top-level error would read "undefined" for the
         // single most important sentence the sweep can say.
         recordCleanupError(
-          new Error(
-            `Acceptance resources survived teardown: ${[...leftover.containers, ...leftover.contexts].join(", ")}`,
-          ),
+          new Error(`Acceptance resources survived teardown: ${survivors.join(", ")}`),
         );
       }
     } catch (error) {
@@ -1839,6 +2094,92 @@ try {
     }
   }
 
+  // Outside the mutation guard on purpose. The host-clear claim at the end of teardown is made by
+  // every run, so a read-only run that finds a predecessor's leaked container fails — and used to
+  // fail with no code path anywhere in it able to remove what it was complaining about, which is a
+  // gate that reports a problem and withholds the remedy. The sweep touches only resources
+  // carrying this harness's own label AND matching its own anchored name pattern, so it is exactly
+  // as safe here as it is in a mutation run.
+  {
+    // The collision check further down asks "does my own random name already exist", which is a
+    // different and much weaker question than "is this host clear of acceptance debris". An
+    // interrupted run leaves a privileged daemon that no later run would ever notice, because its
+    // suffix is random and unrelated. Enumerating by label is what lets `cleanup: passed` mean the
+    // host is clear, rather than only that this run tidied up after itself.
+    //
+    // No `accountableSuffix`: this run has created nothing yet. Should that ever cease to be true,
+    // the survey spares this run's own container anyway — its creating process is this process,
+    // which the liveness rule finds alive — so the failure mode of moving this call is a spared
+    // container rather than a run that sweeps itself.
+    const survey = await surveyAcceptanceResources();
+    for (const peer of survey.peers) {
+      cleanupEvidence.possibleLivePeers.push({ phase: "preflight", ...peer });
+    }
+    const orphans = survey.unaccountedFor;
+    // A name is recorded only after Docker says it is gone. Recording the attempt instead would
+    // put the one claim this sweep exists to make — "this debris is no longer here" — on the
+    // strength of having asked, which is the habit the whole task is meant to break.
+    const sweepOrphan = async (kind, name, args) => {
+      const removed = await dockerRun(context, args, { timeoutMs: 60_000 });
+      if (removed.code !== 0 || removed.timedOut) {
+        recordCleanupError(
+          new Error(
+            `Failed to sweep orphaned ${kind} ${name}` +
+              `${removed.timedOut ? " after timeout" : ""}: ` +
+              `${removed.stderr.trim() || `exit ${removed.code}`}`,
+          ),
+        );
+        return false;
+      }
+      return true;
+    };
+    for (const name of orphans.containers) {
+      // Read the mounts before the removal, because afterwards there is nothing left to ask.
+      // Restricted to the 64-hex names Docker gives anonymous volumes: --volumes removes only
+      // those, and claiming a named volume was removed — or failing the run because one survived
+      // a removal that was never going to touch it — would both be wrong.
+      const attached = (await containerVolumeMounts(context, name)).filter(
+        (volume) => /^[0-9a-f]{64}$/u.test(volume),
+      );
+      if (
+        !(await sweepOrphan("container", name, [
+          "rm",
+          "--force",
+          // docker:29-dind declares VOLUME /var/lib/docker. Without this the sweep would fix the
+          // visible half of each orphan and leave ~10MB of anonymous volume behind per orphan,
+          // which is the leak this harness already closed for its own container at the cost of
+          // finding it the hard way.
+          "--volumes",
+          name,
+        ]))
+      ) {
+        continue;
+      }
+      cleanupEvidence.orphansRemoved.containers.push(name);
+      const surviving = [];
+      for (const volume of attached) {
+        if (await volumeExistsAt(context, volume)) surviving.push(volume);
+        else cleanupEvidence.orphansRemoved.volumes.push(volume);
+      }
+      if (surviving.length > 0) {
+        recordCleanupError(
+          new Error(
+            `Swept orphaned container ${name} left anonymous volumes on ${context}: ${surviving.join(", ")}`,
+          ),
+        );
+      }
+    }
+    for (const name of orphans.contexts) {
+      if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
+        cleanupEvidence.orphansRemoved.contexts.push(name);
+      }
+    }
+    for (const name of orphans.scratchDirectories) {
+      await rm(resolve(outputDirectory, name), { recursive: true, force: true });
+      cleanupEvidence.orphansRemoved.scratchDirectories.push(name);
+    }
+  }
+
   if (runMutations) {
     const token = randomUUID();
     const suffix = token.slice(0, 8);
@@ -1861,65 +2202,11 @@ try {
       scratchDirectory,
       endpoint: null,
       token,
+      // The 8-character suffix, not the 36-character token. Teardown hands this to the survey as
+      // the one suffix the liveness rule may not excuse, and the resource names only ever carry
+      // the former — a token there would exempt nothing and excuse this run's own leak.
+      suffix,
     };
-
-    // The collision check below asks "does my own random name already exist", which is a
-    // different and much weaker question than "is this host clear of acceptance debris". An
-    // interrupted run leaves a privileged daemon that no later run would ever notice, because its
-    // suffix is random and unrelated. Enumerating by label is what lets `cleanup: passed` mean the
-    // host is clear, rather than only that this run tidied up after itself.
-    const [hostContainers, hostContexts, hostScratch] = await Promise.all([
-      dockerLinesAt(context, [
-        "ps",
-        "--all",
-        "--filter",
-        `label=${ACCEPTANCE_LABEL}`,
-        "--format",
-        "{{.Names}}",
-      ]),
-      dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
-      readdir(outputDirectory).catch(() => []),
-    ]);
-    const orphans = classifyOrphans({
-      containerNames: hostContainers,
-      contextNames: hostContexts,
-      scratchNames: hostScratch,
-      // The 8-character suffix, not the 36-character token. They are different values here, and
-      // the name pattern only ever matches the former — passing the token would exempt nothing,
-      // which matters the moment this run's own resources exist.
-      activeSuffix: suffix,
-    });
-    // A name is recorded only after Docker says it is gone. Recording the attempt instead would
-    // put the one claim this sweep exists to make — "this debris is no longer here" — on the
-    // strength of having asked, which is the habit the whole task is meant to break.
-    const sweepOrphan = async (kind, name, args) => {
-      const removed = await dockerRun(context, args, { timeoutMs: 60_000 });
-      if (removed.code !== 0 || removed.timedOut) {
-        recordCleanupError(
-          new Error(
-            `Failed to sweep orphaned ${kind} ${name}` +
-              `${removed.timedOut ? " after timeout" : ""}: ` +
-              `${removed.stderr.trim() || `exit ${removed.code}`}`,
-          ),
-        );
-        return false;
-      }
-      return true;
-    };
-    for (const name of orphans.containers) {
-      if (await sweepOrphan("container", name, ["rm", "--force", name])) {
-        cleanupEvidence.orphansRemoved.containers.push(name);
-      }
-    }
-    for (const name of orphans.contexts) {
-      if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
-        cleanupEvidence.orphansRemoved.contexts.push(name);
-      }
-    }
-    for (const name of orphans.scratchDirectories) {
-      await rm(resolve(outputDirectory, name), { recursive: true, force: true });
-      cleanupEvidence.orphansRemoved.scratchDirectories.push(name);
-    }
 
     const isolationStarted = process.hrtime.bigint();
     const [existingContainer, existingContext, existingSocketContext] =
@@ -1963,6 +2250,12 @@ try {
         dindName,
         "--label",
         `${ACCEPTANCE_LABEL}=${token}`,
+        // Who to ask about before sweeping this. A second acceptance run on this daemon reads this
+        // label, finds that the process named in it is still running, and leaves the container
+        // alone; if that process is gone, the same label is what lets it sweep immediately instead
+        // of waiting out a timer.
+        "--label",
+        `${ACCEPTANCE_CREATOR_LABEL}=${runCreatorIdentity}`,
         "--env",
         "DOCKER_TLS_CERTDIR=",
         "--publish",
