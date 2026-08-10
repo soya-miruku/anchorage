@@ -2,7 +2,16 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { access, mkdir, open, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,6 +20,10 @@ import {
   MUTATION_ACCEPTANCE_CHECK_IDS,
   READ_ONLY_ACCEPTANCE_CHECK_IDS,
 } from "./acceptance-check-ids.mjs";
+import {
+  ACCEPTANCE_LABEL,
+  classifyOrphans,
+} from "./acceptance-isolation.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(scriptPath), "..");
@@ -755,6 +768,14 @@ const cleanupEvidence = {
   dockerSocketContext: null,
   dindContainer: null,
   scratchDirectory: null,
+  // Debris this run found already on the host and removed before starting. Names are appended
+  // only once Docker has reported the removal succeeded, so the list is a record of what went,
+  // not of what was attempted.
+  orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
+  // Whether a final enumeration of the host found no acceptance resources at all. False until
+  // that enumeration has been made and has come back empty, so a run that could not ask — or
+  // never reached the question — never reads as a clear host.
+  hostVerifiedClear: false,
 };
 
 // Each cleanup failure records the signal that was already in flight when it happened, or null
@@ -900,6 +921,55 @@ function runTeardown() {
           verifiedAbsent: false,
         };
       }
+    }
+    // Established by asking the host, not by assuming the removals above worked. Every field
+    // above reports on one resource this run knows it created; none of them can say anything
+    // about a resource this run never knew about, and that is precisely the case — an interrupted
+    // predecessor — where `cleanup: passed` was previously free to be wrong.
+    //
+    // `activeSuffix: null`, because by this point nothing is exempt. This run's own container is
+    // supposed to be gone too, so if it is still here it is leftover like any other.
+    try {
+      const [remainingContainers, remainingContexts] = await Promise.all([
+        dockerLinesAt(context, [
+          "ps",
+          "--all",
+          "--filter",
+          `label=${ACCEPTANCE_LABEL}`,
+          "--format",
+          "{{.Names}}",
+        ]),
+        dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
+      ]);
+      const leftover = classifyOrphans({
+        containerNames: remainingContainers,
+        contextNames: remainingContexts,
+        scratchNames: [],
+        activeSuffix: null,
+      });
+      cleanupEvidence.hostVerifiedClear =
+        leftover.containers.length === 0 && leftover.contexts.length === 0;
+      if (!cleanupEvidence.hostVerifiedClear) {
+        // Via recordCleanupError, not cleanupErrors.push: this array holds
+        // {message, afterSignal} objects, and a bare string would leave
+        // collectCleanupResult's `.map((entry) => entry.message)` yielding undefined for
+        // exactly this entry — so the run's top-level error would read "undefined" for the
+        // single most important sentence the sweep can say.
+        recordCleanupError(
+          new Error(
+            `Acceptance resources survived teardown: ${[...leftover.containers, ...leftover.contexts].join(", ")}`,
+          ),
+        );
+      }
+    } catch (error) {
+      // An unanswerable question is not a clear host. `hostVerifiedClear` stays false and the
+      // reason is recorded, rather than the failure escaping: this runs inside the `finally`
+      // that ends the whole script, where a rejection would replace the run's real error with
+      // this one and leave no artifact at all.
+      recordCleanupError(
+        error,
+        "Could not establish that the host is clear of acceptance resources: ",
+      );
     }
     if (!failure && cleanupErrors.length > 0) {
       failure = new Error(
@@ -1793,6 +1863,64 @@ try {
       token,
     };
 
+    // The collision check below asks "does my own random name already exist", which is a
+    // different and much weaker question than "is this host clear of acceptance debris". An
+    // interrupted run leaves a privileged daemon that no later run would ever notice, because its
+    // suffix is random and unrelated. Enumerating by label is what lets `cleanup: passed` mean the
+    // host is clear, rather than only that this run tidied up after itself.
+    const [hostContainers, hostContexts, hostScratch] = await Promise.all([
+      dockerLinesAt(context, [
+        "ps",
+        "--all",
+        "--filter",
+        `label=${ACCEPTANCE_LABEL}`,
+        "--format",
+        "{{.Names}}",
+      ]),
+      dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
+      readdir(outputDirectory).catch(() => []),
+    ]);
+    const orphans = classifyOrphans({
+      containerNames: hostContainers,
+      contextNames: hostContexts,
+      scratchNames: hostScratch,
+      // The 8-character suffix, not the 36-character token. They are different values here, and
+      // the name pattern only ever matches the former — passing the token would exempt nothing,
+      // which matters the moment this run's own resources exist.
+      activeSuffix: suffix,
+    });
+    // A name is recorded only after Docker says it is gone. Recording the attempt instead would
+    // put the one claim this sweep exists to make — "this debris is no longer here" — on the
+    // strength of having asked, which is the habit the whole task is meant to break.
+    const sweepOrphan = async (kind, name, args) => {
+      const removed = await dockerRun(context, args, { timeoutMs: 60_000 });
+      if (removed.code !== 0 || removed.timedOut) {
+        recordCleanupError(
+          new Error(
+            `Failed to sweep orphaned ${kind} ${name}` +
+              `${removed.timedOut ? " after timeout" : ""}: ` +
+              `${removed.stderr.trim() || `exit ${removed.code}`}`,
+          ),
+        );
+        return false;
+      }
+      return true;
+    };
+    for (const name of orphans.containers) {
+      if (await sweepOrphan("container", name, ["rm", "--force", name])) {
+        cleanupEvidence.orphansRemoved.containers.push(name);
+      }
+    }
+    for (const name of orphans.contexts) {
+      if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
+        cleanupEvidence.orphansRemoved.contexts.push(name);
+      }
+    }
+    for (const name of orphans.scratchDirectories) {
+      await rm(resolve(outputDirectory, name), { recursive: true, force: true });
+      cleanupEvidence.orphansRemoved.scratchDirectories.push(name);
+    }
+
     const isolationStarted = process.hrtime.bigint();
     const [existingContainer, existingContext, existingSocketContext] =
       await Promise.all([
@@ -1819,11 +1947,16 @@ try {
       [
         "run",
         "--detach",
+        // Docker removes the container when its daemon exits, so an interrupted run leaves an
+        // exited husk at worst rather than a running root-equivalent daemon. The sweep above
+        // covers the case where the container never exits; this covers the case where the
+        // harness never gets to ask it to.
+        "--rm",
         "--privileged",
         "--name",
         dindName,
         "--label",
-        `io.anchorage.acceptance=${token}`,
+        `${ACCEPTANCE_LABEL}=${token}`,
         "--env",
         "DOCKER_TLS_CERTDIR=",
         "--publish",
