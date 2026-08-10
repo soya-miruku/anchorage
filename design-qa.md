@@ -124,19 +124,19 @@ left to authorise future drift.
 ## Evidence
 
 - Renderer build:
-  `f17ad7996756af3ec74992cd9a2f89aa0a0728c009dc156871432432f94dbcff`
-  (20 files, 1,465,127 bytes).
+  `02542d1622395c41975f98c9ee68425afcb54600e2a05dbb35ee6f51d349f56d`
+  (20 files, 1,465,350 bytes).
 - Design handoff source (comp + README + support.js + baseline):
   `8b32cd6f6386890839afd1c2417b6abb6935557ae4c0b500c46a18291e35199c`.
 - `Anchorage v2.dc.html` (v2.5 revision):
   `4c940bf8830fbd82195117fae0c1672bd7425016ac334da0e22b7fd05fd0f6fe`
   (372,457 bytes).
 - Capture provenance SHA-256:
-  `d7eba12e5034773661d8dbd8fc25aa0e78e1e1825bbbc18d16721ef5fa4b765a`.
+  `fcc78434a1e050f29823a008e53c6e64b6144dc0d9ccc7265659ecd32de2a2f8`.
 - Paired-review attestation SHA-256:
-  `dc2a8f43d23b1f54c75162d7af37deebfee53d44c1169e96a3671d8b6db6f132`.
+  `29dfdbf3b2e700ae8d4ff00f4d42c5a0ff64c6e0c932a8a37bad199d5f747667`.
 - Design ledger SHA-256:
-  `77afd8b1f3f966b31c6e4e0df551cb010a7b80d01fa16dffd4f02c3824d3c3b4`.
+  `d98456c9ea3bc17766b81a4c593b2abd307246de610f29f772ff951233497358`.
 - Per-state diffs and masked comparisons: `artifacts/design/`.
 
 The attestation carries a distinct note per state — what was compared, what was
