@@ -1947,10 +1947,16 @@ try {
       [
         "run",
         "--detach",
-        // Docker removes the container when its daemon exits, so an interrupted run leaves an
-        // exited husk at worst rather than a running root-equivalent daemon. The sweep above
-        // covers the case where the container never exits; this covers the case where the
-        // harness never gets to ask it to.
+        // Autoremove is daemon-side and keys on the container exiting, so this covers the exits
+        // the harness is not around to tidy up after: a dind that crashes, a host that shuts its
+        // daemon down, a `docker stop` from whoever found the thing. Each of those used to leave
+        // an exited husk holding an anonymous copy of /var/lib/docker.
+        //
+        // Measured, because the obvious reading is wrong: it does NOT cover a killed harness.
+        // A detached container has no tie to the client that started it, so SIGKILL to this
+        // process leaves the daemon running and autoremove never fires — 20 seconds after a
+        // `kill -9` the privileged container was still `Up`. The preflight sweep above is what
+        // covers that case, and it is the only thing that does.
         "--rm",
         "--privileged",
         "--name",
