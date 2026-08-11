@@ -20,6 +20,10 @@ import { isDeepStrictEqual } from "node:util";
 
 import { extractFile, listPackage, statFile } from "@electron/asar";
 import {
+  detachedSignatureVerifyArguments,
+  judgeDetachedSignature,
+} from "../../tools/verify-detached-signature.mjs";
+import {
   HOST_CANDIDATE_SCREEN_IDS,
   canonicalPackagedPackageJson,
   validateCapabilityEvidence,
@@ -352,12 +356,18 @@ function run(command, args, {
       const detail = capture
         ? `\n${stdout}${stderr}`.trimEnd()
         : "";
-      rejectRun(
-        new Error(
-          `${basename(command)} failed${timedOut ? " after timing out" : ""} ` +
-            `(code ${String(code)}, signal ${String(signal)})${detail}`,
-        ),
+      const failure = new Error(
+        `${basename(command)} failed${timedOut ? " after timing out" : ""} ` +
+          `(code ${String(code)}, signal ${String(signal)})${detail}`,
       );
+      // A non-zero exit is a verdict for some callers rather than a crash — gpg says "this
+      // signature is bad" that way — and the message is prose. What they need is carried
+      // alongside it: the streams unmixed, and the status as a number rather than a sentence.
+      failure.exitCode = typeof code === "number" ? code : null;
+      failure.stdout = stdout;
+      failure.stderr = stderr;
+      failure.timedOut = timedOut;
+      rejectRun(failure);
     });
   });
 }
@@ -2358,29 +2368,56 @@ async function main() {
       // The receipt's own claim is not evidence: it is a JSON file that anyone could write.
       // The signature itself is re-verified here, so a hand-written receipt cannot make an
       // unsigned build look signed to a publishing pipeline.
-      // gpg exits non-zero on a bad signature, which is a verdict rather than a crash.
-      let output = "";
+      //
+      // What counts as verified is not decided here. It was, and it was decided wrongly: this
+      // matched `Good signature`, which gpg translates, and looked for the receipt's
+      // fingerprint as a substring of gpg's prose, which prints the *primary* spaced out in
+      // groups of four and only the signing subkey compactly. Against a signature of the shape
+      // this project's key produces — signed by a subkey, because the release key deliberately
+      // cannot certify — it reported SIGNATURE DID NOT VERIFY for a perfectly good signature.
+      // tools/sign-release.mjs had already learned all of that; the fix is to ask it rather
+      // than to learn it again, so there is one definition of the accept set and one place to
+      // get it wrong.
+      //
+      // gpg exits non-zero on a bad signature, which is a verdict rather than a crash, so the
+      // status is captured and handed over rather than thrown.
+      let verification = { stdout: "", stderr: "", status: 1 };
       try {
-        const verification = await run(
+        const verified = await run(
           "gpg",
-          [
-            "--verify",
+          detachedSignatureVerifyArguments(
             join(RELEASE_DIRECTORY, "SHA256SUMS.asc"),
             join(RELEASE_DIRECTORY, "SHA256SUMS"),
-          ],
+          ),
           { capture: true, timeoutMs: 60_000 },
         );
-        output = `${verification.stdout ?? ""}${verification.stderr ?? ""}`;
+        verification = {
+          stdout: verified.stdout ?? "",
+          stderr: verified.stderr ?? "",
+          status: 0,
+        };
       } catch (error) {
-        output = String(error?.stderr ?? error?.message ?? error);
+        verification = {
+          stdout: String(error?.stdout ?? ""),
+          stderr: String(error?.stderr ?? error?.message ?? error),
+          status: typeof error?.exitCode === "number" ? error.exitCode : 1,
+        };
       }
-      if (
-        /Good signature/u.test(output) &&
-        output.includes(receipt.signingKeyFingerprint)
-      ) {
+      // Against the fingerprint the receipt names, because that is the question this step
+      // answers: does the signature beside these artifacts match the identity the receipt
+      // claims signed them. Which identity is the *right* one is the publish step's question,
+      // and `sign-release.mjs --verify-only --key <fingerprint>` is where it is asked.
+      const verdict = judgeDetachedSignature({
+        ...verification,
+        expectedPrimaryFingerprint: receipt.signingKeyFingerprint,
+      });
+      if (verdict.ok) {
         signatureState = `signed by ${receipt.signingKeyFingerprint}`;
+        if (verdict.viaSubkey) {
+          signatureState += ` (subkey ${verdict.signedByKey})`;
+        }
       } else {
-        signatureState = "SIGNATURE DID NOT VERIFY";
+        signatureState = `SIGNATURE DID NOT VERIFY — ${verdict.summary}`;
       }
     }
   } catch {
