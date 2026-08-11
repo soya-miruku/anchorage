@@ -1130,11 +1130,12 @@ const cleanupEvidence = {
   },
   // Debris this run enumerated and then found already gone when it reached it: another run
   // sweeping the same wreckage, a manual `docker rm`, the daemon autoreaping an exited `--rm`
-  // husk. A separate list because `orphansRemoved` means "this run removed it", and `docker rm
-  // --force` exits 0 on a name that is not there — so folding the two together buys a tidy-looking
-  // removal record for work nobody did. Nothing is said here about what the container held: its
-  // volumes went, or did not go, with whoever removed it.
-  orphansVanishedBeforeSweep: { containers: [] },
+  // husk. A separate list because `orphansRemoved` means "this run removed it", and both
+  // `docker rm --force` and `docker context rm --force` exit 0 on a name that is not there — so
+  // folding the two together buys a tidy-looking removal record for work nobody did. Nothing is
+  // said here about what the container held: its volumes went, or did not go, with whoever
+  // removed it.
+  orphansVanishedBeforeSweep: { containers: [], contexts: [] },
   // Acceptance resources this run found and deliberately left alone, because the rule below says a
   // live run may own them. Not debris and not this run's business — but named here, because
   // "left alone on purpose" and "never noticed" are indistinguishable from an absence.
@@ -1644,6 +1645,30 @@ try {
       }
     }
     for (const name of orphans.contexts) {
+      // Asked before removing, for the same reason the container branch above asks: measured on
+      // this host, `docker context rm --force anchorage-dind-deadbeef` on a context that does not
+      // exist prints `anchorage-dind-deadbeef` and exits 0 — byte-for-byte what a real removal
+      // prints. So when two runs sweep the same debris, the loser cannot tell from the result
+      // that it removed nothing, and `orphansRemoved.contexts` — "this run found it and removed
+      // it" — would name a context it never touched.
+      let present;
+      try {
+        present = (await inspectDockerContext(name)).exists;
+      } catch (error) {
+        // An inspect that failed answers neither way, so this run claims neither: not removed,
+        // not vanished. The context stays unaccounted for, the teardown survey enumerates it
+        // again, and `hostVerifiedClear` is false — which is what an unanswered question about
+        // leaked debris is worth. Recorded rather than thrown so the run reaches that survey.
+        recordCleanupError(
+          error,
+          `Could not determine whether orphaned context ${name} is still present: `,
+        );
+        continue;
+      }
+      if (!present) {
+        cleanupEvidence.orphansVanishedBeforeSweep.contexts.push(name);
+        continue;
+      }
       if (await sweepOrphan("context", name, ["context", "rm", "--force", name])) {
         cleanupEvidence.orphansRemoved.contexts.push(name);
       }

@@ -114,9 +114,11 @@ path.
    the artifact distinguishes the four dispositions (`orphansRemoved`, `possibleLivePeers`,
    `orphansVanishedBeforeSweep`, `survivedTeardown`) rather than collapsing them. The fourth was
    added on 2026-08-11: debris can disappear between being enumerated and being swept — a second
-   run clearing the same wreckage, which is the case the preflight exists for — and `docker rm
-   --force` exits 0 on a name that is no longer there, so a run that does not keep this apart
-   records a removal it did not perform. The claim is also scoped, not host-global: containers come
+   run clearing the same wreckage, which is the case the preflight exists for — and both `docker rm
+   --force` and `docker context rm --force` exit 0, echoing the name exactly as a real removal
+   does, on a name that is no longer there, so a run that does not keep this apart records a
+   removal it did not perform. It covers containers and contexts alike for that reason. The claim
+   is also scoped, not host-global: containers come
    from one Docker context and must clear both the label filter and the anchored name pattern,
    contexts from one user's config, scratch directories only from the running workspace's
    `artifacts/docker` — and volumes are never enumerated at all, so nothing here is a claim about
