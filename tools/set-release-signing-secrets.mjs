@@ -66,6 +66,36 @@ arguments at all. Both are public facts — a fingerprint is not a secret and ne
 repository name — and both are printed back before anything is done with them, because a script
 that uploads secrets should never leave you guessing which repository it chose.
 */
+/*
+Re-exec with core dumps disabled, before anything secret exists.
+
+A handler can only cover the signals it is allowed to catch. SIGQUIT is handled below, but
+SIGSEGV, SIGABRT (which is how V8 reports a fatal error or OOM), SIGBUS, SIGILL and SIGFPE all
+terminate with a dump and cannot be usefully caught with secrets resident — and this machine pipes
+`core_pattern` to systemd-coredump with `ulimit -c` unlimited and three-day retention readable by
+the owner. A review recovered a canary string from a dump here to establish that, and separately
+measured the passphrase and the armoured key sitting in writable memory at the same instant.
+
+`ulimit -c 0` closes the entire class in one move rather than one signal at a time. Measured: with
+RLIMIT_CORE at 0 the kernel still invokes systemd-coredump, which records `Storage: none` and
+writes no bytes. Node cannot set its own rlimit, so this re-execs through `sh` once, guarded by an
+environment variable so it cannot loop. Doing it here, before the passphrase prompt and before any
+export, means the process that holds a secret never had dumps enabled at all.
+
+If the re-exec fails the script continues rather than refusing: a missing `sh` should not stop
+someone setting up signing, and the handled-signal path still covers the interactive case.
+*/
+if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
+  const relaunch = spawnSync(
+    "sh",
+    ["-c", 'ulimit -c 0 2>/dev/null; exec "$@"', "sh", process.execPath, ...process.argv.slice(1)],
+    { stdio: "inherit", env: { ...process.env, ANCHORAGE_SIGNING_NO_CORE: "1" } },
+  );
+  if (relaunch.status !== null || relaunch.signal !== null) {
+    process.exit(relaunch.status === null ? 128 : relaunch.status);
+  }
+}
+
 const DEFAULT_PRIMARY = "6EC9EBF75C48EA12D1C54A7E22E69E9DC85620D3";
 const DEFAULT_REPOSITORY = "soya-miruku/anchorage";
 
@@ -307,14 +337,29 @@ function gpg(args, { passphrase: secret, stdin, home, statusOnStdout = false } =
     if (stdin !== undefined) child.stdin.end(stdin);
     else child.stdin.end();
     child.on("error", (error) => fail(`Could not run gpg: ${error.message}`));
-    child.on("close", (status) =>
+    child.on("close", (status) => {
+      /*
+      Zero the stream's own chunks, not just the joined copy.
+
+      `Buffer.concat` allocates: measured, it returns a new buffer even for a single chunk. So the
+      armoured secret key existed twice — once in the chunk the stream pushed here, once in the
+      result — and scrubbing only the result left a complete copy behind. A review counted them:
+      three copies before any zeroing, two after the result was scrubbed, and only the probe's own
+      needles once the chunks went too.
+
+      That second copy is not academic on this host. Any dump vector other than the signals the
+      script handles — a V8 OOM abort, SIGSEGV, a same-uid `gcore` — writes whatever is resident,
+      and `core_pattern` here pipes to systemd-coredump with three-day retention.
+      */
+      const joined = Buffer.concat(stdout);
+      for (const chunk of stdout) chunk.fill(0);
       resolveRun({
         status,
-        stdout: Buffer.concat(stdout),
+        stdout: joined,
         stderr: Buffer.concat(stderr).toString("utf8"),
         statusText: Buffer.concat(statusText).toString("utf8"),
-      }),
-    );
+      });
+    });
   });
 }
 
