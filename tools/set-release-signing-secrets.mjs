@@ -143,6 +143,15 @@ let rawTerminal;
 /** The passphrase, held as bytes so it is never interned as an immutable JavaScript string. */
 let passphrase;
 
+/*
+The exported armour, held at module scope for the same reason the passphrase is: so `cleanup` can
+overwrite the one copy this process owns. It began as a local, on the reasoning that only the
+typed secret needs scrubbing — wrong twice over. The bundle *is* the signing key, and a review
+measured both of them sitting in writable memory at the same instant, so whatever catches one
+catches the other.
+*/
+let exportedArmour;
+
 let cleaned = false;
 function cleanup() {
   if (cleaned) return;
@@ -167,6 +176,10 @@ function cleanup() {
   if (passphrase) {
     passphrase.fill(0);
     passphrase = undefined;
+  }
+  if (exportedArmour) {
+    exportedArmour.fill(0);
+    exportedArmour = undefined;
   }
 
   /*
@@ -203,6 +216,32 @@ function cleanup() {
 }
 
 process.on("exit", cleanup);
+
+/*
+SIGQUIT is handled apart from the others because re-raising it is exactly the wrong move.
+
+Its default action is terminate-and-dump-core, and a dump of this process is the worst possible
+artifact: a review froze the real script mid-run and found the passphrase in one writable region
+and the armoured signing key in another. On this machine `/proc/sys/kernel/core_pattern` pipes to
+systemd-coredump, `ulimit -c` is unlimited, and dumps are kept for three days readable by their
+owner — confirmed with a canary process, whose string came back out of `coredumpctl dump`. So one
+keystroke would write both halves of the release identity to persistent storage in cleartext.
+
+And it is a keystroke, not a hypothetical: Ctrl-\ reaches this process for the whole window
+between the export and the second upload — seconds, longer if the network stalls. Only the
+passphrase prompt is immune, because raw mode disables ISIG.
+
+Cleaning up and re-raising, as the other signals do, would clean up and then still dump. Exiting
+with 128+3 reports the same wait status to the caller without producing the file.
+
+SIGKILL remains outside this and always will be: it cannot be caught, which is why the workspace
+lives on a tmpfs that the next reboot clears rather than relying on a handler alone.
+*/
+process.on("SIGQUIT", () => {
+  cleanup();
+  process.exit(131);
+});
+
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
   /*
   An exit handler alone is not enough, and the failure is quiet rather than loud: a script that
@@ -584,6 +623,9 @@ const exported = await gpg(
   ["--armor", "--export-secret-subkeys", `${signingSubkey.fingerprint}!`],
   { passphrase },
 );
+// Same buffer, not a copy, so zeroing it in cleanup zeroes the bytes gpg handed back rather than
+// a duplicate that leaves the original behind.
+exportedArmour = exported.stdout;
 if (exported.status !== 0) {
   const cause = classifyPassphraseFailure(exported);
   fail(
@@ -742,7 +784,14 @@ async function validate(bundle, secret) {
   happily with a passphrase that is definitely wrong. That is this script's own failure mode
   reproduced one layer up, so it is measured rather than assumed, on every run.
   */
-  const decoy = Buffer.concat([secret, Buffer.from("-not-the-passphrase")]);
+  /*
+  The decoy is a fixed string rather than the real passphrase with a suffix. Deriving it from the
+  secret copied the live value into a second buffer and handed it to a second gpg process and a
+  second agent connection — for no gain, since what this control needs is only "a passphrase that
+  is not the right one", and a constant is that. Fewer copies of a secret is strictly better, and
+  a decoy that cannot contain it is easier to be sure about than one that is zeroed afterwards.
+  */
+  const decoy = Buffer.from("not-the-passphrase-for-this-key");
   const control = await gpg(
     [
       "--yes",
