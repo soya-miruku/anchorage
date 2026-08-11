@@ -79,6 +79,7 @@ export, means the process that holds a secret never had dumps enabled at all.
 If the re-exec fails the script continues rather than refusing: a missing `sh` should not stop
 someone setting up signing, and the handled-signal path still covers the interactive case.
 */
+let relaunchWarned = false;
 if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
   const child = spawn(
     "sh",
@@ -146,6 +147,9 @@ if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
           "  A crash could then write the key and passphrase to a core file. To avoid that:\n" +
           "    ulimit -c 0; node tools/set-release-signing-secrets.mjs\n",
       );
+      // One condition, one warning. The limits check below reports the same fact, and its advice
+      // ("unset ANCHORAGE_SIGNING_NO_CORE") does not apply here, where the variable is not set.
+      relaunchWarned = true;
       runHere();
     });
 
@@ -170,8 +174,15 @@ if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
         this is a junk file in a three-day store rather than an exposure, but it is still a file
         nobody wants and 128+n reports the same thing without it.
         */
-        const dumping = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE", "SIGSYS", "SIGTRAP"]);
-        if (dumping.has(signal)) {
+        /*
+        Named the safe ones rather than the dangerous ones. The first version listed the dumping
+        signals and re-raised everything else, which left SIGXCPU and SIGXFSZ off the list — both
+        dump by default, and `kill -XCPU` on the child duly produced two coredump events where
+        the point of this branch was to produce none. Inverting it closes the class: only the
+        signals the relay forwards, whose default action is a plain termination, are re-raised.
+        */
+        const plainTermination = new Set(["SIGINT", "SIGTERM", "SIGHUP"]);
+        if (!plainTermination.has(signal)) {
           process.exit(128 + (constants.signals[signal] ?? 0));
         }
         process.removeAllListeners(signal);
@@ -198,16 +209,44 @@ run without the re-exec should be able to, and someone without one should be tol
 try {
   const limits = readFileSync("/proc/self/limits", "utf8");
   const core = limits.split("\n").find((line) => /max core file size/iu.test(line));
-  if (core && !/\s0\s+0\s/u.test(core)) {
+  /*
+  Only the soft limit decides whether a dump is written, so only the soft limit is read. Testing
+  both columns warned about `ulimit -S -c 0` — soft 0, hard unlimited — which writes no dump at
+  all. A warning that fires when the thing it warns about cannot happen teaches its reader to
+  ignore it.
+  */
+  const soft = core?.trim().split(/\s{2,}/u)[1];
+  if (soft !== undefined && soft !== "0" && !relaunchWarned) {
     process.stderr.write(
-      `Core dumps are not disabled for this process (${core.trim()}).\n` +
+      `Core dumps are not disabled for this process (soft limit ${soft}).\n` +
         "  A crash while the key and passphrase are in memory could write them to a core file.\n" +
-        "  Unset ANCHORAGE_SIGNING_NO_CORE, or run: ulimit -c 0; node tools/set-release-signing-secrets.mjs\n",
+        (process.env.ANCHORAGE_SIGNING_NO_CORE
+          ? "  Unset ANCHORAGE_SIGNING_NO_CORE, or run: ulimit -c 0; node tools/set-release-signing-secrets.mjs\n"
+          : "  Run: ulimit -c 0; node tools/set-release-signing-secrets.mjs\n"),
     );
   }
 } catch {
   // No procfs. Nothing to report rather than something invented.
 }
+
+/** Secrets this run has actually set, so a later refusal can describe the repository truthfully. */
+const uploaded = [];
+
+/*
+The launcher to watch for, resolved once and only while the answer is still trustworthy.
+
+`ANCHORAGE_SIGNING_PARENT` is an inherited environment variable, so it can arrive stale from an
+earlier shell, and `sh` might wrap rather than exec, leaving a process in between. Both make it
+point at something that is not our launcher. At this instant — before any await, before any
+secret — our real parent is known for certain, so the variable is trusted only if it agrees with
+it, and ignored entirely otherwise. Ignoring is the safe direction: it costs the kill -9 guard,
+which is a narrow case, rather than refusing a run nobody killed, which is not.
+*/
+const declaredLauncher = Number(process.env.ANCHORAGE_SIGNING_PARENT);
+const launcherWatch =
+  Number.isInteger(declaredLauncher) && declaredLauncher > 0 && process.ppid === declaredLauncher
+    ? declaredLauncher
+    : null;
 
 /*
 The key and the repository this project actually releases from, so the common case is no
@@ -1022,13 +1061,35 @@ async function setSecret(name, value) {
   start-up because the kill can land at any point before the upload, and this is the last moment
   where refusing still means nothing has changed.
   */
-  const launcher = process.env.ANCHORAGE_SIGNING_PARENT;
-  if (launcher && String(process.ppid) !== launcher) {
-    fail(
-      `The process that launched this one is gone, so it was probably killed deliberately.\n` +
-        `  Nothing has been uploaded, and ${name} was the next thing that would have been.\n\n` +
-        `  Run it again when you mean to.`,
-    );
+  if (launcherWatch !== null) {
+    /*
+    "Is my launcher dead", not "is that pid still my parent". The stronger question refuses runs
+    nobody killed: a `/bin/sh` that wraps rather than execs leaves node's parent as `sh`, and an
+    `ANCHORAGE_SIGNING_PARENT` inherited from an earlier shell is stale by construction. Both were
+    reproduced, and both burned a typed passphrase and a full validation before blaming the
+    operator for a kill that never happened. Refusing a good run is a worse outcome than the case
+    the check exists for.
+
+    EPERM means the pid exists and belongs to someone else — alive, so not our case. Only ESRCH is
+    "gone".
+    */
+    let launcherGone = false;
+    try {
+      process.kill(launcherWatch, 0);
+    } catch (error) {
+      launcherGone = error.code === "ESRCH";
+    }
+    if (launcherGone) {
+      fail(
+        uploaded.length === 0
+          ? `The process that launched this one is gone, so it was probably killed deliberately.\n` +
+              `  Nothing has been uploaded, and ${name} was the next thing that would have been.\n\n` +
+              `  Run it again when you mean to.`
+          : `The process that launched this one is gone, so it was probably killed deliberately.\n` +
+              `  ${name} was not uploaded — but ${uploaded.join(" and ")} already was, so the\n` +
+              `  repository is now half-updated. Re-run this script to finish the job.`,
+      );
+    }
   }
   const result = await gh(
     [
@@ -1046,6 +1107,10 @@ async function setSecret(name, value) {
   if (result.status !== 0) {
     return { ok: false, detail: `${result.stdout}${result.stderr}`.trim() };
   }
+  // Recorded so a later refusal can say what the repository actually holds. A message that says
+  // "nothing has been uploaded" while one secret has been is the one failure this file cannot
+  // afford, since every other guarantee here rests on its reports being true.
+  uploaded.push(name);
   return { ok: true };
 }
 
