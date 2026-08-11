@@ -17,7 +17,7 @@
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,12 +45,32 @@ async function sha256File(path) {
   return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
+/**
+ * Runs gpg and reports what it did: both streams and its exit status.
+ *
+ * The failure path keeps stdout, which it used to discard. --status-fd=1 writes every
+ * `[GNUPG:]` line to stdout, so throwing it away on a non-zero exit binned the only
+ * machine-readable account of the failure and left gpg's prose, which for a release that
+ * verified an empty signature was the whole of "gpg: verify signatures failed: Unknown system
+ * error". The lines that named the cause — `NODATA 2`, `FAILURE verify` — were on the stream
+ * this function dropped.
+ *
+ * The exit status is kept because callers below have to distinguish "gpg declined" from "gpg
+ * worked", and were reduced to inferring it from a file's existence or from prose. execFile
+ * reports a non-zero exit as a numeric `code` and a failure to launch gpg at all as a string
+ * one, so anything that is not a number is still a failure and is reported as such.
+ */
 async function gpg(args, { allowFailure = false } = {}) {
   try {
-    return await run("gpg", args, { maxBuffer: 8 * 1024 * 1024 });
+    const { stdout, stderr } = await run("gpg", args, { maxBuffer: 8 * 1024 * 1024 });
+    return { stdout, stderr, status: 0 };
   } catch (error) {
-    if (allowFailure) return { stdout: "", stderr: String(error?.stderr ?? error) };
-    throw error;
+    if (!allowFailure) throw error;
+    return {
+      stdout: String(error?.stdout ?? ""),
+      stderr: String(error?.stderr ?? error),
+      status: typeof error?.code === "number" ? error.code : 1,
+    };
   }
 }
 
@@ -171,11 +191,30 @@ if (!verifyOnly) {
     ],
     { allowFailure: true },
   );
-  if (!existsSync(signaturePath)) {
+  /*
+  Whether signing happened is gpg's exit status and a byte count. The existence of the output
+  file is not the same question, and the difference is what cost a release.
+
+  gpg creates --output before it needs the key. When the agent has no passphrase cached for the
+  signing key and `pinentry-mode loopback` says the caller will supply one, a --batch run has
+  nowhere left to ask — "Sorry, we are in batchmode - can't get input" — and gives up with the
+  file already created and empty. `existsSync` said yes to nothing at all, this printed "Signed
+  with <fingerprint>", and the first thing to notice was --verify several lines later, which
+  could only report the empty file as an unexplainable system error.
+
+  Neither half is wrong on its own: an existence test is a reasonable thing to write, and
+  loopback is a reasonable thing for CI to configure. Together they announce a signed release
+  that carries no signature, which is the worst output this script has available to it.
+  */
+  const signatureBytes = existsSync(signaturePath) ? statSync(signaturePath).size : 0;
+  if (signing.status !== 0 || signatureBytes === 0) {
     // A half-written SHA256SUMS with no signature beside it reads as a finished release that
-    // simply was not signed. Removing it makes the failure unambiguous.
+    // simply was not signed. Removing it makes the failure unambiguous. The empty signature
+    // goes with it: the release workflow renames SHA256SUMS.asc if the file is there, so a
+    // zero-byte one left on disk is a placeholder waiting to be published as protection.
     await rm(sumsPath, { force: true });
-    const reason = `${signing.stdout ?? ""}${signing.stderr ?? ""}`.trim();
+    await rm(signaturePath, { force: true });
+    const reason = `${signing.stdout}${signing.stderr}`.trim();
     if (/Timeout|No pinentry|Inappropriate ioctl|cannot open/iu.test(reason)) {
       fail(
         "gpg could not prompt for the passphrase.\n" +
@@ -185,7 +224,10 @@ if (!verifyOnly) {
           `  gpg said: ${reason}`,
       );
     }
-    fail(`gpg did not produce a signature:\n${reason}`);
+    // Everything else quotes gpg verbatim and says what it exited with, rather than guessing
+    // at a cause from a translated string. In CI the message that belongs here is gpg's own
+    // report that it had no way to obtain the passphrase.
+    fail(`gpg exited ${signing.status} without signing ${basename(sumsPath)}:\n${reason}`);
   }
   console.log(`Signed with ${fingerprint}`);
 }
@@ -232,6 +274,25 @@ if (signedByPrimary !== fingerprint) {
   fail(
     `The signature verified but its primary key is ${signedByPrimary}, not ${fingerprint}:\n` +
       verifyOutput.trim(),
+  );
+}
+/*
+And gpg must have been satisfied too.
+
+A conjunct, never a substitute: GOODSIG and VALIDSIG above are what decide, and this only has to
+agree with them. It is needed now because stdout survives a non-zero exit — until it did, an
+unhappy gpg handed this check no status lines at all and the tests above failed by default,
+which is the only reason reading them alone was ever equivalent to reading them and the status.
+
+A detached signature file can hold more than one signature. Verifying a file carrying a good
+signature and a bad one prints GOODSIG and VALIDSIG for the good one, BADSIG for the other, and
+exits non-zero (measured, gpg 2.4.4). Status lines alone would report that file as verified on
+the strength of whichever signature was listed first.
+*/
+if (verification.status !== 0) {
+  fail(
+    `gpg exited ${verification.status} verifying the signature, having also reported ` +
+      `a good one:\n${verifyOutput.trim()}`,
   );
 }
 if (signedByKey !== fingerprint) {

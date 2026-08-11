@@ -245,27 +245,50 @@ jobs:
 
           # tools/sign-release.mjs takes no passphrase and relies on gpg-agent for it, which is
           # the right shape for a human at a terminal and needs the agent primed here instead.
-          # Loopback plus a preset passphrase does that without the signer learning about CI.
+          # A preset passphrase does that without the signer learning about CI.
+          #
+          # No `pinentry-mode loopback` in gpg.conf. It was here to go with the preset, it is
+          # not needed for one — a passphrase already in the agent is never asked for — and as
+          # a global option it applied to every gpg call in this job, --verify included. Its
+          # one measured effect was on the failure path, and it was to hide the failure: a
+          # --batch sign under loopback has no way to obtain a passphrase and gives up *after*
+          # creating --output, leaving an empty signature that reads as a real one. Without it
+          # the same failure is "gpg: signing failed: Inappropriate ioctl for device" and no
+          # file, which is what a release that could not sign should look like.
           mkdir -p "$HOME/.gnupg"
           chmod 700 "$HOME/.gnupg"
-          {
-            echo "allow-loopback-pinentry"
-            echo "allow-preset-passphrase"
-          } >> "$HOME/.gnupg/gpg-agent.conf"
-          echo "pinentry-mode loopback" >> "$HOME/.gnupg/gpg.conf"
+          echo "allow-preset-passphrase" >> "$HOME/.gnupg/gpg-agent.conf"
           gpgconf --kill gpg-agent || true
           gpgconf --launch gpg-agent
 
           printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
           if [ -n "${GPG_PASSPHRASE:-}" ]; then
-            keygrip=$(gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
-              | awk '/Keygrip/ { print $3; exit }')
-            if [ -z "$keygrip" ]; then
+            # Every keygrip the bundle carries, not the first one.
+            #
+            # `gpg -K` prints the primary's keygrip before its subkeys', so stopping at the
+            # first line always primed the *primary* — which for a signing-subkey-only export
+            # is the `sec#` stub whose secret never left the operator's machine. Presetting a
+            # grip that holds no key is not an error to gpg-preset-passphrase; it exits 0 and
+            # caches nothing. Signing then asked the agent for the *subkey's* grip, missed,
+            # and had no passphrase and no way to ask for one.
+            #
+            # This is the line that failed run 31428897746. Nothing was ever signed; the
+            # verification error afterwards was an accurate report about an empty file.
+            #
+            # Presetting all of them is right rather than merely sufficient: which subkey gpg
+            # chooses to sign with is gpg's decision, and it may add a second signing subkey to
+            # the layout at any rotation. A grip whose secret stayed behind is a no-op, which
+            # is exactly what should happen to the primary here.
+            keygrips=$(gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
+              | awk '/Keygrip/ { print $3 }')
+            if [ -z "$keygrips" ]; then
               echo "Imported no secret key matching $GPG_KEY_ID" >&2
               exit 1
             fi
             preset=$(gpgconf --list-dirs libexecdir)/gpg-preset-passphrase
-            printf '%s' "$GPG_PASSPHRASE" | "$preset" --preset "$keygrip"
+            for keygrip in $keygrips; do
+              printf '%s' "$GPG_PASSPHRASE" | "$preset" --preset "$keygrip"
+            done
           fi
 
           bun run release:sign -- --key "$GPG_KEY_ID"
