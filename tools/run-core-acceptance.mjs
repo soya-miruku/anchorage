@@ -95,6 +95,78 @@ if (
   );
 }
 
+/*
+ * Every Docker client this run has spawned that has not exited yet.
+ *
+ * Teardown's first act is to empty this, and it has to be, because a `docker run` client outlives
+ * the process that spawned it. Measured on this host against this harness: a SIGTERM 200 ms after
+ * the scratch tree was created — so a fifth of a second before the privileged `docker run` was
+ * issued — exited through a teardown that recorded `dindContainer.verifiedAbsent: true` and
+ * `hostVerifiedClear: true`, correctly, at the instant it looked; the orphaned client then created
+ * `anchorage-dind-2706ab5a` three seconds later, and it was still `Up` twenty-two seconds after
+ * the harness process was gone. The daemon also recreated the just-removed scratch directory as
+ * the bind-mount source, owned by root, which this process could not have deleted even had it
+ * still been running.
+ *
+ * The artifact was not lying — every field there says what was observed when it was observed.
+ * But "an interrupted run does not leave a root-equivalent daemon running" is the claim this
+ * harness exists to make, and a teardown that does not first stop the run from creating things is
+ * only ever tidying up behind a race.
+ *
+ * The core is deliberately not tracked here. Teardown shuts it down itself, partway through the
+ * removals, because the scratch tree removed after it holds the socket the core has open; killing
+ * it up front would trade an orderly shutdown for a cleanup error on every interrupted run.
+ */
+const liveChildren = new Set();
+
+const stillRunning = (child) => child.exitCode === null && child.signalCode === null;
+const childExited = (child) => new Promise((done) => child.once("exit", done));
+
+// A race that clears its own timer. A bare setTimeout keeps the event loop alive for the rest of
+// its delay even once the race is decided, so the twenty-second grace below would otherwise
+// become twenty seconds of a finished run refusing to exit.
+function settleWithin(work, ms) {
+  const clearAndFinish = (done, timer) => () => {
+    clearTimeout(timer);
+    done();
+  };
+  return new Promise((done) => {
+    const timer = setTimeout(done, ms);
+    work.then(clearAndFinish(done, timer), clearAndFinish(done, timer));
+  });
+}
+
+const pause = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/*
+ * Stop the run creating anything else, and killing is the wrong tool for it.
+ *
+ * A Docker client is a request already sent. SIGKILLing `docker run --detach` does not cancel the
+ * daemon's work — measured in the socket-bridge spike, which reached this the hard way: with the
+ * client killed, the removals ran, the verification a second later found nothing, and the
+ * privileged container appeared afterwards anyway. So these commands are *drained*, not killed:
+ * waiting for the client to exit is what makes the container exist in time to be removed.
+ *
+ * A child that outstays the grace is killed, because a teardown that can be made to wait forever
+ * is not a teardown. What its create may still do afterwards is what the verification passes at
+ * the end of teardown are for.
+ */
+async function stopLiveChildren(graceMs = 20_000) {
+  const draining = [...liveChildren].filter(stillRunning);
+  if (draining.length === 0) return { drained: 0, killed: 0, graceMs };
+  await settleWithin(Promise.all(draining.map(childExited)), graceMs);
+  const overstayed = draining.filter(stillRunning);
+  for (const child of overstayed) child.kill("SIGKILL");
+  await settleWithin(Promise.all(overstayed.map(childExited)), 10_000);
+  // Drained means "exited on its own within the grace", so the two counts partition the children
+  // teardown found alive rather than double-counting the ones it had to kill.
+  return {
+    drained: draining.length - overstayed.length,
+    killed: overstayed.length,
+    graceMs,
+  };
+}
+
 function runProcess(executable, args, { input = "", timeoutMs = 30_000 } = {}) {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(executable, args, {
@@ -103,6 +175,11 @@ function runProcess(executable, args, { input = "", timeoutMs = 30_000 } = {}) {
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
     });
+    // Tracked from the moment it exists, with nothing awaited in between: a signal landing
+    // between the spawn and the registration would leave teardown with nothing to drain, which
+    // is the whole failure this tracking exists to close.
+    liveChildren.add(child);
+    child.once("exit", () => liveChildren.delete(child));
     const stdout = [];
     const stderr = [];
     let timedOut = false;
@@ -1105,6 +1182,7 @@ const [generatorSha256, coreSha256] = await Promise.all([
 const client = new CoreClient(corePath);
 let dindResource = null;
 let teardownPromise = null;
+let tearingDown = false;
 // Assigned by the signal handlers further down, but bound here because teardown and the artifact
 // writers both read them, and they are declared above every one of those.
 let interrupted = null;
@@ -1212,6 +1290,18 @@ const cleanupEvidence = {
   // And it says nothing at all about volumes: none are enumerated, so an anonymous volume whose
   // container is already gone is outside every list here. `enumerationScope.volumes` says so.
   hostVerifiedClear: false,
+  // What teardown found still running when it started, and what it did with it. `killed > 0` is
+  // the one shape in which a create can still land after the removals, so it is the field to read
+  // first when a survivor appears in a run that looked orderly.
+  //
+  // null, not `{drained: 0, killed: 0}`, until teardown has been there: a run that died before
+  // reaching teardown drained nothing, and saying "nothing was running" about it would be a
+  // finding nobody made.
+  inFlightClients: null,
+  // How many times the host was asked, of how many it was allowed, and how long the settle before
+  // each was. `ran > 1` says a pass found something and went round again, which is the difference
+  // between a host that was clear and a host that became clear.
+  verificationPasses: null,
 };
 
 // Each cleanup failure records the signal that was already in flight when it happened, or null
@@ -1255,9 +1345,53 @@ function collectCleanupResult() {
 // kills the teardown in flight — leaving the privileged container running, which is the exact
 // failure this task exists to prevent. Returning the in-flight promise makes the second caller
 // wait for the first to finish instead of racing past it.
+// Teardown asks the host what is left up to this many times, pausing this long before each, so
+// that a create the daemon was already asked for has had time to appear before the answer is
+// taken. The removals are proved against a settled host rather than against the instant they
+// finished; without the pause, "verified absent" is a statement about a race.
+const TEARDOWN_VERIFY_PASSES = 3;
+const TEARDOWN_SETTLE_MS = 2_000;
+
+/*
+ * Refused, because teardown removes what this run created and it cannot chase a run that keeps
+ * creating behind it.
+ *
+ * Draining the in-flight clients is only half of "stop the run creating anything else". A signal
+ * during the DinD launch leaves the main flow blocked on that same `docker run`, and when the
+ * drain lets it finish, the main flow resumes: measured here, teardown removed the container and
+ * the resumed flow then created both Docker contexts behind it, so an interrupted run that had
+ * just been made to clean up its privileged daemon still ended with `hostVerifiedClear: false`
+ * and two contexts on the host.
+ *
+ * Called at the four places this run makes something on the *host* — the scratch tree, the
+ * privileged container, and the two contexts. Everything else it creates lives inside the
+ * disposable daemon and goes when that container goes. No await stands between any of these
+ * checks and the creation it guards, which on one thread is what makes "first" mean anything.
+ */
+function refuseIfTearingDown(what) {
+  if (!tearingDown) return;
+  throw new Error(`Teardown has started; refusing to create ${what}`);
+}
+
 function runTeardown() {
   if (teardownPromise) return teardownPromise;
+  // Set here rather than read off `teardownPromise`, because that assignment lands only once the
+  // async body below reaches its first await — leaving a window in which teardown is running and
+  // nothing can tell.
+  tearingDown = true;
   teardownPromise = (async () => {
+    // First, before any removal: stop the run creating anything else. Everything below removes
+    // what this run made, and a removal issued while a `docker run --detach --privileged` is
+    // still in flight removes a container that does not exist yet — which is how an interrupted
+    // run verified itself clean and left a root-equivalent daemon on the host anyway.
+    //
+    // It costs an interrupted run whatever remains of that create, a few seconds in practice.
+    // That is the price of the claim, and paying it is the point of this whole branch.
+    try {
+      cleanupEvidence.inFlightClients = await stopLiveChildren();
+    } catch (error) {
+      recordCleanupError(error, "Could not stop this run's Docker clients: ");
+    }
     if (dindResource?.endpoint) {
       try {
         await cleanupDockerContext(
@@ -1298,7 +1432,12 @@ function runTeardown() {
         };
       }
     }
-    if (dindResource) {
+    // Named rather than inline because the verification below calls it a second time when a pass
+    // still finds this container on the host. The body is unchanged: this step gains a caller,
+    // not a behaviour. Re-issuing is safe on the evidence too — the retry runs only when the
+    // container is present, so what it writes is the fuller record of an enumeration that
+    // happened, never the emptier "it was already absent" over one that did.
+    const removeDindContainer = async () => {
       try {
         const disposed = await cleanupDisposable(
           context,
@@ -1351,7 +1490,8 @@ function runTeardown() {
           anonymousVolumesUnknown: `Teardown of this container failed: ${error instanceof Error ? error.message : String(error)}`,
         };
       }
-    }
+    };
+    if (dindResource) await removeDindContainer();
     try {
       await client.close();
     } catch (error) {
@@ -1395,21 +1535,53 @@ function runTeardown() {
     // having "survived teardown". `accountableSuffix` is this run's own 8-character suffix, never
     // the 36-character token: the one suffix that must not be excused by the liveness rule, since
     // the process that rule would find alive is this one.
+    //
+    // Asked up to three times, with a pause before each. The drain means everything this run had
+    // asked for has landed before the removals ran, and `refuseIfTearingDown` means nothing new
+    // was asked for after, so one pass is the ordinary answer. What is left is the drain's grace:
+    // a client killed for outstaying it leaves a create nobody can recall, and the container it
+    // makes appears seconds after the removals. A pass that finds it removes it and asks again,
+    // rather than reporting a privileged daemon and leaving it for the next run's preflight.
+    //
+    // Only the container is re-removed. A context cannot arrive late — its create is refused
+    // after teardown starts and drained before the removals otherwise — and a scratch tree the
+    // daemon has recreated as its root-owned bind source is not removable by this process at all.
+    let teardownPeers = [];
+    let survivors = null;
+    let pass = 0;
     try {
-      const survey = await surveyAcceptanceResources({
-        accountableSuffix: dindResource?.suffix ?? null,
-      });
-      for (const peer of survey.peers) {
-        cleanupEvidence.possibleLivePeers.push({ phase: "teardown", ...peer });
+      for (; pass < TEARDOWN_VERIFY_PASSES; pass += 1) {
+        await pause(TEARDOWN_SETTLE_MS);
+        const survey = await surveyAcceptanceResources({
+          accountableSuffix: dindResource?.suffix ?? null,
+        });
+        // Replaced rather than appended each pass, and committed once below: a peer seen by two
+        // passes is one peer, and the artifact should not report it twice for having been asked
+        // twice.
+        teardownPeers = survey.peers.map((peer) => ({ phase: "teardown", ...peer }));
+        cleanupEvidence.survivedTeardown = survey.unaccountedFor;
+        survivors = [
+          ...survey.unaccountedFor.containers,
+          ...survey.unaccountedFor.contexts,
+          ...survey.unaccountedFor.scratchDirectories,
+        ];
+        if (survivors.length === 0) break;
+        if (
+          pass + 1 < TEARDOWN_VERIFY_PASSES &&
+          dindResource &&
+          survey.unaccountedFor.containers.includes(dindResource.containerName)
+        ) {
+          // Through the same function as the first removal, so this container is still removed
+          // only against both gates it has always been removed against: its own anchored name and
+          // its own ownership label, checked by cleanupDisposable before anything is forced.
+          await removeDindContainer();
+        }
       }
-      cleanupEvidence.survivedTeardown = survey.unaccountedFor;
-      const survivors = [
-        ...survey.unaccountedFor.containers,
-        ...survey.unaccountedFor.contexts,
-        ...survey.unaccountedFor.scratchDirectories,
-      ];
-      cleanupEvidence.hostVerifiedClear = survivors.length === 0;
-      if (!cleanupEvidence.hostVerifiedClear) {
+      // `survivors` is null only for a survey that never returned an answer, and that path throws
+      // to the catch below rather than arriving here — so this reads as what it is: an unanswered
+      // question is not a clear host, whichever way the code reaches that conclusion.
+      cleanupEvidence.hostVerifiedClear = survivors !== null && survivors.length === 0;
+      if (survivors !== null && survivors.length > 0) {
         // Via recordCleanupError, not cleanupErrors.push: this array holds
         // {message, afterSignal} objects, and a bare string would leave
         // collectCleanupResult's `.map((entry) => entry.message)` yielding undefined for
@@ -1428,6 +1600,14 @@ function runTeardown() {
         error,
         "Could not establish that the host is clear of acceptance resources: ",
       );
+    } finally {
+      cleanupEvidence.possibleLivePeers.push(...teardownPeers);
+      cleanupEvidence.verificationPasses = {
+        // The pass that broke out, or the one that threw, counted as having run — because it did.
+        ran: Math.min(pass + 1, TEARDOWN_VERIFY_PASSES),
+        limit: TEARDOWN_VERIFY_PASSES,
+        settleMs: TEARDOWN_SETTLE_MS,
+      };
     }
     if (!failure && cleanupErrors.length > 0) {
       failure = new Error(
@@ -2491,7 +2671,9 @@ try {
     // load and export read and write, and the Unix socket the disposable daemon is additionally
     // published on. Mode 0700 keeps the socket of a privileged daemon unreachable by other
     // local users for the few seconds it exists.
+    refuseIfTearingDown(`the acceptance scratch tree ${scratchDirectory}`);
     await mkdir(dindSocketDirectory, { recursive: true, mode: 0o700 });
+    refuseIfTearingDown(`the privileged DinD container ${dindName}`);
     const launched = await dockerRun(
       context,
       [
@@ -2565,6 +2747,7 @@ try {
     }
     const endpoint = `tcp://127.0.0.1:${portMatch[1]}`;
     dindResource.endpoint = endpoint;
+    refuseIfTearingDown(`the Docker context ${dindContext}`);
     const createdContext = await runProcess("docker", [
       "context",
       "create",
@@ -2588,6 +2771,7 @@ try {
     }
     const serverVersion = await waitForDockerDaemon(dindContext);
     const socketEndpoint = `unix://${dindSocketPath}`;
+    refuseIfTearingDown(`the Docker context ${dindSocketContext}`);
     const createdSocketContext = await runProcess("docker", [
       "context",
       "create",
