@@ -86,14 +86,83 @@ If the re-exec fails the script continues rather than refusing: a missing `sh` s
 someone setting up signing, and the handled-signal path still covers the interactive case.
 */
 if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
-  const relaunch = spawnSync(
+  const child = spawn(
     "sh",
-    ["-c", 'ulimit -c 0 2>/dev/null; exec "$@"', "sh", process.execPath, ...process.argv.slice(1)],
+    [
+      "-c",
+      'ulimit -c 0 2>/dev/null; exec "$@"',
+      "sh",
+      process.execPath,
+      ...process.execArgv,
+      ...process.argv.slice(1),
+    ],
     { stdio: "inherit", env: { ...process.env, ANCHORAGE_SIGNING_NO_CORE: "1" } },
   );
-  if (relaunch.status !== null || relaunch.signal !== null) {
-    process.exit(relaunch.status === null ? 128 : relaunch.status);
+
+  /*
+  The wrapper must be transparent, and the first version of it was not. It used spawnSync, so it
+  had no handlers of its own — which meant a `kill` aimed at the pid the operator can see killed
+  the wrapper instantly while the relaunched process carried on and uploaded both secrets anyway.
+  Measured: the shell printed "Terminated", returned 143, gave the prompt back, and then
+  "Set GPG_PRIVATE_KEY" appeared over it. Before the re-exec existed that same kill reached the
+  only process, which cleaned up and uploaded nothing. Losing the ability to abort is a worse
+  trade than the crash-dump case the re-exec buys, so the wrapper forwards instead.
+
+  Terminal signals already reach both processes through the foreground group; forwarding covers
+  the case a group signal does not — `kill <pid>`, or a supervisor. Double delivery is harmless:
+  cleanup is idempotent, and the second signal arrives after the child has removed its listener.
+  */
+  let relayed = false;
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"]) {
+    process.on(signal, () => {
+      relayed = true;
+      // SIGQUIT would dump the wrapper otherwise. It holds no secret bytes — measured 0 of each —
+      // but a 1.7 MB dump per Ctrl-\ is exactly the artifact the re-exec exists to stop producing.
+      try {
+        child.kill(signal);
+      } catch {
+        // The child is already gone; its own handler did the work.
+      }
+    });
   }
+
+  /*
+  Park here rather than falling through: everything below this block is the real work, and the
+  wrapper must not also do it. The only ways out are the child exiting — which ends this process
+  with the child's own status — or `sh` being unavailable, which resolves and runs the work here.
+  */
+  await new Promise((runHere) => {
+    child.on("error", () => {
+      // No `sh`, or it is not executable. Say so rather than silently downgrading: the difference
+      // is whether a crash can write the key to disk, and an operator who cannot see which mode
+      // they are in cannot judge that.
+      process.stderr.write(
+        "Could not re-exec with core dumps disabled; continuing in this process.\n" +
+          "  A crash could then write the key and passphrase to a core file. To avoid that:\n" +
+          "    ulimit -c 0; node tools/set-release-signing-secrets.mjs\n",
+      );
+      runHere();
+    });
+
+    child.on("exit", (code, signal) => {
+      /*
+      Report what actually happened to the child rather than collapsing it to 128. A supervisor
+      that signals the relaunched process — the one holding the secrets — needs 130/143/129/131,
+      not a number that says only "something signal-shaped occurred". That is the same
+      quiet-rather-than-loud failure the child's own handlers exist to avoid.
+
+      An `sh` that runs and then fails on its own account (no exec, non-zero exit) surfaces as
+      that exit code, which is the honest thing to report: the work did not happen, and saying 0
+      would claim it had.
+      */
+      if (signal) {
+        process.removeAllListeners(signal);
+        process.kill(process.pid, signal);
+        return;
+      }
+      process.exit(code ?? (relayed ? 130 : 1));
+    });
+  });
 }
 
 const DEFAULT_PRIMARY = "6EC9EBF75C48EA12D1C54A7E22E69E9DC85620D3";
