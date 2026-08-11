@@ -18,6 +18,13 @@ The key is not the core hash alone. Acceptance and the capability ledger measure
 and the soak's figures belong to the machine that produced them. Core hash, daemon version and
 architecture together are what has to match for the earlier run to still be about this one.
 
+The key also covers the harness, not only its subject. Evidence is the output of a measuring
+program, and editing that program can change what the measurement means without touching a byte
+of Go — this is not hypothetical, it is what the branch that added the host-clear sweep did.
+Every reason this script skips must therefore be a reason package-desktop.mjs would also accept,
+because a skip it does not share is not a saved forty minutes: it is a release that fails at the
+gate having been told there was nothing to regenerate.
+
 Deliberately not cached: anything measured by looking at a live daemon's contents, which is
 every check in the read-only half. Those are re-run by package:linux itself against the freshly
 staged core, and this only governs the expensive generation step ahead of it.
@@ -33,6 +40,10 @@ import { resolve } from "node:path";
 
 const workspaceRoot = resolve(import.meta.dirname, "..");
 const corePath = resolve(workspaceRoot, "core/bin/anchorage-core");
+const acceptanceGeneratorPath = resolve(
+  workspaceRoot,
+  "tools/run-core-acceptance.mjs",
+);
 const force = process.argv.includes("--force");
 
 function run(command, args, environment = {}) {
@@ -81,6 +92,20 @@ if (!core) {
   process.exit(1);
 }
 const coreSha256 = createHash("sha256").update(core).digest("hex");
+/*
+ * The harness that produced the acceptance evidence, hashed the same way the packaging gate
+ * hashes it (assertCurrentFileHash, package-desktop.mjs), so the two agree on what "current"
+ * means. Without this, editing the harness alone left every other part of the key matching: the
+ * script reported "nothing to regenerate", and package:linux then refused the very evidence it
+ * had just been told was fine — twice over, once for the generator hash and once for the
+ * host-clear claim below that older runs never recorded at all.
+ */
+const acceptanceGenerator = await readFile(acceptanceGeneratorPath).catch(
+  () => null,
+);
+const acceptanceGeneratorSha256 = acceptanceGenerator
+  ? createHash("sha256").update(acceptanceGenerator).digest("hex")
+  : null;
 const dockerServer =
   (await capture("docker", ["version", "--format", "{{.Server.Version}}"])) ??
   "unknown";
@@ -120,10 +145,21 @@ const performanceMeasuredMs = await stat(
 const coreBuiltMs = (await stat(corePath)).mtimeMs;
 const performanceStale = performanceMeasuredMs < coreBuiltMs;
 
+/*
+ * A run that could not establish the host was clear of acceptance debris is not evidence this
+ * release may reuse — package-desktop.mjs requires the claim, and every artifact written before
+ * the sweep existed lacks the field entirely. `!== true` rather than `=== false` is what makes
+ * absence count as stale: the alternative reads a missing claim as a satisfied one.
+ */
+const recordedHostVerifiedClear =
+  conformance?.cleanup?.evidence?.hostVerifiedClear ?? null;
+
 const stale =
   force ||
   conformance?.coreSha256 !== coreSha256 ||
+  conformance?.generator?.sha256 !== acceptanceGeneratorSha256 ||
   conformance?.mutationsEnabled !== true ||
+  recordedHostVerifiedClear !== true ||
   capability?.coreSha256 !== coreSha256 ||
   recordedDockerServer !== dockerServer ||
   recordedArchitecture !== architecture ||
@@ -150,8 +186,16 @@ const reason = force
     : conformance?.coreSha256 !== coreSha256
     ? `core changed (evidence names ${String(conformance?.coreSha256).slice(0, 16)}, ` +
       `this core is ${coreSha256.slice(0, 16)})`
+    : conformance?.generator?.sha256 !== acceptanceGeneratorSha256
+    ? `the acceptance harness changed (evidence was produced by ` +
+      `${String(conformance?.generator?.sha256).slice(0, 16)}, ` +
+      `tools/run-core-acceptance.mjs is now ${String(acceptanceGeneratorSha256).slice(0, 16)})`
     : conformance?.mutationsEnabled !== true
       ? "the recorded acceptance run did not include disposable mutations"
+      : recordedHostVerifiedClear !== true
+      ? recordedHostVerifiedClear === null
+        ? "the recorded acceptance run predates the host-clear sweep and makes no claim at cleanup.evidence.hostVerifiedClear"
+        : "the recorded acceptance run could not establish that the host was clear of acceptance resources"
       : capability?.coreSha256 !== coreSha256
         ? "the capability ledger names a different core"
         : recordedDockerServer !== dockerServer
