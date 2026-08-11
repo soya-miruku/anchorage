@@ -127,6 +127,28 @@ path.
    orphaned privileged daemon removes itself within the hour even if no sweep runs. Contexts cannot
    self-clean; the sweep covers those.
 
+   **Amended during implementation (2026-08-11).** Measured, and the measurement says the opposite:
+   an orphaned privileged daemon does **not** remove itself. `--rm` is daemon-side and keys on the
+   container *exiting*, and a detached container has no tie to the client that started it — so
+   `kill -9` on the harness left the container `Up` twenty seconds later, and a `SIGTERM` during
+   the launch left it `Up` twenty-two seconds after the process was gone. The shipped launch also
+   has no entrypoint timeout: `docker:29-dind` is started with three `--host` endpoints and a
+   `--group`, and nothing bounds its lifetime. "Within the hour" was never implemented and would
+   not have been safe to implement, since the hour would also expire under a run still using the
+   daemon.
+   `run-core-acceptance.mjs:2682-2691` says the same thing at the flag itself.
+
+   What `--rm` does cover is the exits the harness is not around to tidy up after — a dind that
+   crashes, a host that shuts its daemon down, a `docker stop` from whoever found the thing — each
+   of which used to leave an exited husk holding an anonymous copy of `/var/lib/docker`. That is
+   worth keeping and is why the flag stays.
+
+   Everything else is covered by code that runs, not by a property of the container. A signalled
+   run drains the Docker clients it has in flight, refuses to create anything further, removes what
+   it made and re-checks the host before exiting (`runTeardown`); a run that is `kill -9`ed cannot
+   run anything at all, and the labelled-orphan preflight in item 2 is what collects its debris —
+   the only thing that does.
+
 ### Phase 1 — the provider seam
 
 **Spike first, and treat it as a go/no-go.** Two Engine-API checks (`volumes.files`,
