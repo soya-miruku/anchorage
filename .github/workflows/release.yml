@@ -208,14 +208,22 @@ jobs:
         working-directory: app
         run: bun run package:linux
 
-      - name: Sign
-        # Optional on purpose, and the check is inside the shell rather than in an `if:`
-        # expression, because a step's own `env` is not in scope for its own condition — the
-        # form that reads correctly silently never runs.
+      - name: Checksums, and a signature if a key is configured
+        # The *signature* is optional on purpose, and the check is inside the shell rather than
+        # in an `if:` expression, because a step's own `env` is not in scope for its own
+        # condition — the form that reads correctly silently never runs.
         #
         # Without a key the artifacts are still built and verified, they are simply unsigned,
         # and the release notes say which. Failing a sound build over a missing secret would be
         # the worse trade.
+        #
+        # The *checksums* are not optional, and this workflow only recently began to mean that
+        # sentence. tools/sign-release.mjs is the only thing in the repository that writes
+        # SHA256SUMS, so with no key configured no checksum file was produced, and the step
+        # below — which renames it — failed the job with "mv: cannot stat 'SHA256SUMS'"
+        # (measured). The unsigned path had therefore never worked; it was latent only because
+        # the secrets happen to be set. A release publishes checksums whether or not it can sign
+        # them, so the unsigned branch writes them too, and signing is what adds the .asc.
         #
         # GPG_PRIVATE_KEY must be a **signing subkey only**, never the primary:
         #
@@ -239,7 +247,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_KEY_ID:-}" ]; then
-            echo "No signing key configured; leaving this build unsigned."
+            echo "No signing key configured; publishing checksums and leaving this build unsigned."
+            bun run release:checksums
             exit 0
           fi
 
@@ -308,10 +317,14 @@ jobs:
         working-directory: app/release
         run: |
           set -euo pipefail
+          # Unguarded, and now entitled to be: the step above writes SHA256SUMS whether or not
+          # it signed, so a missing one here means checksums went missing rather than that this
+          # build was unsigned, and failing is the right answer to that. It used to mean the
+          # second thing, which is why an unsigned build could not get past this line.
           mv SHA256SUMS "SHA256SUMS-$ARCH"
           mv release-verification.json "release-verification-$ARCH.json"
-          # Both exist only when the build was signed, and the checksum file must keep the name
-          # its signature was made over — so the .asc follows the file, not a pattern.
+          # Both of these exist only when the build was signed, and the checksum file must keep
+          # the name its signature was made over — so the .asc follows the file, not a pattern.
           #
           # if-blocks rather than `[ -f x ] && mv`: under `set -e` a false test is a non-zero
           # command at the end of a script, so the unsigned path would fail the step.

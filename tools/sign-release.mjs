@@ -15,6 +15,7 @@
  * Usage:
  *   node tools/sign-release.mjs --key "Anchorage Release Signing"
  *   node tools/sign-release.mjs --key <fingerprint> --verify-only
+ *   node tools/sign-release.mjs --checksums-only
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -180,23 +181,55 @@ async function releaseArtifacts() {
   return artifacts;
 }
 
-const verifyOnly = process.argv.includes("--verify-only");
-const selector = argument("--key");
-if (!selector) {
-  fail('Pass the signing identity, for example: --key "Anchorage Release Signing"');
-}
-
-const fingerprint = await resolveSigningKey(selector);
-const artifacts = await releaseArtifacts();
-
-if (!verifyOnly) {
-  // SHA256SUMS is written in the format `sha256sum -c` expects, so a downloader can check
-  // integrity with a tool they already have rather than one this project invented.
+/**
+ * SHA256SUMS is written in the format `sha256sum -c` expects, so a downloader can check
+ * integrity with a tool they already have rather than one this project invented.
+ *
+ * Which files it covers is decided here and nowhere else — see SIGNED_INSTALLER_EXTENSIONS
+ * above. That is why this script writes the checksums even when it is not signing them:
+ * a checksum file and the signature over it must cover the same set by construction, and the
+ * way to guarantee that is to have one program decide it.
+ */
+async function writeChecksums(names) {
   const lines = [];
-  for (const name of artifacts) {
+  for (const name of names) {
     lines.push(`${await sha256File(join(releaseDirectory, name))}  ${name}`);
   }
   await writeFile(sumsPath, `${lines.join("\n")}\n`, { mode: 0o644 });
+}
+
+/*
+Checksums are not a signing artifact. Every release publishes them; signing adds an assertion
+about them. `--checksums-only` is the unsigned half of that, and it needs no key: a build with no
+key configured still owes its downloaders a checksum file, and the release workflow's own
+description of itself — "without a key the artifacts are still built and verified, they are
+simply unsigned" — was false until it had one, because nothing else in the repository writes
+SHA256SUMS and the step after signing renames it unconditionally.
+*/
+const checksumsOnly = process.argv.includes("--checksums-only");
+const verifyOnly = process.argv.includes("--verify-only");
+if (checksumsOnly && verifyOnly) {
+  fail("--checksums-only and --verify-only ask for different things; pass one.");
+}
+const selector = argument("--key");
+if (!selector && !checksumsOnly) {
+  fail('Pass the signing identity, for example: --key "Anchorage Release Signing"');
+}
+
+const fingerprint = checksumsOnly ? undefined : await resolveSigningKey(selector);
+const artifacts = await releaseArtifacts();
+
+if (checksumsOnly) {
+  await writeChecksums(artifacts);
+  console.log(
+    `Wrote ${relative(workspaceRoot, sumsPath)} covering ${artifacts.length} artifacts; ` +
+      `this build is unsigned.`,
+  );
+  process.exit(0);
+}
+
+if (!verifyOnly) {
+  await writeChecksums(artifacts);
   console.log(`Wrote ${relative(workspaceRoot, sumsPath)} covering ${artifacts.length} artifacts`);
 
   /*
