@@ -511,10 +511,14 @@ Turns `cleanup: passed` from a per-run claim into a host-state claim, establishe
     reasons are not interchangeable: `creator-process-alive` is the creating process identified by
     its start time, `creator-pid-held` only that something holds that pid while the stat could not
     be compared.
-  - `cleanup.evidence.orphansVanishedBeforeSweep: {containers}` — added in the third fix round.
-    Debris enumerated by the survey and already gone when the sweep reached it. Separate from
-    `orphansRemoved` because that key means *this run removed it*, and `docker rm --force` exits 0
-    on a name that is not there.
+  - `cleanup.evidence.orphansVanishedBeforeSweep: {containers, contexts}` — added in the third fix
+    round. Debris enumerated by the survey and already gone when the sweep reached it. Separate
+    from `orphansRemoved` because that key means *this run removed it*, and `docker rm --force`
+    exits 0 on a name that is not there.
+    NOTE (corrected during execution): written here as `{containers}`, shipped as
+    `{containers, contexts}`. `docker context rm --force` on a context that does not exist prints
+    the name and exits 0 — byte-for-byte what a real removal prints — so contexts need the same
+    distinction for the same reason, and Task 4 gave them one.
   - `cleanup.evidence.survivedTeardown` — resources genuinely unaccounted for. **This, not the
     error string, is what Task 5 should key on**, so that a peer crashing mid-run is
     distinguishable from this run leaking.
@@ -754,6 +758,15 @@ In `validateMutationConformance`, beside the existing cleanup assertion:
       "gap an interrupted run falls into",
   );
 ```
+
+NOTE (corrected during execution): the condition shipped exactly as written; the *message* did
+not. Two dispositions had become three by the time Task 5 ran — `orphansVanishedBeforeSweep`
+arrived in Task 4 — the subject narrowed from "every acceptance resource" to every one the run
+"enumerated and recognised by name", and the shipped text names the path
+(`cleanup.evidence.hostVerifiedClear`) and the scope record
+(`cleanup.evidence.livenessRule.enumerationScope`) because a gate failure that does not say where
+to look costs a release cycle. See `app/scripts/package-evidence-policy.mjs` for the text that
+ships.
 
 The existing `requirePassingChecks` already rejects a non-`passed` status, so `aborted` is refused without further change — the test above pins that behaviour rather than adding it.
 

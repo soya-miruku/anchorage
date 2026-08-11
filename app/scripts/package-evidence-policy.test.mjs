@@ -231,7 +231,10 @@ test("mutation conformance requires the host to have been verified clear", () =>
     errors: [],
     evidence: {
       hostVerifiedClear: true,
-      orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
+      // Four keys, because the real artifact's `orphansRemoved` has four: the anonymous volumes
+      // of a swept container are recorded beside it. A fixture written to stop fixture/artifact
+      // divergence is the last place that should diverge.
+      orphansRemoved: { containers: [], contexts: [], volumes: [], scratchDirectories: [] },
     },
   };
   assert.doesNotThrow(() => validateMutationConformance(evidence));

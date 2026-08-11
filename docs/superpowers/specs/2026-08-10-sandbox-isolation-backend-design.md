@@ -110,7 +110,14 @@ path.
    directions before the guard existed. A run therefore spares resources it can show belong to a
    live peer process, so a privileged acceptance container can legitimately be on the host while
    the run reports success. `hostVerifiedClear` accordingly means **"every acceptance resource this
-   run could see is accounted for — removed, identified as a live peer's, or already gone"**, and
+   run enumerated *and recognised by name* is accounted for — removed, identified as a live peer's,
+   or already gone"**. This line first read "every acceptance resource this run *could see*", which
+   is looser than the code and was tightened on 2026-08-11: `docker ps` returns every container
+   carrying the label, the anchored name pattern is then applied, and a labelled container whose
+   name does not match is passed over in silence — no verdict, no sweep, no entry in any list. That
+   is deliberate, since the anchored name is what keeps somebody else's `anchorage-dind-*-extra`
+   out of a force-removal, and `run-core-acceptance.mjs` goes out of its way to record both gates
+   in `enumerationScope` for exactly this reason. The claim is over what cleared both, and
    the artifact distinguishes the four dispositions (`orphansRemoved`, `possibleLivePeers`,
    `orphansVanishedBeforeSweep`, `survivedTeardown`) rather than collapsing them. The fourth was
    added on 2026-08-11: debris can disappear between being enumerated and being swept — a second

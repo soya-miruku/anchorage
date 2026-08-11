@@ -690,7 +690,20 @@ async function containerVolumeMounts(contextName, name) {
   return interpretMountInspect(result);
 }
 
-async function volumeExistsAt(contextName, name) {
+/*
+ * Present, absent, or unanswered — three states, because a boolean gave the third one away.
+ *
+ * `return result.code === 0` read a timed-out inspect, and an unreachable daemon, as "the volume
+ * is gone": the sweep then pushed that name into `orphansRemoved.volumes`, which says this run
+ * removed a volume it had just failed to ask about. That is the unknown-treated-as-permissive
+ * shape this harness closed for mounts, contexts and creator processes, and the rule is the same
+ * — an unanswered question is not a yes, and it is not a no either.
+ *
+ * Measured on this host (Docker 29.7.2) to keep the absent branch narrow: a missing volume exits 1
+ * with `Error response from daemon: volume <name> not found`, while an unreachable daemon exits 1
+ * with `Cannot connect to the Docker daemon at <endpoint>`. Only the first is an answer.
+ */
+async function inspectVolumeAt(contextName, name) {
   const result = await runProcess("docker", [
     "--context",
     contextName,
@@ -698,7 +711,18 @@ async function volumeExistsAt(contextName, name) {
     "inspect",
     name,
   ]);
-  return result.code === 0;
+  if (result.code === 0 && !result.timedOut) return { state: "present", reason: null };
+  const output = `${result.stdout}\n${result.stderr}`;
+  if (!result.timedOut && /(?:no such volume|volume .* not found)/iu.test(output)) {
+    return { state: "absent", reason: null };
+  }
+  return {
+    state: "unknown",
+    reason:
+      `inspect of volume ${name} on ${contextName}` +
+      `${result.timedOut ? " timed out" : ` exited ${result.code}`}: ` +
+      `${result.stderr.trim() || result.stdout.trim() || "no output on either stream"}`,
+  };
 }
 
 // --- is somebody else's run still using this? --------------------------------------------------
@@ -888,7 +912,16 @@ async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
     "--format",
     "{{.Name}}",
   ]);
-  const scratchNames = await readdir(outputDirectory).catch(() => []);
+  // ENOENT alone is an answer — there is no artifacts/docker yet, so there are no scratch trees in
+  // it — and `[]` states exactly that. Every other error is the question going unanswered:
+  // EACCES, EIO, ENOTDIR. Swallowing those returned the same empty list, so a directory this run
+  // could not read produced `hostVerifiedClear: true` with the scratch class never looked at,
+  // while `enumerationScope.scratchRoot` named it as in scope. Thrown instead, and teardown's
+  // caller turns the throw into "the flag stays false, and here is why".
+  const scratchNames = await readdir(outputDirectory).catch((error) => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  });
   const containerNames = await dockerLinesAt(context, [
     "ps",
     "--all",
@@ -1049,12 +1082,22 @@ async function cleanupDisposable(contextName, name, token) {
     throw new Error(`Disposable container ${name} still exists after cleanup`);
   }
   const surviving = [];
+  const unanswered = [];
   for (const volume of attachedVolumes) {
-    if (await volumeExistsAt(contextName, volume)) surviving.push(volume);
+    const probe = await inspectVolumeAt(contextName, volume);
+    if (probe.state === "present") surviving.push(volume);
+    else if (probe.state === "unknown") unanswered.push(probe.reason);
   }
   if (surviving.length > 0) {
     throw new Error(
       `Disposable container ${name} left anonymous volumes on ${contextName}: ${surviving.join(", ")}`,
+    );
+  }
+  // Separate sentence because it is a separate claim: nothing here says the volume survived, only
+  // that this run cannot say it went.
+  if (unanswered.length > 0) {
+    throw new Error(
+      `Could not establish that the anonymous volumes of ${name} were removed with it: ${unanswered.join("; ")}`,
     );
   }
   return {
@@ -1221,7 +1264,7 @@ const cleanupEvidence = {
   // Acceptance resources still on the host at the end, with no live run to explain them. This is
   // the unexplained residue: neither removed nor attributable to a peer.
   survivedTeardown: { containers: [], contexts: [], scratchDirectories: [] },
-  // The rule that decided which of those three lists each resource went into, with its parameters,
+  // The rule that decided which of those four lists each resource went into, with its parameters,
   // so the precision of the claim is legible rather than implied.
   livenessRule: {
     name: "creator-process-liveness-with-age-fallback",
@@ -1237,7 +1280,7 @@ const cleanupEvidence = {
     thisRunCreator: runCreatorIdentity,
     // Exactly what `hostVerifiedClear` below was established over. Written into the artifact
     // rather than left to a comment, because a release gate reading "host verified clear" is
-    // otherwise free to assume all three lists were host-wide, and none of them is.
+    // otherwise free to assume all four lists were host-wide, and none of them is.
     enumerationScope: {
       // Containers: whatever daemon this one Docker context points at. A second daemon on this
       // machine, or a remote one, is neither enumerated nor claimed about.
@@ -1782,20 +1825,11 @@ try {
         continue;
       }
       const attached = anonymousVolumeNames(mounts.volumes);
-      if (mounts.state !== "enumerated") {
-        // An inspect that failed says nothing about what is attached, and "nothing is attached" is
-        // exactly what --volumes would have acted on. Removing without it leaves a volume on the
-        // host, which is visible in `docker volume ls` and recoverable; removing with it would
-        // delete volumes that appear in no list and no error, which is the one silent deletion
-        // this sweep was written to be incapable of.
-        recordCleanupError(
-          new Error(
-            `Could not enumerate the anonymous volumes of orphaned container ${name}: ` +
-              `${mounts.reason}. It was removed without --volumes, so nothing was deleted that ` +
-              `this run could not name; any anonymous volume it held is still on ${context}.`,
-          ),
-        );
-      }
+      // An inspect that failed says nothing about what is attached, and "nothing is attached" is
+      // exactly what --volumes would have acted on. Removing without it leaves a volume on the
+      // host, which is visible in `docker volume ls` and recoverable; removing with it would
+      // delete volumes that appear in no list and no error, which is the one silent deletion
+      // this sweep was written to be incapable of.
       if (
         !(await sweepOrphan("container", name, [
           "rm",
@@ -1811,15 +1845,41 @@ try {
         continue;
       }
       cleanupEvidence.orphansRemoved.containers.push(name);
+      // Recorded after the removal succeeded, because the sentence is about a removal. Written
+      // before it, a failed `rm` left "It was removed without --volumes" in the artifact directly
+      // beside the error saying it was not removed at all — a false clause next to its own
+      // contradiction, in the one place a reader goes to find out what happened.
+      if (mounts.state !== "enumerated") {
+        recordCleanupError(
+          new Error(
+            `Could not enumerate the anonymous volumes of orphaned container ${name}: ` +
+              `${mounts.reason}. It was removed without --volumes, so nothing was deleted that ` +
+              `this run could not name; any anonymous volume it held is still on ${context}.`,
+          ),
+        );
+      }
       const surviving = [];
+      const unanswered = [];
       for (const volume of attached) {
-        if (await volumeExistsAt(context, volume)) surviving.push(volume);
-        else cleanupEvidence.orphansRemoved.volumes.push(volume);
+        // Only an answered "it is not there" earns a place in `orphansRemoved.volumes`. That list
+        // means this run removed the volume, and an inspect that timed out or could not reach the
+        // daemon establishes nothing of the sort.
+        const probe = await inspectVolumeAt(context, volume);
+        if (probe.state === "absent") cleanupEvidence.orphansRemoved.volumes.push(volume);
+        else if (probe.state === "present") surviving.push(volume);
+        else unanswered.push(probe.reason);
       }
       if (surviving.length > 0) {
         recordCleanupError(
           new Error(
             `Swept orphaned container ${name} left anonymous volumes on ${context}: ${surviving.join(", ")}`,
+          ),
+        );
+      }
+      if (unanswered.length > 0) {
+        recordCleanupError(
+          new Error(
+            `Could not establish that the anonymous volumes of swept container ${name} went with it: ${unanswered.join("; ")}`,
           ),
         );
       }
