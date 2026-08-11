@@ -2344,8 +2344,13 @@ async function main() {
   //
   // Deliberately not a hard failure: an unsigned local build is a legitimate and common
   // thing to want. What must never happen is an unsigned artifact being mistaken for a
-  // signed one, so the distinction is stated at the end of every build, and
-  // ANCHORAGE_REQUIRE_SIGNATURE=1 turns it into a gate for a publishing pipeline.
+  // signed one, so the distinction is stated at the end of every build.
+  //
+  // This used to promise `ANCHORAGE_REQUIRE_SIGNATURE=1` as a gate for a publishing pipeline.
+  // No such variable was ever read — it appeared in this comment and nowhere else in the
+  // repository. Removed rather than implemented: the release path is gated by the checks that
+  // exist below and in the publish job, and a flag documented but not wired is worse than an
+  // absent one, because it reads as protection someone might rely on.
   const signatureReceiptPath = join(RELEASE_DIRECTORY, "release-signature.json");
   let signatureState = "unsigned";
   try {
@@ -2425,9 +2430,16 @@ async function main() {
   }
   // Reported, never gated here. Packaging clears the release directory before it builds, so
   // a signature can only ever be applied afterwards — a "require signature" flag on this
-  // step could never be satisfied by definition. Enforcement belongs to the publish step,
-  // which is `node tools/sign-release.mjs --verify-only`: that re-verifies the signature and
-  // every digest against the artifacts actually present.
+  // step could never be satisfied by definition.
+  //
+  // What actually enforces it, stated because an earlier version of this comment named
+  // `--verify-only` as the publish-side gate and that was not true of any step that runs:
+  // signing verifies its own output before exiting, and deletes an empty or unverified
+  // signature rather than leaving one behind; the publish job then checks every digest in
+  // each `SHA256SUMS-<arch>` against the artifacts it is about to release. `--verify-only`
+  // is a tool for the key holder — it resolves the identity through `--list-secret-keys`, so
+  // a machine holding only the public key cannot run it, and a publish runner holds only
+  // the public key.
   log(`Release signature: ${signatureState}`);
   if (!signatureState.startsWith("signed by")) {
     log(

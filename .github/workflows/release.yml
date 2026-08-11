@@ -466,7 +466,18 @@ jobs:
               echo "A detached OpenPGP signature is published for:$signed. It verified on the"
               echo "machine that made it; nothing has re-checked it since, so check it yourself:"
               echo
+              echo "    gpg --import anchorage-signing-key.asc   # from the repository"
               echo "    gpg --verify SHA256SUMS-<arch>.asc SHA256SUMS-<arch>"
+              echo
+              # The import is what makes the check mean anything, and these notes are read by
+              # exactly the person who has no keyring yet. Without it `gpg --verify` exits 2 on
+              # an empty keyring, and prints `Good signature` for whatever key a reader does
+              # happen to hold — answering "signed by someone" where the reader needs "signed by
+              # Anchorage". Naming the primary fingerprint gives the check something to anchor to.
+              echo "Signing lives on a subkey, so gpg names a different key as the signer and"
+              echo "this one as its primary. That is the expected shape — confirm it reads:"
+              echo
+              echo "    6EC9 EBF7 5C48 EA12 D1C5  4A7E 22E6 9E9D C856 20D3"
             else
               echo "No signature is published for this release: it was built without a signing"
               echo "key. The checksum lists still cover every artifact."

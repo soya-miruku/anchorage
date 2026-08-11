@@ -285,12 +285,30 @@ Each architecture has its own checksum list, because a checksum file signed by a
 machine should cover what that machine actually built:
 
 ```bash
+gpg --import anchorage-signing-key.asc          # once, from this repository
 gpg --verify SHA256SUMS-x64.asc SHA256SUMS-x64
 sha256sum -c SHA256SUMS-x64
 ```
 
 Both are stock tools. A signature that does not verify means the download is not
 the release that was published, whatever the file happens to be called.
+
+The import is not a formality, and skipping it does not merely make the check
+weaker — it makes it answer a different question. `gpg --verify` on its own asks
+"is this a valid signature by someone whose key I hold": on an empty keyring it
+cannot answer at all and exits 2, and on a keyring holding anyone else's key it
+prints `Good signature` for **their** signature over a file they chose. What you
+want to know is that Anchorage signed it, so check the fingerprint gpg reports
+against the one published here:
+
+```
+6EC9 EBF7 5C48 EA12 D1C5 4A7E 22E6 9E9D C856 20D3
+```
+
+Signing lives on a subkey of that primary, so `gpg` will report a different
+(shorter-lived) key as the signer and name this fingerprint as its primary. That
+is the expected shape: the runner that signs a release can sign, and cannot
+certify a key as Anchorage.
 
 `release-verification-<arch>.json` records what was **executed** and what was only
 **inspected**. The AppImage payload is run and timed on the machine that built it;
