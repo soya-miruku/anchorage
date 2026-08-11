@@ -23,6 +23,11 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import {
+  detachedSignatureVerifyArguments,
+  judgeDetachedSignature,
+} from "./verify-detached-signature.mjs";
+
 const run = promisify(execFile);
 const scriptPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(scriptPath), "..");
@@ -236,67 +241,25 @@ if (!verifyOnly) {
 Verify what was actually produced rather than trusting that signing succeeded. A signature that
 does not verify is worse than none: it looks like protection and is not.
 
-Read from --status-fd rather than from gpg's prose, for two reasons that both bit this check.
-
-Prose is formatted for people: gpg prints the signing key compactly ("using EDDSA key <fpr>")
-and the primary spaced out ("Primary key fingerprint: 6EC9 EBF7 …"). A substring test for the
-compact fingerprint therefore only ever matched when the primary itself signed, and rejected a
-perfectly good signature the moment a signing subkey existed — which is the layout a signing key
-should have, and the one CI uses so that a runner never holds a key that can certify.
-
-Prose is also translatable. `Good signature` is a localised string, so a runner with a different
-locale would have failed a valid signature. VALIDSIG and GOODSIG are not localised.
-
-VALIDSIG's first field is the key that signed, and its last is that key's primary. Comparing the
-primary is what "signed by this identity" means in OpenPGP: it accepts the primary and any of its
-signing subkeys, and still rejects a different key entirely.
+What counts as verified lives in tools/verify-detached-signature.mjs, which is also what
+package-desktop.mjs asks — it had its own answer, and its own answer was wrong. The reasoning
+for every clause is there; the short version is GOODSIG and VALIDSIG from --status-fd, the
+signature's *primary* compared against the identity being claimed, and gpg's exit status as a
+conjunct. Nothing about that changed when it moved.
 */
 const verification = await gpg(
-  ["--status-fd=1", "--verify", signaturePath, sumsPath],
+  detachedSignatureVerifyArguments(signaturePath, sumsPath),
   { allowFailure: true },
 );
-const verifyOutput = `${verification.stdout}${verification.stderr}`;
-const statusLines = verification.stdout
-  .split("\n")
-  .filter((line) => line.startsWith("[GNUPG:] "))
-  .map((line) => line.slice("[GNUPG:] ".length).trim());
-if (!statusLines.some((line) => line.startsWith("GOODSIG "))) {
-  fail(`The produced signature did not verify:\n${verifyOutput.trim()}`);
+const verdict = judgeDetachedSignature({
+  ...verification,
+  expectedPrimaryFingerprint: fingerprint,
+});
+if (!verdict.ok) {
+  fail(`${verdict.summary}:\n${verdict.detail}`);
 }
-const validSig = statusLines.find((line) => line.startsWith("VALIDSIG "));
-if (!validSig) {
-  fail(`gpg reported no VALIDSIG for the signature:\n${verifyOutput.trim()}`);
-}
-const validSigFields = validSig.split(/\s+/u);
-const signedByKey = validSigFields[1];
-const signedByPrimary = validSigFields.at(-1);
-if (signedByPrimary !== fingerprint) {
-  fail(
-    `The signature verified but its primary key is ${signedByPrimary}, not ${fingerprint}:\n` +
-      verifyOutput.trim(),
-  );
-}
-/*
-And gpg must have been satisfied too.
-
-A conjunct, never a substitute: GOODSIG and VALIDSIG above are what decide, and this only has to
-agree with them. It is needed now because stdout survives a non-zero exit — until it did, an
-unhappy gpg handed this check no status lines at all and the tests above failed by default,
-which is the only reason reading them alone was ever equivalent to reading them and the status.
-
-A detached signature file can hold more than one signature. Verifying a file carrying a good
-signature and a bad one prints GOODSIG and VALIDSIG for the good one, BADSIG for the other, and
-exits non-zero (measured, gpg 2.4.4). Status lines alone would report that file as verified on
-the strength of whichever signature was listed first.
-*/
-if (verification.status !== 0) {
-  fail(
-    `gpg exited ${verification.status} verifying the signature, having also reported ` +
-      `a good one:\n${verifyOutput.trim()}`,
-  );
-}
-if (signedByKey !== fingerprint) {
-  console.log(`Signed by subkey ${signedByKey} of ${fingerprint}`);
+if (verdict.viaSubkey) {
+  console.log(`Signed by subkey ${verdict.signedByKey} of ${fingerprint}`);
 }
 
 // Re-check every recorded digest against the file on disk, so the receipt cannot certify a
