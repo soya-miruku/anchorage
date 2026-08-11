@@ -7,9 +7,10 @@
  * over a SHA256SUMS file is what people actually check, needs only stock `gpg` and
  * `sha256sum`, and works on any distribution. That is what this produces.
  *
- * The private key never leaves the operator's machine and is never read here: gpg is invoked
- * so that gpg-agent prompts for the passphrase directly. Nothing in this repository, and
- * nothing in the evidence bundle, ever contains key material.
+ * The private key never leaves the operator's machine and is never read here, and neither is
+ * the passphrase: gpg gets it from gpg-agent, which either prompts the operator through
+ * pinentry or hands over one that was preset into it beforehand. Nothing in this repository,
+ * and nothing in the evidence bundle, ever contains key material.
  *
  * Usage:
  *   node tools/sign-release.mjs --key "Anchorage Release Signing"
@@ -45,6 +46,24 @@ function argument(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
+
+/*
+Whether anyone can be asked anything.
+
+This is the difference between the two places this script runs. At a terminal, the operator is
+present and gpg-agent can put a pinentry in front of them. On a runner there is no terminal on
+any of the three streams, nobody to answer a prompt, and the passphrase must already be in the
+agent — so signing is told to ask gpg itself (see the loopback note below) rather than let the
+agent hunt for a pinentry it should not find, and the failure advice is written for a log rather
+than for someone sitting at a laptop.
+
+Derived from the environment rather than from gpg's prose, which was the previous way of telling
+these apart and got it backwards on CI: the error string a runner produces depends on gpg's
+configuration and its locale, and a runner was being told to "run the same command yourself".
+*/
+const hasTerminal = Boolean(
+  process.stdin.isTTY || process.stdout.isTTY || process.stderr.isTTY,
+);
 
 async function sha256File(path) {
   return createHash("sha256").update(await readFile(path)).digest("hex");
@@ -180,12 +199,36 @@ if (!verifyOnly) {
   await writeFile(sumsPath, `${lines.join("\n")}\n`, { mode: 0o644 });
   console.log(`Wrote ${relative(workspaceRoot, sumsPath)} covering ${artifacts.length} artifacts`);
 
-  // --yes so a re-sign overwrites cleanly; gpg-agent prompts for the passphrase, which is
-  // never handled here.
+  /*
+  --yes so a re-sign overwrites cleanly. The passphrase is never handled here: it comes from
+  gpg-agent, either because a person is at a terminal to type it or because it was preset into
+  the agent beforehand, which is what CI does.
+
+  `--pinentry-mode loopback` is passed here, on the one call that signs, and only when this run
+  has no terminal. Both halves of that matter and both were learned the hard way.
+
+  Here rather than in gpg.conf: as a global option it applied to every gpg call in the release
+  job, --verify included, which is not something signing gets to decide. A signing option belongs
+  on the signing invocation.
+
+  Only without a terminal, because loopback means "gpg will obtain the passphrase itself" — and
+  under --batch, with no passphrase on the command line, gpg has no way to obtain one and gives
+  up immediately. That is the right answer for a runner: the passphrase is either already in the
+  agent or the build cannot sign, and the failure is instant and says exactly that. It is the
+  wrong answer for the operator, whose agent asks pinentry to prompt them; so when there is a
+  terminal, this is not passed and nothing about local signing changes.
+
+  Absent it, a runner is not merely undiagnosed but exposed: gpg-agent will spawn a pinentry
+  when it can, the job exports DISPLAY for the capture, and a graphical pinentry has no timeout
+  (`--pinentry-timeout` defaults to 0). A signing failure would then be a two-hour hang against
+  the job's timeout rather than an error. Measured: with a pinentry that does not exit
+  immediately, the Sign step was still waiting when the harness killed it.
+  */
   const signing = await gpg(
     [
       "--batch",
       "--yes",
+      ...(hasTerminal ? [] : ["--pinentry-mode", "loopback"]),
       "--local-user",
       fingerprint,
       "--armor",
@@ -220,21 +263,36 @@ if (!verifyOnly) {
     await rm(sumsPath, { force: true });
     await rm(signaturePath, { force: true });
     const reason = `${signing.stdout}${signing.stderr}`.trim();
-    if (/Timeout|No pinentry|Inappropriate ioctl|cannot open/iu.test(reason)) {
-      fail(
-        "gpg could not prompt for the passphrase.\n" +
-          "  Signing needs an interactive terminal, because the private key is yours and is\n" +
-          "  never handled by this project. Run the same command yourself:\n\n" +
-          `    node tools/sign-release.mjs --key ${fingerprint}\n\n` +
-          `  gpg said: ${reason}`,
-      );
-    }
-    // Everything else quotes gpg verbatim and says what it exited with, rather than guessing
-    // at a cause from a translated string. In CI the message that belongs here is gpg's own
-    // report that it had no way to obtain the passphrase.
-    fail(`gpg exited ${signing.status} without signing ${basename(sumsPath)}:\n${reason}`);
+    /*
+    gpg is quoted verbatim and its exit status is named, always. What is added to that is decided
+    by where this is running, not by what gpg said.
+
+    A regex over the failure text used to choose between two messages, and it chose wrongly in
+    the one place it mattered. "Inappropriate ioctl for device" — what a runner without loopback
+    produces — matched the branch that says "signing needs an interactive terminal, run the same
+    command yourself", so a CI log was given advice for a person at a laptop and the accurate
+    message became unreachable there. The strings it matched are gpg's prose and therefore
+    translatable, so the branch it picked also depended on the runner's locale.
+
+    A terminal is a fact about this process, not a guess about a message.
+    */
+    const advice = hasTerminal
+      ? ""
+      : "\n\n  There is no terminal here, so signing asked gpg for the passphrase directly and " +
+        "the\n  only one available is a passphrase already cached in gpg-agent. Sign from a " +
+        "terminal,\n  or preset it into the agent first — for every keygrip the key has, which " +
+        "is what\n  the release workflow does.";
+    fail(
+      `gpg exited ${signing.status} without signing ${basename(sumsPath)}:\n${reason}${advice}`,
+    );
   }
-  console.log(`Signed with ${fingerprint}`);
+  // Both numbers in the log, cheap and non-secret, because "signed" used to be printed on the
+  // strength of a file that existed and was empty. A reader of a CI log can now see that gpg
+  // was happy and that something was actually written, without waiting for the verification.
+  console.log(
+    `Signed with ${fingerprint} (gpg exit ${signing.status}, ` +
+      `${signatureBytes} bytes in ${basename(signaturePath)})`,
+  );
 }
 
 /*

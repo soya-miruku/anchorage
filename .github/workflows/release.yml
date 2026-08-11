@@ -247,14 +247,17 @@ jobs:
           # the right shape for a human at a terminal and needs the agent primed here instead.
           # A preset passphrase does that without the signer learning about CI.
           #
-          # No `pinentry-mode loopback` in gpg.conf. It was here to go with the preset, it is
-          # not needed for one — a passphrase already in the agent is never asked for — and as
-          # a global option it applied to every gpg call in this job, --verify included. Its
-          # one measured effect was on the failure path, and it was to hide the failure: a
-          # --batch sign under loopback has no way to obtain a passphrase and gives up *after*
-          # creating --output, leaving an empty signature that reads as a real one. Without it
-          # the same failure is "gpg: signing failed: Inappropriate ioctl for device" and no
-          # file, which is what a release that could not sign should look like.
+          # Nothing is written to gpg.conf, and in particular not `pinentry-mode loopback`. It
+          # was there to go with the preset, and as a global option it applied to every gpg call
+          # in this job, --verify included — which is not a decision signing gets to make for
+          # verification. Removing it was right and was not sufficient: its presence hid a
+          # signing failure behind an empty signature file, and its absence turned the same
+          # failure into "Inappropriate ioctl for device", which the script's error branch read
+          # as "you need an interactive terminal, run this yourself" — advice for a laptop,
+          # printed in a CI log. sign-release.mjs now passes loopback on the one call that
+          # signs, and only when that run has no terminal, so a runner fails deterministically
+          # and says why, gpg-agent is never asked to find a pinentry it should not find, and
+          # verification is untouched by either.
           mkdir -p "$HOME/.gnupg"
           chmod 700 "$HOME/.gnupg"
           echo "allow-preset-passphrase" >> "$HOME/.gnupg/gpg-agent.conf"
