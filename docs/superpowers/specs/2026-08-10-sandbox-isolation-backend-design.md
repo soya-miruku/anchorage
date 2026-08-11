@@ -102,6 +102,19 @@ path.
    `artifacts/docker/acceptance-scratch-*` directories. Either refuse or clean-and-record under
    `orphansRemoved`. Only then can `cleanup: passed` honestly mean *"at completion, zero Anchorage
    acceptance resources existed on this host"* — established by enumeration, per the house rule.
+
+   **Amended during implementation (2026-08-11).** That sentence was too strong to survive contact
+   with a shared host, and the code deliberately no longer claims it. Sweeping every matching
+   resource means sweeping a *concurrently running* suite's live privileged container, and then
+   accusing its healthy resources of having survived teardown — which was demonstrated in both
+   directions before the guard existed. A run therefore spares resources it can show belong to a
+   live peer process, so a privileged acceptance container can legitimately be on the host while
+   the run reports success. `hostVerifiedClear` accordingly means **"every acceptance resource this
+   run could see is accounted for — removed, or identified as a live peer's"**, and the artifact
+   distinguishes the three dispositions (`orphansRemoved`, `possibleLivePeers`, `survivedTeardown`)
+   rather than collapsing them. The claim is also scoped, not host-global: containers and contexts
+   come from one Docker context and one user's config, and scratch directories only from the
+   running workspace's `artifacts/docker`.
 3. **Self-limiting debris.** Run the DinD container with `--rm` and a hard entrypoint timeout, so an
    orphaned privileged daemon removes itself within the hour even if no sweep runs. Contexts cannot
    self-clean; the sweep covers those.

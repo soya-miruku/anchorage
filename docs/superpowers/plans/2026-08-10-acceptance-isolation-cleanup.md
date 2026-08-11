@@ -500,6 +500,24 @@ Turns `cleanup: passed` from a per-run claim into a host-state claim, establishe
   `dockerContext` fields. Task 5's policy read and this task's verification command both use that
   nested path; `cleanup.hostVerifiedClear` is always `undefined`.
 
+  **Updated after Task 4's fix round (2026-08-11).** The shape grew, because sweeping everything
+  that matches would sweep a concurrently running suite's live privileged container. What Task 5
+  actually consumes:
+  - `cleanup.evidence.orphansRemoved: {containers, contexts, scratchDirectories, volumes}` — four
+    keys now; `volumes` records the anonymous volumes reclaimed with the containers, so no deletion
+    goes unrecorded.
+  - `cleanup.evidence.possibleLivePeers` — resources deliberately spared because they carry a
+    creator stamp whose process is still alive. Each entry carries a `reason`.
+  - `cleanup.evidence.survivedTeardown` — resources genuinely unaccounted for. **This, not the
+    error string, is what Task 5 should key on**, so that a peer crashing mid-run is
+    distinguishable from this run leaking.
+  - `cleanup.evidence.livenessRule` — the rule and its parameters, so the claim's precision is
+    legible rather than implied.
+  - `hostVerifiedClear` now means *"every acceptance resource this run could see is accounted for —
+    removed, or identified as a live peer's"*, scoped to one Docker context, one user's contexts,
+    and this workspace's `artifacts/docker`. It does **not** mean zero acceptance resources exist
+    on the host. Task 5's assertion message must not claim more than this.
+
 - [ ] **Step 1: Add the preflight sweep**
 
 Insert before the existing collision check at line 1533, and extend `cleanupEvidence` at line 736 with `orphansRemoved: {containers: [], contexts: [], scratchDirectories: []}` and `hostVerifiedClear: false`:
@@ -720,9 +738,10 @@ In `validateMutationConformance`, beside the existing cleanup assertion:
 ```js
   requireCondition(
     evidence.cleanup?.evidence?.hostVerifiedClear === true,
-    `${description} must record the host verified clear of acceptance resources — ` +
-      "a run that removed its own resources has not established that nothing leaked, " +
-      "which is precisely the gap an interrupted run falls into",
+    `${description} must record every acceptance resource as accounted for — ` +
+      "removed, or identified as belonging to a live concurrent run. A run that removed " +
+      "its own resources has not established that nothing leaked, which is precisely the " +
+      "gap an interrupted run falls into",
   );
 ```
 
