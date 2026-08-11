@@ -187,7 +187,10 @@ function acceptanceFixture(mutationsEnabled) {
       status: "passed",
     })),
     skippedChecks: [],
-    cleanup: { status: "passed", errors: [] },
+    // Nested exactly as `collectCleanupResult()` writes it, so a fixture can never agree with a
+    // policy that reads the wrong path. Every fixture below is a releasable run unless the test
+    // spoils it, and a releasable mutation run is one that established the host clear.
+    cleanup: { status: "passed", errors: [], evidence: { hostVerifiedClear: true } },
     error: null,
   };
 }
@@ -215,6 +218,41 @@ test("mutation and read-only acceptance enforce distinct modes and passing check
   );
   mutation.checks[0].status = "failed";
   assert.throws(() => validateMutationConformance(mutation), /only named checks that passed/u);
+});
+
+test("mutation conformance requires the host to have been verified clear", () => {
+  const evidence = acceptanceFixture(true);
+  // The harness nests the per-resource cleanup evidence one level down, under `cleanup.evidence`
+  // (see `collectCleanupResult()`), so the new fields sit beside `dindContainer` — not at the top
+  // of the `cleanup` block. A fixture that puts them at the top would make the policy read below
+  // look correct while it silently read `undefined` against real evidence.
+  evidence.cleanup = {
+    status: "passed",
+    errors: [],
+    evidence: {
+      hostVerifiedClear: true,
+      orphansRemoved: { containers: [], contexts: [], scratchDirectories: [] },
+    },
+  };
+  assert.doesNotThrow(() => validateMutationConformance(evidence));
+
+  // A run that tidied its own resources but left someone else's debris is not a clear host, and
+  // the difference is exactly what an interrupted run produces.
+  const dirty = structuredClone(evidence);
+  dirty.cleanup.evidence.hostVerifiedClear = false;
+  assert.throws(() => validateMutationConformance(dirty), /host verified clear/u);
+
+  // Absent is not the same as true: older evidence must not pass by omission.
+  const legacy = structuredClone(evidence);
+  delete legacy.cleanup.evidence.hostVerifiedClear;
+  assert.throws(() => validateMutationConformance(legacy), /host verified clear/u);
+});
+
+test("an aborted run is never releasable", () => {
+  const aborted = acceptanceFixture(true);
+  aborted.status = "aborted";
+  aborted.abortedBy = "SIGTERM";
+  assert.throws(() => validateMutationConformance(aborted), /status/u);
 });
 
 test("acceptance evidence permits a skip only for an absent optional plugin, and only on the record", () => {

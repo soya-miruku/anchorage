@@ -1220,6 +1220,30 @@ export function validateMutationConformance(evidence) {
       evidence.cleanup.errors.length === 0,
     `${description} must report clean disposable-resource cleanup`,
   );
+  /*
+   * The check above is satisfied by a run that tidied up after itself, and that is a weaker claim
+   * than it reads as: every other field in the cleanup block — `dindContainer`, `scratchDirectory`
+   * — reports on a resource this run created, so a run interrupted before it created any of them
+   * reports all of them clean while a predecessor's privileged daemon is still on the host.
+   * `hostVerifiedClear` is the only field that speaks about resources the run did not create, so
+   * it is the only one that can refuse that release.
+   *
+   * Nested under `cleanup.evidence` because that is where `collectCleanupResult()` writes it;
+   * `evidence.cleanup.hostVerifiedClear` is `undefined` in every artifact the harness has ever
+   * produced, and `undefined === true` is false, so a wrong path here fails closed rather than
+   * silently passing — but it would fail every release, so the path is pinned by a test that
+   * builds the fixture at the harness's nesting.
+   */
+  requireCondition(
+    evidence.cleanup?.evidence?.hostVerifiedClear === true,
+    `${description} must record the host verified clear at cleanup.evidence.hostVerifiedClear — ` +
+      "every acceptance resource the run enumerated and recognised by name accounted for, by one " +
+      "of removed by this run, identified as a live concurrent run's, or already gone when the " +
+      "sweep reached it. False, or absent as in evidence predating the sweep, means the run did " +
+      "not establish that, which is precisely the gap an interrupted predecessor falls into. It " +
+      "is not a claim that no acceptance resources exist on the host: what it was established " +
+      "over is recorded in cleanup.evidence.livenessRule.enumerationScope",
+  );
   requireCondition(
     evidence.error === null,
     `${description} must not contain an error`,
