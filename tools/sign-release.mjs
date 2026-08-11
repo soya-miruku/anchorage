@@ -16,15 +16,22 @@
  *   node tools/sign-release.mjs --key "Anchorage Release Signing"
  *   node tools/sign-release.mjs --key <fingerprint> --verify-only
  *   node tools/sign-release.mjs --checksums-only
+ *   node tools/sign-release.mjs --key <fingerprint> --arch x64   # what the release job runs
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import {
+  ARCHITECTURE_TOKEN,
+  coverableArtifacts,
+  publicationRenames,
+  publishedNames,
+} from "./release-artifact-names.mjs";
 import {
   detachedSignatureVerifyArguments,
   judgeDetachedSignature,
@@ -34,9 +41,6 @@ const run = promisify(execFile);
 const scriptPath = fileURLToPath(import.meta.url);
 const workspaceRoot = resolve(dirname(scriptPath), "..");
 const releaseDirectory = resolve(workspaceRoot, "app/release");
-const sumsPath = join(releaseDirectory, "SHA256SUMS");
-const signaturePath = `${sumsPath}.asc`;
-const receiptPath = join(releaseDirectory, "release-signature.json");
 
 function fail(message) {
   console.error(`FAIL: ${message}`);
@@ -47,6 +51,28 @@ function argument(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
 }
+
+/*
+The architecture this run publishes for, and therefore what the files it writes are called.
+
+A release carries both architectures, so their metadata cannot share names. A local build has no
+such collision to avoid, passes nothing, and keeps the names packaging wrote. Which files are
+affected is decided in tools/release-artifact-names.mjs, along with the reason it is decided
+*here* rather than by a rename afterwards: a checksum list written under one set of names and
+published under another names files the release does not contain, and that is what happened.
+*/
+const architecture = argument("--arch");
+if (process.argv.includes("--arch") && !ARCHITECTURE_TOKEN.test(architecture ?? "")) {
+  fail(
+    `--arch takes a plain architecture token such as x64 or arm64, not ` +
+      `${JSON.stringify(architecture ?? null)}. It becomes part of a file name a downloader ` +
+      `types.`,
+  );
+}
+const published = publishedNames(architecture);
+const sumsPath = join(releaseDirectory, published.checksums);
+const signaturePath = join(releaseDirectory, published.signature);
+const receiptPath = join(releaseDirectory, published.signingReceipt);
 
 /*
 Whether anyone can be asked anything.
@@ -139,22 +165,15 @@ async function resolveSigningKey(selector) {
   return fingerprints[0];
 }
 
-/*
-Everything a downloader receives, and therefore everything that must be covered.
-
-Listed explicitly rather than by "any file in the directory", so that adding a target is a
-deliberate decision to sign it rather than something that happens silently — and so that a
-stray file in the release directory cannot end up inside a signature. The inverse mistake has
-already happened once: the deb, rpm and pacman targets shipped while this filter still named
-only the AppImage, which left three of the four downloads uncovered by SHA256SUMS.
-*/
-const SIGNED_INSTALLER_EXTENSIONS = Object.freeze([
-  ".AppImage",
-  ".deb",
-  ".rpm",
-  ".pacman",
-]);
-
+/**
+ * The artifacts to cover, named as the release will publish them.
+ *
+ * Both halves of that sentence are this function's job, because they are one question. Packaging
+ * writes its verification report under a name that would collide between architectures, so it is
+ * given its published name here — before the digest that names it is computed, rather than by a
+ * step afterwards, which is the arrangement that published checksum lists naming files that were
+ * no longer there.
+ */
 async function releaseArtifacts() {
   let entries;
   try {
@@ -165,29 +184,27 @@ async function releaseArtifacts() {
         `Build one first with: npm --prefix app run package:linux`,
     );
   }
-  const artifacts = entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-    .filter(
-      (name) =>
-        SIGNED_INSTALLER_EXTENSIONS.some((extension) => name.endsWith(extension)) ||
-        name === "release-verification.json" ||
-        name === "latest-linux.yml",
-    )
-    .sort();
-  if (!artifacts.some((name) => name.endsWith(".AppImage"))) {
-    fail("No AppImage found to sign; build a release before signing it.");
+  let names = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  for (const { from, to } of publicationRenames(names, architecture)) {
+    await rename(join(releaseDirectory, from), join(releaseDirectory, to));
+    names = names.map((name) => (name === from ? to : name));
+    console.log(`Named ${from} for this architecture: ${to}`);
   }
-  return artifacts;
+  const covered = coverableArtifacts(names, architecture);
+  if (!covered.ok) {
+    fail(covered.summary);
+  }
+  return covered.names;
 }
 
 /**
  * SHA256SUMS is written in the format `sha256sum -c` expects, so a downloader can check
  * integrity with a tool they already have rather than one this project invented.
  *
- * Which files it covers is decided here and nowhere else — see SIGNED_INSTALLER_EXTENSIONS
- * above. That is why this script writes the checksums even when it is not signing them:
- * a checksum file and the signature over it must cover the same set by construction, and the
+ * Which files it covers, and what they are called, is decided in one place — see
+ * tools/release-artifact-names.mjs. That is why this script writes the checksums even when it is
+ * not signing them, and why it names the files rather than leaving that to a later step: a
+ * checksum file, the signature over it and the release itself must agree by construction, and the
  * way to guarantee that is to have one program decide it.
  */
 async function writeChecksums(names) {
@@ -204,7 +221,7 @@ about them. `--checksums-only` is the unsigned half of that, and it needs no key
 key configured still owes its downloaders a checksum file, and the release workflow's own
 description of itself — "without a key the artifacts are still built and verified, they are
 simply unsigned" — was false until it had one, because nothing else in the repository writes
-SHA256SUMS and the step after signing renames it unconditionally.
+SHA256SUMS and the step that followed signing renamed it unconditionally.
 */
 const checksumsOnly = process.argv.includes("--checksums-only");
 const verifyOnly = process.argv.includes("--verify-only");
@@ -290,9 +307,10 @@ if (!verifyOnly) {
   const signatureBytes = existsSync(signaturePath) ? statSync(signaturePath).size : 0;
   if (signing.status !== 0 || signatureBytes === 0) {
     // A half-written SHA256SUMS with no signature beside it reads as a finished release that
-    // simply was not signed. Removing it makes the failure unambiguous. The empty signature
-    // goes with it: the release workflow renames SHA256SUMS.asc if the file is there, so a
-    // zero-byte one left on disk is a placeholder waiting to be published as protection.
+    // simply was not signed. Removing it makes the failure unambiguous. The empty signature goes
+    // with it: both already carry the names the release publishes, and the workflow uploads
+    // whatever matches them, so a zero-byte one left on disk is a placeholder waiting to be
+    // published as protection.
     await rm(sumsPath, { force: true });
     await rm(signaturePath, { force: true });
     const reason = `${signing.stdout}${signing.stderr}`.trim();

@@ -219,11 +219,21 @@ jobs:
         #
         # The *checksums* are not optional, and this workflow only recently began to mean that
         # sentence. tools/sign-release.mjs is the only thing in the repository that writes
-        # SHA256SUMS, so with no key configured no checksum file was produced, and the step
-        # below — which renames it — failed the job with "mv: cannot stat 'SHA256SUMS'"
-        # (measured). The unsigned path had therefore never worked; it was latent only because
-        # the secrets happen to be set. A release publishes checksums whether or not it can sign
-        # them, so the unsigned branch writes them too, and signing is what adds the .asc.
+        # SHA256SUMS, so with no key configured no checksum file was produced, and the step that
+        # used to follow this one — which renamed it — failed the job with "mv: cannot stat
+        # 'SHA256SUMS'" (measured). The unsigned path had therefore never worked; it was latent
+        # only because the secrets happen to be set. A release publishes checksums whether or not
+        # it can sign them, so the unsigned branch writes them too, and signing is what adds
+        # the .asc.
+        #
+        # --arch is what makes this the release's naming rather than the builder's. Eight
+        # installers can share one release; two files called SHA256SUMS cannot, so each
+        # architecture's metadata carries its own name. That renaming belongs to the program that
+        # writes the checksum list, and there is a lost release behind that sentence: a step here
+        # used to rename release-verification.json *after* sign-release.mjs had covered it under
+        # its old name, so every SHA256SUMS this workflow ever published ended in a line naming a
+        # file the release did not contain, and the verification step in the publish job failed on
+        # it every time. One program names the files and lists them, so the two cannot disagree.
         #
         # GPG_PRIVATE_KEY must be a **signing subkey only**, never the primary:
         #
@@ -240,6 +250,7 @@ jobs:
         # primary key rather than the key that signed — which is what makes the subkey layout
         # work at all.
         env:
+          ARCH: ${{ matrix.arch }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
@@ -248,7 +259,8 @@ jobs:
           set -euo pipefail
           if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_KEY_ID:-}" ]; then
             echo "No signing key configured; publishing checksums and leaving this build unsigned."
-            bun run release:checksums
+            bun run release:checksums -- --arch "$ARCH"
+            ls -la release
             exit 0
           fi
 
@@ -329,43 +341,16 @@ jobs:
           # Signing, and then both facts about it before anything downstream assumes either.
           # The release that prompted all this printed "Signed with ***" over a 0-byte file.
           set +e
-          bun run release:sign -- --key "$GPG_KEY_ID"
+          bun run release:sign -- --key "$GPG_KEY_ID" --arch "$ARCH"
           sign_status=$?
           set -e
           echo "release:sign exited $sign_status"
-          ls -l release/SHA256SUMS release/SHA256SUMS.asc || true
+          # The published names, because those are the only ones that exist: nothing renames the
+          # signature after it is made, so the .asc keeps the name its signature was made over by
+          # construction rather than by a rule a later step has to remember.
+          ls -l "release/SHA256SUMS-$ARCH" "release/SHA256SUMS-$ARCH.asc" || true
+          ls -la release
           exit "$sign_status"
-
-      - name: Name the metadata for its own architecture
-        # Eight installers can share one release; two files called SHA256SUMS cannot. Each
-        # architecture keeps its own list, which is also the more honest arrangement: a checksum
-        # file signed by a machine should cover what that machine actually built.
-        #
-        # Spelled out per file rather than derived from the name. The installers already carry
-        # their architecture and are left alone; only these four collide.
-        env:
-          ARCH: ${{ matrix.arch }}
-        working-directory: app/release
-        run: |
-          set -euo pipefail
-          # Unguarded, and now entitled to be: the step above writes SHA256SUMS whether or not
-          # it signed, so a missing one here means checksums went missing rather than that this
-          # build was unsigned, and failing is the right answer to that. It used to mean the
-          # second thing, which is why an unsigned build could not get past this line.
-          mv SHA256SUMS "SHA256SUMS-$ARCH"
-          mv release-verification.json "release-verification-$ARCH.json"
-          # Both of these exist only when the build was signed, and the checksum file must keep
-          # the name its signature was made over — so the .asc follows the file, not a pattern.
-          #
-          # if-blocks rather than `[ -f x ] && mv`: under `set -e` a false test is a non-zero
-          # command at the end of a script, so the unsigned path would fail the step.
-          if [ -f SHA256SUMS.asc ]; then
-            mv SHA256SUMS.asc "SHA256SUMS-$ARCH.asc"
-          fi
-          if [ -f release-signature.json ]; then
-            mv release-signature.json "release-signature-$ARCH.json"
-          fi
-          ls -la
 
       - name: Remove the fixture
         # `always()` so a failed build still leaves the daemon as it was found. The runner is
