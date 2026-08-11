@@ -44,8 +44,8 @@
  *   node tools/set-release-signing-secrets.mjs --set-key-id          # also refresh GPG_KEY_ID
  */
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, openSync, readdirSync, rmSync, writeFileSync, writeSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { constants, tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { isatty, ReadStream } from "node:tty";
 
@@ -60,12 +60,6 @@ import {
   judgeDetachedSignature,
 } from "./verify-detached-signature.mjs";
 
-/*
-The key and the repository this project actually releases from, so the common case is no
-arguments at all. Both are public facts — a fingerprint is not a secret and neither is a
-repository name — and both are printed back before anything is done with them, because a script
-that uploads secrets should never leave you guessing which repository it chose.
-*/
 /*
 Re-exec with core dumps disabled, before anything secret exists.
 
@@ -96,7 +90,18 @@ if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
       ...process.execArgv,
       ...process.argv.slice(1),
     ],
-    { stdio: "inherit", env: { ...process.env, ANCHORAGE_SIGNING_NO_CORE: "1" } },
+    {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        ANCHORAGE_SIGNING_NO_CORE: "1",
+        // The relaunched process refuses to upload if this stops being its parent — see the
+        // check beside setSecret. kill -9 is the case: the relay cannot forward it, so without
+        // this the wrapper dies and the orphan finishes the upload after the shell has already
+        // returned the prompt.
+        ANCHORAGE_SIGNING_PARENT: String(process.pid),
+      },
+    },
   );
 
   /*
@@ -156,6 +161,19 @@ if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
       would claim it had.
       */
       if (signal) {
+        /*
+        Re-raise only the signals whose default action is a plain termination. Re-raising a
+        dumping one — SIGSEGV, SIGABRT and friends, which is how the child dies if V8 aborts —
+        would kill the wrapper by *its* default action, and the wrapper is the one process the
+        re-exec never lowered the core limit on. Measured: two coredumpctl events per crash, the
+        child `Storage: none` and the wrapper with a path allocated. It holds no secret bytes, so
+        this is a junk file in a three-day store rather than an exposure, but it is still a file
+        nobody wants and 128+n reports the same thing without it.
+        */
+        const dumping = new Set(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE", "SIGSYS", "SIGTRAP"]);
+        if (dumping.has(signal)) {
+          process.exit(128 + (constants.signals[signal] ?? 0));
+        }
         process.removeAllListeners(signal);
         process.kill(process.pid, signal);
         return;
@@ -165,6 +183,38 @@ if (!process.env.ANCHORAGE_SIGNING_NO_CORE) {
   });
 }
 
+/*
+Say so if the protection is not actually in force.
+
+The guard above is an environment variable, so anything that already exports it — a stale
+`set -x ANCHORAGE_SIGNING_NO_CORE 1`, a direnv, a previous run's shell — skips the re-exec
+silently and runs the whole thing with dumps enabled. That is the quiet-rather-than-loud failure
+this file argues against everywhere else, so it is checked rather than assumed: read the limit
+that was actually applied instead of trusting that asking for it worked.
+
+A warning rather than a refusal, matching the missing-`sh` path: someone with a good reason to
+run without the re-exec should be able to, and someone without one should be told.
+*/
+try {
+  const limits = readFileSync("/proc/self/limits", "utf8");
+  const core = limits.split("\n").find((line) => /max core file size/iu.test(line));
+  if (core && !/\s0\s+0\s/u.test(core)) {
+    process.stderr.write(
+      `Core dumps are not disabled for this process (${core.trim()}).\n` +
+        "  A crash while the key and passphrase are in memory could write them to a core file.\n" +
+        "  Unset ANCHORAGE_SIGNING_NO_CORE, or run: ulimit -c 0; node tools/set-release-signing-secrets.mjs\n",
+    );
+  }
+} catch {
+  // No procfs. Nothing to report rather than something invented.
+}
+
+/*
+The key and the repository this project actually releases from, so the common case is no
+arguments at all. Both are public facts — a fingerprint is not a secret and neither is a
+repository name — and both are printed back before anything is done with them, because a script
+that uploads secrets should never leave you guessing which repository it chose.
+*/
 const DEFAULT_PRIMARY = "6EC9EBF75C48EA12D1C54A7E22E69E9DC85620D3";
 const DEFAULT_REPOSITORY = "soya-miruku/anchorage";
 
@@ -958,6 +1008,28 @@ console.log("PASS: the exported bundle and the passphrase are a working pair.");
  * re-encoding of it would be a value the masker has never seen.
  */
 async function setSecret(name, value) {
+  /*
+  Refuse to upload if the process that launched this one has gone.
+
+  The relay in the wrapper forwards the four signals it can catch, and SIGKILL is not one of them.
+  Measured before this check: `kill -9` on the pid the operator can see killed the wrapper, the
+  shell printed 137 and returned the prompt, and this process — now orphaned — went on to set both
+  secrets over the top of it. An operator who kills harder because a run looks stuck should not
+  find the repository changed anyway.
+
+  `process.ppid` is the cheap, exact signal: `sh` execs into node, so the parent is the wrapper
+  itself, and an orphan is reparented to init or a subreaper. Checked here rather than once at
+  start-up because the kill can land at any point before the upload, and this is the last moment
+  where refusing still means nothing has changed.
+  */
+  const launcher = process.env.ANCHORAGE_SIGNING_PARENT;
+  if (launcher && String(process.ppid) !== launcher) {
+    fail(
+      `The process that launched this one is gone, so it was probably killed deliberately.\n` +
+        `  Nothing has been uploaded, and ${name} was the next thing that would have been.\n\n` +
+        `  Run it again when you mean to.`,
+    );
+  }
   const result = await gh(
     [
       "secret",
