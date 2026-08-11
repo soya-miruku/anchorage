@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -6,11 +7,16 @@ import {
   ACCEPTANCE_LABEL,
   ORPHAN_MIN_AGE_MS,
   acceptanceSuffixOf,
+  anonymousVolumeNames,
   classifyOrphans,
   createTeardownRegistry,
   formatCreatorIdentity,
+  interpretMountInspect,
+  interpretProcStatRead,
+  judgeCreatorProcess,
   judgeResourceLiveness,
   parseCreatorIdentity,
+  parseProcessStartTicks,
 } from "./acceptance-isolation.mjs";
 
 const LOCAL = { bootId: "boot-a", pidNamespace: "4026531836" };
@@ -204,6 +210,185 @@ test("a resource that cannot be dated at all is left alone", () => {
       probeCreator: () => "unknown",
     }),
     { possiblyLive: true, reason: "age-unknown" },
+  );
+});
+
+// --- the probe that decides whether a creator process is still there ---------------------------
+
+// pid, a comm field that itself contains spaces and parentheses, then fields 3 to 21 — nineteen of
+// them, which is what puts starttime (field 22) at index 19 of the split — then starttime.
+const STAT_LINE = (ticks) =>
+  `4242 (node (the (comm) field)) ${
+    ["S", 1, 4242, 4242, 0, -1, 4194560, 91, 0, 0, 0, 12, 3, 0, 0, 20, 0, 11, 0].join(" ")
+  } ${ticks} 12345678 900 18446744073709551615`;
+
+test("a stat line is parsed past a comm field containing spaces and parentheses", () => {
+  assert.equal(parseProcessStartTicks(STAT_LINE(991_733)), 991_733);
+  for (const raw of [null, "", "no closing paren", "(x) 1 2 3"]) {
+    assert.equal(parseProcessStartTicks(raw), null, `should not parse: ${raw}`);
+  }
+  // Against this kernel's real format, not only against the fixture above: a parser that agrees
+  // with a hand-written line and disagrees with /proc would silently make every liveness answer
+  // "unreadable", and the sweep would quietly stop sweeping.
+  let real = null;
+  try {
+    real = readFileSync("/proc/self/stat", "utf8");
+  } catch {
+    real = null;
+  }
+  if (real !== null) {
+    const ticks = parseProcessStartTicks(real);
+    assert.equal(typeof ticks, "number");
+    assert.ok(ticks > 0, `starttime read from /proc/self/stat should be positive: ${ticks}`);
+  }
+});
+
+test("a /proc read that was refused is not the same observation as one that found nothing", () => {
+  // ENOENT is the kernel saying there is no such pid — the only error that is evidence of absence.
+  assert.deepEqual(
+    interpretProcStatRead({ error: Object.assign(new Error("no entry"), { code: "ENOENT" }) }),
+    { state: "absent", startTicks: null },
+  );
+  // EACCES is hidepid=1 or ProtectProc= refusing this run a look at another user's process. The
+  // process is there; this run is not allowed to see it. Collapsing the two is what let a peer's
+  // live privileged container be classified as debris and force-removed.
+  for (const code of ["EACCES", "EPERM", "EIO", undefined]) {
+    assert.deepEqual(
+      interpretProcStatRead({ error: Object.assign(new Error("denied"), { code }) }),
+      { state: "unreadable", startTicks: null },
+      `errno ${code} must not read as absence`,
+    );
+  }
+  assert.deepEqual(interpretProcStatRead({ contents: STAT_LINE(4_242) }), {
+    state: "running",
+    startTicks: 4_242,
+  });
+  // Present but unparseable: the entry exists, so "gone" would be a positive claim made out of a
+  // failure to understand.
+  assert.deepEqual(interpretProcStatRead({ contents: "garbage" }), {
+    state: "unreadable",
+    startTicks: null,
+  });
+});
+
+test("an unreadable creator pid is never resolved to the answer that authorises removal", () => {
+  const identity = parseCreatorIdentity(identityOf());
+  const denied = interpretProcStatRead({
+    error: Object.assign(new Error("denied"), { code: "EACCES" }),
+  });
+
+  // hidepid=1: the stat is refused, but kill(pid, 0) still finds the number held, so the peer is
+  // spared rather than swept.
+  assert.equal(
+    judgeCreatorProcess({ identity, statRead: denied, signalRead: "held" }),
+    "alive",
+  );
+  // Nothing to go on at all: "unknown", which sends the resource to the age rule, not to removal.
+  assert.equal(
+    judgeCreatorProcess({ identity, statRead: denied, signalRead: "unknown" }),
+    "unknown",
+  );
+  // hidepid=2 hides the entry entirely, so the read is ENOENT and looks exactly like a dead pid.
+  // The signal probe, which no /proc filtering suppresses, contradicts it — and the contradiction
+  // resolves to "alive" rather than "unknown" on purpose. "unknown" would hand the peer to the age
+  // rule, which condemns anything past the bound, so a peer run of over thirty minutes would still
+  // lose its live container. A held pid spares, whatever /proc says.
+  assert.equal(
+    judgeCreatorProcess({
+      identity,
+      statRead: interpretProcStatRead({
+        error: Object.assign(new Error("no entry"), { code: "ENOENT" }),
+      }),
+      signalRead: "held",
+    }),
+    "alive",
+  );
+});
+
+test("a creator process is condemned only by an exact mismatch or a confirmed absence", () => {
+  const identity = parseCreatorIdentity(identityOf());
+  const absent = interpretProcStatRead({
+    error: Object.assign(new Error("no entry"), { code: "ENOENT" }),
+  });
+
+  // Both probes agree the pid is gone: debris, straight away, without waiting out the age bound.
+  assert.equal(
+    judgeCreatorProcess({ identity, statRead: absent, signalRead: "absent" }),
+    "gone",
+  );
+  // The pid is held by a process that started at a different tick — a reused number, not the
+  // creator. This is the one condemnation that needs no second opinion.
+  assert.equal(
+    judgeCreatorProcess({
+      identity,
+      statRead: interpretProcStatRead({ contents: STAT_LINE(991_734) }),
+      signalRead: "held",
+    }),
+    "gone",
+  );
+  assert.equal(
+    judgeCreatorProcess({
+      identity,
+      statRead: interpretProcStatRead({ contents: STAT_LINE(991_733) }),
+      signalRead: "held",
+    }),
+    "alive",
+  );
+  // An identity with no start time cannot be compared, so a held pid spares and only the two
+  // probes together can condemn.
+  const undated = parseCreatorIdentity(identityOf({ startTicks: null }));
+  assert.equal(undated.startTicks, null);
+  assert.equal(
+    judgeCreatorProcess({
+      identity: undated,
+      statRead: interpretProcStatRead({ contents: STAT_LINE(1) }),
+      signalRead: "held",
+    }),
+    "alive",
+  );
+  assert.equal(
+    judgeCreatorProcess({ identity: undated, statRead: absent, signalRead: "absent" }),
+    "gone",
+  );
+});
+
+// --- an inspect that failed is not a container with nothing attached ---------------------------
+
+test("a failed or timed-out mount inspect is an unknown, never an empty volume list", () => {
+  // The empty array is the claim that authorises `docker rm --force --volumes`. A timeout is not
+  // that claim, and returning [] for it deleted anonymous volumes that no list and no error named.
+  assert.deepEqual(interpretMountInspect({ code: null, timedOut: true }), {
+    ok: false,
+    volumes: [],
+    reason: "docker container inspect timed out",
+  });
+  assert.deepEqual(
+    interpretMountInspect({ code: 1, stderr: "Error: No such container: x\n" }),
+    { ok: false, volumes: [], reason: "Error: No such container: x" },
+  );
+  // A non-zero exit with both streams empty still has to say something a reader can act on.
+  assert.deepEqual(interpretMountInspect({ code: 125 }), {
+    ok: false,
+    volumes: [],
+    reason: "docker container inspect exited 125",
+  });
+  // Only a clean exit produces a claim about what is attached — including the genuine zero.
+  assert.deepEqual(interpretMountInspect({ code: 0, stdout: "" }), {
+    ok: true,
+    volumes: [],
+    reason: null,
+  });
+  assert.deepEqual(
+    interpretMountInspect({ code: 0, stdout: " a \n\nb\r\n" }),
+    { ok: true, volumes: ["a", "b"], reason: null },
+  );
+});
+
+test("only anonymous volumes are claimed, because --volumes removes only those", () => {
+  const anonymous = "a".repeat(64);
+  assert.deepEqual(
+    anonymousVolumeNames([anonymous, "postgres-data", `${anonymous}0`, "A".repeat(64), null]),
+    [anonymous],
   );
 });
 

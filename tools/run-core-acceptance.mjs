@@ -13,6 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { readFileSync, readlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -26,8 +27,12 @@ import {
   ACCEPTANCE_LABEL,
   ORPHAN_MIN_AGE_MS,
   acceptanceSuffixOf,
+  anonymousVolumeNames,
   classifyOrphans,
   formatCreatorIdentity,
+  interpretMountInspect,
+  interpretProcStatRead,
+  judgeCreatorProcess,
   judgeResourceLiveness,
 } from "./acceptance-isolation.mjs";
 
@@ -68,6 +73,13 @@ const requiredChecks = runMutations
   ? [...READ_ONLY_CHECK_IDS, ...MUTATION_CHECK_IDS].sort()
   : [...READ_ONLY_CHECK_IDS];
 const outputDirectory = resolve(workspaceRoot, "artifacts/docker");
+// Where `docker context ls` reads from, which is the whole of what this run can enumerate about
+// contexts: one user's CLI store on one machine. Recorded in the artifact beside the host claim,
+// because "acceptance contexts" sounds host-wide and is not.
+const dockerContextStore = resolve(
+  process.env.DOCKER_CONFIG?.trim() || resolve(homedir(), ".docker"),
+  "contexts",
+);
 const outputPath = resolve(
   workspaceRoot,
   process.env.ANCHORAGE_ACCEPTANCE_OUTPUT ??
@@ -573,6 +585,15 @@ async function verifyDisposableOwnership(contextName, name, token) {
   return { exists: true, owned: result.stdout.trim() === token };
 }
 
+/**
+ * `{ok, volumes, reason}` — what this container has mounted, or why that could not be established.
+ *
+ * Not a bare array. The empty array is the claim "nothing is attached", and it is that claim which
+ * authorises `docker rm --force --volumes`; a failed or timed-out inspect is not that claim. This
+ * used to return `[]` for both, so a thirty-second timeout let the removal take anonymous volumes
+ * with it that were recorded in no list and reported in no error — a silent deletion arriving
+ * through the back door of an inspect nobody checked.
+ */
 async function containerVolumeMounts(contextName, name) {
   const result = await runProcess("docker", [
     "--context",
@@ -583,11 +604,7 @@ async function containerVolumeMounts(contextName, name) {
     '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}\n{{end}}{{end}}',
     name,
   ]);
-  if (result.code !== 0) return [];
-  return result.stdout
-    .split(/\r?\n/u)
-    .map((value) => value.trim())
-    .filter(Boolean);
+  return interpretMountInspect(result);
 }
 
 async function volumeExistsAt(contextName, name) {
@@ -634,27 +651,47 @@ function readPidNamespace() {
 }
 
 /**
- * Field 22 of /proc/<pid>/stat: the process's start time, in clock ticks since boot.
+ * One read of /proc/<pid>/stat, as the fact it established rather than as a number or a null.
  *
- * This is what makes the liveness answer exact rather than probable. `kill(pid, 0)` says a pid is
- * in use, not that it is in use by the process that took it out — and a dead run's pid gets reused
- * on a busy machine, which would pin its debris as "live" forever. A start time that does not
- * match is a different process wearing the same number.
+ * The start time in field 22 is what makes the liveness answer exact rather than probable.
+ * `kill(pid, 0)` says a pid is in use, not that it is in use by the process that took it out — and
+ * a dead run's pid gets reused on a busy machine, which would pin its debris as "live" forever. A
+ * start time that does not match is a different process wearing the same number.
  *
- * The comm field is parenthesised and may itself contain spaces and parentheses, so the split
- * starts after the last `)`. Fields 1 and 2 are dropped by that slice, which puts field 22 at
- * index 19.
+ * The error is handed to the interpreter rather than swallowed, because `catch { return null }` is
+ * what made a hidden process and an absent one the same answer.
  */
-function readProcessStartTicks(pid) {
+function readProcessStat(pid) {
   try {
-    const raw = readFileSync(`/proc/${pid}/stat`, "utf8");
-    const closing = raw.lastIndexOf(")");
-    if (closing < 0) return null;
-    const fields = raw.slice(closing + 1).trim().split(/\s+/u);
-    const ticks = Number(fields[19]);
-    return Number.isFinite(ticks) ? ticks : null;
-  } catch {
-    return null;
+    return interpretProcStatRead({
+      contents: readFileSync(`/proc/${pid}/stat`, "utf8"),
+    });
+  } catch (error) {
+    return interpretProcStatRead({ error });
+  }
+}
+
+/** This run's own start ticks, for the identity it stamps on its container. */
+function readProcessStartTicks(pid) {
+  return readProcessStat(pid).startTicks;
+}
+
+/**
+ * `"held" | "absent" | "unknown"` from `kill(pid, 0)` — a probe no `/proc` filtering can suppress.
+ *
+ * It cannot identify a process, only report whether the number is taken, which is why it is never
+ * on its own enough to condemn a resource. What it is for is contradicting `/proc`: an entry that
+ * is missing because it is hidden still belongs to a process this call can find.
+ */
+function readSignalProbe(pid) {
+  try {
+    process.kill(pid, 0);
+    return "held";
+  } catch (error) {
+    // EPERM means the pid exists and belongs to another user — a peer run started from a
+    // different account is exactly the case this must not mistake for debris.
+    if (error?.code === "EPERM") return "held";
+    return error?.code === "ESRCH" ? "absent" : "unknown";
   }
 }
 
@@ -662,7 +699,11 @@ const localCreatorContext = {
   bootId: readBootId(),
   pidNamespace: readPidNamespace(),
 };
-const procTableReadable = readProcessStartTicks(process.pid) !== null;
+// Only ever a statement about this run's own entry. Under hidepid= or ProtectProc= a run can read
+// its own stat and no other, so this must not be read as "the probe can answer for foreign pids" —
+// which is why the artifact names both probes, and why an absence is confirmed by signal before it
+// is acted on.
+const ownProcStatReadable = readProcessStat(process.pid).state === "running";
 // Stamped on this run's own container so the next run can ask about this process by name rather
 // than by guesswork. Written once, at module load, because the answer cannot change afterwards.
 const runCreatorIdentity = formatCreatorIdentity({
@@ -676,25 +717,19 @@ const runCreatorIdentity = formatCreatorIdentity({
  * "alive" | "gone" | "unknown" for a creator identity already known to share this boot and
  * namespace.
  *
- * "gone" is only ever returned from the exact comparison, because it is the answer that authorises
- * a removal. Where /proc cannot be read the probe degrades to `kill(pid, 0)`, which can say
- * "something holds this pid" but never "nothing ever will", so its negative answer is "unknown"
- * and the age rule decides instead.
+ * Both probes, every time, and `judgeCreatorProcess` reconciles them. The pair is what stops an
+ * unreadable pid from resolving to the permissive answer: a `/proc` entry that is missing because
+ * the kernel is hiding another user's process still has its number held, so the signal probe
+ * contradicts the absence and the resource is spared. On a host with `hidepid=2` and two runs by
+ * different users, the old single probe read the peer's stat as "gone" and force-removed its live
+ * privileged container.
  */
 function probeCreatorProcess(identity) {
-  if (procTableReadable && identity.startTicks !== null) {
-    const ticks = readProcessStartTicks(identity.pid);
-    if (ticks === null) return "gone";
-    return ticks === identity.startTicks ? "alive" : "gone";
-  }
-  try {
-    process.kill(identity.pid, 0);
-    return "alive";
-  } catch (error) {
-    // EPERM means the pid exists and belongs to another user — a peer run started from a
-    // different account is exactly the case this must not mistake for debris.
-    return error?.code === "EPERM" ? "alive" : "unknown";
-  }
+  return judgeCreatorProcess({
+    identity,
+    statRead: readProcessStat(identity.pid),
+    signalRead: readSignalProbe(identity.pid),
+  });
 }
 
 /** What Docker knows about an acceptance container: when it was made, and by whom. */
@@ -733,17 +768,36 @@ async function inspectAcceptanceContainer(name) {
  * its own leak on the strength of its own heartbeat.
  */
 async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
-  const [containerNames, contextNames, scratchNames] = await Promise.all([
-    dockerLinesAt(context, [
-      "ps",
-      "--all",
-      "--filter",
-      `label=${ACCEPTANCE_LABEL}`,
-      "--format",
-      "{{.Names}}",
-    ]),
-    dockerLinesAt(context, ["context", "ls", "--format", "{{.Name}}"]),
-    readdir(outputDirectory).catch(() => []),
+  // Ordered, not concurrent, and the container list is read last on purpose.
+  //
+  // Only the container carries a creation time and a creator label, so it is the container that
+  // decides the fate of every resource sharing its suffix — a context with no container in the
+  // snapshot gets no verdict at all and is swept unconditionally. A run launches its scratch tree,
+  // then its container, then its two contexts, so reading the contexts and the scratch tree first
+  // and the containers afterwards makes the container snapshot a superset in the direction that
+  // matters: anything whose context existed when the contexts were listed had its container
+  // created strictly earlier, and therefore appears in a list taken later.
+  //
+  // Taken concurrently, that guarantee is gone. `docker ps` returning just before a peer's
+  // `docker run -d` completes, while `docker context ls` returns just after its `docker context
+  // create`, leaves the peer's live contexts in this run's snapshot with nothing to date them —
+  // and they are force-removed, after which the peer fails with context_inspect_failed. That is
+  // the exact signature the pre-fix bug produced, reached through a skew between two snapshots
+  // rather than through a missing rule.
+  const contextNames = await dockerLinesAt(context, [
+    "context",
+    "ls",
+    "--format",
+    "{{.Name}}",
+  ]);
+  const scratchNames = await readdir(outputDirectory).catch(() => []);
+  const containerNames = await dockerLinesAt(context, [
+    "ps",
+    "--all",
+    "--filter",
+    `label=${ACCEPTANCE_LABEL}`,
+    "--format",
+    "{{.Names}}",
   ]);
   const matched = classifyOrphans({ containerNames, contextNames, scratchNames });
   const verdicts = new Map();
@@ -824,7 +878,7 @@ async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
 
 async function cleanupDisposable(contextName, name, token) {
   const before = await verifyDisposableOwnership(contextName, name, token);
-  if (!before.exists) return { anonymousVolumes: [] };
+  if (!before.exists) return { anonymousVolumes: [], volumesUnenumerated: null };
   if (!before.owned) {
     throw new Error(
       `Refusing to clean ${name}: acceptance ownership label does not match`,
@@ -835,14 +889,22 @@ async function cleanupDisposable(contextName, name, token) {
   // of those behind per mutation run, which accumulated silently on a daemon this harness does
   // not own. --volumes removes only the anonymous volumes of this container; named volumes
   // and volumes shared with anything else are untouched.
-  const attachedVolumes = await containerVolumeMounts(contextName, name);
+  //
+  // Which is why --volumes is passed only when the mounts are known. An inspect that failed or
+  // timed out cannot tell this container from one with nothing attached, and deleting on that
+  // footing would remove volumes the artifact could not name. The container still goes — leaving a
+  // privileged daemon running is worse than leaving a volume — but the removal takes only what was
+  // enumerated, and the enumeration failure is returned so the caller can record it and leave
+  // `anonymousVolumes` null rather than an empty list that reads as "there were none".
+  const mounts = await containerVolumeMounts(contextName, name);
+  const attachedVolumes = anonymousVolumeNames(mounts.volumes);
   const removed = await runProcess("docker", [
     "--context",
     contextName,
     "container",
     "rm",
     "--force",
-    "--volumes",
+    ...(mounts.ok ? ["--volumes"] : []),
     name,
   ]);
   if (removed.code !== 0 || removed.timedOut) {
@@ -863,7 +925,10 @@ async function cleanupDisposable(contextName, name, token) {
       `Disposable container ${name} left anonymous volumes on ${contextName}: ${surviving.join(", ")}`,
     );
   }
-  return { anonymousVolumes: attachedVolumes };
+  return {
+    anonymousVolumes: mounts.ok ? attachedVolumes : null,
+    volumesUnenumerated: mounts.ok ? null : mounts.reason,
+  };
 }
 
 async function inspectDockerContext(name) {
@@ -1020,16 +1085,45 @@ const cleanupEvidence = {
     name: "creator-process-liveness-with-age-fallback",
     creatorLabel: ACCEPTANCE_CREATOR_LABEL,
     minOrphanAgeMs: ORPHAN_MIN_AGE_MS,
-    processProbe: procTableReadable ? "proc-stat-starttime" : "signal-0",
+    // Both probes run, every time. `proc-stat-starttime` says this run could read its own
+    // /proc entry, which is not a promise that it can read a foreign one — under hidepid= or
+    // ProtectProc= it cannot — so `signal-0` is always there to contradict an absence before it
+    // is treated as proof that a creating process is gone.
+    processProbe: ownProcStatReadable
+      ? "proc-stat-starttime+signal-0"
+      : "signal-0",
     thisRunCreator: runCreatorIdentity,
+    // Exactly what `hostVerifiedClear` below was established over. Written into the artifact
+    // rather than left to a comment, because a release gate reading "host verified clear" is
+    // otherwise free to assume all three lists were host-wide, and none of them is.
+    enumerationScope: {
+      // Containers: whatever daemon this one Docker context points at. A second daemon on this
+      // machine, or a remote one, is neither enumerated nor claimed about.
+      dockerContext: context,
+      containerFilter: `label=${ACCEPTANCE_LABEL}`,
+      // Contexts: the invoking user's CLI store. Another account's acceptance contexts on this
+      // same machine are invisible from here.
+      contextStore: dockerContextStore,
+      // Scratch directories: this workspace's artifacts/docker, and nowhere else on the disk.
+      scratchRoot: outputDirectory,
+    },
   },
-  // Whether every acceptance resource on this host is accounted for: removed by this run, or left
-  // alone because `livenessRule` says a live run may own it and recorded by name in
+  // Whether every acceptance resource this run enumerated is accounted for: removed by this run,
+  // or left alone because `livenessRule` says a live run may own it and recorded by name in
   // `possibleLivePeers`. False when anything was unaccounted for, and false when the question
   // could not be asked at all — a run that never reached the enumeration is not a clear host.
   //
-  // It is not a claim that the host holds no acceptance resources. On a machine running two
-  // acceptance suites at once that claim can only be bought by destroying the other run.
+  // Two things it does not say, either of which a release gate would otherwise read into the name.
+  //
+  // It is not a claim that no acceptance resources exist. On a machine running two acceptance
+  // suites at once that claim could only be bought by destroying the other run.
+  //
+  // And it is not host-wide. The scope is `livenessRule.enumerationScope`: containers from one
+  // Docker context, contexts from one user's CLI store, scratch directories from this workspace's
+  // artifacts/docker alone. A leftover acceptance-scratch-* tree in a different checkout on this
+  // same disk is outside all three, and this has already happened — a series of runs from /tmp
+  // each recorded `hostVerifiedClear: true` while another checkout's scratch directory sat on the
+  // host untouched, because no run had ever looked there.
   hostVerifiedClear: false,
 };
 
@@ -1134,9 +1228,20 @@ function runTeardown() {
           name: dindResource.containerName,
           ownershipLabel: dindResource.token,
           verifiedAbsent: !after.exists,
+          // null, not [], when the inspect could not answer: an empty list here would read as
+          // "this container had no anonymous volumes", which is a finding, and no finding was made.
           anonymousVolumes: disposed.anonymousVolumes,
-          anonymousVolumesVerifiedAbsent: true,
+          anonymousVolumesVerifiedAbsent: disposed.anonymousVolumes !== null,
         };
+        if (disposed.volumesUnenumerated) {
+          recordCleanupError(
+            new Error(
+              `Could not enumerate the anonymous volumes of ${dindResource.containerName}: ` +
+                `${disposed.volumesUnenumerated}. It was removed without --volumes, so nothing was ` +
+                `deleted that this run could not name; any anonymous volume it held is still on ${context}.`,
+            ),
+          );
+        }
       } catch (error) {
         recordCleanupError(error);
         cleanupEvidence.dindContainer = {
@@ -1382,9 +1487,22 @@ try {
       // Restricted to the 64-hex names Docker gives anonymous volumes: --volumes removes only
       // those, and claiming a named volume was removed — or failing the run because one survived
       // a removal that was never going to touch it — would both be wrong.
-      const attached = (await containerVolumeMounts(context, name)).filter(
-        (volume) => /^[0-9a-f]{64}$/u.test(volume),
-      );
+      const mounts = await containerVolumeMounts(context, name);
+      const attached = anonymousVolumeNames(mounts.volumes);
+      if (!mounts.ok) {
+        // An inspect that failed says nothing about what is attached, and "nothing is attached" is
+        // exactly what --volumes would have acted on. Removing without it leaves a volume on the
+        // host, which is visible in `docker volume ls` and recoverable; removing with it would
+        // delete volumes that appear in no list and no error, which is the one silent deletion
+        // this sweep was written to be incapable of.
+        recordCleanupError(
+          new Error(
+            `Could not enumerate the anonymous volumes of orphaned container ${name}: ` +
+              `${mounts.reason}. It was removed without --volumes, so nothing was deleted that ` +
+              `this run could not name; any anonymous volume it held is still on ${context}.`,
+          ),
+        );
+      }
       if (
         !(await sweepOrphan("container", name, [
           "rm",
@@ -1393,7 +1511,7 @@ try {
           // visible half of each orphan and leave ~10MB of anonymous volume behind per orphan,
           // which is the leak this harness already closed for its own container at the cost of
           // finding it the hard way.
-          "--volumes",
+          ...(mounts.ok ? ["--volumes"] : []),
           name,
         ]))
       ) {

@@ -110,6 +110,145 @@ export function parseCreatorIdentity(raw) {
 }
 
 /**
+ * Field 22 of `/proc/<pid>/stat`: the process's start time, in clock ticks since boot.
+ *
+ * The comm field is parenthesised and may itself contain spaces and parentheses, so the split
+ * starts after the last `)`. Fields 1 and 2 are dropped by that slice, which puts field 22 at
+ * index 19.
+ */
+export function parseProcessStartTicks(raw) {
+  if (typeof raw !== "string") return null;
+  const closing = raw.lastIndexOf(")");
+  if (closing < 0) return null;
+  const fields = raw.slice(closing + 1).trim().split(/\s+/u);
+  const ticks = Number(fields[19]);
+  return Number.isFinite(ticks) ? ticks : null;
+}
+
+/**
+ * What one attempt to read `/proc/<pid>/stat` established: `running`, `absent`, or `unreadable`.
+ *
+ * Three states rather than two, because "there is no such process" and "I was not allowed to look"
+ * are different facts and only the first is evidence of absence. A host with `hidepid=1`/`2` or
+ * systemd's `ProtectProc=` refuses a run access to processes owned by other users; folding that
+ * refusal into "gone" hands the sweep the one answer that authorises removing a privileged
+ * container, in the case where the container belongs to another user's live run.
+ *
+ * A stat that was read but could not be parsed is `unreadable` for the same reason: the entry
+ * exists, so calling the process gone would be a positive claim made out of a failure to
+ * understand.
+ */
+export function interpretProcStatRead({ contents = null, error = null } = {}) {
+  if (error) {
+    const code = typeof error === "object" && error !== null ? error.code : null;
+    // ENOENT is the kernel saying no such pid. Everything else — EACCES, EPERM, an unmounted
+    // /proc, an I/O error — is this run failing to see, which is not the same observation.
+    return code === "ENOENT"
+      ? { state: "absent", startTicks: null }
+      : { state: "unreadable", startTicks: null };
+  }
+  const startTicks = parseProcessStartTicks(contents);
+  return startTicks === null
+    ? { state: "unreadable", startTicks: null }
+    : { state: "running", startTicks };
+}
+
+/**
+ * `"alive" | "gone" | "unknown"` for a creator identity already known to share this boot and pid
+ * namespace.
+ *
+ * Two independent observations, because neither alone can be trusted with the answer that
+ * authorises a removal:
+ *
+ * - `statRead` is `/proc/<pid>/stat`, which is the only thing that can tell the creator from a
+ *   later process wearing its pid — but which a filtered `/proc` can make look empty.
+ * - `signalRead` is `kill(pid, 0)`, which no `hidepid=` or `ProtectProc=` setting suppresses, and
+ *   which can therefore contradict an absence. It cannot identify a process, only report that
+ *   something holds the number.
+ *
+ * So `"gone"` comes from exactly two places: a stat that names a *different* start time, and an
+ * absence that the signal probe independently confirms. A missing stat on its own never gets there.
+ *
+ * A held pid whose start time could not be compared returns `"alive"`, not `"unknown"`. The
+ * difference matters: `"unknown"` sends the resource to the age rule, which condemns anything past
+ * the bound, so a peer's run lasting longer than that would still lose its container on a host
+ * where `/proc` is filtered. The cost of `"alive"` is that debris on such a host waits for a run
+ * that can read the stat; the cost of the alternative is a destroyed peer.
+ */
+export function judgeCreatorProcess({
+  identity = null,
+  statRead = null,
+  signalRead = "unknown",
+} = {}) {
+  const observed = statRead ?? { state: "unreadable", startTicks: null };
+  const expected =
+    typeof identity?.startTicks === "number" ? identity.startTicks : null;
+  if (observed.state === "running" && expected !== null) {
+    return observed.startTicks === expected ? "alive" : "gone";
+  }
+  if (signalRead === "held") return "alive";
+  if (observed.state === "absent" && signalRead === "absent") return "gone";
+  return "unknown";
+}
+
+/** Docker names an anonymous volume with 64 hex characters; a named volume never looks like this. */
+export const ANONYMOUS_VOLUME_PATTERN = /^[0-9a-f]{64}$/u;
+
+/**
+ * The anonymous volumes among a container's mounts.
+ *
+ * `docker rm --volumes` removes only these, so these are the only ones a removal may claim to have
+ * taken — and the only ones whose survival is worth failing a run over.
+ */
+export function anonymousVolumeNames(volumes = []) {
+  return volumes.filter(
+    (name) => typeof name === "string" && ANONYMOUS_VOLUME_PATTERN.test(name),
+  );
+}
+
+/**
+ * What `docker container inspect` established about a container's mounts, as a fact rather than as
+ * a list.
+ *
+ * The bare empty array is a claim — "this container carries no volumes" — and it is the claim that
+ * authorises removing the container with `--volumes` and recording nothing. A non-zero exit or a
+ * timeout is a different observation entirely, and returning `[]` for it is how a thirty-second
+ * timeout came to be indistinguishable from a container with nothing attached, with anonymous
+ * volumes deleted that no artifact ever named. `ok: false` is what keeps the caller from spending
+ * an unknown as if it were a zero.
+ */
+export function interpretMountInspect({
+  code = null,
+  stdout = "",
+  stderr = "",
+  timedOut = false,
+} = {}) {
+  if (timedOut) {
+    return {
+      ok: false,
+      volumes: [],
+      reason: "docker container inspect timed out",
+    };
+  }
+  if (code !== 0) {
+    const detail = typeof stderr === "string" ? stderr.trim() : "";
+    return {
+      ok: false,
+      volumes: [],
+      reason: detail || `docker container inspect exited ${code}`,
+    };
+  }
+  return {
+    ok: true,
+    volumes: String(stdout)
+      .split(/\r?\n/u)
+      .map((value) => value.trim())
+      .filter(Boolean),
+    reason: null,
+  };
+}
+
+/**
  * Whether an observed acceptance resource may belong to a run that is still going.
  *
  * The whole sweep turns on this one question, so the order of the answers is the order of their
