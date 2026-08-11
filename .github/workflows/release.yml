@@ -426,6 +426,12 @@ jobs:
         run: |
           for sums in SHA256SUMS-*; do
             [ -f "$sums" ] || continue
+            # SHA256SUMS-<arch>.asc matches this glob and is not a list of checksums. Feeding it
+            # to `sha256sum -c` is "no properly formatted checksum lines found", a non-zero exit,
+            # and — since a step runs under `bash -e` — a failed publish. Measured: this step
+            # passes for an unsigned release and fails for a signed one, which is the wrong way
+            # round for a step whose purpose is to protect a signed release.
+            case "$sums" in *.asc) continue ;; esac
             echo "checking $sums"
             sha256sum -c "$sums"
           done
