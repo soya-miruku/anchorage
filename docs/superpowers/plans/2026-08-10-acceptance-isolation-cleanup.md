@@ -343,7 +343,12 @@ git commit -m "Run teardown once, in reverse, recording what failed"
 - Modify: `tools/run-core-acceptance.mjs` (imports near line 1-20; new handler block before the top-level `try` at line 743; teardown extraction at the `finally` at line 2748)
 
 **Interfaces:**
-- Consumes: `createTeardownRegistry` from Task 2.
+- Consumes: `createTeardownRegistry` from Task 2. **NOTE (corrected during execution):** it does
+  not. Task 3 moved the existing `finally` body into `runTeardown()` — a shared in-flight promise
+  in the script — rather than routing it through the registry, because moving the teardown and
+  rewriting it in one step would have made a teardown regression impossible to bisect. The registry
+  was never called by anything and was deleted in `fc4307a`, along with three tests that read as
+  guards for this branch's headline behaviour while guarding nothing that ships.
 - Produces: an evidence file whose `status` may now be `"aborted"`.
 
 - [ ] **Step 1: Extract the existing cleanup into a named function**
@@ -526,7 +531,8 @@ Turns `cleanup: passed` from a per-run claim into a host-state claim, establishe
     legible rather than implied. Its `enumerationScope` names what was looked at, including the
     container name pattern (the label alone is not the whole gate) and the fact that volumes are
     never enumerated.
-  - `hostVerifiedClear` now means *"every acceptance resource this run could see is accounted for —
+  - `hostVerifiedClear` now means *"every acceptance resource this run enumerated and recognised by
+    name is accounted for —
     removed, identified as a live peer's, or already gone"*, scoped to one Docker context, one
     user's contexts, and this workspace's `artifacts/docker`, and saying nothing at all about
     volumes. It does **not** mean zero acceptance resources exist on the host. Task 5's assertion
@@ -908,4 +914,4 @@ Phase 1 of the spec — the provider seam, the sbx backend, the `dind-isolation`
 
 - **Spec coverage:** Phase 0 items 1–3 map to Tasks 3, 4 and (for `--rm`) below; the strengthened claim maps to Task 5; the go/no-go spike maps to Task 6. Phase 1 is explicitly deferred with a stated reason.
 - **Gap found and closed:** the spec's Phase 0 item 3 (self-limiting `--rm` DinD) had no task. It is now Task 4 Steps 4–5, with a SIGKILL test that isolates it from Task 3's signal handlers — the two mechanisms cover different failure modes and a test that cannot tell them apart would prove neither.
-- **Type consistency:** `classifyOrphans` returns `{containers, contexts, scratchDirectories}` in Tasks 1, 3 and 4 consistently; `createTeardownRegistry().run()` returns `{alreadyRan, steps}` in Tasks 2 and 3.
+- **Type consistency:** `classifyOrphans` returns `{containers, contexts, scratchDirectories}` in Tasks 1, 3 and 4 consistently; `createTeardownRegistry().run()` returns `{alreadyRan, steps}` in Tasks 2 and 3. **NOTE (corrected during execution):** `classifyOrphans` gained a `possiblyLive` split in Task 4, and `createTeardownRegistry` was deleted unused — see the Task 3 Consumes note.

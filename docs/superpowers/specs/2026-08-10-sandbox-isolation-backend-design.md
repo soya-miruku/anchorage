@@ -143,7 +143,10 @@ path.
    `--group`, and nothing bounds its lifetime. "Within the hour" was never implemented and would
    not have been safe to implement, since the hour would also expire under a run still using the
    daemon.
-   `run-core-acceptance.mjs:2682-2691` says the same thing at the flag itself.
+   `run-core-acceptance.mjs` says the same thing at the flag itself, in the comment beginning
+   "Measured, because the obvious reading is wrong" — quoted rather than cited by line, because a
+   line number in a dated correction goes stale the next time anything above it moves, which is
+   exactly what happened to this sentence's first draft.
 
    What `--rm` does cover is the exits the harness is not around to tidy up after — a dind that
    crashes, a host that shuts its daemon down, a `docker stop` from whoever found the thing — each
