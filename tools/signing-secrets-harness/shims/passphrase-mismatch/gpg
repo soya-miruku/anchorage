@@ -1,0 +1,17 @@
+#!/bin/bash
+# Fault injection that reproduces the repository's actual state: a bundle that is perfectly valid,
+# and a passphrase that does not open it.
+#
+# The script cannot reach that state on its own, and that is the point of it -- its export uses
+# the passphrase the operator typed, so the two always agree by construction. This shim breaks
+# that link for the export call only, feeding the real gpg the CORRECT passphrase on fd 3 whatever
+# was typed, so the validator is handed exactly what GitHub is holding today: a sound bundle, and
+# a passphrase for a different one. That is the pair three CI runs failed on indistinguishably.
+is_export=0
+for argument in "$@"; do
+  [ "$argument" = "--export-secret-subkeys" ] && is_export=1
+done
+if [ "$is_export" = 1 ] && [ -n "${SHIM_PASSPHRASE_FILE:-}" ]; then
+  exec /usr/bin/gpg "$@" 3< "$SHIM_PASSPHRASE_FILE"
+fi
+exec /usr/bin/gpg "$@"

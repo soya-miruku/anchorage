@@ -330,6 +330,17 @@ acceptance, capability and performance evidence against a live daemon, builds an
 verifies all four formats, signs if a key is configured, and the artifacts land on
 a draft release.
 
+Signing needs two repository secrets, and they are not independent: `GPG_PRIVATE_KEY`
+is a signing-subkey-only export, and an export can only be opened by the passphrase
+the key held when it was made, so `GPG_PASSPHRASE` has to be the one that matches
+*that* export. Setting them separately is how a release ends up with a bundle and a
+passphrase that were never a pair — a failure that looks identical in the log to
+setting no passphrase at all. `node tools/set-release-signing-secrets.mjs` does both
+as one operation, and only after importing the export into a throwaway keyring,
+unlocking it, signing and verifying. If any of that fails it uploads nothing and says
+which half is wrong. A key configured without its passphrase now fails the release
+job by name rather than quietly producing an unsigned build.
+
 The design evidence is the exception, and deliberately so. The comp and the
 rendered reference are both untracked, and the per-state review is a person
 looking at two images — so `artifacts/design/design-ledger.json` travels with the

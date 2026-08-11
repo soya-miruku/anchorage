@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+// A stub `gh`, on PATH ahead of any real one. It reaches no network and knows no credentials.
+// It records exactly what the script passed in argv and exactly what bytes arrived on stdin, so
+// the tests can assert both that no secret was ever an argument and that the value delivered was
+// byte-identical to what was validated.
+//
+// No file extension, so Node loads it as CommonJS; that is why this uses require().
+const fs = require("node:fs");
+const path = require("node:path");
+
+const OUT = process.env.STUB_OUT || "/out";
+const args = process.argv.slice(2);
+fs.appendFileSync(path.join(OUT, "gh-argv.log"), JSON.stringify(args) + "\n");
+
+if (args[0] === "auth" && args[1] === "status") {
+  process.stdout.write("github.com\n  Logged in to github.com as stub\n");
+  process.exit(0);
+}
+
+if (args[0] === "secret" && args[1] === "list") {
+  const statePath = path.join(OUT, "secrets.json");
+  const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, "utf8")) : {};
+  const rows = Object.entries(state).map(([name, updatedAt]) => ({ name, updatedAt }));
+  process.stdout.write(JSON.stringify(rows) + "\n");
+  process.exit(0);
+}
+
+if (args[0] === "secret" && args[1] === "set") {
+  const name = args[2];
+  const body = fs.readFileSync(0);
+  // gh trims trailing \r and \n from a value read on stdin (pkg/cmd/secret/set/set.go); the stub
+  // does the same so the recorded value is what GitHub would actually store.
+  let end = body.length;
+  while (end > 0 && (body[end - 1] === 0x0a || body[end - 1] === 0x0d)) end -= 1;
+  const stored = body.subarray(0, end);
+  fs.writeFileSync(path.join(OUT, "secret." + name), stored);
+  fs.appendFileSync(path.join(OUT, "gh-set.log"), name + " " + stored.length + "\n");
+  const statePath = path.join(OUT, "secrets.json");
+  const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, "utf8")) : {};
+  state[name] = new Date().toISOString();
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  process.stdout.write("Set Actions secret " + name + " for stub/repo\n");
+  process.exit(0);
+}
+
+process.stderr.write("stub gh: unhandled " + JSON.stringify(args) + "\n");
+process.exit(64);

@@ -81,3 +81,9 @@ docs/design-qa/reference/
 # for one dependency set is two answers to the same question, and they drift silently. `npm ci`
 # still works from a lockfile you generate locally — this only keeps one from being committed.
 app/package-lock.json
+
+# The release job's signing step, lifted out of release.yml by
+# tools/signing-secrets-harness/run.sh so the harness tests what the runner will really execute.
+# It is regenerated on every run and deleted afterwards; a copy in the tree could only ever be a
+# stale second answer to a question the workflow already answers.
+tools/signing-secrets-harness/signing-step.sh

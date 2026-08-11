@@ -1,0 +1,6 @@
+#!/bin/bash
+# A stub `bun`, so the release step can be run far enough to show where it stops without needing
+# a built release to sign.
+echo "[stub bun] $*"
+echo "$*" >> "${STUB_OUT:-/out}/bun.log"
+exit 0

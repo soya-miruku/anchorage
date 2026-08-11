@@ -235,10 +235,30 @@ jobs:
         # file the release did not contain, and the verification step in the publish job failed on
         # it every time. One program names the files and lists them, so the two cannot disagree.
         #
-        # GPG_PRIVATE_KEY must be a **signing subkey only**, never the primary:
+        # GPG_PRIVATE_KEY must be a **signing subkey only**, never the primary. Do not set it by
+        # hand: `node tools/set-release-signing-secrets.mjs` re-exports it and sets the matching
+        # GPG_PASSPHRASE as one operation, after proving locally that the pair signs and that the
+        # signature verifies. The two cannot be set independently and be relied on to agree —
+        # an exported bundle keeps the passphrase the key held at export time, and a bundle set
+        # beside a passphrase from a different day fails here in a way that is indistinguishable
+        # from setting no passphrase at all.
+        #
+        # The subkey itself is made once, by hand, and rotated on the same command:
         #
         #   gpg --quick-add-key <primary-fpr> ed25519 sign 1y
-        #   gpg --armor --export-secret-subkeys <subkey-fpr>!    # the ! matters
+        #
+        # What the script then runs, and why each half of it matters — the two are usually
+        # conflated:
+        #
+        #   gpg --armor --export-secret-subkeys <subkey-fpr>!
+        #                ^^^^^^^^^^^^^^^^^^^^^^             ^
+        #                keeps the PRIMARY out              keeps every OTHER subkey out
+        #
+        # --export-secret-subkeys never exports the primary's secret, with or without the bang;
+        # --export-secret-keys is the command that would. What the "!" prevents is shipping the
+        # rest of the key — for this key, the encryption subkey, which would let a compromised
+        # runner decrypt everything ever encrypted to you. Measured on gpg 2.4.7: with the bang,
+        # one secret in the bundle; without it, two.
         #
         # The exported bundle carries a stub primary with no secret — `gpg -K` shows it as
         # `sec#` — so a compromised runner can sign and cannot certify other keys as you. If it
@@ -291,52 +311,79 @@ jobs:
           echo "agent sockets: $(gpgconf --list-dirs socketdir)"
 
           printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
-          if [ -n "${GPG_PASSPHRASE:-}" ]; then
-            # Every keygrip the bundle carries, not the first one.
-            #
-            # `gpg -K` prints the primary's keygrip before its subkeys', so stopping at the
-            # first line always primed the *primary* — which for a signing-subkey-only export
-            # is the `sec#` stub whose secret never left the operator's machine. Presetting a
-            # grip that holds no key is not an error to gpg-preset-passphrase; it exits 0 and
-            # caches nothing. Signing then asked the agent for the *subkey's* grip, missed,
-            # and had no passphrase and no way to ask for one.
-            #
-            # This is the line that failed run 31428897746. Nothing was ever signed; the
-            # verification error afterwards was an accurate report about an empty file.
-            #
-            # Presetting all of them is right rather than merely sufficient: which subkey gpg
-            # chooses to sign with is gpg's decision, and it may add a second signing subkey to
-            # the layout at any rotation. A grip whose secret stayed behind is a no-op, which
-            # is exactly what should happen to the primary here.
-            keygrips=$(gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
-              | awk '/Keygrip/ { print $3 }')
-            if [ -z "$keygrips" ]; then
-              echo "Imported no secret key matching $GPG_KEY_ID" >&2
-              exit 1
-            fi
-            # Three confirmations, none of which is a secret: a keygrip is a hash of public key
-            # parameters and a filename is a filename. They cost nothing and they distinguish
-            # the failure modes that otherwise share a log.
-            #
-            # Two grips for the documented key shape, the stub primary and the signing subkey,
-            # and exactly one file in private-keys-v1.d — the *second* grip's — because the
-            # primary's secret never left the operator's machine. That asymmetry is the whole
-            # reason presetting only the first grip cached nothing.
-            echo "keygrips carried by $GPG_KEY_ID (expect 2):"
-            printf '  %s\n' $keygrips
-            echo "secret key files on this runner (expect one, matching the second grip):"
-            ls -1 "$HOME/.gnupg/private-keys-v1.d/" || true
-            preset=$(gpgconf --list-dirs libexecdir)/gpg-preset-passphrase
-            for keygrip in $keygrips; do
-              printf '%s' "$GPG_PASSPHRASE" | "$preset" --preset "$keygrip"
-            done
-            # And which grips the agent will now answer for without asking anyone: the column
-            # after the three dashes is 1 when a passphrase is cached. gpg-preset-passphrase
-            # exits 0 for a grip it cannot find, so this is the only cheap evidence that the
-            # preset reached the key that signs — and it is evidence about the same agent gpg
-            # will talk to, which no amount of grip-counting can be.
-            gpg-connect-agent 'keyinfo --list' /bye
+          # A signing key with no passphrase is not a configuration this workflow supports, and
+          # saying so here is the difference between two failures that are otherwise identical.
+          #
+          # This was `if [ -n "${GPG_PASSPHRASE:-}" ]`, which reads as a reasonable option check
+          # and is in fact a silent skip. GPG_PASSPHRASE has never been set on this repository, so
+          # the preset below never ran, nothing was cached, and signing died with "Sorry, we are
+          # in batchmode - can't get input" — run 31490921788. Measured in a container shaped
+          # like this job, a *wrong* passphrase produces that same single line, the same exit 2
+          # and the same zero-byte signature; the keyinfo line below separates "a preset happened"
+          # from "none did", and nothing on this path separates a right preset from a wrong one,
+          # because gpg-preset-passphrase caches whatever it is handed and exits 0. That is how
+          # three runs went on the same failure wearing two faces. A missing secret must therefore
+          # stop the job here, by name, rather than become an unsigned path nobody asked for.
+          #
+          # An echoed ::error:: rather than `${GPG_PASSPHRASE:?…}`: the runner parses workflow
+          # commands from a step's stdout, and the shell's own unset-parameter message goes to
+          # stderr, so the annotation would not reliably appear in the job summary.
+          #
+          # The `secrets` context is not available in an `if:` expression — the availability
+          # table lists github, needs, strategy, matrix, job, runner, env, vars, steps and inputs
+          # for a step condition, and no secrets — so this check belongs in the shell, mapped
+          # through the step's env above.
+          if [ -z "${GPG_PASSPHRASE:-}" ]; then
+            echo "::error title=GPG_PASSPHRASE is not set::GPG_PRIVATE_KEY is configured but" \
+                 "GPG_PASSPHRASE is empty or missing. The exported bundle can only be opened by" \
+                 "the passphrase it was exported with; set both together with" \
+                 "node tools/set-release-signing-secrets.mjs"
+            exit 1
           fi
+          # Every keygrip the bundle carries, not the first one.
+          #
+          # `gpg -K` prints the primary's keygrip before its subkeys', so stopping at the
+          # first line always primed the *primary* — which for a signing-subkey-only export
+          # is the `sec#` stub whose secret never left the operator's machine. Presetting a
+          # grip that holds no key is not an error to gpg-preset-passphrase; it exits 0 and
+          # caches nothing. Signing then asked the agent for the *subkey's* grip, missed,
+          # and had no passphrase and no way to ask for one.
+          #
+          # This is the line that failed run 31428897746. Nothing was ever signed; the
+          # verification error afterwards was an accurate report about an empty file.
+          #
+          # Presetting all of them is right rather than merely sufficient: which subkey gpg
+          # chooses to sign with is gpg's decision, and it may add a second signing subkey to
+          # the layout at any rotation. A grip whose secret stayed behind is a no-op, which
+          # is exactly what should happen to the primary here.
+          keygrips=$(gpg --batch --with-keygrip --list-secret-keys "$GPG_KEY_ID" \
+            | awk '/Keygrip/ { print $3 }')
+          if [ -z "$keygrips" ]; then
+            echo "Imported no secret key matching $GPG_KEY_ID" >&2
+            exit 1
+          fi
+          # Three confirmations, none of which is a secret: a keygrip is a hash of public key
+          # parameters and a filename is a filename. They cost nothing and they distinguish
+          # the failure modes that otherwise share a log.
+          #
+          # Two grips for the documented key shape, the stub primary and the signing subkey,
+          # and exactly one file in private-keys-v1.d — the *second* grip's — because the
+          # primary's secret never left the operator's machine. That asymmetry is the whole
+          # reason presetting only the first grip cached nothing.
+          echo "keygrips carried by $GPG_KEY_ID (expect 2):"
+          printf '  %s\n' $keygrips
+          echo "secret key files on this runner (expect one, matching the second grip):"
+          ls -1 "$HOME/.gnupg/private-keys-v1.d/" || true
+          preset=$(gpgconf --list-dirs libexecdir)/gpg-preset-passphrase
+          for keygrip in $keygrips; do
+            printf '%s' "$GPG_PASSPHRASE" | "$preset" --preset "$keygrip"
+          done
+          # And which grips the agent will now answer for without asking anyone: the column
+          # after the three dashes is 1 when a passphrase is cached. gpg-preset-passphrase
+          # exits 0 for a grip it cannot find, so this is the only cheap evidence that the
+          # preset reached the key that signs — and it is evidence about the same agent gpg
+          # will talk to, which no amount of grip-counting can be.
+          gpg-connect-agent 'keyinfo --list' /bye
 
           # Signing, and then both facts about it before anything downstream assumes either.
           # The release that prompted all this printed "Signed with ***" over a 0-byte file.

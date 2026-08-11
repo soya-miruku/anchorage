@@ -1,0 +1,19 @@
+#!/bin/bash
+# Fault injection for the test: makes the export include the primary's secret, which is the
+# mistake (--export-secret-keys where --export-secret-subkeys was meant) that the script's shape
+# check exists to catch. Rewrites the command and hands it to the real gpg unchanged otherwise.
+saw_export=0
+args=()
+for a in "$@"; do
+  if [ "$a" = "--export-secret-subkeys" ]; then
+    saw_export=1
+    args+=("--export-secret-keys")
+    continue
+  fi
+  if [ "$saw_export" = 1 ] && [ "${a%!}" != "$a" ]; then
+    args+=("${a%!}")
+    continue
+  fi
+  args+=("$a")
+done
+exec /usr/bin/gpg "${args[@]}"
