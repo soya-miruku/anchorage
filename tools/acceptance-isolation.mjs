@@ -154,8 +154,8 @@ export function interpretProcStatRead({ contents = null, error = null } = {}) {
 }
 
 /**
- * `"alive" | "gone" | "unknown"` for a creator identity already known to share this boot and pid
- * namespace.
+ * `"alive" | "pid-held" | "gone" | "unknown"` for a creator identity already known to share this
+ * boot and pid namespace.
  *
  * Two independent observations, because neither alone can be trusted with the answer that
  * authorises a removal:
@@ -169,11 +169,19 @@ export function interpretProcStatRead({ contents = null, error = null } = {}) {
  * So `"gone"` comes from exactly two places: a stat that names a *different* start time, and an
  * absence that the signal probe independently confirms. A missing stat on its own never gets there.
  *
- * A held pid whose start time could not be compared returns `"alive"`, not `"unknown"`. The
+ * `"alive"` and `"pid-held"` both spare the resource, and they are separate answers because they
+ * are separate facts. `"alive"` is the creator itself, identified: this boot, this namespace, this
+ * pid, and a start time equal to the one stamped on the container. `"pid-held"` is only that
+ * *something* holds that pid number while the stat could not be compared — a filtered `/proc`, or
+ * an identity written without start ticks. Sparing on that is right, but reporting it as the
+ * creator being alive asserts an identity the run never established, so the caller can keep the
+ * two apart in what it writes down.
+ *
+ * A held pid whose start time could not be compared spares rather than returning `"unknown"`. The
  * difference matters: `"unknown"` sends the resource to the age rule, which condemns anything past
  * the bound, so a peer's run lasting longer than that would still lose its container on a host
- * where `/proc` is filtered. The cost of `"alive"` is that debris on such a host waits for a run
- * that can read the stat; the cost of the alternative is a destroyed peer.
+ * where `/proc` is filtered. The cost of sparing is that debris on such a host waits for a run that
+ * can read the stat; the cost of the alternative is a destroyed peer.
  */
 export function judgeCreatorProcess({
   identity = null,
@@ -186,7 +194,7 @@ export function judgeCreatorProcess({
   if (observed.state === "running" && expected !== null) {
     return observed.startTicks === expected ? "alive" : "gone";
   }
-  if (signalRead === "held") return "alive";
+  if (signalRead === "held") return "pid-held";
   if (observed.state === "absent" && signalRead === "absent") return "gone";
   return "unknown";
 }
@@ -206,16 +214,28 @@ export function anonymousVolumeNames(volumes = []) {
   );
 }
 
+/** Docker's answer when the name it was given is not on this daemon at all. */
+const NO_SUCH_CONTAINER = /No such (?:object|container)/iu;
+
 /**
  * What `docker container inspect` established about a container's mounts, as a fact rather than as
- * a list.
+ * a list: `enumerated`, `container-absent`, or `unknown`.
  *
  * The bare empty array is a claim — "this container carries no volumes" — and it is the claim that
  * authorises removing the container with `--volumes` and recording nothing. A non-zero exit or a
  * timeout is a different observation entirely, and returning `[]` for it is how a thirty-second
  * timeout came to be indistinguishable from a container with nothing attached, with anonymous
- * volumes deleted that no artifact ever named. `ok: false` is what keeps the caller from spending
- * an unknown as if it were a zero.
+ * volumes deleted that no artifact ever named.
+ *
+ * `container-absent` is split out from the other failures because collapsing the two makes the
+ * caller say two false things at once. A container that vanished between being listed and being
+ * inspected — a concurrent run sweeping the same debris, a manual `docker rm`, an exited `--rm`
+ * husk autoreaped — is not an unenumerable unknown: the enumeration question no longer has a
+ * subject. Treating it as one produced "it was removed without --volumes, so any anonymous volume
+ * it held is still on <context>", of which both halves are untrue — this run removed nothing, and
+ * whoever did remove it may well have passed `--volumes`. `docker rm --force` then exits 0 on the
+ * missing name, so the run also recorded a removal it did not perform. The caller needs to be able
+ * to say nothing at all here, and this state is what lets it.
  */
 export function interpretMountInspect({
   code = null,
@@ -225,21 +245,28 @@ export function interpretMountInspect({
 } = {}) {
   if (timedOut) {
     return {
-      ok: false,
+      state: "unknown",
       volumes: [],
       reason: "docker container inspect timed out",
     };
   }
   if (code !== 0) {
     const detail = typeof stderr === "string" ? stderr.trim() : "";
+    if (NO_SUCH_CONTAINER.test(detail)) {
+      return {
+        state: "container-absent",
+        volumes: [],
+        reason: detail,
+      };
+    }
     return {
-      ok: false,
+      state: "unknown",
       volumes: [],
       reason: detail || `docker container inspect exited ${code}`,
     };
   }
   return {
-    ok: true,
+    state: "enumerated",
     volumes: String(stdout)
       .split(/\r?\n/u)
       .map((value) => value.trim())
@@ -282,8 +309,15 @@ export function judgeResourceLiveness({
     identity.pidNamespace === (local.pidNamespace ?? null);
   if (comparable) {
     const verdict = probeCreator(identity);
+    // Two sparing verdicts, kept apart all the way into the artifact: `creator-process-alive` is
+    // the creating process identified by its start time, `creator-pid-held` is only that the pid
+    // number is taken while the stat could not be compared. Both leave the resource alone; only
+    // the first is a statement about whose resource it is.
     if (verdict === "alive") {
       return { possiblyLive: true, reason: "creator-process-alive" };
+    }
+    if (verdict === "pid-held") {
+      return { possiblyLive: true, reason: "creator-pid-held" };
     }
     if (verdict === "gone") {
       return { possiblyLive: false, reason: "creator-process-gone" };

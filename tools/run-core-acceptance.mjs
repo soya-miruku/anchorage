@@ -25,6 +25,7 @@ import {
 import {
   ACCEPTANCE_CREATOR_LABEL,
   ACCEPTANCE_LABEL,
+  ACCEPTANCE_RESOURCE_PATTERN,
   ORPHAN_MIN_AGE_MS,
   acceptanceSuffixOf,
   anonymousVolumeNames,
@@ -586,13 +587,18 @@ async function verifyDisposableOwnership(contextName, name, token) {
 }
 
 /**
- * `{ok, volumes, reason}` — what this container has mounted, or why that could not be established.
+ * `{state, volumes, reason}` — what this container has mounted, or why that could not be
+ * established, or that there is no such container to ask about.
  *
  * Not a bare array. The empty array is the claim "nothing is attached", and it is that claim which
  * authorises `docker rm --force --volumes`; a failed or timed-out inspect is not that claim. This
  * used to return `[]` for both, so a thirty-second timeout let the removal take anonymous volumes
  * with it that were recorded in no list and reported in no error — a silent deletion arriving
  * through the back door of an inspect nobody checked.
+ *
+ * `state: "container-absent"` is the third answer, and it is the one a caller must not fold into
+ * the second: a container that has already gone is not an unenumerable unknown, it is a question
+ * with no subject, and the only honest thing to say about it is nothing.
  */
 async function containerVolumeMounts(contextName, name) {
   const result = await runProcess("docker", [
@@ -714,8 +720,8 @@ const runCreatorIdentity = formatCreatorIdentity({
 });
 
 /**
- * "alive" | "gone" | "unknown" for a creator identity already known to share this boot and
- * namespace.
+ * "alive" | "pid-held" | "gone" | "unknown" for a creator identity already known to share this
+ * boot and namespace.
  *
  * Both probes, every time, and `judgeCreatorProcess` reconciles them. The pair is what stops an
  * unreadable pid from resolving to the permissive answer: a `/proc` entry that is missing because
@@ -723,6 +729,10 @@ const runCreatorIdentity = formatCreatorIdentity({
  * contradicts the absence and the resource is spared. On a host with `hidepid=2` and two runs by
  * different users, the old single probe read the peer's stat as "gone" and force-removed its live
  * privileged container.
+ *
+ * "pid-held" is that sparing outcome kept separate from "alive": the number is taken, the identity
+ * was never compared. Both leave the resource alone, and the artifact records which of the two
+ * happened rather than asserting a creator this run did not identify.
  */
 function probeCreatorProcess(identity) {
   return judgeCreatorProcess({
@@ -774,16 +784,27 @@ async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
   // decides the fate of every resource sharing its suffix — a context with no container in the
   // snapshot gets no verdict at all and is swept unconditionally. A run launches its scratch tree,
   // then its container, then its two contexts, so reading the contexts and the scratch tree first
-  // and the containers afterwards makes the container snapshot a superset in the direction that
-  // matters: anything whose context existed when the contexts were listed had its container
-  // created strictly earlier, and therefore appears in a list taken later.
+  // and the containers afterwards closes the one skew a *starting* peer can produce: its context
+  // exists only after its container does, so a context observed at T1 had a container at T1, and a
+  // container list taken at T2 > T1 still holds it.
   //
-  // Taken concurrently, that guarantee is gone. `docker ps` returning just before a peer's
-  // `docker run -d` completes, while `docker context ls` returns just after its `docker context
-  // create`, leaves the peer's live contexts in this run's snapshot with nothing to date them —
-  // and they are force-removed, after which the peer fails with context_inspect_failed. That is
-  // the exact signature the pre-fix bug produced, reached through a skew between two snapshots
-  // rather than through a missing rule.
+  // That is an argument about starts, not a structural invariant over the whole lifetime, because
+  // teardown runs the order backwards: a peer removes its two contexts *before* its container. So
+  // "created earlier" does not imply "present later", and one interleaving survives this ordering
+  // — a peer whose context is still there at T1 and whose container is gone by T2. Reaching it
+  // means the peer completing the rest of its teardown (a context removal and its verify, then the
+  // container's inspect, removal and verify: five or more docker round-trips, each a process
+  // spawn) inside the ~26 ms between these two calls. It is a timing argument, and this is what it
+  // rests on; it is not a guarantee. If it were ever hit, the cost is bounded: the peer is already
+  // tearing down, the only thing swept is a context it was about to remove itself, and
+  // `cleanupDockerContext` returns quietly when the context it meant to remove is already absent.
+  //
+  // Taken concurrently the ordering buys nothing at all. `docker ps` returning just before a
+  // peer's `docker run -d` completes, while `docker context ls` returns just after its `docker
+  // context create`, leaves the peer's live contexts in this run's snapshot with nothing to date
+  // them — and they are force-removed mid-run, after which the peer fails with
+  // context_inspect_failed. That is the exact signature the pre-fix bug produced, reached through
+  // a skew between two snapshots rather than through a missing rule.
   const contextNames = await dockerLinesAt(context, [
     "context",
     "ls",
@@ -876,9 +897,33 @@ async function surveyAcceptanceResources({ accountableSuffix = null } = {}) {
   };
 }
 
+/**
+ * The container was gone before this run could look inside it, so there is nothing to report about
+ * its volumes and nothing this run may claim about them.
+ *
+ * `anonymousVolumes: []` was the wrong answer here and it was wrong in the quiet way: an empty
+ * list is a finding — "this container had no anonymous volumes" — and it made
+ * `anonymousVolumesVerifiedAbsent` read `true` on the one path where nothing was inspected and
+ * nothing verified. The claim happened to be true, since Docker's own autoremove takes the
+ * anonymous volumes with the container, but it was true by luck rather than established, which is
+ * the distinction `null` exists to preserve. `enumerationFailed: false` because no enumeration was
+ * attempted: nothing failed, there was simply nothing there to ask.
+ */
+function volumesNotInspected(why) {
+  return {
+    anonymousVolumes: null,
+    volumesUnknown: `Mounts were never inspected: ${why}. This run neither enumerated nor removed its anonymous volumes and cannot say whether any survive.`,
+    enumerationFailed: false,
+  };
+}
+
 async function cleanupDisposable(contextName, name, token) {
   const before = await verifyDisposableOwnership(contextName, name, token);
-  if (!before.exists) return { anonymousVolumes: [], volumesUnenumerated: null };
+  if (!before.exists) {
+    return volumesNotInspected(
+      `the container was already absent when teardown reached it`,
+    );
+  }
   if (!before.owned) {
     throw new Error(
       `Refusing to clean ${name}: acceptance ownership label does not match`,
@@ -897,6 +942,16 @@ async function cleanupDisposable(contextName, name, token) {
   // enumerated, and the enumeration failure is returned so the caller can record it and leave
   // `anonymousVolumes` null rather than an empty list that reads as "there were none".
   const mounts = await containerVolumeMounts(contextName, name);
+  if (mounts.state === "container-absent") {
+    // It went between the ownership check a few milliseconds ago and this inspect — the daemon
+    // autoreaping an exited `--rm` container is the way that happens. Nothing to remove, nothing
+    // enumerated, and no error: reporting a failed enumeration here would put a sentence about
+    // volumes left on the host into an artifact whose run touched neither the container nor them.
+    return volumesNotInspected(
+      `the container disappeared between the ownership check and the mount inspect (${mounts.reason})`,
+    );
+  }
+  const enumerated = mounts.state === "enumerated";
   const attachedVolumes = anonymousVolumeNames(mounts.volumes);
   const removed = await runProcess("docker", [
     "--context",
@@ -904,7 +959,7 @@ async function cleanupDisposable(contextName, name, token) {
     "container",
     "rm",
     "--force",
-    ...(mounts.ok ? ["--volumes"] : []),
+    ...(enumerated ? ["--volumes"] : []),
     name,
   ]);
   if (removed.code !== 0 || removed.timedOut) {
@@ -926,8 +981,9 @@ async function cleanupDisposable(contextName, name, token) {
     );
   }
   return {
-    anonymousVolumes: mounts.ok ? attachedVolumes : null,
-    volumesUnenumerated: mounts.ok ? null : mounts.reason,
+    anonymousVolumes: enumerated ? attachedVolumes : null,
+    volumesUnknown: enumerated ? null : mounts.reason,
+    enumerationFailed: !enumerated,
   };
 }
 
@@ -1072,6 +1128,13 @@ const cleanupEvidence = {
     volumes: [],
     scratchDirectories: [],
   },
+  // Debris this run enumerated and then found already gone when it reached it: another run
+  // sweeping the same wreckage, a manual `docker rm`, the daemon autoreaping an exited `--rm`
+  // husk. A separate list because `orphansRemoved` means "this run removed it", and `docker rm
+  // --force` exits 0 on a name that is not there — so folding the two together buys a tidy-looking
+  // removal record for work nobody did. Nothing is said here about what the container held: its
+  // volumes went, or did not go, with whoever removed it.
+  orphansVanishedBeforeSweep: { containers: [] },
   // Acceptance resources this run found and deliberately left alone, because the rule below says a
   // live run may own them. Not debris and not this run's business — but named here, because
   // "left alone on purpose" and "never noticed" are indistinguishable from an absence.
@@ -1100,30 +1163,53 @@ const cleanupEvidence = {
       // Containers: whatever daemon this one Docker context points at. A second daemon on this
       // machine, or a remote one, is neither enumerated nor claimed about.
       dockerContext: context,
+      // Both gates, because both decide, and the label alone overstates the reach. `docker ps`
+      // returns every container carrying the label; the name pattern is then applied, and a
+      // labelled container whose name does not match is passed over silently — no verdict, no
+      // sweep, no entry in any of the four lists. That is deliberate (the anchored name is what
+      // keeps `anchorage-dind-40d348de-extra`, somebody else's container, out of a force-removal),
+      // but it means "every resource this run enumerated is accounted for" is true only of
+      // resources that clear both gates, and a reader can only know that if both are written down.
       containerFilter: `label=${ACCEPTANCE_LABEL}`,
+      containerNamePattern: String(ACCEPTANCE_RESOURCE_PATTERN),
       // Contexts: the invoking user's CLI store. Another account's acceptance contexts on this
       // same machine are invisible from here.
       contextStore: dockerContextStore,
       // Scratch directories: this workspace's artifacts/docker, and nowhere else on the disk.
       scratchRoot: outputDirectory,
+      // Volumes: never enumerated. There is no `docker volume ls` anywhere in this harness and no
+      // `volumes` key in `survivedTeardown`; the only volumes any list here names are the ones
+      // read off a container's own mounts immediately before that container was removed. So an
+      // anonymous volume whose container is already gone — a pre-`--volumes` sweep's leftover, a
+      // container removed by hand without `-v` — is invisible to every run of this harness, and
+      // `hostVerifiedClear` says nothing about it whatsoever.
+      volumes:
+        "not enumerated; only volumes read from a container's mounts before removing that container are named",
     },
   },
-  // Whether every acceptance resource this run enumerated is accounted for: removed by this run,
-  // or left alone because `livenessRule` says a live run may own it and recorded by name in
-  // `possibleLivePeers`. False when anything was unaccounted for, and false when the question
-  // could not be asked at all — a run that never reached the enumeration is not a clear host.
+  // Whether every acceptance resource this run enumerated *and recognised by name* is accounted
+  // for, by exactly one of three dispositions: removed by this run and named in `orphansRemoved`;
+  // left alone because `livenessRule` says a live run may own it, and named in
+  // `possibleLivePeers`; or gone before this run reached it, and named in
+  // `orphansVanishedBeforeSweep`. False when anything was unaccounted for — that residue is
+  // `survivedTeardown` — and false when the question could not be asked at all, since a run that
+  // never reached the enumeration is not a clear host.
   //
-  // Two things it does not say, either of which a release gate would otherwise read into the name.
+  // Three things it does not say, any of which a release gate would otherwise read into the name.
   //
   // It is not a claim that no acceptance resources exist. On a machine running two acceptance
   // suites at once that claim could only be bought by destroying the other run.
   //
-  // And it is not host-wide. The scope is `livenessRule.enumerationScope`: containers from one
-  // Docker context, contexts from one user's CLI store, scratch directories from this workspace's
-  // artifacts/docker alone. A leftover acceptance-scratch-* tree in a different checkout on this
-  // same disk is outside all three, and this has already happened — a series of runs from /tmp
-  // each recorded `hostVerifiedClear: true` while another checkout's scratch directory sat on the
-  // host untouched, because no run had ever looked there.
+  // It is not host-wide. The scope is `livenessRule.enumerationScope`: containers from one Docker
+  // context that clear both the label filter and the anchored name pattern, contexts from one
+  // user's CLI store, scratch directories from this workspace's artifacts/docker alone. A leftover
+  // acceptance-scratch-* tree in a different checkout on this same disk is outside all of them,
+  // and this has already happened — a series of runs from /tmp each recorded
+  // `hostVerifiedClear: true` while another checkout's scratch directory sat on the host
+  // untouched, because no run had ever looked there.
+  //
+  // And it says nothing at all about volumes: none are enumerated, so an anonymous volume whose
+  // container is already gone is outside every list here. `enumerationScope.volumes` says so.
   hostVerifiedClear: false,
 };
 
@@ -1228,16 +1314,24 @@ function runTeardown() {
           name: dindResource.containerName,
           ownershipLabel: dindResource.token,
           verifiedAbsent: !after.exists,
-          // null, not [], when the inspect could not answer: an empty list here would read as
+          // null, not [], whenever no list was established: an empty list here would read as
           // "this container had no anonymous volumes", which is a finding, and no finding was made.
+          // That covers the inspect that failed and the container that was gone before it could be
+          // inspected alike — in both, `[]` would be a claim bought with an unanswered question.
           anonymousVolumes: disposed.anonymousVolumes,
           anonymousVolumesVerifiedAbsent: disposed.anonymousVolumes !== null,
+          // And why the list is null, so the two are told apart by a reader rather than guessed at.
+          anonymousVolumesUnknown: disposed.volumesUnknown,
         };
-        if (disposed.volumesUnenumerated) {
+        // Only a failed enumeration is a cleanup error. A container that was already gone answers
+        // no question and breaks no promise, and saying "any anonymous volume it held is still on
+        // <context>" about it would be two untruths in one sentence: this run did not remove it,
+        // and whoever did may have taken the volume with it.
+        if (disposed.enumerationFailed) {
           recordCleanupError(
             new Error(
               `Could not enumerate the anonymous volumes of ${dindResource.containerName}: ` +
-                `${disposed.volumesUnenumerated}. It was removed without --volumes, so nothing was ` +
+                `${disposed.volumesUnknown}. It was removed without --volumes, so nothing was ` +
                 `deleted that this run could not name; any anonymous volume it held is still on ${context}.`,
             ),
           );
@@ -1251,6 +1345,9 @@ function runTeardown() {
           verifiedAbsent: false,
           anonymousVolumes: null,
           anonymousVolumesVerifiedAbsent: false,
+          // Same shape whichever way this block ended, so a reader never has to tell an absent key
+          // from an unanswered question. The error itself is already in `cleanup.errors`.
+          anonymousVolumesUnknown: `Teardown of this container failed: ${error instanceof Error ? error.message : String(error)}`,
         };
       }
     }
@@ -1488,8 +1585,23 @@ try {
       // those, and claiming a named volume was removed — or failing the run because one survived
       // a removal that was never going to touch it — would both be wrong.
       const mounts = await containerVolumeMounts(context, name);
+      if (mounts.state === "container-absent") {
+        // It was on the host when the survey listed it and it is not on the host now: a second run
+        // sweeping the same debris — precisely the situation this preflight exists for — or a
+        // manual `docker rm`, or the daemon autoreaping an exited `--rm` husk.
+        //
+        // So this run says nothing further about it, and that is the fix rather than an omission.
+        // `docker rm --force` exits 0 on a name that is not there, so continuing would have
+        // recorded a removal this run did not perform; and the failed inspect would have recorded
+        // "it was removed without --volumes, so any anonymous volume it held is still on
+        // <context>", when this run removed nothing and the volume may well have gone with
+        // whoever did. Two false sentences and a red gate, for a race whose correct outcome is
+        // simply that the debris is no longer there.
+        cleanupEvidence.orphansVanishedBeforeSweep.containers.push(name);
+        continue;
+      }
       const attached = anonymousVolumeNames(mounts.volumes);
-      if (!mounts.ok) {
+      if (mounts.state !== "enumerated") {
         // An inspect that failed says nothing about what is attached, and "nothing is attached" is
         // exactly what --volumes would have acted on. Removing without it leaves a volume on the
         // host, which is visible in `docker volume ls` and recoverable; removing with it would
@@ -1511,7 +1623,7 @@ try {
           // visible half of each orphan and leave ~10MB of anonymous volume behind per orphan,
           // which is the leak this harness already closed for its own container at the cost of
           // finding it the hard way.
-          ...(mounts.ok ? ["--volumes"] : []),
+          ...(mounts.state === "enumerated" ? ["--volumes"] : []),
           name,
         ]))
       ) {

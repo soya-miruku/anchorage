@@ -139,6 +139,23 @@ test("a container whose creating process is still running is never swept, howeve
   });
 });
 
+test("a peer spared on a held pid alone is not recorded as an identified creator", () => {
+  // Both spare. They are different observations: "alive" is this exact creating process, matched
+  // by start time; "pid-held" is only that something holds the number while the stat could not be
+  // compared. Reporting the second as the first puts a creator identity in the artifact that the
+  // run never established, and leaves a reader unable to tell which probe spoke — the artifact
+  // says both probes ran, because both always run.
+  assert.deepEqual(
+    judgeResourceLiveness({
+      creator: identityOf(),
+      ageMs: ORPHAN_MIN_AGE_MS * 10,
+      local: LOCAL,
+      probeCreator: () => "pid-held",
+    }),
+    { possiblyLive: true, reason: "creator-pid-held" },
+  );
+});
+
 test("a container whose creating process is gone is debris straight away, without waiting out the age bound", () => {
   const verdict = judgeResourceLiveness({
     creator: identityOf(),
@@ -278,10 +295,12 @@ test("an unreadable creator pid is never resolved to the answer that authorises 
   });
 
   // hidepid=1: the stat is refused, but kill(pid, 0) still finds the number held, so the peer is
-  // spared rather than swept.
+  // spared rather than swept — and the answer is "pid-held", not "alive", because the number being
+  // taken is all that was established. The two are separate so that the artifact can name the
+  // creator only where the creator was actually identified.
   assert.equal(
     judgeCreatorProcess({ identity, statRead: denied, signalRead: "held" }),
-    "alive",
+    "pid-held",
   );
   // Nothing to go on at all: "unknown", which sends the resource to the age rule, not to removal.
   assert.equal(
@@ -301,7 +320,7 @@ test("an unreadable creator pid is never resolved to the answer that authorises 
       }),
       signalRead: "held",
     }),
-    "alive",
+    "pid-held",
   );
 });
 
@@ -335,7 +354,8 @@ test("a creator process is condemned only by an exact mismatch or a confirmed ab
     "alive",
   );
   // An identity with no start time cannot be compared, so a held pid spares and only the two
-  // probes together can condemn.
+  // probes together can condemn. It spares as "pid-held": the stat was read here and the process
+  // is running, but there was nothing to compare it against, so the creator is not identified.
   const undated = parseCreatorIdentity(identityOf({ startTicks: null }));
   assert.equal(undated.startTicks, null);
   assert.equal(
@@ -344,7 +364,7 @@ test("a creator process is condemned only by an exact mismatch or a confirmed ab
       statRead: interpretProcStatRead({ contents: STAT_LINE(1) }),
       signalRead: "held",
     }),
-    "alive",
+    "pid-held",
   );
   assert.equal(
     judgeCreatorProcess({ identity: undated, statRead: absent, signalRead: "absent" }),
@@ -358,29 +378,71 @@ test("a failed or timed-out mount inspect is an unknown, never an empty volume l
   // The empty array is the claim that authorises `docker rm --force --volumes`. A timeout is not
   // that claim, and returning [] for it deleted anonymous volumes that no list and no error named.
   assert.deepEqual(interpretMountInspect({ code: null, timedOut: true }), {
-    ok: false,
+    state: "unknown",
     volumes: [],
     reason: "docker container inspect timed out",
   });
-  assert.deepEqual(
-    interpretMountInspect({ code: 1, stderr: "Error: No such container: x\n" }),
-    { ok: false, volumes: [], reason: "Error: No such container: x" },
-  );
   // A non-zero exit with both streams empty still has to say something a reader can act on.
   assert.deepEqual(interpretMountInspect({ code: 125 }), {
-    ok: false,
+    state: "unknown",
     volumes: [],
     reason: "docker container inspect exited 125",
   });
   // Only a clean exit produces a claim about what is attached — including the genuine zero.
   assert.deepEqual(interpretMountInspect({ code: 0, stdout: "" }), {
-    ok: true,
+    state: "enumerated",
     volumes: [],
     reason: null,
   });
   assert.deepEqual(
     interpretMountInspect({ code: 0, stdout: " a \n\nb\r\n" }),
-    { ok: true, volumes: ["a", "b"], reason: null },
+    { state: "enumerated", volumes: ["a", "b"], reason: null },
+  );
+});
+
+test("a container that is gone is its own outcome, not an unenumerable unknown", () => {
+  // Docker 29.7.2, verified on this host:
+  //   docker container inspect --format … nonexistent  -> exit 1, "No such container"
+  //   docker rm --force nonexistent                    -> exit 0, silent
+  //
+  // Folding the first into "unknown" made the caller say two false things about a container that
+  // had vanished between the survey and the sweep — a concurrent run sweeping the same debris, a
+  // manual `docker rm`, an exited `--rm` husk autoreaped. It recorded a removal it had not
+  // performed (because the second command exits 0 on a missing name) and an error claiming the
+  // container's anonymous volume was still on the host, which it had no way to know. This state is
+  // what lets the caller say nothing instead.
+  //
+  // Both spellings Docker uses, and both spellings this repo already matches in
+  // verifyDisposableOwnership.
+  for (const stderr of [
+    "Error response from daemon: No such container: anchorage-dind-40d348de",
+    "Error: No such object: anchorage-dind-40d348de",
+  ]) {
+    assert.deepEqual(interpretMountInspect({ code: 1, stderr: `${stderr}\n` }), {
+      state: "container-absent",
+      volumes: [],
+      reason: stderr,
+    });
+  }
+  // And it stays distinct from the failures that are genuinely unknown, since the two lead to
+  // opposite behaviour: one removes the container without --volumes and reports why, the other
+  // removes nothing at all and reports nothing at all.
+  assert.equal(
+    interpretMountInspect({
+      code: 1,
+      stderr: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock.",
+    }).state,
+    "unknown",
+  );
+  // A timeout is never "absent", whatever it managed to print: an inspect that ran out of time
+  // established nothing, and the name may well still be on the host.
+  assert.equal(
+    interpretMountInspect({
+      code: null,
+      timedOut: true,
+      stderr: "No such container: x",
+    }).state,
+    "unknown",
   );
 });
 
