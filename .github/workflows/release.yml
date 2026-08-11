@@ -399,6 +399,12 @@ jobs:
           ls -la artifacts
           for sums in artifacts/SHA256SUMS-*; do
             [ -f "$sums" ] || continue
+            # The same exclusion as the step below, for the same reason: SHA256SUMS-<arch>.asc
+            # matches this glob and is an armoured signature rather than a list of checksums.
+            # Printing one under a checksums header is merely noise, where feeding one to
+            # `sha256sum -c` below is a failed publish — but two loops reading the same glob
+            # should agree about what it can match.
+            case "$sums" in *.asc) continue ;; esac
             echo "--- $sums ---"
             cat "$sums"
           done
@@ -426,17 +432,45 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.sha) }}
         run: |
-          signed=unsigned
-          if ls artifacts/SHA256SUMS-*.asc >/dev/null 2>&1; then
-            signed=signed
-          fi
+          # What the notes may say about signing is what this runner can establish, which is which
+          # architectures shipped a signature file — not that any of them verifies.
+          #
+          # "Artifacts are **signed**" was inferred from `ls artifacts/SHA256SUMS-*.asc` matching
+          # anything at all, which is a file's existence standing in for a verification: the same
+          # inference that printed "Signed with <fingerprint>" over a 0-byte file one layer down.
+          # It is *now* largely sound, because sign-release.mjs deletes an empty or unverified .asc
+          # before exiting non-zero and the build step fails with it — so an .asc that reached this
+          # job did verify. On the builder, two artifact uploads ago, against a keyring this runner
+          # does not have.
+          #
+          # It is also one adjective over a set of independent per-architecture signatures, read as
+          # a claim about every file in the release. That set cannot be partial today, because
+          # `needs: build` skips this job unless every matrix leg succeeded and a leg that could
+          # not sign exits non-zero — but the sentence should not need that argument somewhere else
+          # in this file to be true. So the notes name what was published, per architecture, and
+          # leave verifying it to the person who has a reason to: theirs is the check that matters,
+          # because it runs against the bytes they actually downloaded.
+          signed=
+          for asc in artifacts/SHA256SUMS-*.asc; do
+            [ -f "$asc" ] || continue
+            arch=${asc##*/SHA256SUMS-}
+            signed="$signed ${arch%.asc}"
+          done
           {
             echo "Linux packages for x64 and arm64, each built and verified on its own"
             echo "architecture. Nothing here is cross-compiled: the AppImage payload is"
             echo "executed and timed on the machine that produced it, and the deb, rpm and"
             echo "pacman payloads are unpacked and checked byte-for-byte against it."
             echo
-            echo "Artifacts are **$signed**."
+            if [ -n "$signed" ]; then
+              echo "A detached OpenPGP signature is published for:$signed. It verified on the"
+              echo "machine that made it; nothing has re-checked it since, so check it yourself:"
+              echo
+              echo "    gpg --verify SHA256SUMS-<arch>.asc SHA256SUMS-<arch>"
+            else
+              echo "No signature is published for this release: it was built without a signing"
+              echo "key. The checksum lists still cover every artifact."
+            fi
             echo
             echo "\`release-verification-*.json\` records what was executed and what was only"
             echo "inspected, per artifact. Verify a download against its own architecture's"
