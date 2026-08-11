@@ -507,16 +507,26 @@ Turns `cleanup: passed` from a per-run claim into a host-state claim, establishe
     keys now; `volumes` records the anonymous volumes reclaimed with the containers, so no deletion
     goes unrecorded.
   - `cleanup.evidence.possibleLivePeers` — resources deliberately spared because they carry a
-    creator stamp whose process is still alive. Each entry carries a `reason`.
+    creator stamp whose process is still alive. Each entry carries a `reason`, and the two sparing
+    reasons are not interchangeable: `creator-process-alive` is the creating process identified by
+    its start time, `creator-pid-held` only that something holds that pid while the stat could not
+    be compared.
+  - `cleanup.evidence.orphansVanishedBeforeSweep: {containers}` — added in the third fix round.
+    Debris enumerated by the survey and already gone when the sweep reached it. Separate from
+    `orphansRemoved` because that key means *this run removed it*, and `docker rm --force` exits 0
+    on a name that is not there.
   - `cleanup.evidence.survivedTeardown` — resources genuinely unaccounted for. **This, not the
     error string, is what Task 5 should key on**, so that a peer crashing mid-run is
     distinguishable from this run leaking.
   - `cleanup.evidence.livenessRule` — the rule and its parameters, so the claim's precision is
-    legible rather than implied.
+    legible rather than implied. Its `enumerationScope` names what was looked at, including the
+    container name pattern (the label alone is not the whole gate) and the fact that volumes are
+    never enumerated.
   - `hostVerifiedClear` now means *"every acceptance resource this run could see is accounted for —
-    removed, or identified as a live peer's"*, scoped to one Docker context, one user's contexts,
-    and this workspace's `artifacts/docker`. It does **not** mean zero acceptance resources exist
-    on the host. Task 5's assertion message must not claim more than this.
+    removed, identified as a live peer's, or already gone"*, scoped to one Docker context, one
+    user's contexts, and this workspace's `artifacts/docker`, and saying nothing at all about
+    volumes. It does **not** mean zero acceptance resources exist on the host. Task 5's assertion
+    message must not claim more than this.
 
 - [ ] **Step 1: Add the preflight sweep**
 

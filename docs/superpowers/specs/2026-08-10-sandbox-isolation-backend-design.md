@@ -110,11 +110,17 @@ path.
    directions before the guard existed. A run therefore spares resources it can show belong to a
    live peer process, so a privileged acceptance container can legitimately be on the host while
    the run reports success. `hostVerifiedClear` accordingly means **"every acceptance resource this
-   run could see is accounted for — removed, or identified as a live peer's"**, and the artifact
-   distinguishes the three dispositions (`orphansRemoved`, `possibleLivePeers`, `survivedTeardown`)
-   rather than collapsing them. The claim is also scoped, not host-global: containers and contexts
-   come from one Docker context and one user's config, and scratch directories only from the
-   running workspace's `artifacts/docker`.
+   run could see is accounted for — removed, identified as a live peer's, or already gone"**, and
+   the artifact distinguishes the four dispositions (`orphansRemoved`, `possibleLivePeers`,
+   `orphansVanishedBeforeSweep`, `survivedTeardown`) rather than collapsing them. The fourth was
+   added on 2026-08-11: debris can disappear between being enumerated and being swept — a second
+   run clearing the same wreckage, which is the case the preflight exists for — and `docker rm
+   --force` exits 0 on a name that is no longer there, so a run that does not keep this apart
+   records a removal it did not perform. The claim is also scoped, not host-global: containers come
+   from one Docker context and must clear both the label filter and the anchored name pattern,
+   contexts from one user's config, scratch directories only from the running workspace's
+   `artifacts/docker` — and volumes are never enumerated at all, so nothing here is a claim about
+   them.
 3. **Self-limiting debris.** Run the DinD container with `--rm` and a hard entrypoint timeout, so an
    orphaned privileged daemon removes itself within the hour even if no sweep runs. Contexts cannot
    self-clean; the sweep covers those.
