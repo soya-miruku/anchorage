@@ -144,6 +144,15 @@ test("the debug log and the unpacked tree are never covered", () => {
   }
 });
 
+test("latest-linux.yml is not covered, because packaging never writes one", () => {
+  // It was in the covered set and has never existed: packaging passes `--publish never`, so
+  // electron-builder resolves no publish configuration and emits no update metadata. A name that
+  // is never on disk is the same broken checksum line as a name that was renamed away.
+  const covered = coverableArtifacts([...published("x64"), "latest-linux.yml"], "x64");
+  assert.equal(covered.ok, true);
+  assert.ok(!covered.names.includes("latest-linux.yml"));
+});
+
 test("the checksum file and its signature are not covered", () => {
   const covered = coverableArtifacts(
     [...published("x64"), "SHA256SUMS-x64", "SHA256SUMS-x64.asc", "release-signature-x64.json"],

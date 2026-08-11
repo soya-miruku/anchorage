@@ -92,8 +92,23 @@ export function publicationRenames(entryNames, architecture) {
  * the same question and were answered separately once, which is the whole history at the top of
  * this file.
  *
- * Not the checksum file or its signature: a list cannot list itself, and a signature over the list
- * cannot be inside it.
+ * Not `latest-linux.yml`, which this set used to name and which has never been written. It is
+ * electron-builder's update-channel metadata, produced only by createUpdateInfoTasks, which
+ * returns nothing unless a publish configuration resolves: electron-builder.yml declares none,
+ * and the fallback wants a `repository` in package.json or a git remote in the *project*
+ * directory — which is app/, where there is neither. `--publish never` is passed as well, though
+ * on its own it would not settle this: that fallback writes the file "regardless of publish
+ * state" by design.
+ *
+ * Naming it cost nothing only because it is never there — a listed name that is missing is
+ * dropped from the set in silence. The day it appeared it would be covered and still not
+ * uploaded, since it is in none of the workflow's artifact globs, which is the renamed-file bug
+ * again with a different first cause. The absence of an update channel is deliberate — an updater
+ * trusting only the sha512 in that YAML would be worse than none — so if one is ever added,
+ * adding it back here, and to the globs, is a deliberate decision like every other entry.
+ *
+ * Not the checksum file or its signature either: a list cannot list itself, and a signature over
+ * the list cannot be inside it.
  */
 export function coverableArtifacts(entryNames, architecture) {
   const published = publishedNames(architecture);
@@ -101,8 +116,7 @@ export function coverableArtifacts(entryNames, architecture) {
     .filter(
       (name) =>
         SIGNED_INSTALLER_EXTENSIONS.some((extension) => name.endsWith(extension)) ||
-        name === published.verificationReport ||
-        name === "latest-linux.yml",
+        name === published.verificationReport,
     )
     .sort();
   if (!covered.some((name) => name.endsWith(".AppImage"))) {
