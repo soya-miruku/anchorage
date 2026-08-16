@@ -25,6 +25,19 @@ on:
         description: Also create the GitHub release, rather than only building and verifying
         type: boolean
         default: false
+      sign:
+        # The unsigned path is the one a fork takes, and it is the one nobody exercises — which is
+        # how it shipped broken: `SHA256SUMS` named a file the rename step had already renamed, so
+        # the publish job's checksum verification exited 1 on every tag push, signed or not. It was
+        # found by simulating the pipeline locally, not by running it, because the only way to
+        # reach it in CI was to delete a repository secret.
+        #
+        # A switch that costs nothing when unused is cheaper than a path that can only be tested
+        # destructively. It applies to manual runs only: a tag push has no inputs, so a real
+        # release signs whenever a key is configured and this cannot quietly turn that off.
+        description: Sign when a key is configured. Turn off to exercise the unsigned path.
+        type: boolean
+        default: true
 
 concurrency:
   # Never two releases of one tag at once, and never cancelled halfway: a half-published release
@@ -75,8 +88,15 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          # A tag push carries no inputs, so this is true for every real release and the switch
+          # cannot quietly unsign one. Only a manual run can turn it off.
+          SIGN_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.sign }}
         run: |
           set -euo pipefail
+          if [ "${SIGN_REQUESTED:-true}" != "true" ]; then
+            echo "Signing turned off for this run; it will exercise the unsigned path."
+            exit 0
+          fi
           if [ -z "${GPG_PRIVATE_KEY:-}" ] && [ -z "${GPG_KEY_ID:-}" ]; then
             echo "No signing key configured; this build will publish checksums and no signature."
             exit 0
@@ -317,9 +337,18 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          # A tag push carries no inputs, so this is true for every real release and the switch
+          # cannot quietly unsign one. Only a manual run can turn it off.
+          SIGN_REQUESTED: ${{ github.event_name != 'workflow_dispatch' || inputs.sign }}
         working-directory: app
         run: |
           set -euo pipefail
+          if [ "${SIGN_REQUESTED:-true}" != "true" ]; then
+            echo "Signing turned off for this run; publishing checksums and leaving it unsigned."
+            bun run release:checksums -- --arch "$ARCH"
+            ls -la release
+            exit 0
+          fi
           if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_KEY_ID:-}" ]; then
             echo "No signing key configured; publishing checksums and leaving this build unsigned."
             bun run release:checksums -- --arch "$ARCH"
