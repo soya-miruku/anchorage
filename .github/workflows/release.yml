@@ -54,6 +54,49 @@ jobs:
     # The soak alone is thirty minutes, and acceptance drives a real daemon before it.
     timeout-minutes: 120
     steps:
+      - name: Refuse a signing configuration that cannot work, before building for forty minutes
+        # The same check the signing step makes, made first.
+        #
+        # Signing is the last substantive step, so a half-configured key is not discovered until
+        # everything before it has run: measured twice, 39 and 40 minutes of green work followed by
+        # a one-second failure that was knowable at the start. The cost is the operator's time and
+        # a runner's, and both are avoidable.
+        #
+        # Deliberately duplicated rather than shared. A composite action or a reusable script would
+        # put the condition somewhere neither step can see, and the failure mode of the two drifting
+        # apart is a job that passes this gate and fails the real one — which is exactly what this
+        # exists to prevent. Two copies of five lines, with each naming the other, is the cheaper
+        # risk; if they ever disagree, the signing step is the one that decides.
+        #
+        # The unsigned path stays untouched: no key configured is a legitimate build, and only a
+        # key *with* a missing passphrase is refused. `secrets` is unavailable to an `if:`
+        # expression, so this is a shell check over the step's own env, as it is below.
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ] && [ -z "${GPG_KEY_ID:-}" ]; then
+            echo "No signing key configured; this build will publish checksums and no signature."
+            exit 0
+          fi
+          if [ -z "${GPG_PRIVATE_KEY:-}" ] || [ -z "${GPG_KEY_ID:-}" ]; then
+            echo "::error title=Signing is half configured::One of GPG_PRIVATE_KEY or GPG_KEY_ID" \
+                 "is set and the other is not, so this build would neither sign nor honestly" \
+                 "report itself unsigned. Set both, or neither, with" \
+                 "node tools/set-release-signing-secrets.mjs"
+            exit 1
+          fi
+          if [ -z "${GPG_PASSPHRASE:-}" ]; then
+            echo "::error title=GPG_PASSPHRASE is not set::GPG_PRIVATE_KEY is configured but" \
+                 "GPG_PASSPHRASE is empty or missing. The exported bundle can only be opened by" \
+                 "the passphrase it was exported with; set both together with" \
+                 "node tools/set-release-signing-secrets.mjs"
+            exit 1
+          fi
+          echo "Signing key and passphrase are both present; this build will be signed."
+
       - uses: actions/checkout@v5
 
       - uses: oven-sh/setup-bun@v2
