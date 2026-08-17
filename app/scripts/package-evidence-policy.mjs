@@ -9,8 +9,30 @@ import {
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 
+/*
+Exact, because each of these three is baked into evidence a release ships, and a range would let
+the packaged artifact drift from the thing that was measured.
+
+Electron is held at 43.2.0 for a measured reason rather than caution, and it is worth writing down
+so the next person does not spend an afternoon rediscovering it. On 43.4.0 the binary in
+`node_modules/electron/dist/electron` (221,064,440 bytes) and the executable electron-builder
+unpacks (219,917,560) are not the same file, and packaging fails with "unpacked application
+executable does not exactly match the host-captured Electron binary". Both really are 43.4.0 —
+`~/.cache/electron` holds `electron-v43.4.0-linux-x64.zip` and nothing else for that version — so
+it is a difference in what upstream ships through the two channels, not a version mismatch here.
+On 43.2.0 the two are byte-identical, which is what lets the host-candidate capture claim it
+measured the binary the user will run. Everything else in the August 2026 upgrade was taken:
+React 19.2.8, vite 7.3.6, jsdom 30, jest-dom 7, lucide-react 1.31.0.
+
+vite is held at 7.3.6 for a different measured reason, recorded here because the two are usually
+bumped together: vite 8 requires @vitejs/plugin-react 6 (its peer range is `^8` alone), and that
+pair fails 435 of 664 renderer tests with `ReferenceError: React is not defined` — JSX compiling to
+the classic runtime. The production build is unaffected and vitest 4.1.10 declares support for
+vite ^8, so it is neither a code fault nor a stated incompatibility. Worth retrying when
+plugin-react or vitest moves again.
+*/
 export const REQUIRED_EXACT_DEV_DEPENDENCIES = Object.freeze({
-  electron: "43.4.0",
+  electron: "43.2.0",
   "electron-builder": "26.15.3",
   "lucide-react": "1.31.0",
 });

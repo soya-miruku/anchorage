@@ -1,105 +1,100 @@
 # Where the build differs from the handoff, and what to do about it
 
-For the designer. Eight of the 24 canonical states ship over the pixel threshold on a recorded
-budget. None is a defect: each is a difference somebody looked at and accepted. Each needs a
-decision — the design absorbs the addition, or the build drops it — because a budget nobody ever
-closes is how a threshold stops meaning anything.
+**Nothing is outstanding.** All 21 canonical states measure under the review threshold, none is on
+a budget, and there is no decision waiting on the designer. This file used to say the opposite and
+had been saying it for eleven days after it stopped being true — see *What changed* at the bottom,
+which is the part worth reading if you acted on the old version.
 
 Measured against `docs/design_handoff_anchorage/Anchorage v2.dc.html` (v2.5), both sides rendered
 in the same appearance — whatever a fresh install ships, which the rig reads from the renderer's
-own source rather than naming; the appearance each recorded run used is in its provenance file.
-Threshold **0.02**, ceiling **0.05**. Numbers are normalized mean absolute pixel error.
-Regenerate with `node tools/measure-design-parity.mjs`; the live figures are in
-`artifacts/design/design-ledger.json`.
+own source rather than naming. Threshold **0.02**, ceiling **0.05**. Numbers are normalized mean
+absolute pixel error. Regenerate with `node tools/measure-design-parity.mjs`; the live figures are
+in `artifacts/design/design-ledger.json`, which is what the release gate actually reads.
 
-## The eight are really three questions
+## Every state, as measured
 
-### 1. The Containers additions — five budgets, one decision
-
-`containers`, `containers-current`, `containers-banner-dismissed`, `containers-only-running` and
-`containers-row-hover` all inherit the same set of additions. `containers-current` is byte-identical
-to `containers` — re-selecting the active destination is idempotent, which is the correct behaviour
-and not a divergence at all. **One decision retires all five.**
-
-| Measured | Budget | Headroom |
+| State | Divergence | Headroom to threshold |
 |---|---|---|
-| 0.0260 / 0.0260 / 0.0248 / 0.0232 / 0.0279 | 0.028 / 0.028 / 0.028 / 0.026 / 0.029 | 0.0011 – 0.0032 |
+| `container-detail-logs` | 0.0196 | 0.0004 |
+| `containers-row-hover` | 0.0188 | 0.0012 |
+| `containers` | 0.0184 | 0.0016 |
+| `containers-current` | 0.0184 | 0.0016 |
+| `containers-banner-dismissed` | 0.0173 | 0.0027 |
+| `dashboard` | 0.0158 | 0.0042 |
+| `containers-only-running` | 0.0156 | 0.0044 |
+| `container-detail-inspect` | 0.0121 | 0.0079 |
+| `containers-search-empty` | 0.0115 | 0.0085 |
+| `container-detail-files` | 0.0105 | 0.0095 |
+| `builds` | 0.0103 | 0.0097 |
+| `images-registry` | 0.0092 | 0.0108 |
+| `settings-resources` | 0.0090 | 0.0110 |
+| `container-detail-mounts` | 0.0088 | 0.0112 |
+| `container-detail-exec` | 0.0086 | 0.0114 |
+| `images-local` | 0.0072 | 0.0128 |
+| `container-detail-stats` | 0.0071 | 0.0129 |
+| `volumes` | 0.0068 | 0.0132 |
+| `settings-engine` | 0.0067 | 0.0133 |
+| `settings-advanced` | 0.0053 | 0.0147 |
+| `settings-updates` | 0.0051 | 0.0149 |
 
-What the build adds that the comp does not have:
+`containers` and `containers-current` are byte-identical: re-selecting the destination you are
+already on is idempotent, which is correct behaviour rather than a divergence.
 
-- **The container-isolation posture paragraph.** Two lines, translating the table down about 35px.
-  It states that a container is a process boundary rather than a security boundary between
-  tenants, and that anything given the Docker socket has the same authority over the host as
-  Anchorage does. *Recommendation: the design absorbs this.* It is the largest single contributor
-  across five states, and it carries the product's stated position — say what a thing does not
-  protect. Dropping it to satisfy a pixel threshold would be the threshold deciding the product.
-- **A leading checkbox column** for multi-select.
-- **Sort chevrons** on six column headers.
-- **The `All projects` compose filter** and per-row compose badges.
-- **A fourth row action**, where the comp has three.
-- **A `Networks` destination** the comp's nav does not list, which shifts the sidebar from Builds
-  down by one row. *Already decided, 2026-08-05: kept permanently.* Docker exposes networks, and a
-  Docker manager that cannot show them is refusing a question the engine answers. This one is not
-  expected to close.
+## The one worth watching
 
-Everything except Networks is an ordinary product addition. They are worth taking as a batch:
-either the design adopts them, or the build drops them.
+`container-detail-logs` sits **0.0004** under the threshold. That is close enough that an
+unrelated change to the log viewport — a row height, a gutter, a font fallback — could push it over
+without anyone intending to touch it. It is not a defect and needs no decision now; it is the state
+most likely to be the next one to ask for one.
 
-### 2. Live data on both sides — two budgets, nothing to decide
+## What "passed" means here, and what it does not
 
-| State | Measured | Budget | Run-to-run noise |
-|---|---|---|---|
-| `dashboard` | 0.0237 | 0.033 | 0.0029 |
-| `container-detail-logs` | 0.0230 | 0.031 | 0.0024 |
+The ledger's claim is `reviewed-visual-conformance-not-pixel-identity`. A row reaches `passed`
+because a named reviewer compared the reference and the actual render and recorded a judgement
+against stated criteria, with both PNG fingerprints bound into
+`docs/design-qa/visual-review-attestation.json`. The pixel number is the trigger for that review,
+not a substitute for it — `docs/design-qa/README.md` puts it plainly: *an environment flag or
+unbound checkbox is not review proof*.
 
-Both animate on both sides — the comp drives seven timers over randomised values and a per-second
-clock, and the build streams real log lines. Two captures of the same state are never identical.
-These budgets carry the largest headroom deliberately, and **they will never retire**. They are
-not divergences; they are an honest accommodation of animation.
+So "0 over threshold" does not mean the build is pixel-identical to the comp. It means every
+difference that exists was looked at by a person and accepted.
 
-`dashboard` also carries one real change: the header action was widened from the fixture's
-`Clean up images` to a `Prune system` that actually reclaims images, stopped containers and unused
-volumes — matching what both handoffs specify. That was a defect fixed by widening the action
-rather than narrowing the words.
+## What changed, and why this file was wrong
 
-### 3. Extensions — one budget, and the tightest
+The previous version of this document reported **eight of 24 states over the threshold on
+per-state budgets** — `containers` at 0.0260 against a 0.028 budget, `containers-row-hover` at
+0.0279 against 0.029, and so on — and asked the designer for three decisions.
 
-| Measured | Budget | Headroom |
-|---|---|---|
-| 0.0436 | 0.046 | **0.0024** |
+Every one of those numbers was superseded on 8 August by `c80f681` (*"Recapture the design
+evidence, and un-invert two states"*) and `e0f4b7b`, which regenerated the ledger. The five
+`containers` states now measure 0.0156–0.0188 against a flat 0.02, the per-state budget mechanism
+no longer exists, and the state count moved from 24 to 21 when the unshipped destinations were
+removed. The file was never updated, so it spent eleven days asking for decisions about
+divergences that had already gone.
 
-Two causes:
+If you read the old version and were weighing whether the design should absorb the container
+isolation paragraph or the build should drop it: that question is closed. The paragraph is in, the
+states are under threshold with it, and nothing needs to move.
 
-- **An added privilege paragraph**, which translates the card grid down. The layout survives it:
-  card height 184px on both sides, 14px gutters, the grid's right edge in the same place.
-- **Tile marks reduced to a single theme token.** The comp assigns each extension its own colour,
-  which no theme can retint — so on Monochrome a coloured tile sat on a greyscale surface. The
-  single token is what lets all five families and both modes stay coherent.
+## Re-measuring after a toolchain change
 
-This is the one to watch. 0.0024 of headroom means almost any further change to that screen trips
-the gate. Not a problem today; it is the first one that will bite.
+The ledger binds to one exact renderer build, so upgrading React, vite, Electron or anything else
+that changes the bundle will fail packaging with *"canonical handoff visual conformance ledger must
+identify the exact freshly built renderer"* — even when nothing visible has changed. That is the
+gate working: it cannot know the pixels are unmoved until someone measures.
 
-## What is not on this list
+The August 2026 toolchain upgrade is the worked example. React 19.2.0 → 19.2.8, vite 6 → 7 and
+lucide-react 1.28 → 1.31 all changed the bundle and **moved nothing**: all 21 captures came back
+byte-identical to the images the signed review already covered, so the attestation still bound and
+no re-review was owed. The sequence, if you need it again:
 
-Two divergences are recorded but do not hold a budget, because they measure under the threshold:
+```bash
+bun run build                                # the renderer the ledger will describe
+node tools/capture-design-parity.mjs         # 21 states through Electron at 1656x1056
+node tools/measure-design-parity.mjs         # pairs them with reference/, writes the ledger
+```
 
-- **The Containers row hover** is roughly twice the comp's strength — 0.0046 normalized MAE off
-  its own base frame against the comp's 0.0022. Left deliberately and noted at
-  `app/src/styles/containers.css`; either answer is defensible and nobody has chosen.
-- **Status chip contrast in Nous dark** reproduces the handoff's own aliasing, which costs
-  contrast — danger lands at 2.05:1. Pinned to the design's measured values rather than corrected,
-  and asserted by `app/scripts/theme-integrity.test.mjs` so it cannot get worse.
-- **The status bar is 32px, against the comp's 26px**, with 11px mono in place of 10.5px and an
-  18px gutter in place of 16px. Asked for directly rather than derived: at the comp's height the
-  engine line, the counts and the clock sat two pixels off the window edge, and the bar read as a
-  border with text in it. It is the only metric here deliberately off the comp, and it moves every
-  captured state by six pixels of vertical space, so the parity budgets above are stale until they
-  are re-derived — see the caveat below, which was already true for other reasons.
-
-## A caveat on the numbers
-
-These budgets were derived when the measurement rig ran in Nous. The rig follows the shipped
-default, that default has moved twice since, and the budgets were not re-derived either time —
-every state still measured under on the last run, so they hold, but the headroom figures are less
-considered than they look and the current basis has not been measured at all. Re-deriving them is
-a short pass and worth doing before treating any headroom figure as a margin.
+Both `docs/design_handoff_anchorage/` and `docs/design-qa/reference/` are untracked and live on the
+machines that do design work, so this runs there and not in CI. If any capture comes back with a
+different fingerprint, the attestation no longer covers it and that state genuinely needs looking
+at again.

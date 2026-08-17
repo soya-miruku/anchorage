@@ -2,16 +2,16 @@
   "schemaVersion": 1,
   "captureMode": "fixture-browser",
   "bridgeMode": "fixture",
-  "capturedAt": "2026-08-08T10:50:26.821Z",
+  "capturedAt": "2026-08-17T15:24:35.562Z",
   "source": "app/dist/client",
   "canonicalViewport": {
     "width": 1656,
     "height": 1056
   },
   "rendererBuild": {
-    "sha256": "02542d1622395c41975f98c9ee68425afcb54600e2a05dbb35ee6f51d349f56d",
+    "sha256": "d720f991446adef00de9d57f5574e2c33b2e9ff277c407d305fb4955cc3eb7ed",
     "files": 20,
-    "bytes": 1465350
+    "bytes": 1449433
   },
   "harness": {
     "path": "tools/capture-design-parity.mjs",
@@ -19,11 +19,11 @@
   },
   "runtime": {
     "executable": "app/node_modules/electron/dist/electron",
-    "product": "Chrome/150.0.7871.129",
+    "product": "Chrome/150.0.7871.224",
     "protocolVersion": "1.3",
-    "revision": "@e69b30bba288603e514cffb4c79c359cac68e923",
-    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.129 Electron/43.2.0 Safari/537.36",
-    "jsVersion": "15.0.1240245"
+    "revision": "@7e08934ffe02c606237348164186277663bdcd7b",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.7871.224 Electron/43.4.0 Safari/537.36",
+    "jsVersion": "15.0.245.28"
   },
   "states": [
     {
