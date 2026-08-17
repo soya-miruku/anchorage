@@ -11,8 +11,23 @@ version: 2
 
 updates:
   - package-ecosystem: npm
-    # Covers the bun lockfile too: the npm ecosystem updater reads `bun.lock` as well as
-    # package-lock.json, which is the file the security gate does not see.
+    # These pull requests always need one manual step, and it is better to know that up front than
+    # to find five red checks and start ignoring them.
+    #
+    # Measured on the first five it opened: the npm updater edits `app/package.json` and nothing
+    # else. It does not touch `bun.lock`, so `bun install --frozen-lockfile` — the first thing the
+    # gate runs — fails with "lockfile had changes, but lockfile is frozen" and the check goes red
+    # before a single test executes. An earlier version of this comment claimed the updater covers
+    # bun.lock. It does not, and the claim was written without checking.
+    #
+    # Kept anyway, because being told a version exists is most of the value, and the fix is one
+    # command on the branch:
+    #
+    #     gh pr checkout <n> && cd app && bun install && git commit -am "Update bun.lock" && git push
+    #
+    # Not automated here on purpose. Regenerating a lockfile on a bot's branch means a workflow with
+    # write access running against dependency code the bot chose, which is a larger surface than the
+    # problem deserves.
     directory: /app
     schedule:
       interval: weekly
