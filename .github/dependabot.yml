@@ -1,0 +1,44 @@
+# Dependency updates, opened as pull requests so the gate runs on them.
+#
+# Added because a high-severity advisory sat in `app/bun.lock` unnoticed — nanoid 3.3.17, fixed in
+# 3.3.18 — while the repository's own security gate reported zero vulnerabilities. The gate was not
+# wrong so much as looking elsewhere: `bun audit --json` answers `{}`, so the gate derives an npm
+# lockfile from package.json and audits that, and a derived resolution and an installed one can
+# disagree. They did. Nothing in the project was watching the file bun actually installs from.
+#
+# The point of this file is that the watching does not depend on somebody remembering.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    # Covers the bun lockfile too: the npm ecosystem updater reads `bun.lock` as well as
+    # package-lock.json, which is the file the security gate does not see.
+    directory: /app
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    # Every runtime dependency here is Electron and its build chain, and the app declares no
+    # `dependencies` at all — so a major bump is a deliberate migration rather than something to
+    # take automatically. Security updates ignore this and are still raised, which is the point.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: gomod
+    directory: /core
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    # A pinned action is a supply-chain surface like any other, and this workflow runs with
+    # id-token and attestations write permissions.
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies

@@ -1,0 +1,80 @@
+name: Bug report
+description: Something behaved differently from what it said it would
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security issues do not belong here — see [SECURITY.md](../blob/main/SECURITY.md) for
+        private reporting.
+
+        If Anchorage **displayed something that was not true** — a state it could not have known, a
+        count it did not measure, an action it offered and could not carry out — say so plainly
+        below. That is the most serious kind of bug this project has.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: >-
+        Steps, if you have them. A rough description of a bug you cannot reliably reproduce is
+        still worth filing — say that it is intermittent and roughly how often.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Anchorage version
+      description: From Settings, or the filename of the package you installed.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How you installed it
+      options:
+        - AppImage
+        - .deb
+        - .rpm
+        - .pacman
+        - Built from source
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your environment
+      description: >-
+        Your distribution, and the output of `docker version`. Most surprises trace to the
+        distribution, the Docker version, or rootless mode — so this is usually the fastest way to
+        an answer.
+      placeholder: |
+        Distribution:
+        docker version:
+        Rootless: yes / no
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Anything the app said
+      description: >-
+        Error text, or the exact command Anchorage showed you before running it. Please check it
+        for anything private before pasting — Anchorage masks secrets in its own UI, but a command
+        you paste here is yours to redact.
+      render: text
+    validations:
+      required: false

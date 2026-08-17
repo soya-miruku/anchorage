@@ -30,6 +30,12 @@ extraResources:
     filter:
       - anchorage-core
       - manifest.json
+  # The OFL requires its text to accompany the font files wherever they are redistributed, and the
+  # IBM Plex WOFF2s are bundled into dist/client above — so the licence has to be inside the
+  # package, not only in the repository. extraResources rather than files: it belongs beside the
+  # app as a readable file, not inside an asar archive a user cannot open.
+  - from: ../THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
 
 electronLanguages:
   - en-GB

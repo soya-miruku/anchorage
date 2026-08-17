@@ -1,0 +1,8 @@
+# No blank issues: both templates ask for the one thing that usually decides an issue — the
+# environment for a bug, and where the data would come from for a feature — and a blank form
+# reliably arrives without either.
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/soya-miruku/anchorage/security/advisories/new
+    about: Report privately. Please do not open a public issue for anything security-related.
