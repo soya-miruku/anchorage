@@ -483,7 +483,7 @@ jobs:
           docker volume rm -f anchorage-ci-fixture || true
           docker network rm anchorage-ci-fixture || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.arch }}
           if-no-files-found: error
