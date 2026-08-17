@@ -456,10 +456,29 @@ await stat(rendererEntry);
 const userDataDirectory = await mkdtemp(
   resolve(tmpdir(), "anchorage-host-candidate-"),
 );
-const cwdProofDirectory = await realpath(
-  await mkdtemp(resolve("/tmp", "anchorage-host-cwd-proof-")),
-);
+/*
+Somewhere outside HOME, and not necessarily /tmp.
+
+What this directory has to be is outside the user's home, because the check it feeds proves the app
+resolves a CLI working directory it was handed rather than quietly falling back to one of its own.
+`/tmp` was hardcoded to guarantee that, which is true and also more than was needed: it pins the
+step to one filesystem, and when that filesystem filled up the whole packaging run died here with
+ENOSPC while the temporary directory everything else uses had 1.3 TB free. Setting TMPDIR could not
+move it, because the literal ignored TMPDIR — which is the shape of the bug.
+
+So the temporary directory is used where it qualifies, and /tmp is the fallback for the unusual
+case where it does not. The requirement is then asserted rather than assumed, which it always
+should have been: whichever path is chosen, being outside HOME is checked below, and the run
+refuses if neither candidate qualifies.
+*/
+const preferredProofBase = tmpdir();
 const canonicalHome = await realpath(process.env.HOME ?? "");
+const proofBase = pathWithin(canonicalHome, await realpath(preferredProofBase))
+  ? "/tmp"
+  : preferredProofBase;
+const cwdProofDirectory = await realpath(
+  await mkdtemp(resolve(proofBase, "anchorage-host-cwd-proof-")),
+);
 requireCondition(
   !pathWithin(canonicalHome, cwdProofDirectory),
   `Host cwd proof directory must be outside HOME: ${cwdProofDirectory}`,

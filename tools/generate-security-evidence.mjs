@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -422,11 +422,40 @@ if (invokedPath === fileURLToPath(import.meta.url)) {
  * `--package-lock-only` resolves the tree and writes the lockfile without installing anything;
  * `--ignore-scripts` means nothing in the dependency graph executes to produce it.
  */
+/**
+ * Reads the versions bun actually installs, keyed by package name.
+ *
+ * Only unambiguous names are returned. bun.lock can carry the same package at two versions in
+ * different positions, and this map has no positions in it — so a name with more than one version
+ * is left out rather than guessed at, and the audit sees npm's resolution for it. Skipping is the
+ * conservative direction: it can miss an advisory, where guessing could invent one.
+ */
+function bunResolvedVersions(lockText) {
+  const versions = new Map();
+  const ambiguous = new Set();
+  for (const [, spec] of lockText.matchAll(/^\s*"[^"]+":\s*\["([^"]+)"/gmu)) {
+    const at = spec.lastIndexOf("@");
+    if (at <= 0) continue;
+    const name = spec.slice(0, at);
+    const version = spec.slice(at + 1);
+    if (versions.has(name) && versions.get(name) !== version) ambiguous.add(name);
+    else versions.set(name, version);
+  }
+  for (const name of ambiguous) versions.delete(name);
+  return versions;
+}
+
 async function ensureNpmLockfile() {
   const lockPath = resolve(appDirectory, "package-lock.json");
-  if (existsSync(lockPath)) {
-    return;
-  }
+  /*
+  Always derived fresh, never reused.
+
+  This file is a build input rather than a source of truth, and a stale one is worse than none: it
+  pins whatever npm resolved on some earlier day, so the audit describes neither the tree that
+  ships nor the ranges in package.json. Measured — a leftover copy pinning nanoid 3.3.17 failed a
+  packaging run against an advisory that a fresh derivation resolves past.
+  */
+  rmSync(lockPath, { force: true });
   const derive = await runBoundedProcess(
     "npm",
     [
@@ -441,6 +470,43 @@ async function ensureNpmLockfile() {
   if (derive.code !== 0 || !existsSync(lockPath)) {
     throw new Error(
       `Could not derive package-lock.json for npm audit: ${derive.stderr || derive.stdout}`,
+    );
+  }
+
+  /*
+  Align the derived tree to the versions bun installs, so the audit is about what ships.
+
+  npm derives by resolving package.json's ranges to the newest match; bun installs whatever
+  bun.lock pins. Those are usually the same and are not required to be, and where they differ the
+  audit was describing a tree nobody runs. That is not hypothetical: bun.lock pinned nanoid 3.3.17
+  against an advisory fixed in 3.3.18, npm's fresh derivation picked 3.3.18, and the gate reported
+  zero vulnerabilities while the vulnerable copy was the one in node_modules and in the package.
+
+  Only the version field is rewritten. `resolved` and `integrity` still describe npm's choice and
+  are left alone deliberately — nothing is installed from this file, npm audit looks advisories up
+  by name and version, and rewriting fields the audit does not read would make the file claim to be
+  something it is not. Verified: patching a version to a vulnerable one makes `npm audit` report
+  that advisory, which is the whole mechanism this relies on.
+  */
+  const bunLockPath = resolve(appDirectory, "bun.lock");
+  if (!existsSync(bunLockPath)) return;
+  const installed = bunResolvedVersions(await readFile(bunLockPath, "utf8"));
+  const derived = JSON.parse(await readFile(lockPath, "utf8"));
+  let aligned = 0;
+  for (const [path, meta] of Object.entries(derived.packages ?? {})) {
+    const name = path.split("node_modules/").pop();
+    if (!name || !meta?.version) continue;
+    const version = installed.get(name);
+    if (version && version !== meta.version) {
+      meta.version = version;
+      aligned += 1;
+    }
+  }
+  if (aligned > 0) {
+    await writeFile(lockPath, `${JSON.stringify(derived, null, 2)}\n`);
+    process.stderr.write(
+      `[anchorage-security] audited ${aligned} package(s) at the version bun.lock installs ` +
+        `rather than the version npm would resolve\n`,
     );
   }
 }
