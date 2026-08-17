@@ -10,9 +10,9 @@ import {
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 
 export const REQUIRED_EXACT_DEV_DEPENDENCIES = Object.freeze({
-  electron: "43.2.0",
+  electron: "43.4.0",
   "electron-builder": "26.15.3",
-  "lucide-react": "1.28.0",
+  "lucide-react": "1.31.0",
 });
 
 /**

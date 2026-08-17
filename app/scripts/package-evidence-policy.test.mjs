@@ -40,9 +40,9 @@ const ISO = "2026-08-02T20:00:00.000Z";
 test("release-critical build and icon dependencies must remain exactly pinned", () => {
   const exact = {
     devDependencies: {
-      electron: "43.2.0",
+      electron: "43.4.0",
       "electron-builder": "26.15.3",
-      "lucide-react": "1.28.0",
+      "lucide-react": "1.31.0",
     },
   };
   assert.doesNotThrow(() => validatePinnedDevDependencies(exact));
@@ -140,7 +140,7 @@ test("canonical packaged package metadata matches electron-builder's runtime sub
     type: "module",
     main: "electron/main.mjs",
     scripts: { test: "node --test" },
-    devDependencies: { electron: "43.2.0" },
+    devDependencies: { electron: "43.4.0" },
     allowScripts: { "esbuild@0.25.12": true },
   };
   const packaged = JSON.parse(canonicalPackagedPackageJson(
@@ -468,7 +468,7 @@ test("design ledger requires recorded review and every measured state passed", (
         product: "Chrome/142.0.0.0",
         protocolVersion: "1.3",
         revision: "@revision",
-        userAgent: "Mozilla/5.0 Electron/43.2.0",
+        userAgent: "Mozilla/5.0 Electron/43.4.0",
         jsVersion: "14.2.0",
       },
       states,
@@ -1236,7 +1236,7 @@ function hostCandidateFixture() {
         product: "Chrome/142.0.0.0",
         protocolVersion: "1.3",
         revision: "@revision",
-        userAgent: "Mozilla/5.0 Electron/43.2.0",
+        userAgent: "Mozilla/5.0 Electron/43.4.0",
         jsVersion: "14.2.0",
       },
       bridge: {

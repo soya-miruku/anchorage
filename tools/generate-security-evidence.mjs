@@ -255,7 +255,7 @@ export async function generateSecurityEvidence() {
    * So one is derived here from the same package.json, with no install and no scripts. It is a
    * build input rather than a source of truth: two committed lockfiles for one dependency set is
    * two answers to the same question. Verified against the installed tree when the runtime moved
-   * to bun — TypeScript 7.0.2, Electron 43.2.0, Vite 6.4.3, React 19.2.0 and Vitest 4.1.10 all
+   * to bun — TypeScript 7.0.2, Electron 43.4.0, Vite 7.3.6, React 19.2.8 and Vitest 4.1.10 all
    * resolve identically either way — and the audit below reports on whatever this produces, so a
    * divergence would show up as a different dependency set rather than pass silently.
    */
