@@ -255,7 +255,7 @@ jobs:
         id: corehash
         run: echo "sha=$(sha256sum core/bin/anchorage-core | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           # Docker's version belongs in the key because acceptance and the capability ledger
           # measure the core against a daemon: the same binary on a different daemon is a
