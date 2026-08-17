@@ -64,6 +64,14 @@ jobs:
             # plan question, not a build failure, and is why it says so here.
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      # Both are required by attest-build-provenance and by nothing else here: id-token to get the
+      # Sigstore OIDC token, attestations to record the statement against the repository. Granted
+      # on this job rather than at the top of the file so the publish job, which handles the
+      # release itself, keeps the narrower set it already has.
+      id-token: write
+      attestations: write
     # The soak alone is thirty minutes, and acceptance drives a real daemon before it.
     timeout-minutes: 120
     steps:
@@ -482,6 +490,35 @@ jobs:
           done
           docker volume rm -f anchorage-ci-fixture || true
           docker network rm anchorage-ci-fixture || true
+
+      - name: Attest that these installers came from this workflow and this commit
+        # Provenance the downloader can check without holding a key of ours.
+        #
+        # A detached signature says "someone with this key signed this". That is worth having, and
+        # it is what the .asc beside the checksums is for — but it depends on a long-lived private
+        # key, and on the downloader finding the right public half and knowing to compare its
+        # fingerprint. Every one of those steps is a place to be fooled or to give up.
+        #
+        # An attestation says something different and, for a downloader, usually more useful: this
+        # exact file was produced by this workflow, from this commit, on GitHub's runners. It is a
+        # signed SLSA provenance statement, keyless via Sigstore, and it is checked with
+        #
+        #     gh attestation verify <file> --repo soya-miruku/anchorage
+        #
+        # The two are complements rather than alternatives, and their weaknesses are opposite: the
+        # signature is verifiable offline and independent of GitHub, and survives GitHub being
+        # wrong; the attestation cannot be forged by anyone who steals the signing key, and cannot
+        # be forgotten by a maintainer who loses a passphrase. Both are published.
+        #
+        # The installers only. The checksum list is covered by its own signature, and attesting a
+        # file that names the others would say nothing the digests do not already say.
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            app/release/*.AppImage
+            app/release/*.deb
+            app/release/*.rpm
+            app/release/*.pacman
 
       - uses: actions/upload-artifact@v7
         with:
