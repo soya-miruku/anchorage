@@ -512,7 +512,7 @@ jobs:
         #
         # The installers only. The checksum list is covered by its own signature, and attesting a
         # file that names the others would say nothing the digests do not already say.
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             app/release/*.AppImage
